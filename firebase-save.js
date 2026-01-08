@@ -1,599 +1,563 @@
-// ====================== FIREBASE-SAVE.JS ======================
-// SISTEMA DE SALVAMENTO NO FIREBASE - ID PERSISTENTE
-// ===============================================================
+// ===========================================
+// FIREBASE-SAVE.JS - SISTEMA DE SALVAMENTO AVANÇADO
+// ===========================================
 
-const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBlA5LPfHt7LXZfj_BwMbV2hRnk7bAUChk",
-    authDomain: "role3d6-cae77.firebaseapp.com",
-    projectId: "role3d6-cae77",
-    storageBucket: "role3d6-cae77.firebasestorage.app",
-    messagingSenderId: "37912599534",
-    appId: "1:37912599534:web:5c89d8d8ffac228f594cff"
+// CONFIGURAÇÃO DO FIREBASE
+const firebaseConfig = {
+    apiKey: "SUA_API_KEY_AQUI",
+    authDomain: "SUA_APP.firebaseapp.com",
+    projectId: "SEU_PROJECT_ID",
+    storageBucket: "SEU_APP.appspot.com",
+    messagingSenderId: "SEU_SENDER_ID",
+    appId: "SEU_APP_ID"
 };
 
-let firebaseAuth = null;
-let firebaseDB = null;
+// INICIALIZAÇÃO DO FIREBASE
+let db = null;
+let personagemId = null;
 
-// ===== SISTEMA DE ID PERSISTENTE =====
+// ===========================================
+// GERADOR DE ID SIMPLES (8 CARACTERES)
+// ===========================================
 
-/**
- * Obtém o ID do personagem - SEMPRE O MESMO após primeiro salvamento
- */
-function obterIdPersonagemPersistente() {
-    // 1. Verificar se já existe ID salvo no localStorage
-    const idSalvoLocalmente = localStorage.getItem('personagem_id_persistente');
+function gerarPersonagemId() {
+    // Formato: 2 letras + 3 números + 3 letras = 8 caracteres
+    const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Removido I, O para evitar confusão
+    const numeros = '0123456789';
     
-    // 2. Verificar se já existe ID na tela
-    const campoId = document.getElementById('id-personagem');
-    const idNaTela = campoId ? campoId.value : '';
+    let id = '';
     
-    // 3. Se já tem ID válido, retornar ele
-    if (idSalvoLocalmente && idSalvoLocalmente !== 'Aguardando salvamento...' && idSalvoLocalmente !== 'PC-') {
-        return idSalvoLocalmente;
+    // Primeiras 2 letras
+    for (let i = 0; i < 2; i++) {
+        id += letras.charAt(Math.floor(Math.random() * letras.length));
     }
     
-    // 4. Se o ID na tela já é válido, salvar e retornar
-    if (idNaTela && idNaTela !== 'Aguardando salvamento...' && idNaTela !== 'PC-') {
-        localStorage.setItem('personagem_id_persistente', idNaTela);
-        return idNaTela;
+    // 3 números
+    for (let i = 0; i < 3; i++) {
+        id += numeros.charAt(Math.floor(Math.random() * numeros.length));
     }
     
-    // 5. Primeira vez: criar ID SIMPLES
-    let contador = parseInt(localStorage.getItem('personagem_contador') || '0');
-    contador++;
-    
-    // IDs no formato: PC-001, PC-002, etc.
-    const novoId = `PC-${contador.toString().padStart(3, '0')}`;
-    
-    // Salvar contador e ID
-    localStorage.setItem('personagem_contador', contador.toString());
-    localStorage.setItem('personagem_id_persistente', novoId);
-    
-    // Atualizar campo na tela
-    if (campoId) {
-        campoId.value = novoId;
-        campoId.style.color = '#2196F3';
-        campoId.style.fontStyle = 'normal';
+    // Últimas 3 letras
+    for (let i = 0; i < 3; i++) {
+        id += letras.charAt(Math.floor(Math.random() * letras.length));
     }
     
-    return novoId;
+    return id; // Exemplo: AB123XYZ
 }
 
-/**
- * Atualiza o ID na interface
- */
-function atualizarIdNaInterface(personagemId) {
-    const campoId = document.getElementById('id-personagem');
-    const tooltip = document.getElementById('id-info');
-    
-    if (campoId) {
-        campoId.value = personagemId;
-        campoId.style.color = '#4CAF50';
-        campoId.style.fontStyle = 'normal';
-        campoId.style.fontWeight = '600';
-        campoId.style.border = '1px solid rgba(76, 175, 80, 0.3)';
-        campoId.style.background = 'rgba(76, 175, 80, 0.05)';
+// ===========================================
+// GERENCIAMENTO DE ID DO PERSONAGEM
+// ===========================================
+
+function obterPersonagemId() {
+    // 1. Verificar se já tem ID salvo no localStorage
+    if (!personagemId) {
+        personagemId = localStorage.getItem('rpgforge_personagem_id');
     }
     
-    if (tooltip) {
-        tooltip.innerHTML = `
-            <i class="fas fa-check-circle" style="color: #4CAF50"></i> 
-            ID: ${personagemId} - <strong>Este ID será mantido em todas as atualizações</strong>
-        `;
-        tooltip.style.color = '#4CAF50';
+    // 2. Se não tem, gerar novo ID
+    if (!personagemId) {
+        personagemId = gerarPersonagemId();
+        localStorage.setItem('rpgforge_personagem_id', personagemId);
+        console.log(`🆔 NOVO ID GERADO: ${personagemId}`);
+        
+        // Criar elemento para mostrar o ID na interface
+        mostrarIdNaInterface(personagemId);
+        
+        // Disparar evento de ID gerado
+        document.dispatchEvent(new CustomEvent('personagemIdGerado', { 
+            detail: { id: personagemId } 
+        }));
+    }
+    
+    return personagemId;
+}
+
+function mostrarIdNaInterface(id) {
+    const elementoId = document.getElementById('personagemId');
+    if (elementoId) {
+        elementoId.textContent = id;
+        elementoId.style.fontWeight = 'bold';
+        elementoId.style.color = '#3498db';
     }
 }
 
-// ===== COLETAR TODOS OS DADOS =====
-
-function coletarTodosDadosParaSalvar() {
-    // OBTER ID PERSISTENTE (mesmo sempre)
-    const personagemId = obterIdPersonagemPersistente();
+function resetarPersonagemId() {
+    personagemId = null;
+    localStorage.removeItem('rpgforge_personagem_id');
+    localStorage.removeItem('rpgforge_personagem_data');
     
-    console.log('📝 Usando ID:', personagemId);
-    
-    // 1. Dados da Dashboard
-    const dadosDashboard = {
-        nome: document.getElementById('nome-pc')?.value || 'Personagem sem nome',
-        idade: parseInt(document.getElementById('idade-pc')?.value) || 25,
-        raca: document.getElementById('raca-pc')?.value || '',
-        classe: document.getElementById('classe-pc')?.value || '',
-        nivelTecnologico: document.getElementById('nt-pc')?.value || '',
-        imagem: localStorage.getItem('personagem_imagem') || '',
-        
-        // Pontos (do sistema principal)
-        pontosTotais: window.sistemaPontos?.totalPontos || 150,
-        pontosGastos: window.sistemaPontos?.gastoTotal || 0,
-        pontosDisponiveis: window.sistemaPontos?.getPontosRestantes?.() || 150,
-        
-        // Dinheiro
-        dinheiro: window.personagem?.dinheiro || 1000,
-        
-        // Sistemas da dashboard
-        aparencia: window.dadosAparencia || {},
-        idiomas: window.dadosIdiomas || {},
-        riqueza: window.dadosRiqueza || {},
-        
-        // Status
-        statusIdentidade: calcularStatusIdentidade(),
-        
-        // Timestamp
-        atualizadoEm: new Date().toISOString()
-    };
-    
-    // 2. Dados dos Atributos
-    const dadosAtributos = window.obterDadosAtributos ? window.obterDadosAtributos() : {
-        ST: 10,
-        DX: 10,
-        IQ: 10,
-        HT: 10,
-        bonus: {
-            PV: 0,
-            PF: 0,
-            Vontade: 0,
-            Percepcao: 0,
-            Deslocamento: 0
-        },
-        pontosGastos: 0,
-        mensagem: "Sistema de atributos não carregado"
-    };
-    
-    // 3. Metadados com ID PERSISTENTE
-    const metadata = {
-        id: personagemId, // ⬅️ MESMO ID SEMPRE
-        uid: firebaseAuth?.currentUser?.uid || '',
-        email: firebaseAuth?.currentUser?.email || '',
-        dataCriacao: new Date().toISOString(),
-        dataAtualizacao: new Date().toISOString(),
-        criadoEm: new Date().toLocaleString('pt-BR'),
-        versao: '1.0',
-        ativo: true
-    };
-    
-    // 4. Retornar tudo organizado
-    return {
-        // COLUNA 1: METADADOS (ID FIXO, usuário, datas)
-        metadata: metadata,
-        
-        // COLUNA 2: DASHBOARD COMPLETA
-        dashboard: dadosDashboard,
-        
-        // COLUNA 3: ATRIBUTOS COMPLETOS
-        atributos: dadosAtributos,
-        
-        // COLUNA 4: OUTROS SISTEMAS (para o futuro)
-        outrosSistemas: {
-            vantagensDesvantagens: [],
-            pericias: [],
-            magias: [],
-            equipamentos: []
-        }
-    };
-}
-
-// ===== FUNÇÃO PRINCIPAL DE SALVAMENTO =====
-
-async function salvarPersonagemCompleto() {
-    console.log('💾 INICIANDO SALVAMENTO COMPLETO...');
-    
-    // Verificar autenticação
-    if (!firebaseAuth?.currentUser) {
-        alert('⚠️ Faça login para salvar o personagem!');
-        return { sucesso: false, erro: 'Não autenticado' };
+    const elementoId = document.getElementById('personagemId');
+    if (elementoId) {
+        elementoId.textContent = 'Aguardando criação...';
+        elementoId.style.fontWeight = 'normal';
+        elementoId.style.color = '';
     }
     
-    const btnSalvar = document.getElementById('btnSalvar');
-    const textoOriginal = btnSalvar?.innerHTML || 'Salvar';
+    console.log('🗑️ ID do personagem resetado');
+}
+
+// ===========================================
+// SISTEMA DE SALVAMENTO POR SUBSESSÕES
+// ===========================================
+
+class SistemaSalvamento {
+    constructor() {
+        this.idPersonagem = null;
+        this.emDesenvolvimento = true; // Modo desenvolvimento
+        this.pendingSaves = new Map(); // Salvar em lote
+    }
     
-    try {
-        // 1. Mostrar status de salvamento
-        if (btnSalvar) {
-            btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
-            btnSalvar.disabled = true;
-        }
-        
-        // 2. Coletar todos os dados
-        const dadosCompletos = coletarTodosDadosParaSalvar();
-        const personagemId = dadosCompletos.metadata.id; // ID PERSISTENTE
-        
-        console.log('📦 Salvando com ID:', personagemId);
-        console.log('📊 Dados coletados:', dadosCompletos);
-        
-        // 3. Importar módulos do Firebase
-        const { doc, setDoc, updateDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js");
-        
-        // 4. Referência do documento no Firebase (MESMO ID SEMPRE)
-        const personagemRef = doc(firebaseDB, "personagens", personagemId);
-        
-        // 5. Verificar se já existe
-        const documentoExistente = await getDoc(personagemRef);
-        
-        if (documentoExistente.exists()) {
-            // ✅ ATUALIZAR documento existente (MESMO ID)
-            await updateDoc(personagemRef, dadosCompletos);
-            console.log('✅ Personagem ATUALIZADO (mesmo ID):', personagemId);
+    inicializar() {
+        try {
+            // Verificar se Firebase está disponível
+            if (typeof firebase === 'undefined') {
+                console.warn('⚠️ Firebase não carregado. Usando localStorage.');
+                this.usarLocalStorage = true;
+                return false;
+            }
             
-            // Atualizar data de atualização
-            await updateDoc(personagemRef, {
-                'metadata.dataAtualizacao': new Date().toISOString(),
-                'metadata.atualizadoEm': new Date().toLocaleString('pt-BR')
-            });
-        } else {
-            // ✅ CRIAR novo documento (PRIMEIRA VEZ)
-            await setDoc(personagemRef, dadosCompletos);
-            console.log('✅ NOVO personagem CRIADO com ID:', personagemId);
-        }
-        
-        // 6. Atualizar interface
-        atualizarIdNaInterface(personagemId);
-        
-        // 7. Salvar referência no perfil do usuário
-        await salvarNoPerfilUsuario(personagemId, dadosCompletos.dashboard.nome);
-        
-        // 8. Salvar localmente para possível edição
-        salvarLocalmenteParaEdicao(personagemId, dadosCompletos);
-        
-        // 9. Mostrar notificação
-        mostrarNotificacaoSalvamento(`✅ Personagem salvo com sucesso! ID: ${personagemId}`, 'success');
-        
-        // 10. Restaurar botão
-        if (btnSalvar) {
-            btnSalvar.innerHTML = '<i class="fas fa-check"></i> Salvo!';
-            setTimeout(() => {
-                btnSalvar.innerHTML = textoOriginal;
-                btnSalvar.disabled = false;
-            }, 2000);
-        }
-        
-        return {
-            sucesso: true,
-            id: personagemId,
-            dados: dadosCompletos,
-            tipo: documentoExistente.exists() ? 'update' : 'create'
-        };
-        
-    } catch (erro) {
-        console.error('❌ ERRO NO SALVAMENTO:', erro);
-        
-        // Restaurar botão
-        if (btnSalvar) {
-            btnSalvar.innerHTML = textoOriginal;
-            btnSalvar.disabled = false;
-        }
-        
-        // Mostrar erro
-        mostrarNotificacaoSalvamento(`❌ Erro ao salvar: ${erro.message}`, 'error');
-        
-        return {
-            sucesso: false,
-            erro: erro.message
-        };
-    }
-}
-
-// ===== FUNÇÕES AUXILIARES =====
-
-async function salvarNoPerfilUsuario(personagemId, nomePersonagem) {
-    try {
-        const { doc, getDoc, updateDoc, arrayUnion, setDoc } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js");
-        
-        const usuarioRef = doc(firebaseDB, "usuarios", firebaseAuth.currentUser.uid);
-        const usuarioDoc = await getDoc(usuarioRef);
-        
-        const resumoPersonagem = {
-            id: personagemId,
-            nome: nomePersonagem,
-            classe: document.getElementById('classe-pc')?.value || '',
-            raca: document.getElementById('raca-pc')?.value || '',
-            nivel: "1",
-            pontosGastos: window.sistemaPontos?.gastoTotal || 0,
-            dataAtualizacao: new Date().toISOString()
-        };
-        
-        if (usuarioDoc.exists()) {
-            // Atualizar ou adicionar personagem
-            const personagensAtuais = usuarioDoc.data().personagens || [];
-            const index = personagensAtuais.findIndex(p => p.id === personagemId);
+            // Inicializar Firebase
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
             
-            if (index !== -1) {
-                // Atualizar existente
-                personagensAtuais[index] = resumoPersonagem;
-                await updateDoc(usuarioRef, {
-                    personagens: personagensAtuais,
-                    atualizadoEm: new Date().toISOString()
+            // Configurar persistência offline
+            db.enablePersistence()
+                .catch(err => {
+                    console.warn('Persistência offline não suportada:', err);
                 });
+            
+            // Obter ID do personagem
+            this.idPersonagem = obterPersonagemId();
+            console.log(`✅ Firebase inicializado. Personagem ID: ${this.idPersonagem}`);
+            
+            // Configurar botão de salvamento global
+            this.configurarBotaoSalvar();
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Erro ao inicializar Firebase:', error);
+            this.usarLocalStorage = true;
+            return false;
+        }
+    }
+    
+    // ===========================================
+    // MÉTODOS PÚBLICOS PARA SALVAR DADOS
+    // ===========================================
+    
+    async salvarModulo(modulo, dados) {
+        console.log(`💾 Salvando módulo: ${modulo}`, dados);
+        
+        // Em modo desenvolvimento, salva em lote
+        if (this.emDesenvolvimento) {
+            this.pendingSaves.set(modulo, dados);
+            this.mostrarStatus(`Modificado: ${modulo}`, 'info');
+            return true;
+        }
+        
+        // Salvar no Firebase
+        try {
+            if (!this.idPersonagem) {
+                this.idPersonagem = obterPersonagemId();
+            }
+            
+            await db.collection('personagens')
+                .doc(this.idPersonagem)
+                .collection(modulo)
+                .doc('dados')
+                .set({
+                    ...dados,
+                    ultimaAtualizacao: firebase.firestore.FieldValue.serverTimestamp(),
+                    versao: '1.0.0'
+                }, { merge: true }); // Usar merge para atualizar, não substituir
+            
+            console.log(`✅ Módulo ${modulo} salvo no Firebase`);
+            this.mostrarStatus(`✅ ${modulo} salvo`, 'success');
+            return true;
+        } catch (error) {
+            console.error(`❌ Erro ao salvar módulo ${modulo}:`, error);
+            
+            // Fallback para localStorage
+            this.salvarLocalStorage(modulo, dados);
+            this.mostrarStatus(`⚠️ ${modulo} salvo localmente`, 'warning');
+            return false;
+        }
+    }
+    
+    async salvarTudo() {
+        console.log('💾💾💾 SALVANDO TUDO (lote)');
+        
+        if (this.pendingSaves.size === 0) {
+            this.mostrarStatus('Nenhuma alteração para salvar', 'info');
+            return;
+        }
+        
+        this.mostrarStatus('Salvando todas as alterações...', 'loading');
+        
+        try {
+            const batch = db.batch();
+            const personagemRef = db.collection('personagens').doc(this.idPersonagem);
+            
+            // Adicionar cada módulo ao batch
+            for (const [modulo, dados] of this.pendingSaves) {
+                const moduloRef = personagemRef.collection(modulo).doc('dados');
+                batch.set(moduloRef, {
+                    ...dados,
+                    ultimaAtualizacao: firebase.firestore.FieldValue.serverTimestamp(),
+                    versao: '1.0.0'
+                }, { merge: true });
+            }
+            
+            // Executar batch
+            await batch.commit();
+            
+            console.log(`✅ ${this.pendingSaves.size} módulos salvos em lote`);
+            this.mostrarStatus('✅ Todas as alterações salvas!', 'success');
+            this.pendingSaves.clear();
+            
+        } catch (error) {
+            console.error('❌ Erro ao salvar em lote:', error);
+            this.mostrarStatus('❌ Erro ao salvar', 'error');
+            
+            // Fallback: salvar individualmente no localStorage
+            for (const [modulo, dados] of this.pendingSaves) {
+                this.salvarLocalStorage(modulo, dados);
+            }
+        }
+    }
+    
+    async carregarModulo(modulo) {
+        console.log(`📥 Carregando módulo: ${modulo}`);
+        
+        // Primeiro tentar localStorage (mais rápido)
+        const dadosLocais = this.carregarLocalStorage(modulo);
+        if (dadosLocais) {
+            console.log(`📂 Módulo ${modulo} carregado do localStorage`);
+            return dadosLocais;
+        }
+        
+        // Se não tiver local, tentar Firebase
+        try {
+            if (!this.idPersonagem) {
+                this.idPersonagem = obterPersonagemId();
+            }
+            
+            const docRef = db.collection('personagens')
+                .doc(this.idPersonagem)
+                .collection(modulo)
+                .doc('dados');
+            
+            const doc = await docRef.get();
+            
+            if (doc.exists) {
+                const dados = doc.data();
+                console.log(`☁️ Módulo ${modulo} carregado do Firebase`);
+                
+                // Salvar localmente para acesso futuro mais rápido
+                this.salvarLocalStorage(modulo, dados);
+                
+                return dados;
             } else {
-                // Adicionar novo
-                await updateDoc(usuarioRef, {
-                    personagens: arrayUnion(resumoPersonagem),
-                    atualizadoEm: new Date().toISOString()
-                });
+                console.log(`ℹ️ Módulo ${modulo} não encontrado no Firebase`);
+                return null;
             }
-        } else {
-            // Criar perfil do usuário
-            await setDoc(usuarioRef, {
-                uid: firebaseAuth.currentUser.uid,
-                email: firebaseAuth.currentUser.email,
-                personagens: [resumoPersonagem],
-                criadoEm: new Date().toISOString(),
-                atualizadoEm: new Date().toISOString()
-            });
+        } catch (error) {
+            console.error(`❌ Erro ao carregar módulo ${modulo}:`, error);
+            return null;
         }
-        
-        console.log('✅ Perfil do usuário atualizado');
-    } catch (erro) {
-        console.error('⚠️ Erro ao atualizar perfil:', erro);
     }
-}
-
-function salvarLocalmenteParaEdicao(personagemId, dadosCompletos) {
-    // Salvar ID para edição futura
-    localStorage.setItem('personagem_editando_id', personagemId);
     
-    // Salvar dados completos localmente
-    localStorage.setItem(`personagem_${personagemId}`, JSON.stringify(dadosCompletos));
-    
-    // Salvar partes separadas para carregamento rápido
-    localStorage.setItem('dashboard_atual', JSON.stringify(dadosCompletos.dashboard));
-    localStorage.setItem('atributos_atual', JSON.stringify(dadosCompletos.atributos));
-    
-    console.log('✅ Dados salvos localmente para edição');
-}
-
-function calcularStatusIdentidade() {
-    const campos = ['nome-pc', 'raca-pc', 'classe-pc', 'nt-pc'];
-    let completos = 0;
-    
-    campos.forEach(id => {
-        const elemento = document.getElementById(id);
-        if (elemento && elemento.value.trim() !== '') completos++;
-    });
-    
-    return Math.round((completos / campos.length) * 100);
-}
-
-function mostrarNotificacaoSalvamento(mensagem, tipo = 'info') {
-    // Criar elemento de mensagem
-    const mensagemDiv = document.createElement('div');
-    mensagemDiv.className = 'notificacao-flutuante';
-    
-    const icon = tipo === 'success' ? 'fa-check-circle' :
-                 tipo === 'warning' ? 'fa-exclamation-triangle' :
-                 tipo === 'error' ? 'fa-times-circle' : 'fa-info-circle';
-    
-    mensagemDiv.innerHTML = `
-        <div class="notificacao-conteudo ${tipo}">
-            <i class="fas ${icon}"></i>
-            <span>${mensagem}</span>
-            <button class="notificacao-fechar" onclick="this.parentElement.parentElement.remove()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
-    
-    document.body.appendChild(mensagemDiv);
-    
-    // Remover após 5 segundos
-    setTimeout(() => {
-        if (mensagemDiv.parentNode) {
-            mensagemDiv.remove();
-        }
-    }, 5000);
-}
-
-// ===== CARREGAR PERSONAGEM SALVO =====
-
-async function carregarPersonagemParaEdicao(personagemId) {
-    try {
-        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js");
+    async carregarTudo() {
+        console.log('📥📥📥 CARREGANDO TODOS OS DADOS');
         
-        const personagemRef = doc(firebaseDB, "personagens", personagemId);
-        const documento = await getDoc(personagemRef);
+        const modulos = [
+            'identificacao',
+            'atributos',
+            'caracteristicas',
+            'pontos',
+            'riqueza',
+            'reacao'
+        ];
         
-        if (documento.exists()) {
-            const dados = documento.data();
-            
-            // 1. Marcar como em edição
-            localStorage.setItem('personagem_editando_id', personagemId);
-            localStorage.setItem('personagem_id_persistente', personagemId);
-            
-            // 2. Atualizar ID na interface
-            atualizarIdNaInterface(personagemId);
-            
-            // 3. Preencher dashboard
-            if (dados.dashboard) {
-                document.getElementById('nome-pc').value = dados.dashboard.nome || '';
-                document.getElementById('idade-pc').value = dados.dashboard.idade || 25;
-                document.getElementById('raca-pc').value = dados.dashboard.raca || '';
-                document.getElementById('classe-pc').value = dados.dashboard.classe || '';
-                document.getElementById('nt-pc').value = dados.dashboard.nivelTecnologico || '';
-                
-                // Atualizar sistema de pontos
-                if (window.sistemaPontos && dados.dashboard.pontosTotais) {
-                    window.sistemaPontos.setTotalPontos(dados.dashboard.pontosTotais);
-                }
-                
-                // Carregar outros sistemas
-                if (dados.dashboard.aparencia) window.dadosAparencia = dados.dashboard.aparencia;
-                if (dados.dashboard.idiomas) window.dadosIdiomas = dados.dashboard.idiomas;
-                if (dados.dashboard.riqueza) window.dadosRiqueza = dados.dashboard.riqueza;
-                
-                // Atualizar dinheiro
-                if (dados.dashboard.dinheiro && window.personagem) {
-                    window.personagem.dinheiro = dados.dashboard.dinheiro;
-                    const dinheiroPc = document.getElementById('dinheiro-pc');
-                    if (dinheiroPc) {
-                        dinheiroPc.textContent = `$ ${dados.dashboard.dinheiro.toLocaleString('pt-BR')}`;
-                    }
-                }
+        const dadosCompletos = {};
+        let carregouAlgo = false;
+        
+        for (const modulo of modulos) {
+            const dados = await this.carregarModulo(modulo);
+            if (dados) {
+                dadosCompletos[modulo] = dados;
+                carregouAlgo = true;
             }
-            
-            // 4. Preencher atributos
-            if (dados.atributos && window.carregarDadosAtributos) {
-                window.carregarDadosAtributos(dados.atributos);
-            }
-            
-            console.log('✅ Personagem carregado para edição:', personagemId);
-            
-            // 5. Mostrar notificação
-            mostrarNotificacaoSalvamento(`✅ Personagem "${dados.dashboard?.nome || personagemId}" carregado!`, 'success');
-            
-            return { sucesso: true, dados: dados };
-        } else {
-            console.log('⚠️ Personagem não encontrado:', personagemId);
-            mostrarNotificacaoSalvamento(`⚠️ Personagem ${personagemId} não encontrado`, 'warning');
-            return { sucesso: false, erro: 'Personagem não encontrado' };
         }
-    } catch (erro) {
-        console.error('❌ Erro ao carregar personagem:', erro);
-        mostrarNotificacaoSalvamento(`❌ Erro ao carregar: ${erro.message}`, 'error');
-        return { sucesso: false, erro: erro.message };
+        
+        if (carregouAlgo) {
+            console.log('✅ Dados carregados com sucesso');
+            // Disparar evento global
+            document.dispatchEvent(new CustomEvent('dadosCarregados', {
+                detail: dadosCompletos
+            }));
+        }
+        
+        return dadosCompletos;
     }
-}
-
-// ===== INICIALIZAÇÃO DO FIREBASE =====
-
-async function inicializarFirebase() {
-    try {
-        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js");
-        const { getAuth } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js");
-        const { getFirestore } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js");
-        
-        const app = initializeApp(FIREBASE_CONFIG);
-        firebaseAuth = getAuth(app);
-        firebaseDB = getFirestore(app);
-        
-        console.log('✅ Firebase inicializado para salvamento');
-        return true;
-    } catch (erro) {
-        console.error('❌ Erro ao inicializar Firebase:', erro);
-        return false;
-    }
-}
-
-// ===== EXPORTAR FUNÇÕES =====
-
-window.salvarPersonagemFirebase = salvarPersonagemCompleto;
-window.carregarPersonagemFirebase = carregarPersonagemParaEdicao;
-window.inicializarFirebaseSalvamento = inicializarFirebase;
-window.obterIdPersonagemPersistente = obterIdPersonagemPersistente;
-
-// ===== INICIALIZAÇÃO AUTOMÁTICA =====
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Inicializando sistema de salvamento...');
     
-    // 1. Inicializar Firebase
-    inicializarFirebase().then(sucesso => {
-        if (sucesso) {
-            console.log('✅ Sistema de salvamento pronto');
-            
-            // 2. Verificar se há personagem em edição
-            const personagemId = localStorage.getItem('personagem_editando_id');
-            if (personagemId) {
-                console.log('🔍 Carregando personagem em edição:', personagemId);
-                setTimeout(() => {
-                    carregarPersonagemParaEdicao(personagemId);
-                }, 1000);
+    // ===========================================
+    // LOCALSTORAGE (FALLBACK)
+    // ===========================================
+    
+    salvarLocalStorage(modulo, dados) {
+        try {
+            // Carregar dados existentes
+            let todosDados = {};
+            const dadosSalvos = localStorage.getItem('rpgforge_personagem_data');
+            if (dadosSalvos) {
+                todosDados = JSON.parse(dadosSalvos);
             }
             
-            // 3. Configurar botão Salvar no HTML principal
-            setTimeout(() => {
-                const btnSalvar = document.getElementById('btnSalvar');
-                if (btnSalvar) {
-                    // Remover event listener antigo se existir
-                    btnSalvar.replaceWith(btnSalvar.cloneNode(true));
-                    
-                    // Adicionar novo event listener
-                    document.getElementById('btnSalvar').addEventListener('click', salvarPersonagemCompleto);
-                    console.log('✅ Botão Salvar configurado com sistema de ID persistente');
-                }
-            }, 500);
+            // Atualizar módulo específico
+            todosDados[modulo] = {
+                ...dados,
+                ultimaAtualizacao: new Date().toISOString(),
+                versao: '1.0.0'
+            };
+            
+            // Salvar de volta
+            localStorage.setItem('rpgforge_personagem_data', JSON.stringify(todosDados));
+            
+            console.log(`💾 Módulo ${modulo} salvo no localStorage`);
+            return true;
+        } catch (error) {
+            console.error(`❌ Erro ao salvar no localStorage:`, error);
+            return false;
         }
-    });
+    }
     
-    // 4. Estilo para notificações (se não existir)
-    if (!document.querySelector('#estilo-notificacoes')) {
-        const estilo = document.createElement('style');
-        estilo.id = 'estilo-notificacoes';
-        estilo.textContent = `
-            .notificacao-flutuante {
+    carregarLocalStorage(modulo) {
+        try {
+            const dadosSalvos = localStorage.getItem('rpgforge_personagem_data');
+            if (!dadosSalvos) return null;
+            
+            const todosDados = JSON.parse(dadosSalvos);
+            return todosDados[modulo] || null;
+        } catch (error) {
+            console.error(`❌ Erro ao carregar do localStorage:`, error);
+            return null;
+        }
+    }
+    
+    // ===========================================
+    // UTILITÁRIOS
+    // ===========================================
+    
+    configurarBotaoSalvar() {
+        // Remover botão existente se houver
+        const botaoExistente = document.getElementById('btnSalvarTudo');
+        if (botaoExistente) botaoExistente.remove();
+        
+        // Criar botão de salvar tudo
+        const botaoSalvar = document.createElement('button');
+        botaoSalvar.id = 'btnSalvarTudo';
+        botaoSalvar.className = 'btn-salvar-global';
+        botaoSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Tudo';
+        botaoSalvar.title = 'Salvar todas as alterações pendentes';
+        
+        botaoSalvar.onclick = () => this.salvarTudo();
+        
+        // Adicionar ao header
+        const header = document.querySelector('.header-buttons');
+        if (header) {
+            header.insertBefore(botaoSalvar, header.firstChild);
+        }
+        
+        // Também salvar automaticamente quando sair da página
+        window.addEventListener('beforeunload', (e) => {
+            if (this.pendingSaves.size > 0) {
+                e.preventDefault();
+                e.returnValue = 'Você tem alterações não salvas. Deseja realmente sair?';
+                this.salvarTudo();
+            }
+        });
+        
+        // Salvar automaticamente a cada 30 segundos
+        setInterval(() => {
+            if (this.pendingSaves.size > 0) {
+                console.log('⏰ Salvamento automático...');
+                this.salvarTudo();
+            }
+        }, 30000);
+    }
+    
+    mostrarStatus(mensagem, tipo = 'info') {
+        // Remover status anterior
+        const statusAnterior = document.getElementById('firebaseStatus');
+        if (statusAnterior) statusAnterior.remove();
+        
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle',
+            loading: 'fa-spinner fa-spin'
+        };
+        
+        const cores = {
+            success: '#27ae60',
+            error: '#e74c3c',
+            warning: '#f39c12',
+            info: '#3498db',
+            loading: '#3498db'
+        };
+        
+        const div = document.createElement('div');
+        div.id = 'firebaseStatus';
+        div.innerHTML = `
+            <div style="
                 position: fixed;
-                top: 80px;
+                bottom: 20px;
                 right: 20px;
-                z-index: 9999;
-                animation: slideIn 0.3s ease;
-            }
-            
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            
-            .notificacao-conteudo {
-                background: #1a1a1a;
-                border-left: 4px solid #2196F3;
+                padding: 12px 20px;
+                border-radius: 6px;
                 color: white;
-                padding: 15px 20px;
-                border-radius: 8px;
+                font-weight: bold;
+                z-index: 9999;
+                background: ${cores[tipo] || '#3498db'};
                 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideUp 0.3s ease;
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                min-width: 300px;
-                max-width: 400px;
-            }
-            
-            .notificacao-conteudo.success {
-                border-left-color: #4CAF50;
-            }
-            
-            .notificacao-conteudo.warning {
-                border-left-color: #FF9800;
-            }
-            
-            .notificacao-conteudo.error {
-                border-left-color: #f44336;
-            }
-            
-            .notificacao-conteudo i {
-                font-size: 1.2rem;
-            }
-            
-            .notificacao-conteudo.success i {
-                color: #4CAF50;
-            }
-            
-            .notificacao-conteudo.warning i {
-                color: #FF9800;
-            }
-            
-            .notificacao-conteudo.error i {
-                color: #f44336;
-            }
-            
-            .notificacao-conteudo span {
-                flex: 1;
-                font-weight: 500;
-            }
-            
-            .notificacao-fechar {
-                background: none;
-                border: none;
-                color: #888;
-                cursor: pointer;
-                padding: 5px;
-                border-radius: 50%;
-                transition: all 0.2s ease;
-            }
-            
-            .notificacao-fechar:hover {
-                background: rgba(255,255,255,0.1);
-                color: white;
-            }
+            ">
+                <i class="fas ${icons[tipo] || 'fa-info-circle'}"></i>
+                <span>${mensagem}</span>
+            </div>
         `;
-        document.head.appendChild(estilo);
+        
+        document.body.appendChild(div);
+        
+        // Auto-remover após 5 segundos (exceto loading)
+        if (tipo !== 'loading') {
+            setTimeout(() => {
+                if (div.parentNode) div.parentNode.removeChild(div);
+            }, 5000);
+        }
     }
+    
+    // ===========================================
+    // NOVO PERSONAGEM
+    // ===========================================
+    
+    novoPersonagem() {
+        if (confirm('Deseja criar um novo personagem? O personagem atual será salvo primeiro.')) {
+            this.salvarTudo().then(() => {
+                resetarPersonagemId();
+                location.reload(); // Recarregar para começar limpo
+            });
+        }
+    }
+}
+
+// ===========================================
+// INICIALIZAÇÃO GLOBAL
+// ===========================================
+
+let sistemaSalvamento = null;
+
+function inicializarSistemaSalvamento() {
+    if (!sistemaSalvamento) {
+        sistemaSalvamento = new SistemaSalvamento();
+        sistemaSalvamento.inicializar();
+        
+        // Carregar dados existentes após inicialização
+        setTimeout(() => {
+            sistemaSalvamento.carregarTudo();
+        }, 1000);
+    }
+    return sistemaSalvamento;
+}
+
+// ===========================================
+// FUNÇÕES GLOBAIS PARA OUTROS MÓDULOS
+// ===========================================
+
+window.salvarModulo = (modulo, dados) => {
+    if (!sistemaSalvamento) {
+        console.error('Sistema de salvamento não inicializado');
+        return false;
+    }
+    return sistemaSalvamento.salvarModulo(modulo, dados);
+};
+
+window.carregarModulo = (modulo) => {
+    if (!sistemaSalvamento) {
+        console.error('Sistema de salvamento não inicializado');
+        return null;
+    }
+    return sistemaSalvamento.carregarModulo(modulo);
+};
+
+window.obterIdPersonagem = () => {
+    return obterPersonagemId();
+};
+
+window.novoPersonagem = () => {
+    if (sistemaSalvamento) {
+        sistemaSalvamento.novoPersonagem();
+    }
+};
+
+// ===========================================
+// ADICIONAR ESTILOS
+// ===========================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .btn-salvar-global {
+            background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);
+        }
+        
+        .btn-salvar-global:hover {
+            background: linear-gradient(135deg, #219653 0%, #1e8449 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(39, 174, 96, 0.3);
+        }
+        
+        .btn-salvar-global:active {
+            transform: translateY(0);
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        #personagemId {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Inicializar sistema quando a página carregar
+    setTimeout(inicializarSistemaSalvamento, 500);
 });
 
-console.log('✅ firebase-save.js carregado - SISTEMA DE ID PERSISTENTE ATIVADO');
+console.log('✅ firebase-save.js carregado - SISTEMA DE SUBSESSÕES');
