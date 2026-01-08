@@ -150,35 +150,33 @@ class PontosManager {
             Math.max(0, this.gastos.equipamentos) +
             Math.max(0, this.gastos.riqueza); // Riqueza positiva é vantagem
         
-        // Soma de todas as desvantagens (valores absolutos) - ADICIONAM
-        // Valores negativos são desvantagens
-        const desvantagensTotal = 
-            Math.abs(Math.min(0, this.gastos.desvantagens)) +
-            Math.abs(Math.min(0, this.gastos.peculiaridades)) +
-            Math.abs(Math.min(0, this.gastos.riqueza)); // Riqueza negativa é desvantagem
+        // CORREÇÃO: Soma de TODAS as desvantagens (valores negativos) - ADICIONAM
+        // Isso inclui desvantagens da aba desvantagens + riqueza negativa + peculiaridades
+        const desvantagensDesv = Math.abs(Math.min(0, this.gastos.desvantagens));
+        const desvantagensPec = Math.abs(Math.min(0, this.gastos.peculiaridades));
+        const desvantagensRiq = Math.abs(Math.min(0, this.gastos.riqueza));
+        
+        const desvantagensTotal = desvantagensDesv + desvantagensPec + desvantagensRiq;
         
         // Fórmula GURPS: pontosDisponiveis = totalPontos - vantagens + desvantagens
         const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
         
         // Para limites: usar valores absolutos
-        const desvantagensAbs = Math.abs(Math.min(0, this.gastos.desvantagens));
-        const peculiaridadesAbs = Math.abs(Math.min(0, this.gastos.peculiaridades));
-        const riquezaDesvAbs = Math.abs(Math.min(0, this.gastos.riqueza));
-        
-        // Total de desvantagens (para limites)
-        const totalDesvantagens = desvantagensAbs + peculiaridadesAbs + riquezaDesvAbs;
+        const totalDesvantagensAbs = desvantagensTotal;
         
         return {
             total: totalPontos,
             vantagens: vantagensTotal,
             desvantagens: desvantagensTotal,
             disponiveis: pontosDisponiveis,
-            limiteDesvantagens: totalDesvantagens <= this.limites.desvantagens,
-            limitePeculiaridades: peculiaridadesAbs <= this.limites.peculiaridades,
-            excedeuLimiteDesvantagens: totalDesvantagens > this.limites.desvantagens,
-            excedeuLimitePeculiaridades: peculiaridadesAbs > this.limites.peculiaridades,
-            totalDesvantagensAbs: totalDesvantagens,
-            peculiaridadesAbs: peculiaridadesAbs
+            limiteDesvantagens: totalDesvantagensAbs <= this.limites.desvantagens,
+            limitePeculiaridades: desvantagensPec <= this.limites.peculiaridades,
+            excedeuLimiteDesvantagens: totalDesvantagensAbs > this.limites.desvantagens,
+            excedeuLimitePeculiaridades: desvantagensPec > this.limites.peculiaridades,
+            totalDesvantagensAbs: totalDesvantagensAbs,
+            peculiaridadesAbs: desvantagensPec,
+            desvantagensDesv: desvantagensDesv,
+            desvantagensRiq: desvantagensRiq
         };
     }
     
@@ -202,7 +200,7 @@ class PontosManager {
     }
     
     // ===========================================
-    // ATUALIZAÇÃO DA INTERFACE
+    // ATUALIZAÇÃO DA INTERFACE - CORREÇÃO: RESUMO DESVANTAGENS
     // ===========================================
     
     atualizarTudo() {
@@ -217,6 +215,12 @@ class PontosManager {
     }
     
     atualizarDisplayAba(aba) {
+        // CORREÇÃO: Para desvantagens, mostrar a soma de TODAS as desvantagens
+        if (aba === 'desvantagens') {
+            this.atualizarDisplayDesvantagens();
+            return;
+        }
+        
         const elemento = document.getElementById(`pontos${this.capitalizar(aba)}`);
         if (elemento) {
             const pontos = this.gastos[aba];
@@ -239,7 +243,28 @@ class PontosManager {
         this.atualizarPercentualAba(aba);
     }
     
+    atualizarDisplayDesvantagens() {
+        const elemento = document.getElementById('pontosDesvantagens');
+        if (!elemento) return;
+        
+        // CORREÇÃO: Mostrar soma TOTAL de todas as desvantagens
+        const calculo = this.calcularPontosDisponiveis();
+        const totalDesvantagens = calculo.desvantagensTotal;
+        
+        // Mostrar como positivo (mas na lógica GURPS é negativo que adiciona pontos)
+        elemento.textContent = `+${totalDesvantagens}`;
+        
+        // Aplicar classe (sempre positivo no display)
+        elemento.parentElement.classList.remove('positivo', 'negativo');
+        elemento.parentElement.classList.add('negativo'); // Negativo porque são desvantagens
+        
+        // Atualizar percentual das desvantagens
+        this.atualizarPercentualDesvantagens(totalDesvantagens);
+    }
+    
     atualizarPercentualAba(aba) {
+        if (aba === 'desvantagens') return; // Já tratado separadamente
+        
         const elemento = document.getElementById(`perc${this.capitalizar(aba)}`);
         if (!elemento) return;
         
@@ -248,6 +273,29 @@ class PontosManager {
         
         if (totalPontos > 0) {
             const percentual = Math.round((Math.abs(pontos) / totalPontos) * 100);
+            elemento.textContent = `${percentual}%`;
+            
+            // Aplicar cor baseada no percentual
+            if (percentual > 50) {
+                elemento.style.color = '#e74c3c';
+            } else if (percentual > 25) {
+                elemento.style.color = '#f39c12';
+            } else {
+                elemento.style.color = '#27ae60';
+            }
+        } else {
+            elemento.textContent = '0%';
+        }
+    }
+    
+    atualizarPercentualDesvantagens(totalDesvantagens) {
+        const elemento = document.getElementById('percDesvantagens');
+        if (!elemento) return;
+        
+        const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
+        
+        if (totalPontos > 0) {
+            const percentual = Math.round((totalDesvantagens / totalPontos) * 100);
             elemento.textContent = `${percentual}%`;
             
             // Aplicar cor baseada no percentual
@@ -281,7 +329,7 @@ class PontosManager {
             }
         }
         
-        // Total gastos (apenas vantagens, desvantagens aparecem separadas)
+        // Total gastos (apenas vantagens)
         const elementoGastos = document.getElementById('pontosGastos');
         if (elementoGastos) {
             elementoGastos.textContent = calculo.vantagens;
