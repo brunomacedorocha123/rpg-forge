@@ -109,7 +109,6 @@ class SistemaRiqueza {
         this.atualizarDisplay();
         this.inicializado = true;
         
-        // Notificar sistema de pontos sobre o estado inicial
         this.notificarAtualizacao();
     }
 
@@ -123,54 +122,42 @@ class SistemaRiqueza {
     }
 
     definirNivel(valor) {
-        // Salvar nível anterior
         const nivelAnterior = this.nivelAtual;
-        const nivelAtualObjAnterior = this.niveisRiqueza[nivelAnterior];
-        const nivelNovoObj = this.niveisRiqueza[valor];
         
-        // Atualizar estado
         this.nivelAtual = valor;
         this.pontosRiqueza = parseInt(valor);
         
-        // Atualizar select
         const select = document.getElementById('nivelRiqueza');
         if (select) {
             select.value = valor;
         }
         
-        // Atualizar display
         this.atualizarDisplay();
         this.salvarNoLocalStorage();
         
-        // Atualizar sistema de pontos (COM LÓGICA GURPS CORRETA)
-        this.atualizarSistemaPontos(nivelAtualObjAnterior, nivelNovoObj);
+        this.atualizarSistemaPontos();
     }
 
-    atualizarSistemaPontos(nivelAnterior, nivelNovo) {
-        if (!window.atualizarPontosAba) return;
+    atualizarSistemaPontos() {
+        const pontos = this.pontosRiqueza;
         
-        // LÓGICA GURPS CORRETA:
-        // 1. Desvantagens têm pontos NEGATIVOS (ex: -10)
-        // 2. Vantagens têm pontos POSITIVOS (ex: +10)
-        // 3. No sistema de pontos:
-        //    - Desvantagens: adicionar valor ABSOLUTO como positivo
-        //    - Vantagens: adicionar valor como positivo
-        
-        // Remover pontos do nível anterior (inverter a lógica)
-        if (nivelAnterior) {
-            if (nivelAnterior.pontos < 0) {
-                // Era desvantagem: remover dos pontos totais (adiciona disponíveis)
-                // Não precisa fazer nada aqui, pois o sistema gerencia automaticamente
-            } else if (nivelAnterior.pontos > 0) {
-                // Era vantagem: remover dos pontos gastos (adiciona disponíveis)
-                // Não precisa fazer nada aqui
+        if (pontos > 0) {
+            // É VANTAGEM: +10, +20, +30, +50
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('vantagens', pontos);
+            }
+        } else if (pontos < 0) {
+            // É DESVANTAGEM: -10, -15, -25
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('desvantagens', Math.abs(pontos));
+            }
+        } else {
+            // Neutro: 0
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('vantagens', 0);
+                window.atualizarPontosAba('desvantagens', 0);
             }
         }
-        
-        // A lógica correta é simples: passar o valor REAL para o sistema
-        // O sistema de pontos irá calcular corretamente:
-        // totalDisponivel = pontosIniciais - vantagens + desvantagens
-        window.atualizarPontosAba('riqueza', this.pontosRiqueza);
     }
 
     atualizarDisplay() {
@@ -252,7 +239,6 @@ class SistemaRiqueza {
         const pontos = this.getPontosRiqueza();
         const tipo = this.getTipoPontos();
         
-        // Disparar evento customizado
         const evento = new CustomEvent('riquezaAtualizada', {
             detail: {
                 pontos: pontos,
@@ -265,7 +251,6 @@ class SistemaRiqueza {
         document.dispatchEvent(evento);
     }
 
-    // LOCAL STORAGE
     salvarNoLocalStorage() {
         try {
             const dados = {
@@ -273,9 +258,7 @@ class SistemaRiqueza {
                 timestamp: new Date().toISOString()
             };
             localStorage.setItem('gurps_riqueza', JSON.stringify(dados));
-        } catch (error) {
-            // Silencioso
-        }
+        } catch (error) {}
     }
 
     carregarDoLocalStorage() {
@@ -295,13 +278,10 @@ class SistemaRiqueza {
                     return true;
                 }
             }
-        } catch (error) {
-            // Silencioso
-        }
+        } catch (error) {}
         return false;
     }
 
-    // EXPORTAÇÃO DE DADOS
     exportarDados() {
         const nivel = this.niveisRiqueza[this.nivelAtual];
         
@@ -333,7 +313,6 @@ class SistemaRiqueza {
     }
 }
 
-// INICIALIZAÇÃO GLOBAL
 let sistemaRiqueza = null;
 
 function inicializarSistemaRiqueza() {
@@ -349,7 +328,6 @@ function inicializarSistemaRiqueza() {
     return sistemaRiqueza;
 }
 
-// Inicializar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
     const principalTab = document.getElementById('principal');
     if (principalTab && principalTab.classList.contains('active')) {
@@ -357,14 +335,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Inicializar quando a aba principal for ativada
 document.addEventListener('tabChanged', function(e) {
     if (e.detail === 'principal') {
         setTimeout(inicializarSistemaRiqueza, 100);
     }
 });
 
-// EXPORTAR PARA USO GLOBAL
 window.SistemaRiqueza = SistemaRiqueza;
 window.inicializarSistemaRiqueza = inicializarSistemaRiqueza;
 window.sistemaRiqueza = sistemaRiqueza;
