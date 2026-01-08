@@ -1,8 +1,7 @@
 // ===========================================
-// ATRIBUTOS.JS - SISTEMA INTEGRADO COMPLETO
+// ATRIBUTOS.JS - SISTEMA COMPLETO
 // ===========================================
 
-// TABELA DE CARGAS CORRETA (COM DECIMAIS EXATOS)
 const cargasTable = {
     1: { nenhuma: 0.1, leve: 0.2, media: 0.3, pesada: 0.6, muitoPesada: 1.0 },
     2: { nenhuma: 0.4, leve: 0.8, media: 1.2, pesada: 2.4, muitoPesada: 4.0 },
@@ -26,7 +25,6 @@ const cargasTable = {
     20: { nenhuma: 40.0, leve: 80.0, media: 120.0, pesada: 240.0, muitoPesada: 400.0 }
 };
 
-// TABELA DE DANO BASE CORRETA
 const tabelaDanoST = {
     1: { gdp: "1d-6", geb: "1d-5" }, 2: { gdp: "1d-6", geb: "1d-5" },
     3: { gdp: "1d-5", geb: "1d-4" }, 4: { gdp: "1d-5", geb: "1d-4" },
@@ -50,7 +48,6 @@ const tabelaDanoST = {
     39: { gdp: "4d+1", geb: "8d-1" }, 40: { gdp: "4d+1", geb: "8d" }
 };
 
-// ESTADO DO PERSONAGEM
 let personagemAtributos = {
     ST: 10,
     DX: 10,
@@ -66,26 +63,7 @@ let personagemAtributos = {
 };
 
 // ===========================================
-// FUNÇÕES CORRIGIDAS DE FORMATAÇÃO
-// ===========================================
-
-function formatarCarga(valor) {
-    if (Number.isInteger(valor)) {
-        return valor.toString();
-    }
-    
-    const num = parseFloat(valor);
-    const strValor = num.toFixed(1);
-    
-    if (strValor.endsWith('.0')) {
-        return strValor.split('.')[0];
-    }
-    
-    return strValor;
-}
-
-// ===========================================
-// FUNÇÕES PRINCIPAIS
+// FUNÇÕES DE CONTROLE
 // ===========================================
 
 function alterarAtributo(atributo, valor) {
@@ -100,7 +78,6 @@ function alterarAtributo(atributo, valor) {
     personagemAtributos[atributo] = novoValor;
 
     atualizarTudo();
-    salvarAtributosNoSistema(); // Salva automaticamente
 }
 
 function ajustarSecundario(atributo, valor) {
@@ -121,13 +98,11 @@ function ajustarSecundario(atributo, valor) {
     input.value = novoValor;
     personagemAtributos.bonus[atributo] = novoValor;
 
-    // Aplicar cor
     input.classList.remove('positivo', 'negativo');
     if (novoValor > 0) input.classList.add('positivo');
     else if (novoValor < 0) input.classList.add('negativo');
 
     atualizarTotaisSecundarios();
-    salvarAtributosNoSistema(); // Salva automaticamente
 }
 
 // ===========================================
@@ -140,10 +115,11 @@ function atualizarTudo() {
     const IQ = personagemAtributos.IQ;
     const HT = personagemAtributos.HT;
 
-    // Atualizar ST nos lugares onde aparece
-    document.querySelectorAll('#currentST, #currentST2').forEach(el => {
-        el.textContent = ST;
-    });
+    // Atualizar valores principais
+    document.getElementById('currentST').textContent = ST;
+    document.getElementById('currentDX').textContent = DX;
+    document.getElementById('currentIQ').textContent = IQ;
+    document.getElementById('currentHT').textContent = HT;
 
     // Atualizar bases dos atributos secundários
     document.getElementById('PVBase').textContent = ST;
@@ -157,35 +133,38 @@ function atualizarTudo() {
     // Atualizar tabela de dano
     atualizarDanoBase(ST);
     
-    // Atualizar cargas COM FORMATAÇÃO CORRETA
+    // Atualizar cargas
     atualizarCargas(ST);
     
-    // Calcular custos (INTEGRAÇÃO COM PONTOS MANAGER)
+    // Calcular custos
     const totalGastos = calcularCustos();
     
-    // Atualizar totais
+    // Atualizar totais secundários
     atualizarTotaisSecundarios();
     
-    // Disparar evento para outros módulos
-    document.dispatchEvent(new CustomEvent('atributosAtualizados', {
-        detail: {
-            ST: ST,
-            DX: DX,
-            IQ: IQ,
-            HT: HT,
-            pontosGastos: totalGastos,
-            cargas: obterCargasAtuais(),
-            danoBase: obterDanoBaseCorreto()
-        }
-    }));
+    // Atualizar sistema de pontos
+    if (window.atualizarPontosAba) {
+        window.atualizarPontosAba('atributos', totalGastos);
+    }
+}
+
+function formatarCarga(valor) {
+    if (Number.isInteger(valor)) return valor.toString();
+    
+    const num = parseFloat(valor);
+    const strValor = num.toFixed(1);
+    
+    if (strValor.endsWith('.0')) {
+        return strValor.split('.')[0];
+    }
+    
+    return strValor;
 }
 
 function atualizarCargas(ST) {
-    let stKey = ST;
-    if (ST > 20) stKey = 20;
-    if (ST < 1) stKey = 1;
-
+    let stKey = ST > 20 ? 20 : (ST < 1 ? 1 : ST);
     const cargas = cargasTable[stKey];
+    
     if (cargas) {
         document.getElementById('cargaNenhuma').textContent = formatarCarga(cargas.nenhuma);
         document.getElementById('cargaLeve').textContent = formatarCarga(cargas.leve);
@@ -196,10 +175,7 @@ function atualizarCargas(ST) {
 }
 
 function atualizarDanoBase(ST) {
-    let stKey = ST;
-    if (ST > 40) stKey = 40;
-    if (ST < 1) stKey = 1;
-    
+    let stKey = ST > 40 ? 40 : (ST < 1 ? 1 : ST);
     const dano = tabelaDanoST[stKey] || tabelaDanoST[10];
     
     if (dano) {
@@ -221,27 +197,33 @@ function calcularCustos() {
 
     const totalGastos = custoST + custoDX + custoIQ + custoHT;
 
-    document.getElementById('custoST').textContent = custoST;
-    document.getElementById('custoDX').textContent = custoDX;
-    document.getElementById('custoIQ').textContent = custoIQ;
-    document.getElementById('custoHT').textContent = custoHT;
+    // Mostrar custos individuais se os elementos existirem
+    const elementosCusto = {
+        'custoST': custoST,
+        'custoDX': custoDX,
+        'custoIQ': custoIQ,
+        'custoHT': custoHT
+    };
+    
+    Object.keys(elementosCusto).forEach(id => {
+        const elemento = document.getElementById(id);
+        if (elemento) {
+            elemento.textContent = elementosCusto[id];
+        }
+    });
 
+    // Atualizar pontos gastos
     const pontosElement = document.getElementById('pontosGastos');
     if (pontosElement) {
         pontosElement.textContent = totalGastos;
-
-        pontosElement.classList.remove('excedido');
+        
         if (totalGastos > 150) {
             pontosElement.classList.add('excedido');
-            mostrarStatus(`ATENÇÃO: ${totalGastos} pontos gastos (limite: 150)`, 'warning');
+        } else {
+            pontosElement.classList.remove('excedido');
         }
     }
-    
-    // INTEGRAÇÃO COM PONTOS MANAGER - ENVIA OS PONTOS GASTOS
-    if (window.atualizarPontosAba) {
-        window.atualizarPontosAba('atributos', totalGastos);
-    }
-    
+
     return totalGastos;
 }
 
@@ -264,181 +246,14 @@ function atualizarTotaisSecundarios() {
 }
 
 // ===========================================
-// SISTEMA DE SALVAMENTO INTEGRADO
-// ===========================================
-
-async function salvarAtributosNoSistema() {
-    console.log('💾 Salvando atributos no sistema...');
-    
-    // Preparar dados completos
-    const dados = {
-        atributos: {
-            ST: personagemAtributos.ST,
-            DX: personagemAtributos.DX,
-            IQ: personagemAtributos.IQ,
-            HT: personagemAtributos.HT,
-            bonus: { ...personagemAtributos.bonus }
-        },
-        calculos: {
-            custos: {
-                ST: (personagemAtributos.ST - 10) * 10,
-                DX: (personagemAtributos.DX - 10) * 20,
-                IQ: (personagemAtributos.IQ - 10) * 20,
-                HT: (personagemAtributos.HT - 10) * 10,
-                total: calcularCustos()
-            },
-            totais: {
-                PV: Math.max(personagemAtributos.ST + (personagemAtributos.bonus.PV || 0), 1),
-                PF: Math.max(personagemAtributos.HT + (personagemAtributos.bonus.PF || 0), 1),
-                Vontade: Math.max(personagemAtributos.IQ + (personagemAtributos.bonus.Vontade || 0), 1),
-                Percepcao: Math.max(personagemAtributos.IQ + (personagemAtributos.bonus.Percepcao || 0), 1),
-                Deslocamento: calcularDeslocamentoTotal()
-            },
-            cargas: obterCargasAtuais(),
-            danoBase: obterDanoBaseCorreto()
-        },
-        ultimaAtualizacao: new Date().toISOString(),
-        versao: '1.0.0'
-    };
-    
-    function calcularDeslocamentoTotal() {
-        const base = (personagemAtributos.HT + personagemAtributos.DX) / 4;
-        return Math.max(base + (personagemAtributos.bonus.Deslocamento || 0), 0).toFixed(2);
-    }
-    
-    // Salvar usando o sistema de salvamento
-    if (window.salvarModulo) {
-        try {
-            await window.salvarModulo('atributos', dados);
-            console.log('✅ Atributos salvos via sistema');
-            mostrarStatus('Atributos salvos', 'success');
-            return true;
-        } catch (error) {
-            console.error('❌ Erro ao salvar atributos:', error);
-            mostrarStatus('Erro ao salvar atributos', 'error');
-            return false;
-        }
-    } else {
-        // Fallback para localStorage
-        localStorage.setItem('rpgforge_atributos', JSON.stringify(dados));
-        console.log('✅ Atributos salvos no localStorage (fallback)');
-        return true;
-    }
-}
-
-async function carregarAtributosDoSistema() {
-    console.log('📥 Carregando atributos do sistema...');
-    
-    let dadosCarregados = null;
-    
-    // Tentar carregar do sistema de salvamento
-    if (window.carregarModulo) {
-        dadosCarregados = await window.carregarModulo('atributos');
-    }
-    
-    // Se não encontrou, tentar localStorage
-    if (!dadosCarregados) {
-        const dadosLocais = localStorage.getItem('rpgforge_atributos');
-        if (dadosLocais) {
-            try {
-                dadosCarregados = JSON.parse(dadosLocais);
-            } catch (error) {
-                console.error('Erro ao carregar do localStorage:', error);
-            }
-        }
-    }
-    
-    // Aplicar os dados se encontrou
-    if (dadosCarregados && dadosCarregados.atributos) {
-        aplicarDadosAtributos(dadosCarregados);
-        return true;
-    } else {
-        console.log('ℹ️ Nenhum dado salvo encontrado, usando valores padrão');
-        return false;
-    }
-}
-
-function aplicarDadosAtributos(dados) {
-    console.log('🔄 Aplicando dados dos atributos:', dados);
-    
-    // Atributos principais
-    if (dados.atributos) {
-        const attrs = dados.atributos;
-        
-        ['ST', 'DX', 'IQ', 'HT'].forEach(atributo => {
-            if (attrs[atributo] !== undefined) {
-                personagemAtributos[atributo] = attrs[atributo];
-                const input = document.getElementById(atributo);
-                if (input) {
-                    input.value = attrs[atributo];
-                }
-            }
-        });
-        
-        // Bônus
-        if (attrs.bonus) {
-            Object.keys(personagemAtributos.bonus).forEach(key => {
-                if (attrs.bonus[key] !== undefined) {
-                    personagemAtributos.bonus[key] = attrs.bonus[key];
-                    const input = document.getElementById('bonus' + key);
-                    if (input) {
-                        input.value = attrs.bonus[key];
-                        
-                        // Aplicar cor
-                        input.classList.remove('positivo', 'negativo');
-                        if (attrs.bonus[key] > 0) input.classList.add('positivo');
-                        else if (attrs.bonus[key] < 0) input.classList.add('negativo');
-                    }
-                }
-            });
-        }
-    }
-    
-    // Atualizar interface
-    atualizarTudo();
-    console.log('✅ Dados aplicados com sucesso');
-}
-
-// ===========================================
-// FUNÇÕES AUXILIARES
-// ===========================================
-
-function obterCargasAtuais() {
-    const ST = personagemAtributos.ST;
-    let stKey = ST > 20 ? 20 : (ST < 1 ? 1 : ST);
-    return cargasTable[stKey] || cargasTable[10];
-}
-
-function obterDanoBaseCorreto() {
-    const ST = personagemAtributos.ST;
-    let stKey = ST;
-    if (ST > 40) stKey = 40;
-    if (ST < 1) stKey = 1;
-    return tabelaDanoST[stKey] || tabelaDanoST[10];
-}
-
-function mostrarStatus(mensagem, tipo = 'info') {
-    // Pode usar o sistema do firebase-save.js ou mostrar localmente
-    if (window.sistemaSalvamento && window.sistemaSalvamento.mostrarStatus) {
-        window.sistemaSalvamento.mostrarStatus(mensagem, tipo);
-    } else {
-        // Implementação local simples
-        console.log(`[${tipo.toUpperCase()}] ${mensagem}`);
-    }
-}
-
-// ===========================================
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO E EVENTOS
 // ===========================================
 
 function inicializarAtributos() {
-    console.log('🚀 Inicializando sistema de atributos...');
-    
-    // Configurar eventos dos inputs principais
+    // Configurar eventos dos atributos principais
     ['ST', 'DX', 'IQ', 'HT'].forEach(atributo => {
         const input = document.getElementById(atributo);
         if (input) {
-            // Configurar evento change
             input.addEventListener('change', function() {
                 let valor = parseInt(this.value) || 10;
                 if (valor < 1) valor = 1;
@@ -447,43 +262,35 @@ function inicializarAtributos() {
                 this.value = valor;
                 personagemAtributos[atributo] = valor;
                 atualizarTudo();
-                salvarAtributosNoSistema();
-            });
-            
-            // Permitir usar as setas do teclado
-            input.addEventListener('keyup', function(e) {
-                if (e.key === 'ArrowUp') {
-                    alterarAtributo(atributo, 1);
-                } else if (e.key === 'ArrowDown') {
-                    alterarAtributo(atributo, -1);
-                }
             });
         }
     });
-    
-    // Configurar botões de atributos
-    document.querySelectorAll('.btn-attr').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const parent = this.closest('.attribute-card');
-            if (!parent) return;
+
+    // Configurar botões dos atributos principais
+    document.querySelectorAll('.attribute-card').forEach(card => {
+        const titulo = card.querySelector('h3').textContent;
+        let atributo = '';
+        
+        if (titulo.includes('ST')) atributo = 'ST';
+        else if (titulo.includes('DX')) atributo = 'DX';
+        else if (titulo.includes('IQ')) atributo = 'IQ';
+        else if (titulo.includes('HT')) atributo = 'HT';
+        
+        if (atributo) {
+            const btnMais = card.querySelector('.btn-attr.plus');
+            const btnMenos = card.querySelector('.btn-attr.minus');
             
-            const atributo = parent.querySelector('h3').textContent;
-            let attrName = '';
-            
-            if (atributo.includes('ST')) attrName = 'ST';
-            else if (atributo.includes('DX')) attrName = 'DX';
-            else if (atributo.includes('IQ')) attrName = 'IQ';
-            else if (atributo.includes('HT')) attrName = 'HT';
-            
-            if (attrName && this.classList.contains('plus')) {
-                alterarAtributo(attrName, 1);
-            } else if (attrName && this.classList.contains('minus')) {
-                alterarAtributo(attrName, -1);
+            if (btnMais) {
+                btnMais.onclick = () => alterarAtributo(atributo, 1);
             }
-        });
+            
+            if (btnMenos) {
+                btnMenos.onclick = () => alterarAtributo(atributo, -1);
+            }
+        }
     });
-    
-    // Configurar bônus
+
+    // Configurar atributos secundários
     ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].forEach(atributo => {
         const input = document.getElementById('bonus' + atributo);
         if (input) {
@@ -495,121 +302,55 @@ function inicializarAtributos() {
                     valor = parseInt(this.value) || 0;
                 }
                 
-                // Limites
                 if (valor < -10) valor = -10;
                 if (valor > 20) valor = 20;
                 
                 this.value = valor;
                 personagemAtributos.bonus[atributo] = valor;
                 atualizarTotaisSecundarios();
-                salvarAtributosNoSistema();
                 
-                // Aplicar cor
                 this.classList.remove('positivo', 'negativo');
                 if (valor > 0) this.classList.add('positivo');
                 else if (valor < 0) this.classList.add('negativo');
             });
         }
+    });
+
+    // Configurar botões dos atributos secundários
+    document.querySelectorAll('.secondary-attr').forEach((attrDiv, index) => {
+        const atributos = ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'];
+        const atributo = atributos[index];
         
-        // Configurar botões dos bônus
-        const btns = document.querySelectorAll(`.secondary-attr:nth-child(${
-            ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].indexOf(atributo) + 1
-        }) .btn-secondary`);
-        
-        if (btns.length >= 2) {
-            btns[0].addEventListener('click', () => ajustarSecundario(atributo, -1));
-            btns[1].addEventListener('click', () => ajustarSecundario(atributo, 1));
+        if (atributo) {
+            const btns = attrDiv.querySelectorAll('.btn-secondary');
+            if (btns[0]) btns[0].onclick = () => ajustarSecundario(atributo, -1);
+            if (btns[1]) btns[1].onclick = () => ajustarSecundario(atributo, 1);
         }
     });
-    
-    // Carregar dados salvos
-    setTimeout(() => {
-        carregarAtributosDoSistema().then(carregou => {
-            if (!carregou) {
-                // Primeira execução - garantir que tudo está atualizado
-                atualizarTudo();
-            }
-        });
-    }, 1000);
-    
-    // Escutar eventos de outros módulos
-    document.addEventListener('dadosCarregados', (e) => {
-        if (e.detail && e.detail.atributos) {
-            aplicarDadosAtributos(e.detail.atributos);
-        }
-    });
-    
-    console.log('✅ Sistema de atributos inicializado');
+
+    // Primeira atualização
+    atualizarTudo();
 }
 
 // ===========================================
-// FUNÇÕES PARA O SISTEMA PRINCIPAL
+// EXPORTAÇÃO PARA USO GLOBAL
 // ===========================================
 
-function initAtributosTab() {
-    console.log('🎯 Iniciando aba de atributos');
-    
-    setTimeout(() => {
-        if (document.getElementById('ST')) {
-            inicializarAtributos();
-        } else {
-            console.warn('⚠️ Elementos não encontrados, tentando novamente...');
-            setTimeout(initAtributosTab, 500);
-        }
-    }, 100);
-}
-
-// ===========================================
-// EXPORTAR FUNÇÕES PARA O SISTEMA PRINCIPAL
-// ===========================================
-
-window.obterDadosAtributos = function() {
-    return {
-        atributos: { ...personagemAtributos },
-        calculos: {
-            custos: {
-                ST: (personagemAtributos.ST - 10) * 10,
-                DX: (personagemAtributos.DX - 10) * 20,
-                IQ: (personagemAtributos.IQ - 10) * 20,
-                HT: (personagemAtributos.HT - 10) * 10,
-                total: calcularCustos()
-            },
-            cargas: obterCargasAtuais(),
-            danoBase: obterDanoBaseCorreto()
-        }
-    };
-};
-
-window.carregarDadosAtributos = function(dados) {
-    aplicarDadosAtributos(dados);
+window.initAtributosTab = function() {
+    if (document.getElementById('ST')) {
+        inicializarAtributos();
+    }
 };
 
 window.getAtributosPersonagem = () => ({ ...personagemAtributos });
-window.getCargasPersonagem = () => obterCargasAtuais();
-window.getDanoBasePersonagem = () => obterDanoBaseCorreto();
 window.calcularCustoAtributos = calcularCustos;
-
-window.initAtributosTab = initAtributosTab;
 
 // ===========================================
 // INICIAR QUANDO A PÁGINA CARREGAR
 // ===========================================
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        // Aguardar o sistema de salvamento carregar primeiro
-        setTimeout(() => {
-            if (document.getElementById('principal')?.classList.contains('active')) {
-                initAtributosTab();
-            }
-        }, 1500);
-    });
-} else {
-    setTimeout(() => {
-        if (document.getElementById('principal')?.classList.contains('active')) {
-            initAtributosTab();
-        }
-    }, 1500);
-}
-
-console.log('✅ atributos.js carregado - SISTEMA INTEGRADO COMPLETO');
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('principal')?.classList.contains('active')) {
+        window.initAtributosTab();
+    }
+});
