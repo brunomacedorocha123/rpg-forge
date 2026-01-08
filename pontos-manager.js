@@ -8,7 +8,7 @@ class PontosManager {
         this.pontosIniciais = 150;
         this.pontosGanhosCampanha = 0;
         
-        // Pontos gastos por categoria
+        // Pontos por categoria (GURPS: negativos = desvantagens, positivos = vantagens)
         this.gastos = {
             atributos: 0,
             vantagens: 0,
@@ -17,7 +17,8 @@ class PontosManager {
             pericias: 0,
             tecnicas: 0,
             magia: 0,
-            equipamentos: 0
+            equipamentos: 0,
+            riqueza: 0  // Adicionado para riqueza
         };
         
         // Limites configuráveis
@@ -25,9 +26,6 @@ class PontosManager {
             desvantagens: 40,
             peculiaridades: 20
         };
-        
-        // Callbacks para atualização de interface
-        this.callbacks = new Map();
         
         // Estado
         this.inicializado = false;
@@ -38,8 +36,6 @@ class PontosManager {
     
     inicializar() {
         if (this.inicializado) return;
-        
-        console.log('💰 Inicializando sistema de pontos...');
         
         // 1. Configurar inputs da interface
         this.configurarInputs();
@@ -54,7 +50,6 @@ class PontosManager {
         this.atualizarTudo();
         
         this.inicializado = true;
-        console.log('✅ Sistema de pontos inicializado');
     }
     
     // ===========================================
@@ -126,38 +121,64 @@ class PontosManager {
             }
         });
         
-        // Escutar mudanças no Firebase
-        if (window.sistemaSalvamento) {
-            document.addEventListener('dadosCarregados', (e) => {
-                if (e.detail && e.detail.pontos) {
-                    this.carregarDadosExternos(e.detail.pontos);
-                }
-            });
-        }
+        document.addEventListener('riquezaAtualizada', (e) => {
+            if (e.detail && e.detail.pontos !== undefined) {
+                // Riqueza já tem o valor correto (negativo para desvantagens, positivo para vantagens)
+                this.atualizarGastosAba('riqueza', e.detail.pontos);
+            }
+        });
     }
     
     // ===========================================
-    // GERENCIAMENTO DE PONTOS
+    // GERENCIAMENTO DE PONTOS - LÓGICA GURPS CORRETA
     // ===========================================
     
     calcularPontosDisponiveis() {
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
-        const gastosTotais = Object.values(this.gastos).reduce((a, b) => a + b, 0);
         
-        // Desvantagens e peculiaridades ADICIONAM pontos (são negativos)
-        const desvantagensPositivas = Math.abs(this.gastos.desvantagens);
-        const peculiaridadesPositivas = Math.abs(this.gastos.peculiaridades);
+        // LÓGICA GURPS:
+        // - Vantagens (valores positivos): SUBTRAEM dos pontos disponíveis
+        // - Desvantagens (valores negativos): ADICIONAM aos pontos disponíveis
         
-        const pontosDisponiveis = totalPontos - gastosTotais;
+        // Soma de todas as vantagens (valores positivos) - SUBTRAEM
+        const vantagensTotal = 
+            Math.max(0, this.gastos.atributos) + 
+            Math.max(0, this.gastos.vantagens) +
+            Math.max(0, this.gastos.pericias) +
+            Math.max(0, this.gastos.tecnicas) +
+            Math.max(0, this.gastos.magia) +
+            Math.max(0, this.gastos.equipamentos) +
+            Math.max(0, this.gastos.riqueza); // Riqueza positiva é vantagem
+        
+        // Soma de todas as desvantagens (valores absolutos) - ADICIONAM
+        // Valores negativos são desvantagens
+        const desvantagensTotal = 
+            Math.abs(Math.min(0, this.gastos.desvantagens)) +
+            Math.abs(Math.min(0, this.gastos.peculiaridades)) +
+            Math.abs(Math.min(0, this.gastos.riqueza)); // Riqueza negativa é desvantagem
+        
+        // Fórmula GURPS: pontosDisponiveis = totalPontos - vantagens + desvantagens
+        const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
+        
+        // Para limites: usar valores absolutos
+        const desvantagensAbs = Math.abs(Math.min(0, this.gastos.desvantagens));
+        const peculiaridadesAbs = Math.abs(Math.min(0, this.gastos.peculiaridades));
+        const riquezaDesvAbs = Math.abs(Math.min(0, this.gastos.riqueza));
+        
+        // Total de desvantagens (para limites)
+        const totalDesvantagens = desvantagensAbs + peculiaridadesAbs + riquezaDesvAbs;
         
         return {
             total: totalPontos,
-            gastos: gastosTotais,
+            vantagens: vantagensTotal,
+            desvantagens: desvantagensTotal,
             disponiveis: pontosDisponiveis,
-            limiteDesvantagens: desvantagensPositivas <= this.limites.desvantagens,
-            limitePeculiaridades: peculiaridadesPositivas <= this.limites.peculiaridades,
-            excedeuLimiteDesvantagens: desvantagensPositivas > this.limites.desvantagens,
-            excedeuLimitePeculiaridades: peculiaridadesPositivas > this.limites.peculiaridades
+            limiteDesvantagens: totalDesvantagens <= this.limites.desvantagens,
+            limitePeculiaridades: peculiaridadesAbs <= this.limites.peculiaridades,
+            excedeuLimiteDesvantagens: totalDesvantagens > this.limites.desvantagens,
+            excedeuLimitePeculiaridades: peculiaridadesAbs > this.limites.peculiaridades,
+            totalDesvantagensAbs: totalDesvantagens,
+            peculiaridadesAbs: peculiaridadesAbs
         };
     }
     
@@ -166,7 +187,6 @@ class PontosManager {
         
         if (pontosAnteriores !== pontos) {
             this.gastos[aba] = pontos;
-            console.log(`💰 ${aba}: ${pontosAnteriores} → ${pontos} pontos`);
             
             // Atualizar interface
             this.atualizarDisplayAba(aba);
@@ -179,14 +199,6 @@ class PontosManager {
             // Disparar evento
             this.dispararEventoAtualizacao(aba, pontos);
         }
-    }
-    
-    atualizarPontosAba(aba, diferenca) {
-        const pontosAtuais = this.gastos[aba] || 0;
-        const novosPontos = pontosAtuais + diferenca;
-        
-        this.atualizarGastosAba(aba, novosPontos);
-        return novosPontos;
     }
     
     // ===========================================
@@ -214,7 +226,7 @@ class PontosManager {
             elemento.textContent = texto;
             
             // Aplicar classe correta
-            elemento.parentElement.classList.remove('positivo', 'negativo', 'alerta');
+            elemento.parentElement.classList.remove('positivo', 'negativo');
             
             if (pontos > 0) {
                 elemento.parentElement.classList.add('positivo');
@@ -269,36 +281,30 @@ class PontosManager {
             }
         }
         
-        // Total gastos
+        // Total gastos (apenas vantagens, desvantagens aparecem separadas)
         const elementoGastos = document.getElementById('pontosGastos');
         if (elementoGastos) {
-            elementoGastos.textContent = calculo.gastos;
+            elementoGastos.textContent = calculo.vantagens;
         }
     }
     
     verificarLimites() {
-        const desvantagensPositivas = Math.abs(this.gastos.desvantagens);
-        const peculiaridadesPositivas = Math.abs(this.gastos.peculiaridades);
+        const calculo = this.calcularPontosDisponiveis();
         
-        // Desvantagens
+        // Desvantagens (total de todas as desvantagens)
         const progressDesvantagens = document.getElementById('progressDesvantagens');
         const textDesvantagens = document.getElementById('textDesvantagens');
         const percentDesvantagens = document.getElementById('percentDesvantagens');
         
         if (progressDesvantagens && textDesvantagens && percentDesvantagens) {
-            const percentual = Math.min(100, (desvantagensPositivas / this.limites.desvantagens) * 100);
+            const percentual = Math.min(100, (calculo.totalDesvantagensAbs / this.limites.desvantagens) * 100);
             
             progressDesvantagens.style.width = `${percentual}%`;
             progressDesvantagens.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
                                                        percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textDesvantagens.textContent = `${desvantagensPositivas}/${this.limites.desvantagens} pts`;
+            textDesvantagens.textContent = `${calculo.totalDesvantagensAbs}/${this.limites.desvantagens} pts`;
             percentDesvantagens.textContent = `${Math.round(percentual)}%`;
-            
-            // Aviso se excedeu
-            if (desvantagensPositivas > this.limites.desvantagens) {
-                this.mostrarAviso(`Limite de desvantagens excedido! (${desvantagensPositivas}/${this.limites.desvantagens})`);
-            }
         }
         
         // Peculiaridades
@@ -307,19 +313,14 @@ class PontosManager {
         const percentPeculiaridades = document.getElementById('percentPeculiaridades');
         
         if (progressPeculiaridades && textPeculiaridades && percentPeculiaridades) {
-            const percentual = Math.min(100, (peculiaridadesPositivas / this.limites.peculiaridades) * 100);
+            const percentual = Math.min(100, (calculo.peculiaridadesAbs / this.limites.peculiaridades) * 100);
             
             progressPeculiaridades.style.width = `${percentual}%`;
             progressPeculiaridades.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
                                                           percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textPeculiaridades.textContent = `${peculiaridadesPositivas}/${this.limites.peculiaridades} pts`;
+            textPeculiaridades.textContent = `${calculo.peculiaridadesAbs}/${this.limites.peculiaridades} pts`;
             percentPeculiaridades.textContent = `${Math.round(percentual)}%`;
-            
-            // Aviso se excedeu
-            if (peculiaridadesPositivas > this.limites.peculiaridades) {
-                this.mostrarAviso(`Limite de peculiaridades excedido! (${peculiaridadesPositivas}/${this.limites.peculiaridades})`);
-            }
         }
     }
     
@@ -332,8 +333,7 @@ class PontosManager {
             pontosIniciais: this.pontosIniciais,
             pontosGanhosCampanha: this.pontosGanhosCampanha,
             gastos: { ...this.gastos },
-            limites: { ...this.limites },
-            timestamp: new Date().toISOString()
+            limites: { ...this.limites }
         };
         
         // Salvar no sistema de salvamento
@@ -360,7 +360,7 @@ class PontosManager {
                 try {
                     dados = JSON.parse(dadosLocais);
                 } catch (error) {
-                    console.error('Erro ao carregar pontos do localStorage:', error);
+                    return;
                 }
             }
         }
@@ -368,7 +368,6 @@ class PontosManager {
         // Aplicar dados se encontrou
         if (dados) {
             this.aplicarDados(dados);
-            console.log('💰 Pontos carregados com sucesso');
         }
     }
     
@@ -422,7 +421,6 @@ class PontosManager {
     }
     
     mostrarAviso(mensagem) {
-        // Mostrar aviso temporário
         const aviso = document.createElement('div');
         aviso.style.cssText = `
             position: fixed;
@@ -435,7 +433,6 @@ class PontosManager {
             border-radius: 6px;
             z-index: 9999;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            animation: slideDown 0.3s ease;
             font-weight: bold;
         `;
         aviso.textContent = mensagem;
@@ -443,7 +440,7 @@ class PontosManager {
         
         setTimeout(() => {
             if (aviso.parentNode) aviso.parentNode.removeChild(aviso);
-        }, 5000);
+        }, 3000);
     }
     
     dispararEventoAtualizacao(aba, pontos) {
@@ -451,8 +448,7 @@ class PontosManager {
             detail: {
                 aba: aba,
                 pontos: pontos,
-                totais: this.calcularPontosDisponiveis(),
-                timestamp: new Date().toISOString()
+                totais: this.calcularPontosDisponiveis()
             }
         });
         document.dispatchEvent(evento);
@@ -472,10 +468,6 @@ class PontosManager {
     
     obterPontosDisponiveis() {
         return this.calcularPontosDisponiveis().disponiveis;
-    }
-    
-    registrarCallback(aba, callback) {
-        this.callbacks.set(aba, callback);
     }
 }
 
@@ -534,12 +526,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tabPrincipal && tabPrincipal.classList.contains('active')) {
         setTimeout(() => {
             inicializarPontosManager();
-        }, 1000);
+        }, 500);
     }
     
     // Inicializar quando a tab principal for ativada
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.tab') && e.target.closest('.tab').dataset.tab === 'principal') {
+    document.addEventListener('tabChanged', function(e) {
+        if (e.detail === 'principal') {
             setTimeout(() => {
                 if (!pontosManager) {
                     inicializarPontosManager();
@@ -548,5 +540,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-console.log('✅ pontos-manager.js carregado - SISTEMA CENTRALIZADO');

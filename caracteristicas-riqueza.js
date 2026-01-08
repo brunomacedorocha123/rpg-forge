@@ -1,6 +1,6 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS - COMUNICAÇÃO EM TEMPO REAL
-// Sistema de nível de riqueza integrado com pontos
+// CARACTERÍSTICAS-RIQUEZA.JS - CORREÇÃO FINAL
+// Sistema de nível de riqueza com lógica GURPS correta
 // ===========================================
 
 class SistemaRiqueza {
@@ -142,46 +142,35 @@ class SistemaRiqueza {
         this.atualizarDisplay();
         this.salvarNoLocalStorage();
         
-        // Notificar sistema de pontos (CORREÇÃO: tratar vantagens vs desvantagens)
+        // Atualizar sistema de pontos (COM LÓGICA GURPS CORRETA)
         this.atualizarSistemaPontos(nivelAtualObjAnterior, nivelNovoObj);
     }
 
     atualizarSistemaPontos(nivelAnterior, nivelNovo) {
-        // IMPORTANTE: No sistema de pontos:
-        // - Desvantagens são valores POSITIVOS (ex: 10 pts de desvantagem = +10 no sistema)
-        // - Vantagens são valores POSITIVOS (ex: 10 pts de vantagem = +10 no sistema)
-        // Mas no cálculo total: pontosDisponiveis = pontosIniciais - (vantagens + desvantagens)
-        // Onde desvantagens são subtraídas, então aparecem como negativo no total
+        if (!window.atualizarPontosAba) return;
         
-        if (!window.atualizarPontosAba || !window.obterGastosAba) return;
+        // LÓGICA GURPS CORRETA:
+        // 1. Desvantagens têm pontos NEGATIVOS (ex: -10)
+        // 2. Vantagens têm pontos POSITIVOS (ex: +10)
+        // 3. No sistema de pontos:
+        //    - Desvantagens: adicionar valor ABSOLUTO como positivo
+        //    - Vantagens: adicionar valor como positivo
         
-        // Remover pontos do nível anterior
+        // Remover pontos do nível anterior (inverter a lógica)
         if (nivelAnterior) {
             if (nivelAnterior.pontos < 0) {
-                // Era desvantagem: remover das desvantagens
-                const desvAtuais = window.obterGastosAba('desvantagens') || 0;
-                const pontosRemover = Math.abs(nivelAnterior.pontos);
-                const novaDesv = Math.max(0, desvAtuais - pontosRemover);
-                window.atualizarPontosAba('desvantagens', novaDesv);
+                // Era desvantagem: remover dos pontos totais (adiciona disponíveis)
+                // Não precisa fazer nada aqui, pois o sistema gerencia automaticamente
             } else if (nivelAnterior.pontos > 0) {
-                // Era vantagem: remover das vantagens
-                const vantAtuais = window.obterGastosAba('vantagens') || 0;
-                const novaVant = Math.max(0, vantAtuais - nivelAnterior.pontos);
-                window.atualizarPontosAba('vantagens', novaVant);
+                // Era vantagem: remover dos pontos gastos (adiciona disponíveis)
+                // Não precisa fazer nada aqui
             }
         }
         
-        // Adicionar pontos do novo nível
-        if (nivelNovo.pontos < 0) {
-            // É desvantagem: adicionar às desvantagens
-            const desvAtuais = window.obterGastosAba('desvantagens') || 0;
-            const pontosAdicionar = Math.abs(nivelNovo.pontos);
-            window.atualizarPontosAba('desvantagens', desvAtuais + pontosAdicionar);
-        } else if (nivelNovo.pontos > 0) {
-            // É vantagem: adicionar às vantagens
-            const vantAtuais = window.obterGastosAba('vantagens') || 0;
-            window.atualizarPontosAba('vantagens', vantAtuais + nivelNovo.pontos);
-        }
+        // A lógica correta é simples: passar o valor REAL para o sistema
+        // O sistema de pontos irá calcular corretamente:
+        // totalDisponivel = pontosIniciais - vantagens + desvantagens
+        window.atualizarPontosAba('riqueza', this.pontosRiqueza);
     }
 
     atualizarDisplay() {
