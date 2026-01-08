@@ -103,6 +103,12 @@ function ajustarSecundario(atributo, valor) {
     else if (novoValor < 0) input.classList.add('negativo');
 
     atualizarTotaisSecundarios();
+    
+    // Atualizar pontos gastos
+    if (window.atualizarPontosAba) {
+        const totalGastos = calcularCustos();
+        window.atualizarPontosAba('atributos', totalGastos);
+    }
 }
 
 // ===========================================
@@ -190,10 +196,11 @@ function calcularCustos() {
     const IQ = personagemAtributos.IQ;
     const HT = personagemAtributos.HT;
 
-    const custoST = (ST - 10) * 10;
-    const custoDX = (DX - 10) * 20;
-    const custoIQ = (IQ - 10) * 20;
-    const custoHT = (HT - 10) * 10;
+    // Cálculo correto: abaixo de 10 = custo negativo
+    const custoST = (ST - 10) * 10;       // ST 9 = (9-10)*10 = -10
+    const custoDX = (DX - 10) * 20;       // DX 9 = (9-10)*20 = -20
+    const custoIQ = (IQ - 10) * 20;       // IQ 9 = (9-10)*20 = -20
+    const custoHT = (HT - 10) * 10;       // HT 9 = (9-10)*10 = -10
 
     const totalGastos = custoST + custoDX + custoIQ + custoHT;
 
@@ -208,7 +215,20 @@ function calcularCustos() {
     Object.keys(elementosCusto).forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) {
-            elemento.textContent = elementosCusto[id];
+            // Formatar com sinal
+            let valorFormatado = elementosCusto[id];
+            if (valorFormatado > 0) {
+                valorFormatado = '+' + valorFormatado;
+            }
+            elemento.textContent = valorFormatado;
+            
+            // Adicionar classes de cor
+            elemento.classList.remove('positivo', 'negativo');
+            if (elementosCusto[id] > 0) {
+                elemento.classList.add('positivo');
+            } else if (elementosCusto[id] < 0) {
+                elemento.classList.add('negativo');
+            }
         }
     });
 
@@ -217,10 +237,18 @@ function calcularCustos() {
     if (pontosElement) {
         pontosElement.textContent = totalGastos;
         
+        // Limpar classes
+        pontosElement.classList.remove('positivo', 'negativo', 'excedido');
+        
+        // Adicionar classes apropriadas
+        if (totalGastos < 0) {
+            pontosElement.classList.add('negativo');
+        } else if (totalGastos > 0) {
+            pontosElement.classList.add('positivo');
+        }
+        
         if (totalGastos > 150) {
             pontosElement.classList.add('excedido');
-        } else {
-            pontosElement.classList.remove('excedido');
         }
     }
 
@@ -243,6 +271,89 @@ function atualizarTotaisSecundarios() {
     const deslocamentoBase = (personagemAtributos.HT + personagemAtributos.DX) / 4;
     const deslocamentoTotal = Math.max(deslocamentoBase + (personagemAtributos.bonus.Deslocamento || 0), 0).toFixed(2);
     document.getElementById('DeslocamentoTotal').textContent = deslocamentoTotal;
+}
+
+// ===========================================
+// FUNÇÕES DE RESET/LOAD
+// ===========================================
+
+function resetAtributos() {
+    personagemAtributos = {
+        ST: 10,
+        DX: 10,
+        IQ: 10,
+        HT: 10,
+        bonus: {
+            PV: 0,
+            PF: 0,
+            Vontade: 0,
+            Percepcao: 0,
+            Deslocamento: 0
+        }
+    };
+
+    // Resetar inputs
+    ['ST', 'DX', 'IQ', 'HT'].forEach(atributo => {
+        const input = document.getElementById(atributo);
+        if (input) {
+            input.value = 10;
+        }
+    });
+
+    // Resetar atributos secundários
+    ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].forEach(atributo => {
+        const input = document.getElementById('bonus' + atributo);
+        if (input) {
+            input.value = 0;
+            input.classList.remove('positivo', 'negativo');
+        }
+    });
+
+    atualizarTudo();
+}
+
+function loadAtributos(dados) {
+    if (!dados) return;
+    
+    // Carregar atributos básicos
+    if (dados.ST) personagemAtributos.ST = parseInt(dados.ST) || 10;
+    if (dados.DX) personagemAtributos.DX = parseInt(dados.DX) || 10;
+    if (dados.IQ) personagemAtributos.IQ = parseInt(dados.IQ) || 10;
+    if (dados.HT) personagemAtributos.HT = parseInt(dados.HT) || 10;
+    
+    // Carregar bônus
+    if (dados.bonus) {
+        if (dados.bonus.PV) personagemAtributos.bonus.PV = parseInt(dados.bonus.PV) || 0;
+        if (dados.bonus.PF) personagemAtributos.bonus.PF = parseInt(dados.bonus.PF) || 0;
+        if (dados.bonus.Vontade) personagemAtributos.bonus.Vontade = parseInt(dados.bonus.Vontade) || 0;
+        if (dados.bonus.Percepcao) personagemAtributos.bonus.Percepcao = parseInt(dados.bonus.Percepcao) || 0;
+        if (dados.bonus.Deslocamento) personagemAtributos.bonus.Deslocamento = parseFloat(dados.bonus.Deslocamento) || 0;
+    }
+    
+    // Atualizar inputs
+    document.getElementById('ST').value = personagemAtributos.ST;
+    document.getElementById('DX').value = personagemAtributos.DX;
+    document.getElementById('IQ').value = personagemAtributos.IQ;
+    document.getElementById('HT').value = personagemAtributos.HT;
+    
+    document.getElementById('bonusPV').value = personagemAtributos.bonus.PV;
+    document.getElementById('bonusPF').value = personagemAtributos.bonus.PF;
+    document.getElementById('bonusVontade').value = personagemAtributos.bonus.Vontade;
+    document.getElementById('bonusPercepcao').value = personagemAtributos.bonus.Percepcao;
+    document.getElementById('bonusDeslocamento').value = personagemAtributos.bonus.Deslocamento;
+    
+    // Aplicar classes de cor nos bônus
+    ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].forEach(atributo => {
+        const input = document.getElementById('bonus' + atributo);
+        if (input) {
+            const valor = parseFloat(input.value) || 0;
+            input.classList.remove('positivo', 'negativo');
+            if (valor > 0) input.classList.add('positivo');
+            else if (valor < 0) input.classList.add('negativo');
+        }
+    });
+    
+    atualizarTudo();
 }
 
 // ===========================================
@@ -312,6 +423,12 @@ function inicializarAtributos() {
                 this.classList.remove('positivo', 'negativo');
                 if (valor > 0) this.classList.add('positivo');
                 else if (valor < 0) this.classList.add('negativo');
+                
+                // Atualizar pontos
+                if (window.atualizarPontosAba) {
+                    const totalGastos = calcularCustos();
+                    window.atualizarPontosAba('atributos', totalGastos);
+                }
             });
         }
     });
@@ -344,6 +461,8 @@ window.initAtributosTab = function() {
 
 window.getAtributosPersonagem = () => ({ ...personagemAtributos });
 window.calcularCustoAtributos = calcularCustos;
+window.resetAtributos = resetAtributos;
+window.loadAtributos = loadAtributos;
 
 // ===========================================
 // INICIAR QUANDO A PÁGINA CARREGAR
@@ -353,4 +472,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('principal')?.classList.contains('active')) {
         window.initAtributosTab();
     }
+    
+    // Adicionar evento para quando a aba for ativada
+    document.addEventListener('tabChanged', function(e) {
+        if (e.detail === 'principal') {
+            setTimeout(window.initAtributosTab, 50);
+        }
+    });
 });
