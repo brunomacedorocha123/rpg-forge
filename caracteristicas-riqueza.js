@@ -1,6 +1,6 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS
-// Sistema de nível de riqueza integrado
+// CARACTERÍSTICAS-RIQUEZA.JS - COMPLETO E CORRIGIDO
+// Sistema de nível de riqueza com valores corretos
 // ===========================================
 
 class SistemaRiqueza {
@@ -40,7 +40,7 @@ class SistemaRiqueza {
                 cor: "#e74c3c"
             },
             "0": { 
-                nome: "Confortável",
+                nome: "Médio",
                 pontos: 0, 
                 multiplicador: 1, 
                 rendaBase: 1000,
@@ -51,7 +51,7 @@ class SistemaRiqueza {
                 cor: "#95a5a6"
             },
             "10": { 
-                nome: "Rico",
+                nome: "Confortável",
                 pontos: 10, 
                 multiplicador: 2, 
                 rendaBase: 2000,
@@ -62,7 +62,7 @@ class SistemaRiqueza {
                 cor: "#27ae60"
             },
             "20": { 
-                nome: "Muito Rico",
+                nome: "Rico",
                 pontos: 20, 
                 multiplicador: 5, 
                 rendaBase: 5000,
@@ -73,7 +73,7 @@ class SistemaRiqueza {
                 cor: "#27ae60"
             },
             "30": { 
-                nome: "Filantropo",
+                nome: "Muito Rico",
                 pontos: 30, 
                 multiplicador: 20, 
                 rendaBase: 20000,
@@ -120,30 +120,6 @@ class SistemaRiqueza {
                 this.definirNivel(e.target.value);
             });
         }
-
-        // Botões de aumentar/diminuir
-        const btnAumentar = document.getElementById('btnAumentarRiqueza');
-        const btnDiminuir = document.getElementById('btnDiminuirRiqueza');
-        
-        if (btnAumentar) {
-            btnAumentar.addEventListener('click', () => this.ajustarNivel(1));
-        }
-        
-        if (btnDiminuir) {
-            btnDiminuir.addEventListener('click', () => this.ajustarNivel(-1));
-        }
-    }
-
-    ajustarNivel(direcao) {
-        const niveis = Object.keys(this.niveisRiqueza).map(Number).sort((a, b) => a - b);
-        const nivelAtualNum = parseInt(this.nivelAtual);
-        const indexAtual = niveis.indexOf(nivelAtualNum);
-        
-        let novoIndex = indexAtual + direcao;
-        if (novoIndex < 0) novoIndex = 0;
-        if (novoIndex >= niveis.length) novoIndex = niveis.length - 1;
-        
-        this.definirNivel(niveis[novoIndex].toString());
     }
 
     definirNivel(valor) {
@@ -163,13 +139,23 @@ class SistemaRiqueza {
 
     atualizarDisplay() {
         const nivel = this.niveisRiqueza[this.nivelAtual];
-        if (!nivel) return;
+        if (!nivel) {
+            console.error('Nível não encontrado:', this.nivelAtual);
+            return;
+        }
 
         const display = document.getElementById('displayRiqueza');
         const badge = document.getElementById('pontosRiquezaBadge');
         const rendaElement = document.getElementById('rendaMensal');
         const multiplicadorElement = document.getElementById('multiplicadorRiqueza');
         const saldoAtual = document.getElementById('saldoAtual');
+
+        // DEBUG: Verificar valores
+        console.log('DEBUG RIQUEZA:', {
+            nivelAtual: this.nivelAtual,
+            nivel: nivel,
+            pontos: this.pontosRiqueza
+        });
 
         if (display) {
             display.innerHTML = `
@@ -185,7 +171,9 @@ class SistemaRiqueza {
         }
 
         if (badge) {
-            const pontosTexto = this.pontosRiqueza >= 0 ? `+${this.pontosRiqueza} pts` : `${this.pontosRiqueza} pts`;
+            const pontosTexto = this.pontosRiqueza >= 0 ? 
+                (this.pontosRiqueza === 0 ? "0 pts" : `+${this.pontosRiqueza} pts`) : 
+                `${this.pontosRiqueza} pts`;
             badge.textContent = pontosTexto;
             
             // Aplicar classe de cor
@@ -194,6 +182,8 @@ class SistemaRiqueza {
                 badge.classList.add('positivo');
             } else if (this.pontosRiqueza < 0) {
                 badge.classList.add('negativo');
+            } else {
+                badge.classList.remove('positivo', 'negativo');
             }
         }
 
@@ -237,9 +227,23 @@ class SistemaRiqueza {
         const pontos = this.getPontosRiqueza();
         const tipo = this.getTipoPontos();
         
+        console.log('Riqueza atualizada:', {
+            nivel: nivel.nome,
+            pontos: pontos,
+            tipo: tipo,
+            multiplicador: nivel.multiplicador,
+            renda: nivel.rendaBase
+        });
+        
         // Atualizar sistema de pontos
         if (window.atualizarPontosAba) {
-            window.atualizarPontosAba(tipo === 'vantagem' ? 'vantagens' : 'desvantagens', pontos, 'riqueza');
+            if (pontos > 0) {
+                // Pontos positivos são vantagens
+                window.atualizarPontosAba('vantagens', pontos);
+            } else if (pontos < 0) {
+                // Pontos negativos são desvantagens
+                window.atualizarPontosAba('desvantagens', Math.abs(pontos));
+            }
         }
         
         // Disparar evento customizado
@@ -277,6 +281,14 @@ class SistemaRiqueza {
                 if (dados.nivelRiqueza !== undefined) {
                     this.nivelAtual = dados.nivelRiqueza;
                     this.pontosRiqueza = parseInt(dados.nivelRiqueza);
+                    
+                    // Atualizar select se existir
+                    const select = document.getElementById('nivelRiqueza');
+                    if (select) {
+                        select.value = dados.nivelRiqueza;
+                    }
+                    
+                    console.log('Riqueza carregada do localStorage:', dados.nivelRiqueza);
                     return true;
                 }
             }
@@ -312,30 +324,59 @@ class SistemaRiqueza {
         }
         return false;
     }
+
+    // Função para resetar riqueza
+    resetar() {
+        this.definirNivel("0");
+    }
 }
 
 // INICIALIZAÇÃO GLOBAL
 let sistemaRiqueza = null;
 
 function inicializarSistemaRiqueza() {
+    console.log('Inicializando sistema de riqueza...');
+    
     if (!sistemaRiqueza) {
         sistemaRiqueza = new SistemaRiqueza();
     }
+    
+    // Verificar se o HTML está carregado
+    const select = document.getElementById('nivelRiqueza');
+    if (!select) {
+        console.error('Elemento nivelRiqueza não encontrado!');
+        return null;
+    }
+    
     sistemaRiqueza.inicializar();
+    
+    // DEBUG: Verificar valores iniciais
+    console.log('Sistema de riqueza inicializado:', {
+        nivelAtual: sistemaRiqueza.nivelAtual,
+        pontos: sistemaRiqueza.pontosRiqueza,
+        selectValue: select.value
+    });
+    
     return sistemaRiqueza;
 }
 
 // Inicializar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM completamente carregado');
+    
     // Verificar se estamos na aba principal
-    if (document.getElementById('principal')?.classList.contains('active')) {
+    const principalTab = document.getElementById('principal');
+    if (principalTab && principalTab.classList.contains('active')) {
+        console.log('Aba principal ativa, inicializando riqueza...');
         setTimeout(inicializarSistemaRiqueza, 100);
     }
 });
 
 // Inicializar quando a aba principal for ativada
 document.addEventListener('tabChanged', function(e) {
+    console.log('Tab changed:', e.detail);
     if (e.detail === 'principal') {
+        console.log('Aba principal ativada, inicializando riqueza...');
         setTimeout(inicializarSistemaRiqueza, 100);
     }
 });
@@ -344,3 +385,16 @@ document.addEventListener('tabChanged', function(e) {
 window.SistemaRiqueza = SistemaRiqueza;
 window.inicializarSistemaRiqueza = inicializarSistemaRiqueza;
 window.sistemaRiqueza = sistemaRiqueza;
+window.getPontosRiqueza = function() {
+    return sistemaRiqueza ? sistemaRiqueza.getPontosRiqueza() : 0;
+};
+window.resetarRiqueza = function() {
+    if (sistemaRiqueza) sistemaRiqueza.resetar();
+};
+
+// Função para forçar atualização se necessário
+window.atualizarRiquezaDisplay = function() {
+    if (sistemaRiqueza) {
+        sistemaRiqueza.atualizarDisplay();
+    }
+};
