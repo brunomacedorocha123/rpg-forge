@@ -11,7 +11,7 @@ class SistemaRiqueza {
                 pontos: -25, 
                 multiplicador: 0, 
                 rendaBase: 0,
-                descricao: "Sem emprejo, fonte de renda, dinheiro ou bens",
+                descricao: "Sem emprego, fonte de renda, dinheiro ou bens",
                 recursos: "Nenhum",
                 icone: "fas fa-skull-crossbones",
                 tipo: "desvantagem",
@@ -99,11 +99,6 @@ class SistemaRiqueza {
         this.nivelAtual = "0";
         this.pontosRiqueza = 0;
         this.inicializado = false;
-        
-        // Histórico para tracking de mudanças
-        this.nivelAnterior = null;
-        this.pontosAnteriores = 0;
-        
         this.carregarDoLocalStorage();
     }
 
@@ -128,11 +123,12 @@ class SistemaRiqueza {
     }
 
     definirNivel(valor) {
-        // Guardar estado anterior
-        this.nivelAnterior = this.nivelAtual;
-        this.pontosAnteriores = this.pontosRiqueza;
+        // Salvar nível anterior
+        const nivelAnterior = this.nivelAtual;
+        const nivelAtualObjAnterior = this.niveisRiqueza[nivelAnterior];
+        const nivelNovoObj = this.niveisRiqueza[valor];
         
-        // Atualizar estado atual
+        // Atualizar estado
         this.nivelAtual = valor;
         this.pontosRiqueza = parseInt(valor);
         
@@ -142,36 +138,49 @@ class SistemaRiqueza {
             select.value = valor;
         }
         
+        // Atualizar display
         this.atualizarDisplay();
         this.salvarNoLocalStorage();
         
-        // CORREÇÃO IMPORTANTE: Ajustar pontos do sistema anterior ANTES de notificar
-        this.ajustarPontosAnteriores();
-        
-        // Notificar sistema de pontos
-        this.notificarAtualizacao();
+        // Notificar sistema de pontos (CORREÇÃO: tratar vantagens vs desvantagens)
+        this.atualizarSistemaPontos(nivelAtualObjAnterior, nivelNovoObj);
     }
 
-    ajustarPontosAnteriores() {
-        // Se havia um nível anterior com pontos, precisamos removê-los do sistema
-        if (this.nivelAnterior !== null && this.pontosAnteriores !== 0) {
-            const tipoAnterior = this.pontosAnteriores < 0 ? 'desvantagens' : 'vantagens';
-            const pontosAnterioresAbs = Math.abs(this.pontosAnteriores);
-            
-            // Remover pontos do nível anterior do sistema
-            if (window.atualizarPontosAba) {
-                if (tipoAnterior === 'desvantagens') {
-                    // Se era desvantagem, subtraímos dos pontos de desvantagens
-                    const desvAtuais = window.obterGastosAba ? window.obterGastosAba('desvantagens') : 0;
-                    const novaDesv = Math.max(0, desvAtuais - pontosAnterioresAbs);
-                    window.atualizarPontosAba('desvantagens', novaDesv);
-                } else if (tipoAnterior === 'vantagens') {
-                    // Se era vantagem, subtraímos dos pontos de vantagens
-                    const vantAtuais = window.obterGastosAba ? window.obterGastosAba('vantagens') : 0;
-                    const novaVant = Math.max(0, vantAtuais - pontosAnterioresAbs);
-                    window.atualizarPontosAba('vantagens', novaVant);
-                }
+    atualizarSistemaPontos(nivelAnterior, nivelNovo) {
+        // IMPORTANTE: No sistema de pontos:
+        // - Desvantagens são valores POSITIVOS (ex: 10 pts de desvantagem = +10 no sistema)
+        // - Vantagens são valores POSITIVOS (ex: 10 pts de vantagem = +10 no sistema)
+        // Mas no cálculo total: pontosDisponiveis = pontosIniciais - (vantagens + desvantagens)
+        // Onde desvantagens são subtraídas, então aparecem como negativo no total
+        
+        if (!window.atualizarPontosAba || !window.obterGastosAba) return;
+        
+        // Remover pontos do nível anterior
+        if (nivelAnterior) {
+            if (nivelAnterior.pontos < 0) {
+                // Era desvantagem: remover das desvantagens
+                const desvAtuais = window.obterGastosAba('desvantagens') || 0;
+                const pontosRemover = Math.abs(nivelAnterior.pontos);
+                const novaDesv = Math.max(0, desvAtuais - pontosRemover);
+                window.atualizarPontosAba('desvantagens', novaDesv);
+            } else if (nivelAnterior.pontos > 0) {
+                // Era vantagem: remover das vantagens
+                const vantAtuais = window.obterGastosAba('vantagens') || 0;
+                const novaVant = Math.max(0, vantAtuais - nivelAnterior.pontos);
+                window.atualizarPontosAba('vantagens', novaVant);
             }
+        }
+        
+        // Adicionar pontos do novo nível
+        if (nivelNovo.pontos < 0) {
+            // É desvantagem: adicionar às desvantagens
+            const desvAtuais = window.obterGastosAba('desvantagens') || 0;
+            const pontosAdicionar = Math.abs(nivelNovo.pontos);
+            window.atualizarPontosAba('desvantagens', desvAtuais + pontosAdicionar);
+        } else if (nivelNovo.pontos > 0) {
+            // É vantagem: adicionar às vantagens
+            const vantAtuais = window.obterGastosAba('vantagens') || 0;
+            window.atualizarPontosAba('vantagens', vantAtuais + nivelNovo.pontos);
         }
     }
 
@@ -254,22 +263,6 @@ class SistemaRiqueza {
         const pontos = this.getPontosRiqueza();
         const tipo = this.getTipoPontos();
         
-        // SÓ adiciona novos pontos (não duplica)
-        if (window.atualizarPontosAba) {
-            if (pontos > 0) {
-                // Pontos positivos são vantagens
-                // Obter vantagens atuais e adicionar apenas os pontos novos
-                const vantAtuais = window.obterGastosAba ? window.obterGastosAba('vantagens') : 0;
-                window.atualizarPontosAba('vantagens', vantAtuais + pontos);
-            } else if (pontos < 0) {
-                // Pontos negativos são desvantagens (valor absoluto)
-                // Obter desvantagens atuais e adicionar apenas os pontos novos
-                const pontosAbs = Math.abs(pontos);
-                const desvAtuais = window.obterGastosAba ? window.obterGastosAba('desvantagens') : 0;
-                window.atualizarPontosAba('desvantagens', desvAtuais + pontosAbs);
-            }
-        }
-        
         // Disparar evento customizado
         const evento = new CustomEvent('riquezaAtualizada', {
             detail: {
@@ -346,7 +339,6 @@ class SistemaRiqueza {
         return false;
     }
 
-    // Função para resetar riqueza
     resetar() {
         this.definirNivel("0");
     }
