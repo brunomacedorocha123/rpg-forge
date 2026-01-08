@@ -1,5 +1,5 @@
 // =============================================
-// CARACTERÍSTICAS FÍSICAS - SISTEMA INTELIGENTE
+// CARACTERÍSTICAS FÍSICAS - SISTEMA COMPLETO
 // =============================================
 
 class CaracteristicasFisicasSistema {
@@ -99,19 +99,14 @@ class CaracteristicasFisicasSistema {
         this.altura = 1.70;
         this.peso = 70;
         this.stAtual = 10;
-        this.inicializado = false;
     }
 
     inicializar() {
-        if (this.inicializado) return;
-        
         this.atualizarST();
         this.configurarModal();
         this.configurarEventosPrincipais();
         this.carregarDados();
         this.atualizarTudo();
-        
-        this.inicializado = true;
     }
 
     configurarModal() {
@@ -130,14 +125,6 @@ class CaracteristicasFisicasSistema {
             });
         });
         
-        this.configurarControlesModal();
-        
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) this.fecharModal();
-        });
-    }
-
-    configurarControlesModal() {
         const btnAlturaMenos = document.querySelector('#alturaModal').parentElement.querySelector('.minus');
         const btnAlturaMais = document.querySelector('#alturaModal').parentElement.querySelector('.plus');
         const inputAltura = document.getElementById('alturaModal');
@@ -151,6 +138,10 @@ class CaracteristicasFisicasSistema {
         if (btnPesoMais) btnPesoMais.onclick = () => this.ajustarPeso(1);
         if (inputAltura) inputAltura.onchange = () => this.atualizarValorAltura();
         if (inputPeso) inputPeso.onchange = () => this.atualizarValorPeso();
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.fecharModal();
+        });
     }
 
     configurarEventosPrincipais() {
@@ -181,13 +172,7 @@ class CaracteristicasFisicasSistema {
                 this.atualizarTudo();
             }
         });
-        
-        setInterval(() => this.verificarST(), 1000);
     }
-
-    // ===========================================
-    // GERENCIAMENTO DO MODAL
-    // ===========================================
 
     abrirModal() {
         const modal = document.getElementById('alturaPesoModal');
@@ -222,10 +207,6 @@ class CaracteristicasFisicasSistema {
         this.atualizarPontosSistema();
     }
 
-    // ===========================================
-    // GERENCIAMENTO DE CARACTERÍSTICAS
-    // ===========================================
-
     alternarCaracteristica(tipo) {
         const index = this.caracteristicasSelecionadas.findIndex(c => c.tipo === tipo);
         
@@ -236,6 +217,7 @@ class CaracteristicasFisicasSistema {
         }
         
         this.atualizarBotoesCaracteristicas();
+        this.atualizarFaixasModal();
         this.atualizarStatusModal();
         this.atualizarPontosSistema();
         this.salvarDados();
@@ -270,10 +252,6 @@ class CaracteristicasFisicasSistema {
         }
     }
 
-    // ===========================================
-    // CÁLCULOS INTELIGENTES
-    // ===========================================
-
     atualizarST() {
         if (window.getAtributosPersonagem) {
             const atributos = window.getAtributosPersonagem();
@@ -285,23 +263,6 @@ class CaracteristicasFisicasSistema {
         
         const inputST = document.getElementById('ST');
         this.stAtual = inputST ? parseInt(inputST.value) || 10 : 10;
-    }
-
-    verificarST() {
-        const novoST = this.obterSTAtual();
-        if (novoST !== this.stAtual) {
-            this.stAtual = novoST;
-            this.atualizarTudo();
-        }
-    }
-
-    obterSTAtual() {
-        if (window.getAtributosPersonagem) {
-            const atributos = window.getAtributosPersonagem();
-            return atributos?.ST || 10;
-        }
-        const inputST = document.getElementById('ST');
-        return inputST ? parseInt(inputST.value) || 10 : 10;
     }
 
     obterFaixaAltura(st) {
@@ -396,16 +357,11 @@ class CaracteristicasFisicasSistema {
         let mensagemPeso = '';
         
         if (caracteristicaAtiva) {
-            const pesoBaseMin = faixaPesoBase.min;
-            const pesoBaseMax = faixaPesoBase.max;
-            const pesoAjustMin = faixaPesoAjustada.min;
-            const pesoAjustMax = faixaPesoAjustada.max;
-            
             mensagemPeso = pesoValido ? 
-                `${caracteristicaAtiva.nome}: ${pesoAjustMin}kg - ${pesoAjustMax}kg (${pesoBaseMin}-${pesoBaseMax}kg × ${multiplicadorPeso})` :
-                this.peso < pesoAjustMin ? 
-                    `${caracteristicaAtiva.nome}: Abaixo do mínimo (${pesoAjustMin}kg)` :
-                    `${caracteristicaAtiva.nome}: Acima do máximo (${pesoAjustMax}kg)`;
+                `${caracteristicaAtiva.nome}: ${faixaPesoAjustada.min}kg - ${faixaPesoAjustada.max}kg` :
+                this.peso < faixaPesoAjustada.min ? 
+                    `${caracteristicaAtiva.nome}: Abaixo do mínimo (${faixaPesoAjustada.min}kg)` :
+                    `${caracteristicaAtiva.nome}: Acima do máximo (${faixaPesoAjustada.max}kg)`;
         } else {
             mensagemPeso = pesoValido ? 
                 `Dentro da faixa (${faixaPesoBase.min}kg - ${faixaPesoBase.max}kg)` :
@@ -424,18 +380,53 @@ class CaracteristicasFisicasSistema {
             caracteristicaAtiva,
             nanismoAtivo: !!nanismo,
             mensagemAltura,
-            mensagemPeso,
-            dentroDaFaixa: alturaValida && pesoValido
+            mensagemPeso
         };
+    }
+
+    atualizarFaixasModal() {
+        const faixaAltura = this.obterFaixaAltura(this.stAtual);
+        const faixaPesoBase = this.obterFaixaPeso(this.stAtual);
+        
+        // OBTER MULTIPLICADOR ATUAL
+        let multiplicadorPeso = 1.0;
+        let nomeCaracteristica = '';
+        const caracteristicaPeso = this.caracteristicasSelecionadas.find(c => c.pesoMultiplicador);
+        if (caracteristicaPeso) {
+            multiplicadorPeso = caracteristicaPeso.pesoMultiplicador;
+            nomeCaracteristica = caracteristicaPeso.nome;
+        }
+        
+        // CALCULAR FAIXA AJUSTADA
+        const faixaPesoAjustada = {
+            min: Math.round(faixaPesoBase.min * multiplicadorPeso),
+            max: Math.round(faixaPesoBase.max * multiplicadorPeso)
+        };
+        
+        // ATUALIZAR ALTURA NO MODAL
+        const faixaAlturaElement = document.getElementById('faixaAltura');
+        if (faixaAlturaElement) {
+            faixaAlturaElement.textContent = `${faixaAltura.min.toFixed(2)}m - ${faixaAltura.max.toFixed(2)}m`;
+        }
+        
+        // ATUALIZAR PESO NO MODAL (MOSTRAR AJUSTADO SE HOUVER CARACTERÍSTICA)
+        const faixaPesoElement = document.getElementById('faixaPeso');
+        if (faixaPesoElement) {
+            if (caracteristicaPeso) {
+                faixaPesoElement.textContent = `${faixaPesoAjustada.min}kg - ${faixaPesoAjustada.max}kg (${nomeCaracteristica})`;
+                faixaPesoElement.style.color = '#f39c12';
+                faixaPesoElement.style.fontWeight = 'bold';
+            } else {
+                faixaPesoElement.textContent = `${faixaPesoBase.min}kg - ${faixaPesoBase.max}kg`;
+                faixaPesoElement.style.color = '';
+                faixaPesoElement.style.fontWeight = '';
+            }
+        }
     }
 
     calcularPontosCaracteristicas() {
         return this.caracteristicasSelecionadas.reduce((total, carac) => total + carac.pontos, 0);
     }
-
-    // ===========================================
-    // CONTROLES DE AJUSTE
-    // ===========================================
 
     ajustarAltura(variacao) {
         let novaAltura = this.altura + variacao;
@@ -486,10 +477,6 @@ class CaracteristicasFisicasSistema {
         this.atualizarStatusModal();
     }
 
-    // ===========================================
-    // ATUALIZAÇÃO DA INTERFACE
-    // ===========================================
-
     atualizarTudo() {
         this.atualizarStatusInputs();
         this.atualizarPontosSistema();
@@ -522,17 +509,6 @@ class CaracteristicasFisicasSistema {
                 inputPeso.style.backgroundColor = '#d4edda';
             }
         }
-    }
-
-    atualizarFaixasModal() {
-        const faixaAltura = this.obterFaixaAltura(this.stAtual);
-        const faixaPeso = this.obterFaixaPeso(this.stAtual);
-        
-        document.getElementById('faixaAltura').textContent = 
-            `${faixaAltura.min.toFixed(2)}m - ${faixaAltura.max.toFixed(2)}m`;
-        
-        document.getElementById('faixaPeso').textContent = 
-            `${faixaPeso.min}kg - ${faixaPeso.max}kg`;
     }
 
     atualizarStatusModal() {
@@ -575,10 +551,6 @@ class CaracteristicasFisicasSistema {
         }
     }
 
-    // ===========================================
-    // SALVAMENTO E CARREGAMENTO
-    // ===========================================
-
     salvarDados() {
         const dados = {
             caracteristicasSelecionadas: this.caracteristicasSelecionadas,
@@ -620,10 +592,6 @@ class CaracteristicasFisicasSistema {
         } catch (error) {}
     }
 }
-
-// ===========================================
-// INICIALIZAÇÃO GLOBAL
-// ===========================================
 
 let sistemaCaracteristicas = null;
 
