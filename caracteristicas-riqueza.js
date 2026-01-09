@@ -1,5 +1,5 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS - VERSÃO CORRIGIDA
+// CARACTERÍSTICAS-RIQUEZA.JS - VERSÃO FINAL
 // ===========================================
 
 class SistemaRiqueza {
@@ -138,13 +138,43 @@ class SistemaRiqueza {
     }
 
     enviarEventoParaPontosManager() {
-        document.dispatchEvent(new CustomEvent('riquezaAtualizadaParaSoma', {
-            detail: {
-                pontos: this.pontosRiqueza,
-                nivel: this.nivelAtual,
-                nome: this.niveisRiqueza[this.nivelAtual]?.nome || 'Desconhecido'
-            }
-        }));
+        if (this.pontosRiqueza > 0) {
+            // VANTAGEM (custa pontos) - Confortável, Rico, etc.
+            document.dispatchEvent(new CustomEvent('vantagensAtualizadas', {
+                detail: {
+                    pontos: this.pontosRiqueza,
+                    tipo: 'riqueza',
+                    nome: this.niveisRiqueza[this.nivelAtual]?.nome
+                }
+            }));
+            
+            // Zera evento de desvantagem
+            document.dispatchEvent(new CustomEvent('riquezaAtualizadaParaSoma', {
+                detail: { pontos: 0 }
+            }));
+        } else if (this.pontosRiqueza < 0) {
+            // DESVANTAGEM (ganha pontos) - Batalhador, Pobre, etc.
+            document.dispatchEvent(new CustomEvent('riquezaAtualizadaParaSoma', {
+                detail: {
+                    pontos: this.pontosRiqueza,
+                    nivel: this.nivelAtual,
+                    nome: this.niveisRiqueza[this.nivelAtual]?.nome || 'Desconhecido'
+                }
+            }));
+            
+            // Zera evento de vantagem
+            document.dispatchEvent(new CustomEvent('vantagensAtualizadas', {
+                detail: { pontos: 0, tipo: 'riqueza' }
+            }));
+        } else {
+            // NEUTRO (0 pontos)
+            document.dispatchEvent(new CustomEvent('riquezaAtualizadaParaSoma', {
+                detail: { pontos: 0 }
+            }));
+            document.dispatchEvent(new CustomEvent('vantagensAtualizadas', {
+                detail: { pontos: 0, tipo: 'riqueza' }
+            }));
+        }
     }
 
     atualizarDisplay() {
