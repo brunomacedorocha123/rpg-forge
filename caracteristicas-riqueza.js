@@ -1,6 +1,5 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS - CORREÇÃO FINAL
-// Sistema de nível de riqueza com lógica GURPS correta
+// CARACTERÍSTICAS-RIQUEZA.JS - VERSÃO FINAL SEM DUPLICAÇÃO
 // ===========================================
 
 class SistemaRiqueza {
@@ -96,6 +95,7 @@ class SistemaRiqueza {
             }
         };
 
+        this.nivelAnterior = "0";
         this.nivelAtual = "0";
         this.pontosRiqueza = 0;
         this.inicializado = false;
@@ -122,11 +122,16 @@ class SistemaRiqueza {
     }
 
     definirNivel(valor) {
-        const nivelAnterior = this.nivelAtual;
+        // Guarda o nível anterior ANTES de mudar
+        const nivelAnteriorValor = this.nivelAtual;
+        const nivelAnteriorObj = this.niveisRiqueza[nivelAnteriorValor];
         
+        // Atualiza estado
+        this.nivelAnterior = nivelAnteriorValor;
         this.nivelAtual = valor;
         this.pontosRiqueza = parseInt(valor);
         
+        // Atualiza select
         const select = document.getElementById('nivelRiqueza');
         if (select) {
             select.value = valor;
@@ -135,29 +140,40 @@ class SistemaRiqueza {
         this.atualizarDisplay();
         this.salvarNoLocalStorage();
         
-        this.atualizarSistemaPontos();
+        // Atualiza sistema de pontos CORRETAMENTE
+        this.atualizarSistemaPontos(nivelAnteriorObj);
     }
 
-    atualizarSistemaPontos() {
-        const pontos = this.pontosRiqueza;
+    atualizarSistemaPontos(nivelAnteriorObj) {
+        const pontosAnterior = nivelAnteriorObj ? nivelAnteriorObj.pontos : 0;
+        const pontosAtual = this.pontosRiqueza;
         
-        if (pontos > 0) {
-            // É VANTAGEM: +10, +20, +30, +50
-            if (window.atualizarPontosAba) {
-                window.atualizarPontosAba('vantagens', pontos);
-            }
-        } else if (pontos < 0) {
-            // É DESVANTAGEM: -10, -15, -25
-            if (window.atualizarPontosAba) {
-                window.atualizarPontosAba('desvantagens', Math.abs(pontos));
-            }
-        } else {
-            // Neutro: 0
+        // PRIMEIRO: Remove os pontos do nível anterior
+        if (pontosAnterior > 0) {
+            // Era vantagem - remove dos gastos
             if (window.atualizarPontosAba) {
                 window.atualizarPontosAba('vantagens', 0);
+            }
+        } else if (pontosAnterior < 0) {
+            // Era desvantagem - remove dos ganhos
+            if (window.atualizarPontosAba) {
                 window.atualizarPontosAba('desvantagens', 0);
             }
         }
+        
+        // DEPOIS: Adiciona os pontos do nível atual
+        if (pontosAtual > 0) {
+            // É VANTAGEM
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('vantagens', pontosAtual);
+            }
+        } else if (pontosAtual < 0) {
+            // É DESVANTAGEM
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('desvantagens', Math.abs(pontosAtual));
+            }
+        }
+        // Se for 0, já foi zerado no primeiro passo
     }
 
     atualizarDisplay() {
@@ -268,6 +284,7 @@ class SistemaRiqueza {
                 const dados = JSON.parse(dadosSalvos);
                 if (dados.nivelRiqueza !== undefined) {
                     this.nivelAtual = dados.nivelRiqueza;
+                    this.nivelAnterior = "0";
                     this.pontosRiqueza = parseInt(dados.nivelRiqueza);
                     
                     const select = document.getElementById('nivelRiqueza');
