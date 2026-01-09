@@ -1,31 +1,23 @@
 // ===========================================
-// PONTOS-MANAGER.JS - VERSÃO QUE NÃO MUDA NADA
+// PONTOS-MANAGER.JS - VERSÃO ESTÁVEL E FUNCIONAL
 // ===========================================
 
 class PontosManager {
     constructor() {
-        // PONTOS BASE
         this.pontosIniciais = 150;
         this.pontosGanhosCampanha = 0;
         
-        // GASTOS - MESMA ESTRUTURA DO SEU HTML
         this.gastos = {
             atributos: 0,
             vantagens: 0,
-            desvantagens: 0,      // AQUI FICA A SOMA DE TODAS AS DESVANTAGENS
+            desvantagens: 0,
             peculiaridades: 0,
             pericias: 0,
             tecnicas: 0,
-            magia: 0
+            magia: 0,
+            equipamentos: 0
         };
         
-        // CONTROLE INTERNO (não aparece no HTML)
-        this.controle = {
-            riqueza: 0,          // Pontos da riqueza
-            caracteristicas: 0   // Pontos das características físicas
-        };
-        
-        // LIMITES
         this.limites = {
             desvantagens: 40,
             peculiaridades: 20
@@ -47,271 +39,279 @@ class PontosManager {
     }
     
     configurarInputs() {
-        const inputIniciais = document.getElementById('pontosIniciais');
-        if (inputIniciais) {
-            inputIniciais.value = this.pontosIniciais;
-            inputIniciais.addEventListener('change', (e) => {
+        const inputPontosIniciais = document.getElementById('pontosIniciais');
+        if (inputPontosIniciais) {
+            inputPontosIniciais.value = this.pontosIniciais;
+            inputPontosIniciais.addEventListener('change', (e) => {
                 this.pontosIniciais = parseInt(e.target.value) || 150;
                 this.atualizarTudo();
                 this.salvarDados();
             });
         }
         
-        const inputGanhos = document.getElementById('pontosGanhos');
-        if (inputGanhos) {
-            inputGanhos.value = this.pontosGanhosCampanha;
-            inputGanhos.addEventListener('change', (e) => {
+        const inputPontosGanhos = document.getElementById('pontosGanhos');
+        if (inputPontosGanhos) {
+            inputPontosGanhos.value = this.pontosGanhosCampanha;
+            inputPontosGanhos.addEventListener('change', (e) => {
                 this.pontosGanhosCampanha = parseInt(e.target.value) || 0;
                 this.atualizarTudo();
                 this.salvarDados();
             });
         }
         
-        const limiteDesv = document.getElementById('limiteDesvantagens');
-        if (limiteDesv) {
-            limiteDesv.value = this.limites.desvantagens;
-            limiteDesv.addEventListener('change', (e) => {
+        const inputLimiteDesvantagens = document.getElementById('limiteDesvantagens');
+        if (inputLimiteDesvantagens) {
+            inputLimiteDesvantagens.value = this.limites.desvantagens;
+            inputLimiteDesvantagens.addEventListener('change', (e) => {
                 this.limites.desvantagens = parseInt(e.target.value) || 40;
-                this.verificarLimites();
+                this.atualizarTudo();
                 this.salvarDados();
             });
         }
         
-        const limitePec = document.getElementById('limitePeculiaridades');
-        if (limitePec) {
-            limitePec.value = this.limites.peculiaridades;
-            limitePec.addEventListener('change', (e) => {
+        const inputLimitePeculiaridades = document.getElementById('limitePeculiaridades');
+        if (inputLimitePeculiaridades) {
+            inputLimitePeculiaridades.value = this.limites.peculiaridades;
+            inputLimitePeculiaridades.addEventListener('change', (e) => {
                 this.limites.peculiaridades = parseInt(e.target.value) || 20;
-                this.verificarLimites();
+                this.atualizarTudo();
                 this.salvarDados();
             });
         }
     }
     
     configurarEventos() {
-        // Atributos
         document.addEventListener('atributosAtualizados', (e) => {
-            if (e.detail?.pontosGastos !== undefined) {
-                this.gastos.atributos = e.detail.pontosGastos;
-                this.atualizarTudo();
-                this.salvarDados();
+            if (e.detail && e.detail.pontosGastos !== undefined) {
+                this.atualizarGastosAba('atributos', e.detail.pontosGastos);
             }
         });
         
-        // RIQUEZA - ponto por ponto
+        document.addEventListener('vantagensAtualizadas', (e) => {
+            if (e.detail && e.detail.pontosGastos !== undefined) {
+                this.atualizarGastosAba('vantagens', e.detail.pontosGastos);
+            }
+        });
+        
+        // AQUI ESTÁ A CORREÇÃO: desvantagens SOMAM
+        document.addEventListener('desvantagensAtualizadas', (e) => {
+            if (e.detail && e.detail.pontosGastos !== undefined) {
+                const pontosAtuais = this.gastos.desvantagens || 0;
+                const novosPontos = pontosAtuais + e.detail.pontosGastos;
+                this.atualizarGastosAba('desvantagens', novosPontos);
+            }
+        });
+        
         document.addEventListener('riquezaAtualizada', (e) => {
-            if (e.detail?.pontos !== undefined) {
+            if (e.detail && e.detail.pontos !== undefined) {
                 const pontos = e.detail.pontos;
-                
-                // Se for desvantagem (< 0)
-                if (pontos < 0) {
-                    this.controle.riqueza = Math.abs(pontos); // Valor positivo
-                } else {
-                    this.controle.riqueza = 0;
-                }
-                
-                // Se for vantagem (> 0)
                 if (pontos > 0) {
-                    this.gastos.vantagens = pontos;
+                    // Vantagem: substitui
+                    this.atualizarGastosAba('vantagens', pontos);
+                } else if (pontos < 0) {
+                    // Desvantagem: substitui
+                    this.atualizarGastosAba('desvantagens', Math.abs(pontos));
                 }
-                
-                // Atualizar desvantagens (soma riqueza + características)
-                this.atualizarDesvantagens();
-                this.atualizarTudo();
-                this.salvarDados();
+                // Se 0, não faz nada (mantém o que tinha)
             }
         });
-        
-        // CARACTERÍSTICAS FÍSICAS
-        document.addEventListener('caracteristicasFisicasAtualizadas', (e) => {
-            if (e.detail?.pontos !== undefined) {
-                this.controle.caracteristicas = e.detail.pontos; // Já vem positivo
-                this.atualizarDesvantagens();
-                this.atualizarTudo();
-                this.salvarDados();
-            }
-        });
-    }
-    
-    // SOMA riqueza + características
-    atualizarDesvantagens() {
-        const total = this.controle.riqueza + this.controle.caracteristicas;
-        this.gastos.desvantagens = total;
     }
     
     calcularPontosDisponiveis() {
-        const totalBase = this.pontosIniciais + this.pontosGanhosCampanha;
+        const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
-        // Total gasto (tudo menos desvantagens)
-        let totalGastos = 0;
-        Object.entries(this.gastos).forEach(([categoria, pontos]) => {
-            if (categoria !== 'desvantagens' && categoria !== 'peculiaridades') {
-                totalGastos += pontos;
-            }
-        });
+        // VANTAGENS: soma tudo que custa pontos
+        let vantagensTotal = 0;
+        vantagensTotal += Math.max(0, this.gastos.atributos || 0);
+        vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
+        vantagensTotal += Math.max(0, this.gastos.pericias || 0);
+        vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
+        vantagensTotal += Math.max(0, this.gastos.magia || 0);
+        vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
         
-        // Total ganho (desvantagens + peculiaridades)
-        const totalGanhos = this.gastos.desvantagens + Math.abs(this.gastos.peculiaridades);
+        // DESVANTAGENS: soma tudo que dá pontos
+        let desvantagensTotal = 0;
+        desvantagensTotal += Math.abs(Math.min(0, this.gastos.atributos || 0));
+        desvantagensTotal += Math.abs(this.gastos.desvantagens || 0);
+        desvantagensTotal += Math.abs(this.gastos.peculiaridades || 0);
         
-        // Pontos disponíveis
-        const disponiveis = totalBase - totalGastos + totalGanhos;
+        // Cálculo final: pontos iniciais - vantagens + desvantagens
+        const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
         
         return {
-            base: totalBase,
-            gastos: totalGastos,
-            ganhos: totalGanhos,
-            disponiveis: disponiveis
+            total: totalPontos,
+            vantagens: vantagensTotal,
+            desvantagens: desvantagensTotal,
+            disponiveis: pontosDisponiveis,
+            totalDesvantagensAbs: desvantagensTotal,
+            peculiaridadesAbs: Math.abs(this.gastos.peculiaridades || 0)
         };
     }
     
+    atualizarGastosAba(aba, pontos) {
+        const pontosAnteriores = this.gastos[aba] || 0;
+        
+        if (pontosAnteriores !== pontos) {
+            this.gastos[aba] = pontos;
+            
+            this.atualizarDisplayAba(aba);
+            this.atualizarTotais();
+            this.verificarLimites();
+            
+            this.salvarDados();
+            
+            this.dispararEventoAtualizacao(aba, pontos);
+        }
+    }
+    
     atualizarTudo() {
-        const calculo = this.calcularPontosDisponiveis();
+        Object.keys(this.gastos).forEach(aba => {
+            this.atualizarDisplayAba(aba);
+        });
         
-        // Atualizar todos os displays
-        this.atualizarDisplay('atributos', this.gastos.atributos);
-        this.atualizarDisplay('vantagens', this.gastos.vantagens);
-        this.atualizarDisplay('desvantagens', this.gastos.desvantagens, true); // true = desvantagem
-        this.atualizarDisplay('peculiaridades', Math.abs(this.gastos.peculiaridades), true);
-        this.atualizarDisplay('pericias', this.gastos.pericias);
-        this.atualizarDisplay('tecnicas', this.gastos.tecnicas);
-        this.atualizarDisplay('magia', this.gastos.magia);
-        
-        // Totais
-        this.atualizarTotais(calculo);
+        this.atualizarTotais();
         this.verificarLimites();
     }
     
-    atualizarDisplay(categoria, pontos, isDesvantagem = false) {
-        const elemento = document.getElementById(`pontos${this.capitalizar(categoria)}`);
-        const percentElement = document.getElementById(`perc${this.capitalizar(categoria)}`);
-        
+    atualizarDisplayAba(aba) {
+        const elemento = document.getElementById(`pontos${this.capitalizar(aba)}`);
         if (!elemento) return;
+        
+        const pontos = this.gastos[aba] || 0;
         
         elemento.textContent = pontos;
         
-        // Estilo
-        const parent = elemento.closest('.category');
-        if (parent) {
-            parent.classList.remove('positivo', 'negativo');
-            
-            if (isDesvantagem && pontos > 0) {
-                parent.classList.add('negativo');
-            } else if (!isDesvantagem && pontos > 0) {
-                parent.classList.add('positivo');
-            }
+        elemento.parentElement.classList.remove('positivo', 'negativo');
+        
+        if (aba === 'desvantagens' || aba === 'peculiaridades') {
+            elemento.parentElement.classList.add('negativo');
+        } else if (pontos > 0) {
+            elemento.parentElement.classList.add('positivo');
+        } else if (pontos < 0) {
+            elemento.parentElement.classList.add('negativo');
         }
         
-        // Percentual
-        if (percentElement) {
-            const totalBase = this.pontosIniciais + this.pontosGanhosCampanha;
-            if (totalBase > 0 && pontos > 0) {
-                const percent = Math.round((pontos / totalBase) * 100);
-                percentElement.textContent = `${percent}%`;
-                percentElement.style.color = percent > 50 ? '#e74c3c' : 
-                                           percent > 25 ? '#f39c12' : 
-                                           isDesvantagem ? '#3498db' : '#27ae60';
+        this.atualizarPercentualAba(aba);
+    }
+    
+    atualizarPercentualAba(aba) {
+        const elemento = document.getElementById(`perc${this.capitalizar(aba)}`);
+        if (!elemento) return;
+        
+        const pontos = Math.abs(this.gastos[aba] || 0);
+        const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
+        
+        if (totalPontos > 0) {
+            const percentual = Math.round((pontos / totalPontos) * 100);
+            elemento.textContent = `${percentual}%`;
+            
+            if (percentual > 50) {
+                elemento.style.color = '#e74c3c';
+            } else if (percentual > 25) {
+                elemento.style.color = '#f39c12';
             } else {
-                percentElement.textContent = '0%';
+                elemento.style.color = '#27ae60';
             }
+        } else {
+            elemento.textContent = '0%';
         }
     }
     
-    atualizarTotais(calculo) {
-        // Pontos Disponíveis
-        const dispElement = document.getElementById('pontosDisponiveis');
-        if (dispElement) {
-            dispElement.textContent = calculo.disponiveis;
+    atualizarTotais() {
+        const calculo = this.calcularPontosDisponiveis();
+        
+        const elementoDisponiveis = document.getElementById('pontosDisponiveis');
+        if (elementoDisponiveis) {
+            elementoDisponiveis.textContent = calculo.disponiveis;
             
             if (calculo.disponiveis < 0) {
-                dispElement.style.color = '#e74c3c';
-                dispElement.style.fontWeight = 'bold';
-            } else if (calculo.disponiveis > 0) {
-                dispElement.style.color = '#27ae60';
-                dispElement.style.fontWeight = 'bold';
+                elementoDisponiveis.style.color = '#e74c3c';
+                elementoDisponiveis.style.fontWeight = 'bold';
             } else {
-                dispElement.style.color = '';
-                dispElement.style.fontWeight = '';
+                elementoDisponiveis.style.color = '';
+                elementoDisponiveis.style.fontWeight = '';
             }
         }
         
-        // Total Gastos
-        const gastosElement = document.getElementById('pontosGastos');
-        if (gastosElement) {
-            gastosElement.textContent = calculo.gastos;
+        const elementoGastos = document.getElementById('pontosGastos');
+        if (elementoGastos) {
+            elementoGastos.textContent = calculo.vantagens;
         }
     }
     
     verificarLimites() {
-        // Limite de Desvantagens
-        const progressDesv = document.getElementById('progressDesvantagens');
-        const textDesv = document.getElementById('textDesvantagens');
-        const percentDesv = document.getElementById('percentDesvantagens');
+        const calculo = this.calcularPontosDisponiveis();
         
-        if (progressDesv && textDesv && percentDesv) {
-            const desvAtuais = this.gastos.desvantagens;
-            const limite = this.limites.desvantagens;
-            const percentual = Math.min(100, (desvAtuais / limite) * 100);
+        const progressDesvantagens = document.getElementById('progressDesvantagens');
+        const textDesvantagens = document.getElementById('textDesvantagens');
+        const percentDesvantagens = document.getElementById('percentDesvantagens');
+        
+        if (progressDesvantagens && textDesvantagens && percentDesvantagens) {
+            const percentual = Math.min(100, (calculo.totalDesvantagensAbs / this.limites.desvantagens) * 100);
             
-            progressDesv.style.width = `${percentual}%`;
-            progressDesv.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
-                                               percentual >= 80 ? '#f39c12' : '#3498db';
+            progressDesvantagens.style.width = `${percentual}%`;
+            progressDesvantagens.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
+                                                       percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textDesv.textContent = `${desvAtuais}/${limite} pts`;
-            percentDesv.textContent = `${Math.round(percentual)}%`;
+            textDesvantagens.textContent = `${calculo.totalDesvantagensAbs}/${this.limites.desvantagens} pts`;
+            percentDesvantagens.textContent = `${Math.round(percentual)}%`;
         }
         
-        // Limite de Peculiaridades
-        const progressPec = document.getElementById('progressPeculiaridades');
-        const textPec = document.getElementById('textPeculiaridades');
-        const percentPec = document.getElementById('percentPeculiaridades');
+        const progressPeculiaridades = document.getElementById('progressPeculiaridades');
+        const textPeculiaridades = document.getElementById('textPeculiaridades');
+        const percentPeculiaridades = document.getElementById('percentPeculiaridades');
         
-        if (progressPec && textPec && percentPec) {
-            const pecAtuais = Math.abs(this.gastos.peculiaridades);
-            const limite = this.limites.peculiaridades;
-            const percentual = Math.min(100, (pecAtuais / limite) * 100);
+        if (progressPeculiaridades && textPeculiaridades && percentPeculiaridades) {
+            const percentual = Math.min(100, (calculo.peculiaridadesAbs / this.limites.peculiaridades) * 100);
             
-            progressPec.style.width = `${percentual}%`;
-            progressPec.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
-                                              percentual >= 80 ? '#f39c12' : '#3498db';
+            progressPeculiaridades.style.width = `${percentual}%`;
+            progressPeculiaridades.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
+                                                          percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textPec.textContent = `${pecAtuais}/${limite} pts`;
-            percentPec.textContent = `${Math.round(percentual)}%`;
+            textPeculiaridades.textContent = `${calculo.peculiaridadesAbs}/${this.limites.peculiaridades} pts`;
+            percentPeculiaridades.textContent = `${Math.round(percentual)}%`;
         }
     }
     
-    capitalizar(texto) {
-        return texto.charAt(0).toUpperCase() + texto.slice(1);
-    }
-    
-    salvarDados() {
+    async salvarDados() {
         const dados = {
             pontosIniciais: this.pontosIniciais,
             pontosGanhosCampanha: this.pontosGanhosCampanha,
             gastos: { ...this.gastos },
-            controle: { ...this.controle },
             limites: { ...this.limites }
         };
         
-        localStorage.setItem('rpgforge_pontos_simples', JSON.stringify(dados));
+        if (window.salvarModulo) {
+            await window.salvarModulo('pontos', dados);
+        } else {
+            localStorage.setItem('rpgforge_pontos', JSON.stringify(dados));
+        }
     }
     
-    carregarDadosSalvos() {
-        try {
-            const dadosStr = localStorage.getItem('rpgforge_pontos_simples');
-            if (dadosStr) {
-                const dados = JSON.parse(dadosStr);
-                this.aplicarDados(dados);
-                return true;
-            }
-        } catch (error) {
-            // Silencioso
+    async carregarDadosSalvos() {
+        let dados = null;
+        
+        if (window.carregarModulo) {
+            dados = await window.carregarModulo('pontos');
         }
-        return false;
+        
+        if (!dados) {
+            const dadosLocais = localStorage.getItem('rpgforge_pontos');
+            if (dadosLocais) {
+                try {
+                    dados = JSON.parse(dadosLocais);
+                } catch (error) {
+                    return;
+                }
+            }
+        }
+        
+        if (dados) {
+            this.aplicarDados(dados);
+        }
     }
     
     aplicarDados(dados) {
-        if (!dados) return;
-        
         if (dados.pontosIniciais !== undefined) {
             this.pontosIniciais = dados.pontosIniciais;
             const input = document.getElementById('pontosIniciais');
@@ -325,27 +325,20 @@ class PontosManager {
         }
         
         if (dados.gastos) {
-            Object.keys(dados.gastos).forEach(key => {
-                if (this.gastos[key] !== undefined) {
-                    this.gastos[key] = dados.gastos[key];
-                }
-            });
-        }
-        
-        if (dados.controle) {
-            Object.keys(dados.controle).forEach(key => {
-                if (this.controle[key] !== undefined) {
-                    this.controle[key] = dados.controle[key];
+            Object.keys(dados.gastos).forEach(aba => {
+                if (this.gastos[aba] !== undefined) {
+                    this.gastos[aba] = dados.gastos[aba];
                 }
             });
         }
         
         if (dados.limites) {
-            Object.keys(dados.limites).forEach(key => {
-                if (this.limites[key] !== undefined) {
-                    this.limites[key] = dados.limites[key];
-                    const input = document.getElementById(`limite${this.capitalizar(key)}`);
-                    if (input) input.value = this.limites[key];
+            Object.keys(dados.limites).forEach(limite => {
+                if (this.limites[limite] !== undefined) {
+                    this.limites[limite] = dados.limites[limite];
+                    
+                    const input = document.getElementById(`limite${this.capitalizar(limite)}`);
+                    if (input) input.value = this.limites[limite];
                 }
             });
         }
@@ -353,39 +346,56 @@ class PontosManager {
         this.atualizarTudo();
     }
     
-    resetar() {
-        this.pontosIniciais = 150;
-        this.pontosGanhosCampanha = 0;
+    capitalizar(texto) {
+        return texto.charAt(0).toUpperCase() + texto.slice(1);
+    }
+    
+    mostrarAviso(mensagem) {
+        const aviso = document.createElement('div');
+        aviso.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #e74c3c;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: bold;
+        `;
+        aviso.textContent = mensagem;
+        document.body.appendChild(aviso);
         
-        Object.keys(this.gastos).forEach(key => {
-            this.gastos[key] = 0;
+        setTimeout(() => {
+            if (aviso.parentNode) aviso.parentNode.removeChild(aviso);
+        }, 3000);
+    }
+    
+    dispararEventoAtualizacao(aba, pontos) {
+        const evento = new CustomEvent('pontosAtualizados', {
+            detail: {
+                aba: aba,
+                pontos: pontos,
+                totais: this.calcularPontosDisponiveis()
+            }
         });
-        
-        Object.keys(this.controle).forEach(key => {
-            this.controle[key] = 0;
-        });
-        
-        this.limites.desvantagens = 40;
-        this.limites.peculiaridades = 20;
-        
-        const inputIniciais = document.getElementById('pontosIniciais');
-        if (inputIniciais) inputIniciais.value = 150;
-        
-        const inputGanhos = document.getElementById('pontosGanhos');
-        if (inputGanhos) inputGanhos.value = 0;
-        
-        const limiteDesv = document.getElementById('limiteDesvantagens');
-        if (limiteDesv) limiteDesv.value = 40;
-        
-        const limitePec = document.getElementById('limitePeculiaridades');
-        if (limitePec) limitePec.value = 20;
-        
-        this.atualizarTudo();
-        this.salvarDados();
+        document.dispatchEvent(evento);
+    }
+    
+    obterGastosAba(aba) {
+        return this.gastos[aba] || 0;
+    }
+    
+    obterLimiteAba(aba) {
+        return this.limites[aba] || 0;
+    }
+    
+    obterPontosDisponiveis() {
+        return this.calcularPontosDisponiveis().disponiveis;
     }
 }
-
-// ========== INSTÂNCIA GLOBAL ==========
 
 let pontosManager = null;
 
@@ -396,8 +406,6 @@ function inicializarPontosManager() {
     return pontosManager;
 }
 
-// ========== FUNÇÕES GLOBAIS ==========
-
 window.obterPontosManager = () => {
     if (!pontosManager) {
         pontosManager = new PontosManager();
@@ -405,17 +413,43 @@ window.obterPontosManager = () => {
     return pontosManager;
 };
 
+window.atualizarPontosAba = (aba, pontos) => {
+    if (pontosManager) {
+        pontosManager.atualizarGastosAba(aba, pontos);
+        return true;
+    }
+    return false;
+};
+
+window.obterGastosAba = (aba) => {
+    if (pontosManager) {
+        return pontosManager.obterGastosAba(aba);
+    }
+    return 0;
+};
+
 window.obterPontosDisponiveis = () => {
     if (pontosManager) {
-        return pontosManager.calcularPontosDisponiveis().disponiveis;
+        return pontosManager.obterPontosDisponiveis();
     }
     return 150;
 };
 
-// ========== INICIALIZAÇÃO ==========
-
 document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        inicializarPontosManager();
-    }, 100);
+    const tabPrincipal = document.getElementById('principal');
+    if (tabPrincipal && tabPrincipal.classList.contains('active')) {
+        setTimeout(() => {
+            inicializarPontosManager();
+        }, 500);
+    }
+    
+    document.addEventListener('tabChanged', function(e) {
+        if (e.detail === 'principal') {
+            setTimeout(() => {
+                if (!pontosManager) {
+                    inicializarPontosManager();
+                }
+            }, 500);
+        }
+    });
 });

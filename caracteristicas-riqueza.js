@@ -1,102 +1,103 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS - SISTEMA COMPLETO
+// CARACTERÍSTICAS-RIQUEZA.JS - VERSÃO FINAL SEM DUPLICAÇÃO
 // ===========================================
 
 class SistemaRiqueza {
     constructor() {
-        // DEFINIÇÃO COMPLETA DOS NÍVEIS
         this.niveisRiqueza = {
             "-25": { 
                 nome: "Miserável/Falido",
-                pontos: -25,
-                multiplicador: 0,
+                pontos: -25, 
+                multiplicador: 0, 
                 rendaBase: 0,
                 descricao: "Sem emprego, fonte de renda, dinheiro ou bens",
+                recursos: "Nenhum",
                 icone: "fas fa-skull-crossbones",
                 tipo: "desvantagem",
-                cor: "#e74c3c",
-                status: "Extremamente limitado"
+                cor: "#e74c3c"
             },
             "-15": { 
                 nome: "Pobre",
-                pontos: -15,
-                multiplicador: 0.2,
+                pontos: -15, 
+                multiplicador: 0.2, 
                 rendaBase: 200,
                 descricao: "1/5 da riqueza média da sociedade",
+                recursos: "Muito limitados",
                 icone: "fas fa-house-damage",
                 tipo: "desvantagem",
-                cor: "#e74c3c",
-                status: "Muito limitado"
+                cor: "#e74c3c"
             },
             "-10": { 
                 nome: "Batalhador",
-                pontos: -10,
-                multiplicador: 0.5,
+                pontos: -10, 
+                multiplicador: 0.5, 
                 rendaBase: 500,
                 descricao: "Metade da riqueza média",
+                recursos: "Limitados",
                 icone: "fas fa-hands-helping",
                 tipo: "desvantagem",
-                cor: "#e74c3c",
-                status: "Limitado"
+                cor: "#e74c3c"
             },
             "0": { 
                 nome: "Médio",
-                pontos: 0,
-                multiplicador: 1,
+                pontos: 0, 
+                multiplicador: 1, 
                 rendaBase: 1000,
                 descricao: "Nível de recursos pré-definido padrão",
+                recursos: "Padrão",
                 icone: "fas fa-user",
                 tipo: "neutro",
-                cor: "#95a5a6",
-                status: "Padrão"
+                cor: "#95a5a6"
             },
             "10": { 
                 nome: "Confortável",
-                pontos: 10,
-                multiplicador: 2,
+                pontos: 10, 
+                multiplicador: 2, 
                 rendaBase: 2000,
                 descricao: "O dobro da riqueza média",
+                recursos: "Confortáveis",
                 icone: "fas fa-smile",
                 tipo: "vantagem",
-                cor: "#27ae60",
-                status: "Confortável"
+                cor: "#27ae60"
             },
             "20": { 
                 nome: "Rico",
-                pontos: 20,
-                multiplicador: 5,
+                pontos: 20, 
+                multiplicador: 5, 
                 rendaBase: 5000,
                 descricao: "5 vezes a riqueza média",
+                recursos: "Abundantes",
                 icone: "fas fa-grin-stars",
                 tipo: "vantagem",
-                cor: "#27ae60",
-                status: "Abundante"
+                cor: "#27ae60"
             },
             "30": { 
                 nome: "Muito Rico",
-                pontos: 30,
-                multiplicador: 20,
+                pontos: 30, 
+                multiplicador: 20, 
                 rendaBase: 20000,
                 descricao: "20 vezes a riqueza média", 
+                recursos: "Extremamente abundantes",
                 icone: "fas fa-crown",
                 tipo: "vantagem",
-                cor: "#27ae60",
-                status: "Extremamente abundante"
+                cor: "#27ae60"
             },
             "50": { 
                 nome: "Poderoso/Multimilionário",
-                pontos: 50,
-                multiplicador: 100,
+                pontos: 50, 
+                multiplicador: 100, 
                 rendaBase: 100000,
                 descricao: "100 vezes a riqueza média",
+                recursos: "Ilimitados para necessidades comuns",
                 icone: "fas fa-gem",
                 tipo: "vantagem",
-                cor: "#27ae60",
-                status: "Ilimitado"
+                cor: "#27ae60"
             }
         };
 
+        this.nivelAnterior = "0";
         this.nivelAtual = "0";
+        this.pontosRiqueza = 0;
         this.inicializado = false;
         this.carregarDoLocalStorage();
     }
@@ -104,374 +105,265 @@ class SistemaRiqueza {
     inicializar() {
         if (this.inicializado) return;
         
-        this.configurarElementos();
         this.configurarEventos();
         this.atualizarDisplay();
-        this.notificarSistemaPontos();
-        
         this.inicializado = true;
-    }
-
-    configurarElementos() {
-        // Configurar select
-        const select = document.getElementById('nivelRiqueza');
-        if (select) {
-            select.value = this.nivelAtual;
-        }
         
-        // Configurar saldo atual
-        const saldoInput = document.getElementById('saldoAtual');
-        if (saldoInput) {
-            const nivel = this.niveisRiqueza[this.nivelAtual];
-            if (nivel && !saldoInput.hasAttribute('data-modificado')) {
-                saldoInput.value = nivel.rendaBase;
-            }
-        }
+        this.notificarAtualizacao();
     }
 
     configurarEventos() {
-        // Evento do select
-        const select = document.getElementById('nivelRiqueza');
-        if (select) {
-            select.addEventListener('change', (e) => {
-                this.mudarNivel(e.target.value);
-            });
-        }
-        
-        // Evento do saldo
-        const saldoInput = document.getElementById('saldoAtual');
-        if (saldoInput) {
-            saldoInput.addEventListener('input', () => {
-                saldoInput.setAttribute('data-modificado', 'true');
-                this.validarSaldo(saldoInput.value);
-            });
-            
-            saldoInput.addEventListener('blur', () => {
-                this.salvarNoLocalStorage();
+        const selectRiqueza = document.getElementById('nivelRiqueza');
+        if (selectRiqueza) {
+            selectRiqueza.addEventListener('change', (e) => {
+                this.definirNivel(e.target.value);
             });
         }
     }
 
-    mudarNivel(novoNivel) {
-        if (!this.niveisRiqueza[novoNivel]) return;
+    definirNivel(valor) {
+        // Guarda o nível anterior ANTES de mudar
+        const nivelAnteriorValor = this.nivelAtual;
+        const nivelAnteriorObj = this.niveisRiqueza[nivelAnteriorValor];
         
-        const nivelAnterior = this.nivelAtual;
-        this.nivelAtual = novoNivel;
+        // Atualiza estado
+        this.nivelAnterior = nivelAnteriorValor;
+        this.nivelAtual = valor;
+        this.pontosRiqueza = parseInt(valor);
         
-        // Atualizar select
+        // Atualiza select
         const select = document.getElementById('nivelRiqueza');
         if (select) {
-            select.value = novoNivel;
+            select.value = valor;
         }
         
-        // Atualizar display
         this.atualizarDisplay();
-        
-        // Notificar sistema de pontos
-        this.notificarSistemaPontos();
-        
-        // Atualizar saldo se não foi modificado manualmente
-        const saldoInput = document.getElementById('saldoAtual');
-        if (saldoInput && !saldoInput.hasAttribute('data-modificado')) {
-            const nivel = this.niveisRiqueza[novoNivel];
-            saldoInput.value = nivel.rendaBase;
-        }
-        
-        // Salvar
         this.salvarNoLocalStorage();
+        
+        // Atualiza sistema de pontos CORRETAMENTE
+        this.atualizarSistemaPontos(nivelAnteriorObj);
     }
 
-    notificarSistemaPontos() {
-        const nivel = this.niveisRiqueza[this.nivelAtual];
-        if (!nivel) return;
+    atualizarSistemaPontos(nivelAnteriorObj) {
+        const pontosAnterior = nivelAnteriorObj ? nivelAnteriorObj.pontos : 0;
+        const pontosAtual = this.pontosRiqueza;
         
-        const evento = new CustomEvent('riquezaAtualizada', {
-            detail: {
-                pontos: nivel.pontos,
-                nivel: this.nivelAtual,
-                nome: nivel.nome,
-                tipo: nivel.tipo,
-                multiplicador: nivel.multiplicador,
-                rendaBase: nivel.rendaBase
+        // PRIMEIRO: Remove os pontos do nível anterior
+        if (pontosAnterior > 0) {
+            // Era vantagem - remove dos gastos
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('vantagens', 0);
             }
-        });
+        } else if (pontosAnterior < 0) {
+            // Era desvantagem - remove dos ganhos
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('desvantagens', 0);
+            }
+        }
         
-        document.dispatchEvent(evento);
+        // DEPOIS: Adiciona os pontos do nível atual
+        if (pontosAtual > 0) {
+            // É VANTAGEM
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('vantagens', pontosAtual);
+            }
+        } else if (pontosAtual < 0) {
+            // É DESVANTAGEM
+            if (window.atualizarPontosAba) {
+                window.atualizarPontosAba('desvantagens', Math.abs(pontosAtual));
+            }
+        }
+        // Se for 0, já foi zerado no primeiro passo
     }
 
     atualizarDisplay() {
         const nivel = this.niveisRiqueza[this.nivelAtual];
         if (!nivel) return;
 
-        // 1. Badge de pontos
-        const badge = document.getElementById('pontosRiquezaBadge');
-        if (badge) {
-            let texto = '0 pts';
-            let classe = 'pontos-badge';
-            
-            if (nivel.pontos > 0) {
-                texto = `+${nivel.pontos} pts`;
-                classe += ' positivo';
-            } else if (nivel.pontos < 0) {
-                texto = `${nivel.pontos} pts`;
-                classe += ' negativo';
-            }
-            
-            badge.textContent = texto;
-            badge.className = classe;
-        }
-
-        // 2. Display principal
         const display = document.getElementById('displayRiqueza');
+        const badge = document.getElementById('pontosRiquezaBadge');
+        const rendaElement = document.getElementById('rendaMensal');
+        const multiplicadorElement = document.getElementById('multiplicadorRiqueza');
+        const saldoAtual = document.getElementById('saldoAtual');
+
         if (display) {
             display.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
-                    <i class="${nivel.icone}" style="color: ${nivel.cor}; font-size: 1.8rem;"></i>
-                    <div>
-                        <strong style="color: var(--text-gold); font-size: 1.2rem;">${nivel.nome}</strong>
-                        <div style="font-size: 0.9em; color: ${nivel.cor}; margin-top: 2px;">
-                            ${nivel.status}
-                        </div>
-                    </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <i class="${nivel.icone}" style="color: ${nivel.cor}; font-size: 1.5rem;"></i>
+                    <strong style="color: var(--text-gold);">${nivel.nome}</strong>
                 </div>
-                <div style="font-size: 0.9em; color: var(--text-light); line-height: 1.4;">
-                    <div>${nivel.descricao}</div>
-                    <div style="margin-top: 6px; display: flex; justify-content: space-between;">
-                        <span>Multiplicador: <strong>${nivel.multiplicador}×</strong></span>
-                        <span>Renda: <strong>${this.formatarMoeda(nivel.rendaBase)}</strong></span>
-                    </div>
+                <div style="font-size: 0.9em; color: var(--text-light); opacity: 0.8;">
+                    <div>Multiplicador: ${nivel.multiplicador}× | Recursos: ${nivel.recursos}</div>
+                    <div style="margin-top: 4px;">${nivel.descricao}</div>
                 </div>
             `;
         }
 
-        // 3. Multiplicador
-        const multElement = document.getElementById('multiplicadorRiqueza');
-        if (multElement) {
-            multElement.textContent = `×${nivel.multiplicador}`;
-            multElement.style.color = nivel.cor;
+        if (badge) {
+            const pontosTexto = this.pontosRiqueza >= 0 ? 
+                (this.pontosRiqueza === 0 ? "0 pts" : `+${this.pontosRiqueza} pts`) : 
+                `${this.pontosRiqueza} pts`;
+            badge.textContent = pontosTexto;
+            
+            badge.className = 'pontos-badge';
+            if (this.pontosRiqueza > 0) {
+                badge.classList.add('positivo');
+            } else if (this.pontosRiqueza < 0) {
+                badge.classList.add('negativo');
+            } else {
+                badge.classList.remove('positivo', 'negativo');
+            }
         }
 
-        // 4. Renda mensal
-        const rendaElement = document.getElementById('rendaMensal');
         if (rendaElement) {
             rendaElement.textContent = this.formatarMoeda(nivel.rendaBase);
             rendaElement.style.color = nivel.cor;
         }
-    }
 
-    validarSaldo(valor) {
-        const numValor = parseInt(valor) || 0;
-        const saldoInput = document.getElementById('saldoAtual');
-        
-        if (!saldoInput) return;
-        
-        // Não permitir negativo
-        if (numValor < 0) {
-            saldoInput.value = 0;
+        if (multiplicadorElement) {
+            multiplicadorElement.textContent = `×${nivel.multiplicador}`;
         }
-        
-        // Aviso se valor muito alto para o nível
-        const nivel = this.niveisRiqueza[this.nivelAtual];
-        if (nivel && nivel.rendaBase > 0 && numValor > nivel.rendaBase * 1000) {
-            saldoInput.style.borderColor = '#f39c12';
-            saldoInput.style.backgroundColor = '#fff3cd';
-        } else {
-            saldoInput.style.borderColor = '';
-            saldoInput.style.backgroundColor = '';
+
+        if (saldoAtual) {
+            saldoAtual.value = nivel.rendaBase;
         }
     }
 
     formatarMoeda(valor) {
+        if (valor === 0) return "$0";
         if (valor >= 1000000) {
-            return `$${(valor / 1000000).toFixed(1)}M`;
+            return `$${(valor / 1000000).toFixed(2)}M`;
         } else if (valor >= 1000) {
-            return `$${(valor / 1000).toFixed(1)}K`;
+            return `$${(valor / 1000).toFixed(2)}K`;
         } else {
-            return `$${valor.toLocaleString('pt-BR')}`;
+            return `$${valor.toLocaleString('en-US')}`;
         }
     }
 
-    salvarNoLocalStorage() {
-        const dados = {
-            nivelRiqueza: this.nivelAtual,
-            saldoAtual: document.getElementById('saldoAtual')?.value || 1000,
-            timestamp: new Date().toISOString(),
-            versao: '2.0'
-        };
+    getPontosRiqueza() {
+        return this.pontosRiqueza;
+    }
+
+    getTipoPontos() {
+        if (this.pontosRiqueza > 0) return 'vantagem';
+        if (this.pontosRiqueza < 0) return 'desvantagem';
+        return 'neutro';
+    }
+
+    notificarAtualizacao() {
+        const nivel = this.niveisRiqueza[this.nivelAtual];
+        const pontos = this.getPontosRiqueza();
+        const tipo = this.getTipoPontos();
         
-        localStorage.setItem('gurps_riqueza_completo', JSON.stringify(dados));
+        const evento = new CustomEvent('riquezaAtualizada', {
+            detail: {
+                pontos: pontos,
+                tipo: tipo,
+                nivel: nivel.nome,
+                multiplicador: nivel.multiplicador,
+                rendaMensal: nivel.rendaBase
+            }
+        });
+        document.dispatchEvent(evento);
+    }
+
+    salvarNoLocalStorage() {
+        try {
+            const dados = {
+                nivelRiqueza: this.nivelAtual,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('gurps_riqueza', JSON.stringify(dados));
+        } catch (error) {}
     }
 
     carregarDoLocalStorage() {
         try {
-            const dados = localStorage.getItem('gurps_riqueza_completo');
-            if (dados) {
-                const parsed = JSON.parse(dados);
-                if (parsed.nivelRiqueza) {
-                    this.nivelAtual = parsed.nivelRiqueza;
+            const dadosSalvos = localStorage.getItem('gurps_riqueza');
+            if (dadosSalvos) {
+                const dados = JSON.parse(dadosSalvos);
+                if (dados.nivelRiqueza !== undefined) {
+                    this.nivelAtual = dados.nivelRiqueza;
+                    this.nivelAnterior = "0";
+                    this.pontosRiqueza = parseInt(dados.nivelRiqueza);
                     
-                    // Restaurar saldo
-                    const saldoInput = document.getElementById('saldoAtual');
-                    if (saldoInput && parsed.saldoAtual) {
-                        saldoInput.value = parsed.saldoAtual;
-                        saldoInput.setAttribute('data-modificado', 'true');
+                    const select = document.getElementById('nivelRiqueza');
+                    if (select) {
+                        select.value = dados.nivelRiqueza;
                     }
                     
                     return true;
                 }
             }
-        } catch (e) {
-            // Silencioso em caso de erro
+        } catch (error) {}
+        return false;
+    }
+
+    exportarDados() {
+        const nivel = this.niveisRiqueza[this.nivelAtual];
+        
+        return {
+            riqueza: {
+                pontos: this.pontosRiqueza,
+                tipo: this.getTipoPontos(),
+                nome: nivel.nome,
+                nivel: this.nivelAtual,
+                multiplicador: nivel.multiplicador,
+                rendaMensal: nivel.rendaBase,
+                descricao: nivel.descricao,
+                icone: nivel.icone,
+                recursos: nivel.recursos
+            }
+        };
+    }
+
+    carregarDados(dados) {
+        if (dados.riqueza && dados.riqueza.nivel !== undefined) {
+            this.definirNivel(dados.riqueza.nivel);
+            return true;
         }
         return false;
     }
 
-    // Métodos públicos
-    getNivelAtual() {
-        return this.nivelAtual;
-    }
-
-    getPontosRiqueza() {
-        const nivel = this.niveisRiqueza[this.nivelAtual];
-        return nivel ? nivel.pontos : 0;
-    }
-
-    getDetalhesNivel() {
-        return this.niveisRiqueza[this.nivelAtual] || null;
-    }
-
     resetar() {
-        this.nivelAtual = "0";
-        
-        // Resetar select
-        const select = document.getElementById('nivelRiqueza');
-        if (select) select.value = "0";
-        
-        // Resetar saldo
-        const saldoInput = document.getElementById('saldoAtual');
-        if (saldoInput) {
-            saldoInput.value = 1000;
-            saldoInput.removeAttribute('data-modificado');
-        }
-        
-        // Atualizar e notificar
-        this.atualizarDisplay();
-        this.notificarSistemaPontos();
-        this.salvarNoLocalStorage();
+        this.definirNivel("0");
     }
 }
-
-// ========== INSTÂNCIA GLOBAL ==========
 
 let sistemaRiqueza = null;
 
 function inicializarSistemaRiqueza() {
     if (!sistemaRiqueza) {
         sistemaRiqueza = new SistemaRiqueza();
-        sistemaRiqueza.inicializar();
     }
+    
+    const select = document.getElementById('nivelRiqueza');
+    if (!select) return null;
+    
+    sistemaRiqueza.inicializar();
+    
     return sistemaRiqueza;
 }
 
-// ========== INICIALIZAÇÃO ==========
-
 document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        inicializarSistemaRiqueza();
-    }, 100);
+    const principalTab = document.getElementById('principal');
+    if (principalTab && principalTab.classList.contains('active')) {
+        setTimeout(inicializarSistemaRiqueza, 100);
+    }
 });
 
-// ========== API GLOBAL ==========
+document.addEventListener('tabChanged', function(e) {
+    if (e.detail === 'principal') {
+        setTimeout(inicializarSistemaRiqueza, 100);
+    }
+});
 
 window.SistemaRiqueza = SistemaRiqueza;
 window.inicializarSistemaRiqueza = inicializarSistemaRiqueza;
 window.sistemaRiqueza = sistemaRiqueza;
-
 window.getPontosRiqueza = function() {
     return sistemaRiqueza ? sistemaRiqueza.getPontosRiqueza() : 0;
 };
-
 window.resetarRiqueza = function() {
     if (sistemaRiqueza) sistemaRiqueza.resetar();
 };
-
-window.getDetalhesRiqueza = function() {
-    return sistemaRiqueza ? sistemaRiqueza.getDetalhesNivel() : null;
-};
-
-// Adicionar estilos CSS
-if (!document.querySelector('#estilos-riqueza-completo')) {
-    const estilo = document.createElement('style');
-    estilo.id = 'estilos-riqueza-completo';
-    estilo.textContent = `
-        .pontos-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 0.85em;
-            font-weight: bold;
-            background: #95a5a6;
-            color: white;
-            min-width: 70px;
-            text-align: center;
-        }
-        
-        .pontos-badge.positivo {
-            background: linear-gradient(135deg, #27ae60, #2ecc71);
-            box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
-        }
-        
-        .pontos-badge.negativo {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
-        }
-        
-        .wealth-display {
-            transition: all 0.3s ease;
-            padding: 15px;
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.05);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .wealth-display strong {
-            transition: color 0.3s ease;
-        }
-        
-        .wealth-display:hover {
-            background: rgba(0, 0, 0, 0.08);
-            transform: translateY(-2px);
-        }
-        
-        .currency {
-            color: var(--text-gold);
-            font-weight: bold;
-            margin-right: 4px;
-        }
-        
-        .display-value.total {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: var(--text-gold);
-            padding: 5px 0;
-        }
-        
-        .input-group {
-            display: flex;
-            align-items: center;
-        }
-        
-        .input-group .currency {
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-right: none;
-            border-radius: 4px 0 0 4px;
-        }
-        
-        .input-group input {
-            border-radius: 0 4px 4px 0;
-        }
-    `;
-    document.head.appendChild(estilo);
-}
