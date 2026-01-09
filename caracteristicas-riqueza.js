@@ -1,5 +1,5 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS - ORIGINAL FUNCIONAL
+// CARACTERÍSTICAS-RIQUEZA.JS - CORRIGIDO FINAL
 // ===========================================
 
 class SistemaRiqueza {
@@ -142,12 +142,13 @@ class SistemaRiqueza {
     }
 
     enviarEventoParaPontosManager() {
-        // ENVIA EVENTO PARA O NOVO SISTEMA QUE SOMA
-        const evento = new CustomEvent('riquezaAtualizadaParaSoma', {
+        // ENVIA EVENTO COM O NOME CORRETO
+        const evento = new CustomEvent('riquezaAtualizada', {
             detail: {
                 pontos: this.pontosRiqueza,
                 nivel: this.nivelAtual,
-                nome: this.niveisRiqueza[this.nivelAtual]?.nome || 'Desconhecido'
+                nome: this.niveisRiqueza[this.nivelAtual]?.nome || 'Desconhecido',
+                tipo: this.pontosRiqueza < 0 ? 'desvantagem' : this.pontosRiqueza > 0 ? 'vantagem' : 'neutro'
             }
         });
         document.dispatchEvent(evento);
@@ -341,17 +342,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('🔄 Sistema de riqueza inicializado na aba principal');
         }
     }, 300);
-    
-    // Inicializa quando muda para aba principal
-    document.addEventListener('tabChanged', function(e) {
-        if (e.detail === 'principal') {
-            setTimeout(() => {
-                if (!sistemaRiqueza && document.getElementById('nivelRiqueza')) {
-                    inicializarSistemaRiqueza();
-                }
-            }, 300);
-        }
-    });
 });
 
 // ==================== EXPORTAÇÕES ====================
