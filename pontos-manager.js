@@ -1,5 +1,5 @@
 // ===========================================
-// PONTOS-MANAGER.JS - VERSÃO ESTÁVEL E FUNCIONAL
+// PONTOS-MANAGER.JS - VERSÃO CORRIGIDA E COMPLETA
 // ===========================================
 
 class PontosManager {
@@ -7,6 +7,7 @@ class PontosManager {
         this.pontosIniciais = 150;
         this.pontosGanhosCampanha = 0;
         
+        // Gastos por categoria
         this.gastos = {
             atributos: 0,
             vantagens: 0,
@@ -16,6 +17,13 @@ class PontosManager {
             tecnicas: 0,
             magia: 0,
             equipamentos: 0
+        };
+        
+        // Sistema de fontes para desvantagens (PARA RESOLVER O PROBLEMA)
+        this.fontesDesvantagens = {
+            riqueza: 0,
+            caracteristicas_fisicas: 0,
+            outras: 0
         };
         
         this.limites = {
@@ -81,71 +89,63 @@ class PontosManager {
     }
     
     configurarEventos() {
+        // Atributos
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
                 this.atualizarGastosAba('atributos', e.detail.pontosGastos);
             }
         });
         
+        // Vantagens (sistema normal)
         document.addEventListener('vantagensAtualizadas', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
                 this.atualizarGastosAba('vantagens', e.detail.pontosGastos);
             }
         });
         
-        // AQUI ESTÁ A CORREÇÃO: desvantagens SOMAM
-        document.addEventListener('desvantagensAtualizadas', (e) => {
-            if (e.detail && e.detail.pontosGastos !== undefined) {
-                const pontosAtuais = this.gastos.desvantagens || 0;
-                const novosPontos = pontosAtuais + e.detail.pontosGastos;
-                this.atualizarGastosAba('desvantagens', novosPontos);
-            }
-        });
-        
+        // PERIGO: Sistema de riqueza ANTIGO (remove este ou ajuste)
         document.addEventListener('riquezaAtualizada', (e) => {
             if (e.detail && e.detail.pontos !== undefined) {
                 const pontos = e.detail.pontos;
+                
                 if (pontos > 0) {
-                    // Vantagem: substitui
+                    // Vantagem
                     this.atualizarGastosAba('vantagens', pontos);
                 } else if (pontos < 0) {
-                    // Desvantagem: substitui
-                    this.atualizarGastosAba('desvantagens', Math.abs(pontos));
+                    // Desvantagem - USAR NOVO SISTEMA
+                    this.atualizarFonteDesvantagem('riqueza', Math.abs(pontos));
                 }
-                // Se 0, não faz nada (mantém o que tinha)
+                // Se 0, não faz nada
+            }
+        });
+        
+        // Características Físicas (usar novo sistema)
+        document.addEventListener('caracteristicasFisicasAtualizadas', (e) => {
+            if (e.detail && e.detail.pontos !== undefined) {
+                this.atualizarFonteDesvantagem('caracteristicas_fisicas', Math.abs(e.detail.pontos));
             }
         });
     }
     
-    calcularPontosDisponiveis() {
-        const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
+    // NOVO MÉTODO: Atualizar fonte específica de desvantagens
+    atualizarFonteDesvantagem(fonte, pontos) {
+        // Atualiza a fonte específica
+        this.fontesDesvantagens[fonte] = pontos || 0;
         
-        // VANTAGENS: soma tudo que custa pontos
-        let vantagensTotal = 0;
-        vantagensTotal += Math.max(0, this.gastos.atributos || 0);
-        vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
-        vantagensTotal += Math.max(0, this.gastos.pericias || 0);
-        vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
-        vantagensTotal += Math.max(0, this.gastos.magia || 0);
-        vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
+        // Recalcula TOTAL de desvantagens
+        let totalDesvantagens = 0;
+        Object.values(this.fontesDesvantagens).forEach(valor => {
+            totalDesvantagens += valor;
+        });
         
-        // DESVANTAGENS: soma tudo que dá pontos
-        let desvantagensTotal = 0;
-        desvantagensTotal += Math.abs(Math.min(0, this.gastos.atributos || 0));
-        desvantagensTotal += Math.abs(this.gastos.desvantagens || 0);
-        desvantagensTotal += Math.abs(this.gastos.peculiaridades || 0);
+        // Atualiza o display
+        this.gastos.desvantagens = totalDesvantagens;
+        this.atualizarDisplayAba('desvantagens');
+        this.atualizarTotais();
+        this.verificarLimites();
+        this.salvarDados();
         
-        // Cálculo final: pontos iniciais - vantagens + desvantagens
-        const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
-        
-        return {
-            total: totalPontos,
-            vantagens: vantagensTotal,
-            desvantagens: desvantagensTotal,
-            disponiveis: pontosDisponiveis,
-            totalDesvantagensAbs: desvantagensTotal,
-            peculiaridadesAbs: Math.abs(this.gastos.peculiaridades || 0)
-        };
+        console.log(`Desvantagens atualizadas: ${totalDesvantagens}pts (${fonte}: ${pontos}pts)`);
     }
     
     atualizarGastosAba(aba, pontos) {
@@ -162,6 +162,32 @@ class PontosManager {
             
             this.dispararEventoAtualizacao(aba, pontos);
         }
+    }
+    
+    calcularPontosDisponiveis() {
+        const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
+        
+        // VANTAGENS: soma tudo que custa pontos (valores positivos)
+        let vantagensTotal = 0;
+        vantagensTotal += Math.max(0, this.gastos.atributos || 0);
+        vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
+        vantagensTotal += Math.max(0, this.gastos.pericias || 0);
+        vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
+        vantagensTotal += Math.max(0, this.gastos.magia || 0);
+        vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
+        
+        // DESVANTAGENS: usa o valor calculado (que é a soma das fontes)
+        let desvantagensTotal = this.gastos.desvantagens || 0;
+        
+        // Cálculo final: pontos iniciais - vantagens + desvantagens
+        const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
+        
+        return {
+            total: totalPontos,
+            vantagens: vantagensTotal,
+            desvantagens: desvantagensTotal,
+            disponiveis: pontosDisponiveis
+        };
     }
     
     atualizarTudo() {
@@ -181,8 +207,10 @@ class PontosManager {
         
         elemento.textContent = pontos;
         
+        // Limpa classes anteriores
         elemento.parentElement.classList.remove('positivo', 'negativo');
         
+        // Aplica classes baseadas no tipo
         if (aba === 'desvantagens' || aba === 'peculiaridades') {
             elemento.parentElement.classList.add('negativo');
         } else if (pontos > 0) {
@@ -205,6 +233,7 @@ class PontosManager {
             const percentual = Math.round((pontos / totalPontos) * 100);
             elemento.textContent = `${percentual}%`;
             
+            // Cores baseadas no percentual
             if (percentual > 50) {
                 elemento.style.color = '#e74c3c';
             } else if (percentual > 25) {
@@ -220,6 +249,7 @@ class PontosManager {
     atualizarTotais() {
         const calculo = this.calcularPontosDisponiveis();
         
+        // Pontos disponíveis
         const elementoDisponiveis = document.getElementById('pontosDisponiveis');
         if (elementoDisponiveis) {
             elementoDisponiveis.textContent = calculo.disponiveis;
@@ -227,48 +257,66 @@ class PontosManager {
             if (calculo.disponiveis < 0) {
                 elementoDisponiveis.style.color = '#e74c3c';
                 elementoDisponiveis.style.fontWeight = 'bold';
+            } else if (calculo.disponiveis > 0) {
+                elementoDisponiveis.style.color = '#27ae60';
+                elementoDisponiveis.style.fontWeight = 'bold';
             } else {
                 elementoDisponiveis.style.color = '';
                 elementoDisponiveis.style.fontWeight = '';
             }
         }
         
+        // Pontos gastos (só vantagens)
         const elementoGastos = document.getElementById('pontosGastos');
         if (elementoGastos) {
             elementoGastos.textContent = calculo.vantagens;
+            
+            if (calculo.vantagens > (this.pontosIniciais * 0.8)) {
+                elementoGastos.style.color = '#f39c12';
+            } else {
+                elementoGastos.style.color = '';
+            }
         }
     }
     
     verificarLimites() {
         const calculo = this.calcularPontosDisponiveis();
         
+        // Limite de desvantagens
         const progressDesvantagens = document.getElementById('progressDesvantagens');
         const textDesvantagens = document.getElementById('textDesvantagens');
         const percentDesvantagens = document.getElementById('percentDesvantagens');
         
         if (progressDesvantagens && textDesvantagens && percentDesvantagens) {
-            const percentual = Math.min(100, (calculo.totalDesvantagensAbs / this.limites.desvantagens) * 100);
+            const percentual = Math.min(100, (calculo.desvantagens / this.limites.desvantagens) * 100);
             
             progressDesvantagens.style.width = `${percentual}%`;
             progressDesvantagens.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
                                                        percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textDesvantagens.textContent = `${calculo.totalDesvantagensAbs}/${this.limites.desvantagens} pts`;
+            textDesvantagens.textContent = `${calculo.desvantagens}/${this.limites.desvantagens} pts`;
             percentDesvantagens.textContent = `${Math.round(percentual)}%`;
+            
+            // Aviso se ultrapassar
+            if (calculo.desvantagens > this.limites.desvantagens) {
+                this.mostrarAviso(`Limite de desvantagens excedido! (${calculo.desvantagens}/${this.limites.desvantagens}pts)`);
+            }
         }
         
+        // Limite de peculiaridades
         const progressPeculiaridades = document.getElementById('progressPeculiaridades');
         const textPeculiaridades = document.getElementById('textPeculiaridades');
         const percentPeculiaridades = document.getElementById('percentPeculiaridades');
         
         if (progressPeculiaridades && textPeculiaridades && percentPeculiaridades) {
-            const percentual = Math.min(100, (calculo.peculiaridadesAbs / this.limites.peculiaridades) * 100);
+            const peculiaridades = Math.abs(this.gastos.peculiaridades || 0);
+            const percentual = Math.min(100, (peculiaridades / this.limites.peculiaridades) * 100);
             
             progressPeculiaridades.style.width = `${percentual}%`;
             progressPeculiaridades.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
                                                           percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textPeculiaridades.textContent = `${calculo.peculiaridadesAbs}/${this.limites.peculiaridades} pts`;
+            textPeculiaridades.textContent = `${peculiaridades}/${this.limites.peculiaridades} pts`;
             percentPeculiaridades.textContent = `${Math.round(percentual)}%`;
         }
     }
@@ -278,7 +326,9 @@ class PontosManager {
             pontosIniciais: this.pontosIniciais,
             pontosGanhosCampanha: this.pontosGanhosCampanha,
             gastos: { ...this.gastos },
-            limites: { ...this.limites }
+            fontesDesvantagens: { ...this.fontesDesvantagens },
+            limites: { ...this.limites },
+            timestamp: new Date().toISOString()
         };
         
         if (window.salvarModulo) {
@@ -301,6 +351,7 @@ class PontosManager {
                 try {
                     dados = JSON.parse(dadosLocais);
                 } catch (error) {
+                    console.error('Erro ao carregar dados de pontos:', error);
                     return;
                 }
             }
@@ -332,6 +383,14 @@ class PontosManager {
             });
         }
         
+        if (dados.fontesDesvantagens) {
+            Object.keys(dados.fontesDesvantagens).forEach(fonte => {
+                if (this.fontesDesvantagens[fonte] !== undefined) {
+                    this.fontesDesvantagens[fonte] = dados.fontesDesvantagens[fonte];
+                }
+            });
+        }
+        
         if (dados.limites) {
             Object.keys(dados.limites).forEach(limite => {
                 if (this.limites[limite] !== undefined) {
@@ -351,7 +410,12 @@ class PontosManager {
     }
     
     mostrarAviso(mensagem) {
+        // Remove avisos antigos
+        const avisosAntigos = document.querySelectorAll('.aviso-pontos');
+        avisosAntigos.forEach(aviso => aviso.remove());
+        
         const aviso = document.createElement('div');
+        aviso.className = 'aviso-pontos';
         aviso.style.cssText = `
             position: fixed;
             top: 20px;
@@ -359,17 +423,21 @@ class PontosManager {
             transform: translateX(-50%);
             background: #e74c3c;
             color: white;
-            padding: 12px 20px;
-            border-radius: 6px;
+            padding: 12px 24px;
+            border-radius: 8px;
             z-index: 9999;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             font-weight: bold;
+            animation: fadeIn 0.3s ease;
         `;
         aviso.textContent = mensagem;
         document.body.appendChild(aviso);
         
         setTimeout(() => {
-            if (aviso.parentNode) aviso.parentNode.removeChild(aviso);
+            if (aviso.parentNode) {
+                aviso.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => aviso.parentNode.removeChild(aviso), 300);
+            }
         }, 3000);
     }
     
@@ -395,6 +463,15 @@ class PontosManager {
     obterPontosDisponiveis() {
         return this.calcularPontosDisponiveis().disponiveis;
     }
+    
+    // Métodos para outras partes do sistema acessarem
+    obterTotalDesvantagens() {
+        return this.gastos.desvantagens || 0;
+    }
+    
+    obterDesvantagensPorFonte() {
+        return { ...this.fontesDesvantagens };
+    }
 }
 
 let pontosManager = null;
@@ -406,6 +483,7 @@ function inicializarPontosManager() {
     return pontosManager;
 }
 
+// Funções globais para acesso
 window.obterPontosManager = () => {
     if (!pontosManager) {
         pontosManager = new PontosManager();
@@ -416,6 +494,14 @@ window.obterPontosManager = () => {
 window.atualizarPontosAba = (aba, pontos) => {
     if (pontosManager) {
         pontosManager.atualizarGastosAba(aba, pontos);
+        return true;
+    }
+    return false;
+};
+
+window.atualizarFonteDesvantagem = (fonte, pontos) => {
+    if (pontosManager) {
+        pontosManager.atualizarFonteDesvantagem(fonte, pontos);
         return true;
     }
     return false;
@@ -435,21 +521,47 @@ window.obterPontosDisponiveis = () => {
     return 150;
 };
 
+// Inicialização
 document.addEventListener('DOMContentLoaded', function() {
     const tabPrincipal = document.getElementById('principal');
     if (tabPrincipal && tabPrincipal.classList.contains('active')) {
         setTimeout(() => {
             inicializarPontosManager();
-        }, 500);
+        }, 300);
     }
     
+    // Monitorar troca de abas
     document.addEventListener('tabChanged', function(e) {
         if (e.detail === 'principal') {
             setTimeout(() => {
                 if (!pontosManager) {
                     inicializarPontosManager();
                 }
-            }, 500);
+            }, 300);
         }
     });
 });
+
+// Adicionar estilos CSS para animações
+if (!document.querySelector('#estilos-pontos')) {
+    const estilo = document.createElement('style');
+    estilo.id = 'estilos-pontos';
+    estilo.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translate(-50%, 0); }
+            to { opacity: 0; transform: translate(-50%, -20px); }
+        }
+        .aviso-pontos {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+    `;
+    document.head.appendChild(estilo);
+}
