@@ -1,11 +1,9 @@
 // ===========================================
-// PONTOS-MANAGER.JS - VERSÃO COMPLETA FINAL
-// NÃO QUEBRA NADA, SÓ SOMA AS DESVANTAGENS
+// PONTOS-MANAGER.JS - VERSÃO COMPLETA QUE FUNCIONA
 // ===========================================
 
 class PontosManager {
     constructor() {
-        // SISTEMA ORIGINAL - NÃO MEXE
         this.pontosIniciais = 150;
         this.pontosGanhosCampanha = 0;
         
@@ -20,8 +18,8 @@ class PontosManager {
             equipamentos: 0
         };
         
-        // CONTADORES EXTRA SÓ PRA SOMAR
-        this.desvantagensExtra = {
+        // SISTEMA SEPARADO PARA SOMAR DESVANTAGENS
+        this.contadoresDesvantagens = {
             caracteristicasFisicas: 0,
             riqueza: 0
         };
@@ -39,158 +37,144 @@ class PontosManager {
         if (this.inicializado) return;
         
         this.configurarInputs();
-        this.carregarDados();
+        this.carregarDadosSalvos();
         this.configurarEventos();
         this.atualizarTudo();
         
         this.inicializado = true;
-        console.log('✅ Sistema de pontos pronto!');
+        console.log('✅ Pontos Manager - FUNCIONANDO!');
     }
     
     configurarInputs() {
         const inputPontosIniciais = document.getElementById('pontosIniciais');
-        const inputPontosGanhos = document.getElementById('pontosGanhos');
-        const inputLimiteDesvantagens = document.getElementById('limiteDesvantagens');
-        const inputLimitePeculiaridades = document.getElementById('limitePeculiaridades');
-        
         if (inputPontosIniciais) {
             inputPontosIniciais.value = this.pontosIniciais;
             inputPontosIniciais.addEventListener('change', (e) => {
                 this.pontosIniciais = parseInt(e.target.value) || 150;
                 this.atualizarTudo();
-                this.salvar();
+                this.salvarDados();
             });
         }
         
+        const inputPontosGanhos = document.getElementById('pontosGanhos');
         if (inputPontosGanhos) {
             inputPontosGanhos.value = this.pontosGanhosCampanha;
             inputPontosGanhos.addEventListener('change', (e) => {
                 this.pontosGanhosCampanha = parseInt(e.target.value) || 0;
                 this.atualizarTudo();
-                this.salvar();
+                this.salvarDados();
             });
         }
         
+        const inputLimiteDesvantagens = document.getElementById('limiteDesvantagens');
         if (inputLimiteDesvantagens) {
             inputLimiteDesvantagens.value = this.limites.desvantagens;
             inputLimiteDesvantagens.addEventListener('change', (e) => {
                 this.limites.desvantagens = parseInt(e.target.value) || 40;
-                this.verificarLimites();
-                this.salvar();
+                this.atualizarTudo();
+                this.salvarDados();
             });
         }
         
+        const inputLimitePeculiaridades = document.getElementById('limitePeculiaridades');
         if (inputLimitePeculiaridades) {
             inputLimitePeculiaridades.value = this.limites.peculiaridades;
             inputLimitePeculiaridades.addEventListener('change', (e) => {
                 this.limites.peculiaridades = parseInt(e.target.value) || 20;
-                this.verificarLimites();
-                this.salvar();
+                this.atualizarTudo();
+                this.salvarDados();
             });
         }
     }
     
     configurarEventos() {
-        // ATRIBUTOS - FUNCIONANDO NORMAL
+        // ATRIBUTOS - FUNCIONA NORMAL
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
                 this.gastos.atributos = e.detail.pontosGastos;
-                this.atualizarAba('atributos');
+                this.atualizarDisplayAba('atributos');
                 this.atualizarTotais();
-                this.salvar();
+                this.salvarDados();
+                console.log('💪 Atributos:', e.detail.pontosGastos, 'pts');
             }
         });
         
-        // CARACTERÍSTICAS FÍSICAS - SOMA
+        // CARACTERÍSTICAS FÍSICAS - ARMAZENA SEPARADO
         document.addEventListener('desvantagensAtualizadas', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
-                this.desvantagensExtra.caracteristicasFisicas = Math.abs(e.detail.pontosGastos);
-                this.atualizarDesvantagensTotais();
-                this.salvar();
+                const pontos = Math.abs(e.detail.pontosGastos); // Converte -5 para 5
+                this.contadoresDesvantagens.caracteristicasFisicas = pontos;
+                this.somarDesvantagensTotais();
+                this.salvarDados();
+                console.log('🏃 Características físicas:', pontos, 'pts');
             }
         });
         
-        // RIQUEZA - SOMA OU VANTAGEM
-        document.addEventListener('riquezaAtualizadaParaSoma', (e) => {
+        // RIQUEZA - ATUALIZA O EVENTO
+        document.addEventListener('riquezaAtualizada', (e) => {
             if (e.detail && e.detail.pontos !== undefined) {
                 const pontos = e.detail.pontos;
                 
-                if (pontos < 0) {
-                    // DESVANTAGEM (Pobre: -15)
-                    this.desvantagensExtra.riqueza = Math.abs(pontos);
-                    this.atualizarDesvantagensTotais();
-                } else if (pontos > 0) {
-                    // VANTAGEM (Rico: +20)
+                if (pontos > 0) {
+                    // É VANTAGEM (Rico: +20)
                     this.gastos.vantagens = pontos;
-                    this.atualizarAba('vantagens');
+                    this.atualizarDisplayAba('vantagens');
                     this.atualizarTotais();
+                } else if (pontos < 0) {
+                    // É DESVANTAGEM (Pobre: -15) - ARMAZENA SEPARADO
+                    this.contadoresDesvantagens.riqueza = Math.abs(pontos); // Converte -15 para 15
+                    this.somarDesvantagensTotais();
                 } else {
-                    // NEUTRO
-                    this.desvantagensExtra.riqueza = 0;
-                    this.atualizarDesvantagensTotais();
+                    // NEUTRO (Médio: 0)
+                    this.contadoresDesvantagens.riqueza = 0;
+                    this.somarDesvantagensTotais();
                 }
                 
-                this.salvar();
+                this.salvarDados();
+                console.log('💰 Riqueza:', pontos, 'pts');
             }
         });
         
-        // PERÍCIAS - FUNCIONANDO NORMAL
+        // OUTROS SISTEMAS
         document.addEventListener('periciasAtualizadas', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
                 this.gastos.pericias = e.detail.pontosGastos;
-                this.atualizarAba('pericias');
+                this.atualizarDisplayAba('pericias');
                 this.atualizarTotais();
-                this.salvar();
+                this.salvarDados();
             }
         });
         
-        // PECULIARIDADES - FUNCIONANDO NORMAL
         document.addEventListener('peculiaridadesAtualizadas', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
                 this.gastos.peculiaridades = e.detail.pontosGastos;
-                this.atualizarAba('peculiaridades');
+                this.atualizarDisplayAba('peculiaridades');
                 this.atualizarTotais();
                 this.verificarLimites();
-                this.salvar();
-            }
-        });
-        
-        // TÉCNICAS - FUNCIONANDO NORMAL
-        document.addEventListener('tecnicasAtualizadas', (e) => {
-            if (e.detail && e.detail.pontosGastos !== undefined) {
-                this.gastos.tecnicas = e.detail.pontosGastos;
-                this.atualizarAba('tecnicas');
-                this.atualizarTotais();
-                this.salvar();
-            }
-        });
-        
-        // MAGIA - FUNCIONANDO NORMAL
-        document.addEventListener('magiaAtualizada', (e) => {
-            if (e.detail && e.detail.pontosGastos !== undefined) {
-                this.gastos.magia = e.detail.pontosGastos;
-                this.atualizarAba('magia');
-                this.atualizarTotais();
-                this.salvar();
+                this.salvarDados();
             }
         });
     }
     
     // FUNÇÃO NOVA: SOMA TODAS AS DESVANTAGENS
-    atualizarDesvantagensTotais() {
-        const total = this.desvantagensExtra.caracteristicasFisicas + 
-                     this.desvantagensExtra.riqueza;
+    somarDesvantagensTotais() {
+        const total = this.contadoresDesvantagens.caracteristicasFisicas + 
+                     this.contadoresDesvantagens.riqueza;
         
         this.gastos.desvantagens = total;
-        this.atualizarAba('desvantagens');
+        this.atualizarDisplayAba('desvantagens');
         this.atualizarTotais();
         this.verificarLimites();
+        
+        console.log('➕ Desvantagens totais:', total, 'pts');
+        console.log('   - Características físicas:', this.contadoresDesvantagens.caracteristicasFisicas, 'pts');
+        console.log('   - Riqueza:', this.contadoresDesvantagens.riqueza, 'pts');
     }
     
     calcularPontosDisponiveis() {
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
-        // VANTAGENS (custa pontos)
+        // VANTAGENS: tudo que custa pontos
         let vantagensTotal = 0;
         vantagensTotal += Math.max(0, this.gastos.atributos || 0);
         vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
@@ -199,7 +183,7 @@ class PontosManager {
         vantagensTotal += Math.max(0, this.gastos.magia || 0);
         vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
         
-        // DESVANTAGENS (dá pontos)
+        // DESVANTAGENS: tudo que dá pontos
         let desvantagensTotal = 0;
         desvantagensTotal += Math.abs(Math.min(0, this.gastos.atributos || 0));
         desvantagensTotal += Math.abs(this.gastos.desvantagens || 0);
@@ -212,58 +196,60 @@ class PontosManager {
             total: totalPontos,
             vantagens: vantagensTotal,
             desvantagens: desvantagensTotal,
-            disponiveis: pontosDisponiveis
+            disponiveis: pontosDisponiveis,
+            totalDesvantagensAbs: desvantagensTotal,
+            peculiaridadesAbs: Math.abs(this.gastos.peculiaridades || 0)
         };
     }
     
-    atualizarAba(aba) {
+    atualizarDisplayAba(aba) {
         const elemento = document.getElementById(`pontos${this.capitalizar(aba)}`);
         if (!elemento) return;
         
         const pontos = this.gastos[aba] || 0;
         elemento.textContent = pontos;
         
-        // Estilização
-        const pai = elemento.parentElement;
-        pai.classList.remove('positivo', 'negativo');
+        elemento.parentElement.classList.remove('positivo', 'negativo');
         
         if (aba === 'desvantagens' || aba === 'peculiaridades') {
-            if (pontos > 0) pai.classList.add('negativo');
+            if (pontos > 0) {
+                elemento.parentElement.classList.add('negativo');
+            }
         } else if (pontos > 0) {
-            pai.classList.add('positivo');
+            elemento.parentElement.classList.add('positivo');
         } else if (pontos < 0) {
-            pai.classList.add('negativo');
+            elemento.parentElement.classList.add('negativo');
         }
         
-        // Percentual
-        this.atualizarPercentual(aba, pontos);
+        this.atualizarPercentualAba(aba);
     }
     
-    atualizarPercentual(aba, pontos) {
+    atualizarPercentualAba(aba) {
         const elemento = document.getElementById(`perc${this.capitalizar(aba)}`);
         if (!elemento) return;
         
-        const pontosAbs = Math.abs(pontos);
+        const pontos = Math.abs(this.gastos[aba] || 0);
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
         if (totalPontos > 0) {
-            const percentual = Math.round((pontosAbs / totalPontos) * 100);
+            const percentual = Math.round((pontos / totalPontos) * 100);
             elemento.textContent = `${percentual}%`;
             
-            // Cores
-            if (percentual > 50) elemento.style.color = '#e74c3c';
-            else if (percentual > 25) elemento.style.color = '#f39c12';
-            else if (aba === 'desvantagens') elemento.style.color = '#3498db';
-            else elemento.style.color = '#27ae60';
+            if (percentual > 50) {
+                elemento.style.color = '#e74c3c';
+            } else if (percentual > 25) {
+                elemento.style.color = '#f39c12';
+            } else {
+                elemento.style.color = '#27ae60';
+            }
         } else {
             elemento.textContent = '0%';
         }
     }
     
     atualizarTudo() {
-        // Atualiza todas as abas
         Object.keys(this.gastos).forEach(aba => {
-            this.atualizarAba(aba);
+            this.atualizarDisplayAba(aba);
         });
         
         this.atualizarTotais();
@@ -273,7 +259,6 @@ class PontosManager {
     atualizarTotais() {
         const calculo = this.calcularPontosDisponiveis();
         
-        // Pontos disponíveis
         const elementoDisponiveis = document.getElementById('pontosDisponiveis');
         if (elementoDisponiveis) {
             elementoDisponiveis.textContent = calculo.disponiveis;
@@ -281,16 +266,12 @@ class PontosManager {
             if (calculo.disponiveis < 0) {
                 elementoDisponiveis.style.color = '#e74c3c';
                 elementoDisponiveis.style.fontWeight = 'bold';
-            } else if (calculo.disponiveis < 10) {
-                elementoDisponiveis.style.color = '#f39c12';
-                elementoDisponiveis.style.fontWeight = 'normal';
             } else {
-                elementoDisponiveis.style.color = '#27ae60';
-                elementoDisponiveis.style.fontWeight = 'normal';
+                elementoDisponiveis.style.color = '';
+                elementoDisponiveis.style.fontWeight = '';
             }
         }
         
-        // Total gastos
         const elementoGastos = document.getElementById('pontosGastos');
         if (elementoGastos) {
             elementoGastos.textContent = calculo.vantagens;
@@ -300,62 +281,73 @@ class PontosManager {
     verificarLimites() {
         const calculo = this.calcularPontosDisponiveis();
         
-        // Limite de desvantagens
         const progressDesvantagens = document.getElementById('progressDesvantagens');
         const textDesvantagens = document.getElementById('textDesvantagens');
         const percentDesvantagens = document.getElementById('percentDesvantagens');
         
         if (progressDesvantagens && textDesvantagens && percentDesvantagens) {
-            const percentual = Math.min(100, (calculo.desvantagens / this.limites.desvantagens) * 100);
+            const percentual = Math.min(100, (calculo.totalDesvantagensAbs / this.limites.desvantagens) * 100);
             
             progressDesvantagens.style.width = `${percentual}%`;
             progressDesvantagens.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
                                                        percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textDesvantagens.textContent = `${calculo.desvantagens}/${this.limites.desvantagens} pts`;
+            textDesvantagens.textContent = `${calculo.totalDesvantagensAbs}/${this.limites.desvantagens} pts`;
             percentDesvantagens.textContent = `${Math.round(percentual)}%`;
         }
         
-        // Limite de peculiaridades
-        const peculiaridadesAtual = Math.abs(this.gastos.peculiaridades || 0);
         const progressPeculiaridades = document.getElementById('progressPeculiaridades');
         const textPeculiaridades = document.getElementById('textPeculiaridades');
         const percentPeculiaridades = document.getElementById('percentPeculiaridades');
         
         if (progressPeculiaridades && textPeculiaridades && percentPeculiaridades) {
-            const percentual = Math.min(100, (peculiaridadesAtual / this.limites.peculiaridades) * 100);
+            const percentual = Math.min(100, (calculo.peculiaridadesAbs / this.limites.peculiaridades) * 100);
             
             progressPeculiaridades.style.width = `${percentual}%`;
             progressPeculiaridades.style.backgroundColor = percentual >= 100 ? '#e74c3c' : 
                                                           percentual >= 80 ? '#f39c12' : '#3498db';
             
-            textPeculiaridades.textContent = `${peculiaridadesAtual}/${this.limites.peculiaridades} pts`;
+            textPeculiaridades.textContent = `${calculo.peculiaridadesAbs}/${this.limites.peculiaridades} pts`;
             percentPeculiaridades.textContent = `${Math.round(percentual)}%`;
         }
     }
     
-    salvar() {
+    async salvarDados() {
         const dados = {
             pontosIniciais: this.pontosIniciais,
             pontosGanhosCampanha: this.pontosGanhosCampanha,
             gastos: { ...this.gastos },
-            desvantagensExtra: { ...this.desvantagensExtra },
-            limites: { ...this.limites },
-            timestamp: new Date().toISOString()
+            contadoresDesvantagens: { ...this.contadoresDesvantagens },
+            limites: { ...this.limites }
         };
         
-        localStorage.setItem('rpgforge_pontos_completo', JSON.stringify(dados));
+        if (window.salvarModulo) {
+            await window.salvarModulo('pontos', dados);
+        } else {
+            localStorage.setItem('rpgforge_pontos_corrigido', JSON.stringify(dados));
+        }
     }
     
-    carregarDados() {
-        try {
-            const dados = localStorage.getItem('rpgforge_pontos_completo');
-            if (dados) {
-                const parsed = JSON.parse(dados);
-                this.aplicarDados(parsed);
+    async carregarDadosSalvos() {
+        let dados = null;
+        
+        if (window.carregarModulo) {
+            dados = await window.carregarModulo('pontos');
+        }
+        
+        if (!dados) {
+            const dadosLocais = localStorage.getItem('rpgforge_pontos_corrigido');
+            if (dadosLocais) {
+                try {
+                    dados = JSON.parse(dadosLocais);
+                } catch (error) {
+                    return;
+                }
             }
-        } catch (error) {
-            console.error('Erro ao carregar dados:', error);
+        }
+        
+        if (dados) {
+            this.aplicarDados(dados);
         }
     }
     
@@ -373,15 +365,26 @@ class PontosManager {
         }
         
         if (dados.gastos) {
-            Object.assign(this.gastos, dados.gastos);
+            Object.keys(dados.gastos).forEach(aba => {
+                if (this.gastos[aba] !== undefined) {
+                    this.gastos[aba] = dados.gastos[aba];
+                }
+            });
         }
         
-        if (dados.desvantagensExtra) {
-            Object.assign(this.desvantagensExtra, dados.desvantagensExtra);
+        if (dados.contadoresDesvantagens) {
+            Object.assign(this.contadoresDesvantagens, dados.contadoresDesvantagens);
         }
         
         if (dados.limites) {
-            Object.assign(this.limites, dados.limites);
+            Object.keys(dados.limites).forEach(limite => {
+                if (this.limites[limite] !== undefined) {
+                    this.limites[limite] = dados.limites[limite];
+                    
+                    const input = document.getElementById(`limite${this.capitalizar(limite)}`);
+                    if (input) input.value = this.limites[limite];
+                }
+            });
         }
         
         this.atualizarTudo();
@@ -391,22 +394,52 @@ class PontosManager {
         return texto.charAt(0).toUpperCase() + texto.slice(1);
     }
     
-    // FUNÇÕES PÚBLICAS PARA OUTROS MÓDULOS
+    obterGastosAba(aba) {
+        return this.gastos[aba] || 0;
+    }
+    
     obterPontosDisponiveis() {
         return this.calcularPontosDisponiveis().disponiveis;
     }
     
-    mostrarStatus() {
-        const calc = this.calcularPontosDisponiveis();
-        console.log('📊 STATUS:');
-        console.log('- Atributos:', this.gastos.atributos);
-        console.log('- Desvantagens:', calc.desvantagens, '(Físicas:', this.desvantagensExtra.caracteristicasFisicas, '+ Riqueza:', this.desvantagensExtra.riqueza, ')');
-        console.log('- Vantagens:', calc.vantagens);
-        console.log('- Disponíveis:', calc.disponiveis);
+    // NOVO: Função para testar
+    testarSistema() {
+        console.log('🧪 TESTANDO SISTEMA:');
+        
+        // Testa atributos
+        document.dispatchEvent(new CustomEvent('atributosAtualizados', {
+            detail: { pontosGastos: 15 }
+        }));
+        
+        // Testa características físicas
+        setTimeout(() => {
+            document.dispatchEvent(new CustomEvent('desvantagensAtualizadas', {
+                detail: { pontosGastos: -5 }
+            }));
+            
+            // Testa riqueza
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent('riquezaAtualizada', {
+                    detail: { pontos: -10 }
+                }));
+                
+                // Verifica resultado
+                setTimeout(() => {
+                    const calculo = this.calcularPontosDisponiveis();
+                    console.log('📊 RESULTADO:');
+                    console.log('- Atributos: 15 pts');
+                    console.log('- Desvantagens: 5 + 10 = 15 pts');
+                    console.log('- Disponível: 150 - 15 + 15 = 150 pts');
+                    console.log('- Disponível real:', calculo.disponiveis, 'pts');
+                    
+                    if (calculo.desvantagens === 15 && calculo.disponiveis === 150) {
+                        console.log('✅ SISTEMA FUNCIONANDO!');
+                    }
+                }, 200);
+            }, 200);
+        }, 200);
     }
 }
-
-// ==================== INSTÂNCIA GLOBAL ====================
 
 let pontosManager = null;
 
@@ -417,52 +450,70 @@ function inicializarPontosManager() {
     return pontosManager;
 }
 
-// ==================== FUNÇÃO DE TESTE ====================
-
-function testarTudo() {
-    console.log('🧪 TESTANDO SISTEMA COMPLETO');
-    
+// Funções globais
+window.obterPontosManager = () => {
     if (!pontosManager) {
+        pontosManager = new PontosManager();
+    }
+    return pontosManager;
+};
+
+window.atualizarPontosAba = (aba, pontos) => {
+    if (pontosManager) {
+        if (aba === 'desvantagens' || aba === 'vantagens') {
+            console.log('⚠️ Use eventos em vez de atualizarPontosAba para desvantagens/vantagens');
+            return false;
+        }
+        pontosManager.gastos[aba] = pontos;
+        pontosManager.atualizarDisplayAba(aba);
+        pontosManager.atualizarTotais();
+        pontosManager.salvarDados();
+        return true;
+    }
+    return false;
+};
+
+window.obterGastosAba = (aba) => {
+    if (pontosManager) {
+        return pontosManager.obterGastosAba(aba);
+    }
+    return 0;
+};
+
+window.obterPontosDisponiveis = () => {
+    if (pontosManager) {
+        return pontosManager.obterPontosDisponiveis();
+    }
+    return 150;
+};
+
+window.testarSistemaPontos = () => {
+    if (pontosManager) {
+        pontosManager.testarSistema();
+    } else {
         inicializarPontosManager();
+        setTimeout(() => {
+            pontosManager.testarSistema();
+        }, 100);
+    }
+};
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    const tabPrincipal = document.getElementById('principal');
+    if (tabPrincipal && tabPrincipal.classList.contains('active')) {
+        setTimeout(() => {
+            inicializarPontosManager();
+        }, 500);
     }
     
-    // 1. Atributos
-    document.dispatchEvent(new CustomEvent('atributosAtualizados', {
-        detail: { pontosGastos: 15 }
-    }));
-    
-    setTimeout(() => {
-        // 2. Características físicas
-        document.dispatchEvent(new CustomEvent('desvantagensAtualizadas', {
-            detail: { pontosGastos: -5 }
-        }));
-        
-        setTimeout(() => {
-            // 3. Riqueza
-            document.dispatchEvent(new CustomEvent('riquezaAtualizadaParaSoma', {
-                detail: { pontos: -10 }
-            }));
-            
+    document.addEventListener('tabChanged', function(e) {
+        if (e.detail === 'principal') {
             setTimeout(() => {
-                pontosManager.mostrarStatus();
-                console.log('✅ Sistema funcionando!');
-            }, 200);
-        }, 200);
-    }, 200);
-}
-
-// ==================== INICIALIZAÇÃO ====================
-
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        if (document.getElementById('pontosIniciais')) {
-            inicializarPontosManager();
+                if (!pontosManager) {
+                    inicializarPontosManager();
+                }
+            }, 500);
         }
-    }, 500);
+    });
 });
-
-// ==================== EXPORTAÇÕES ====================
-
-window.obterPontosManager = inicializarPontosManager;
-window.testarTudo = testarTudo;
-window.PontosManager = PontosManager;
