@@ -1,5 +1,5 @@
 // ===========================================
-// ATRIBUTOS.JS - CORRIGIDO (COM EVENTO PARA PONTOS MANAGER)
+// ATRIBUTOS.JS - VERSÃO FINAL CORRETA
 // ===========================================
 
 const cargasTable = {
@@ -62,10 +62,6 @@ let personagemAtributos = {
     }
 };
 
-// ===========================================
-// FUNÇÕES DE CONTROLE
-// ===========================================
-
 function alterarAtributo(atributo, valor) {
     const input = document.getElementById(atributo);
     if (!input) return;
@@ -103,17 +99,7 @@ function ajustarSecundario(atributo, valor) {
     else if (novoValor < 0) input.classList.add('negativo');
 
     atualizarTotaisSecundarios();
-    
-    // Atualizar pontos gastos
-    if (window.atualizarPontosAba) {
-        const totalGastos = calcularCustos();
-        window.atualizarPontosAba('atributos', totalGastos);
-    }
 }
-
-// ===========================================
-// FUNÇÕES DE ATUALIZAÇÃO
-// ===========================================
 
 function atualizarTudo() {
     const ST = personagemAtributos.ST;
@@ -121,13 +107,11 @@ function atualizarTudo() {
     const IQ = personagemAtributos.IQ;
     const HT = personagemAtributos.HT;
 
-    // Atualizar valores principais
     document.getElementById('currentST').textContent = ST;
     document.getElementById('currentDX').textContent = DX;
     document.getElementById('currentIQ').textContent = IQ;
     document.getElementById('currentHT').textContent = HT;
 
-    // Atualizar bases dos atributos secundários
     document.getElementById('PVBase').textContent = ST;
     document.getElementById('PFBase').textContent = HT;
     document.getElementById('VontadeBase').textContent = IQ;
@@ -136,29 +120,18 @@ function atualizarTudo() {
     const deslocamentoBase = (HT + DX) / 4;
     document.getElementById('DeslocamentoBase').textContent = deslocamentoBase.toFixed(2);
 
-    // Atualizar tabela de dano
     atualizarDanoBase(ST);
-    
-    // Atualizar cargas
     atualizarCargas(ST);
     
-    // Calcular custos
     const totalGastos = calcularCustos();
     
-    // ===========================================
-    // LINHA CRÍTICA - DISPARA EVENTO PARA PONTOS MANAGER
-    // ===========================================
-    document.dispatchEvent(new CustomEvent('atributosAtualizados', {
+    // ============ LINHA ÚNICA E CRÍTICA ============
+    window.dispatchEvent(new CustomEvent('atributosAtualizados', {
         detail: { pontosGastos: totalGastos }
     }));
+    // ================================================
     
-    // Atualizar totais secundários
     atualizarTotaisSecundarios();
-    
-    // Atualizar sistema de pontos (para compatibilidade antiga)
-    if (window.atualizarPontosAba) {
-        window.atualizarPontosAba('atributos', totalGastos);
-    }
 }
 
 function formatarCarga(valor) {
@@ -203,15 +176,13 @@ function calcularCustos() {
     const IQ = personagemAtributos.IQ;
     const HT = personagemAtributos.HT;
 
-    // Cálculo correto: abaixo de 10 = custo negativo
-    const custoST = (ST - 10) * 10;       // ST 9 = (9-10)*10 = -10
-    const custoDX = (DX - 10) * 20;       // DX 9 = (9-10)*20 = -20
-    const custoIQ = (IQ - 10) * 20;       // IQ 9 = (9-10)*20 = -20
-    const custoHT = (HT - 10) * 10;       // HT 9 = (9-10)*10 = -10
+    const custoST = (ST - 10) * 10;
+    const custoDX = (DX - 10) * 20;
+    const custoIQ = (IQ - 10) * 20;
+    const custoHT = (HT - 10) * 10;
 
     const totalGastos = custoST + custoDX + custoIQ + custoHT;
 
-    // Mostrar custos individuais se os elementos existirem
     const elementosCusto = {
         'custoST': custoST,
         'custoDX': custoDX,
@@ -222,14 +193,12 @@ function calcularCustos() {
     Object.keys(elementosCusto).forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) {
-            // Formatar com sinal
             let valorFormatado = elementosCusto[id];
             if (valorFormatado > 0) {
                 valorFormatado = '+' + valorFormatado;
             }
             elemento.textContent = valorFormatado;
             
-            // Adicionar classes de cor
             elemento.classList.remove('positivo', 'negativo');
             if (elementosCusto[id] > 0) {
                 elemento.classList.add('positivo');
@@ -238,26 +207,6 @@ function calcularCustos() {
             }
         }
     });
-
-    // Atualizar pontos gastos
-    const pontosElement = document.getElementById('pontosGastos');
-    if (pontosElement) {
-        pontosElement.textContent = totalGastos;
-        
-        // Limpar classes
-        pontosElement.classList.remove('positivo', 'negativo', 'excedido');
-        
-        // Adicionar classes apropriadas
-        if (totalGastos < 0) {
-            pontosElement.classList.add('negativo');
-        } else if (totalGastos > 0) {
-            pontosElement.classList.add('positivo');
-        }
-        
-        if (totalGastos > 150) {
-            pontosElement.classList.add('excedido');
-        }
-    }
 
     return totalGastos;
 }
@@ -280,10 +229,6 @@ function atualizarTotaisSecundarios() {
     document.getElementById('DeslocamentoTotal').textContent = deslocamentoTotal;
 }
 
-// ===========================================
-// FUNÇÕES DE RESET/LOAD
-// ===========================================
-
 function resetAtributos() {
     personagemAtributos = {
         ST: 10,
@@ -299,15 +244,11 @@ function resetAtributos() {
         }
     };
 
-    // Resetar inputs
     ['ST', 'DX', 'IQ', 'HT'].forEach(atributo => {
         const input = document.getElementById(atributo);
-        if (input) {
-            input.value = 10;
-        }
+        if (input) input.value = 10;
     });
 
-    // Resetar atributos secundários
     ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].forEach(atributo => {
         const input = document.getElementById('bonus' + atributo);
         if (input) {
@@ -322,13 +263,11 @@ function resetAtributos() {
 function loadAtributos(dados) {
     if (!dados) return;
     
-    // Carregar atributos básicos
     if (dados.ST) personagemAtributos.ST = parseInt(dados.ST) || 10;
     if (dados.DX) personagemAtributos.DX = parseInt(dados.DX) || 10;
     if (dados.IQ) personagemAtributos.IQ = parseInt(dados.IQ) || 10;
     if (dados.HT) personagemAtributos.HT = parseInt(dados.HT) || 10;
     
-    // Carregar bônus
     if (dados.bonus) {
         if (dados.bonus.PV) personagemAtributos.bonus.PV = parseInt(dados.bonus.PV) || 0;
         if (dados.bonus.PF) personagemAtributos.bonus.PF = parseInt(dados.bonus.PF) || 0;
@@ -337,7 +276,6 @@ function loadAtributos(dados) {
         if (dados.bonus.Deslocamento) personagemAtributos.bonus.Deslocamento = parseFloat(dados.bonus.Deslocamento) || 0;
     }
     
-    // Atualizar inputs
     document.getElementById('ST').value = personagemAtributos.ST;
     document.getElementById('DX').value = personagemAtributos.DX;
     document.getElementById('IQ').value = personagemAtributos.IQ;
@@ -349,7 +287,6 @@ function loadAtributos(dados) {
     document.getElementById('bonusPercepcao').value = personagemAtributos.bonus.Percepcao;
     document.getElementById('bonusDeslocamento').value = personagemAtributos.bonus.Deslocamento;
     
-    // Aplicar classes de cor nos bônus
     ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].forEach(atributo => {
         const input = document.getElementById('bonus' + atributo);
         if (input) {
@@ -363,12 +300,7 @@ function loadAtributos(dados) {
     atualizarTudo();
 }
 
-// ===========================================
-// INICIALIZAÇÃO E EVENTOS
-// ===========================================
-
 function inicializarAtributos() {
-    // Configurar eventos dos atributos principais
     ['ST', 'DX', 'IQ', 'HT'].forEach(atributo => {
         const input = document.getElementById(atributo);
         if (input) {
@@ -384,7 +316,6 @@ function inicializarAtributos() {
         }
     });
 
-    // Configurar botões dos atributos principais
     document.querySelectorAll('.attribute-card').forEach(card => {
         const titulo = card.querySelector('h3').textContent;
         let atributo = '';
@@ -398,17 +329,11 @@ function inicializarAtributos() {
             const btnMais = card.querySelector('.btn-attr.plus');
             const btnMenos = card.querySelector('.btn-attr.minus');
             
-            if (btnMais) {
-                btnMais.onclick = () => alterarAtributo(atributo, 1);
-            }
-            
-            if (btnMenos) {
-                btnMenos.onclick = () => alterarAtributo(atributo, -1);
-            }
+            if (btnMais) btnMais.onclick = () => alterarAtributo(atributo, 1);
+            if (btnMenos) btnMenos.onclick = () => alterarAtributo(atributo, -1);
         }
     });
 
-    // Configurar atributos secundários
     ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'].forEach(atributo => {
         const input = document.getElementById('bonus' + atributo);
         if (input) {
@@ -430,17 +355,10 @@ function inicializarAtributos() {
                 this.classList.remove('positivo', 'negativo');
                 if (valor > 0) this.classList.add('positivo');
                 else if (valor < 0) this.classList.add('negativo');
-                
-                // Atualizar pontos
-                if (window.atualizarPontosAba) {
-                    const totalGastos = calcularCustos();
-                    window.atualizarPontosAba('atributos', totalGastos);
-                }
             });
         }
     });
 
-    // Configurar botões dos atributos secundários
     document.querySelectorAll('.secondary-attr').forEach((attrDiv, index) => {
         const atributos = ['PV', 'PF', 'Vontade', 'Percepcao', 'Deslocamento'];
         const atributo = atributos[index];
@@ -452,13 +370,8 @@ function inicializarAtributos() {
         }
     });
 
-    // Primeira atualização
     atualizarTudo();
 }
-
-// ===========================================
-// EXPORTAÇÃO PARA USO GLOBAL
-// ===========================================
 
 window.initAtributosTab = function() {
     if (document.getElementById('ST')) {
@@ -471,16 +384,11 @@ window.calcularCustoAtributos = calcularCustos;
 window.resetAtributos = resetAtributos;
 window.loadAtributos = loadAtributos;
 
-// ===========================================
-// INICIAR QUANDO A PÁGINA CARREGAR
-// ===========================================
-
 document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('principal')?.classList.contains('active')) {
         window.initAtributosTab();
     }
     
-    // Adicionar evento para quando a aba for ativada
     document.addEventListener('tabChanged', function(e) {
         if (e.detail === 'principal') {
             setTimeout(window.initAtributosTab, 50);
