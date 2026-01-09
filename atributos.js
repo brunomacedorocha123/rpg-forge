@@ -1,5 +1,6 @@
 // ===========================================
-// ATRIBUTOS.JS - SISTEMA COMPLETO
+// ATRIBUTOS.JS - SISTEMA COMPLETO ATUALIZADO
+// Compatível com o novo sistema de pontos
 // ===========================================
 
 const cargasTable = {
@@ -63,7 +64,7 @@ let personagemAtributos = {
 };
 
 // ===========================================
-// FUNÇÕES DE CONTROLE
+// FUNÇÕES DE CONTROLE ATUALIZADAS
 // ===========================================
 
 function alterarAtributo(atributo, valor) {
@@ -78,6 +79,7 @@ function alterarAtributo(atributo, valor) {
     personagemAtributos[atributo] = novoValor;
 
     atualizarTudo();
+    enviarEventoAtributosParaSistema(); // NOVO: Envia para o sistema de pontos
 }
 
 function ajustarSecundario(atributo, valor) {
@@ -103,16 +105,38 @@ function ajustarSecundario(atributo, valor) {
     else if (novoValor < 0) input.classList.add('negativo');
 
     atualizarTotaisSecundarios();
+    enviarEventoAtributosParaSistema(); // NOVO: Envia para o sistema de pontos
+}
+
+// ===========================================
+// FUNÇÃO NOVA: ENVIAR EVENTO PARA SISTEMA DE PONTOS
+// ===========================================
+
+function enviarEventoAtributosParaSistema() {
+    const totalGastos = calcularCustos();
     
-    // Atualizar pontos gastos
+    // ENVIA EVENTO para o novo sistema de pontos
+    document.dispatchEvent(new CustomEvent('atributosAtualizados', {
+        detail: {
+            pontosGastos: totalGastos,
+            ST: personagemAtributos.ST,  // Importante para características físicas
+            DX: personagemAtributos.DX,
+            IQ: personagemAtributos.IQ,
+            HT: personagemAtributos.HT,
+            atributos: { ...personagemAtributos }
+        }
+    }));
+    
+    console.log('📤 Atributos enviados para sistema de pontos:', totalGastos, 'pts');
+    
+    // Para compatibilidade com sistema antigo
     if (window.atualizarPontosAba) {
-        const totalGastos = calcularCustos();
         window.atualizarPontosAba('atributos', totalGastos);
     }
 }
 
 // ===========================================
-// FUNÇÕES DE ATUALIZAÇÃO
+// FUNÇÕES DE ATUALIZAÇÃO ATUALIZADAS
 // ===========================================
 
 function atualizarTudo() {
@@ -148,10 +172,8 @@ function atualizarTudo() {
     // Atualizar totais secundários
     atualizarTotaisSecundarios();
     
-    // Atualizar sistema de pontos
-    if (window.atualizarPontosAba) {
-        window.atualizarPontosAba('atributos', totalGastos);
-    }
+    // Enviar para sistema de pontos
+    enviarEventoAtributosParaSistema(); // NOVO: Envia para o sistema de pontos
 }
 
 function formatarCarga(valor) {
@@ -196,11 +218,11 @@ function calcularCustos() {
     const IQ = personagemAtributos.IQ;
     const HT = personagemAtributos.HT;
 
-    // Cálculo correto: abaixo de 10 = custo negativo
-    const custoST = (ST - 10) * 10;       // ST 9 = (9-10)*10 = -10
-    const custoDX = (DX - 10) * 20;       // DX 9 = (9-10)*20 = -20
-    const custoIQ = (IQ - 10) * 20;       // IQ 9 = (9-10)*20 = -20
-    const custoHT = (HT - 10) * 10;       // HT 9 = (9-10)*10 = -10
+    // Cálculo correto: abaixo de 10 = custo negativo (ganha pontos)
+    const custoST = (ST - 10) * 10;       // ST 9 = (9-10)*10 = -10 (ganha 10 pts)
+    const custoDX = (DX - 10) * 20;       // DX 9 = (9-10)*20 = -20 (ganha 20 pts)
+    const custoIQ = (IQ - 10) * 20;       // IQ 9 = (9-10)*20 = -20 (ganha 20 pts)
+    const custoHT = (HT - 10) * 10;       // HT 9 = (9-10)*10 = -10 (ganha 10 pts)
 
     const totalGastos = custoST + custoDX + custoIQ + custoHT;
 
@@ -425,10 +447,7 @@ function inicializarAtributos() {
                 else if (valor < 0) this.classList.add('negativo');
                 
                 // Atualizar pontos
-                if (window.atualizarPontosAba) {
-                    const totalGastos = calcularCustos();
-                    window.atualizarPontosAba('atributos', totalGastos);
-                }
+                enviarEventoAtributosParaSistema();
             });
         }
     });
@@ -447,6 +466,7 @@ function inicializarAtributos() {
 
     // Primeira atualização
     atualizarTudo();
+    console.log('✅ Sistema de atributos inicializado e sincronizado com pontos');
 }
 
 // ===========================================
@@ -463,6 +483,50 @@ window.getAtributosPersonagem = () => ({ ...personagemAtributos });
 window.calcularCustoAtributos = calcularCustos;
 window.resetAtributos = resetAtributos;
 window.loadAtributos = loadAtributos;
+window.enviarEventoAtributos = enviarEventoAtributosParaSistema;
+
+// ===========================================
+// FUNÇÃO DE TESTE
+// ===========================================
+
+window.testarAtributos = function() {
+    console.log('🧪 TESTANDO ATRIBUTOS');
+    console.log('1. Aumentando ST de 10 para 11...');
+    
+    const inputST = document.getElementById('ST');
+    if (inputST) {
+        inputST.value = 11;
+        personagemAtributos.ST = 11;
+        atualizarTudo();
+        
+        setTimeout(() => {
+            console.log('2. Diminuindo DX de 10 para 9...');
+            const inputDX = document.getElementById('DX');
+            if (inputDX) {
+                inputDX.value = 9;
+                personagemAtributos.DX = 9;
+                atualizarTudo();
+                
+                setTimeout(() => {
+                    const totalGastos = calcularCustos();
+                    console.log('📊 RESULTADO:');
+                    console.log('- ST: 11 (custa +10 pts)');
+                    console.log('- DX: 9 (ganha -20 pts)');
+                    console.log('- IQ: 10 (0 pts)');
+                    console.log('- HT: 10 (0 pts)');
+                    console.log('- Total esperado: +10 -20 = -10 pts');
+                    console.log('- Total calculado:', totalGastos, 'pts');
+                    
+                    if (totalGastos === -10) {
+                        console.log('✅ TESTE PASSOU! Atributos funcionando!');
+                    } else {
+                        console.log('❌ TESTE FALHOU! Pontos incorretos.');
+                    }
+                }, 300);
+            }
+        }, 300);
+    }
+};
 
 // ===========================================
 // INICIAR QUANDO A PÁGINA CARREGAR
@@ -480,3 +544,46 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// ===========================================
+// ESTILOS PARA AS CORES
+// ===========================================
+
+const style = document.createElement('style');
+style.textContent = `
+    .positivo {
+        color: #27ae60 !important;
+        font-weight: bold;
+    }
+    
+    .negativo {
+        color: #e74c3c !important;
+        font-weight: bold;
+    }
+    
+    .excedido {
+        color: #e74c3c !important;
+        background-color: #f8d7da !important;
+        border-color: #e74c3c !important;
+        animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    input.positivo {
+        background-color: #d4edda !important;
+        border-color: #27ae60 !important;
+        color: #155724 !important;
+    }
+    
+    input.negativo {
+        background-color: #f8d7da !important;
+        border-color: #e74c3c !important;
+        color: #721c24 !important;
+    }
+`;
+document.head.appendChild(style);
