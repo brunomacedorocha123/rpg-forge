@@ -1,5 +1,5 @@
 // ===========================================
-// PONTOS-MANAGER.JS - MANTENDO ATRIBUTOS FUNCIONAIS
+// PONTOS-MANAGER.JS - VERSÃO FINAL CORRIGIDA
 // ===========================================
 
 class PontosManager {
@@ -16,7 +16,6 @@ class PontosManager {
             tecnicas: 0,
             magia: 0,
             equipamentos: 0
-            // NÃO TEM riqueza aqui
         };
         
         this.limites = {
@@ -82,7 +81,6 @@ class PontosManager {
     }
     
     configurarEventos() {
-        // MANTENHA todos os eventos que já estavam funcionando
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
                 this.atualizarGastosAba('atributos', e.detail.pontosGastos);
@@ -101,18 +99,14 @@ class PontosManager {
             }
         });
         
-        // Adiciona evento para riqueza (isso é novo)
         document.addEventListener('riquezaAtualizada', (e) => {
             if (e.detail && e.detail.pontos !== undefined) {
                 const pontos = e.detail.pontos;
                 if (pontos > 0) {
-                    // É vantagem
                     this.atualizarGastosAba('vantagens', pontos);
                 } else if (pontos < 0) {
-                    // É desvantagem (usa valor absoluto)
                     this.atualizarGastosAba('desvantagens', Math.abs(pontos));
                 } else {
-                    // Neutro
                     this.atualizarGastosAba('vantagens', 0);
                     this.atualizarGastosAba('desvantagens', 0);
                 }
@@ -123,36 +117,31 @@ class PontosManager {
     calcularPontosDisponiveis() {
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
-        // LÓGICA CORRETA PARA ATRIBUTOS:
-        // Se atributos < 0 (abaixo de 10), isso é DESVANTAGEM
-        // Se atributos > 0 (acima de 10), isso é VANTAGEM
-        
+        // ATRIBUTOS: valor negativo = desvantagem, positivo = vantagem
         const pontosAtributos = this.gastos.atributos || 0;
         
+        // VANTAGENS: soma tudo que é positivo
         let vantagensTotal = 0;
-        let desvantagensTotal = 0;
-        
-        // Atributos acima de 0 = custam pontos (vantagem)
         if (pontosAtributos > 0) {
             vantagensTotal += pontosAtributos;
         }
-        // Atributos abaixo de 0 = dão pontos (desvantagem)
-        else if (pontosAtributos < 0) {
-            desvantagensTotal += Math.abs(pontosAtributos);
-        }
         
-        // Soma outras vantagens
         vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
         vantagensTotal += Math.max(0, this.gastos.pericias || 0);
         vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
         vantagensTotal += Math.max(0, this.gastos.magia || 0);
         vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
         
-        // Soma outras desvantagens
-        desvantagensTotal += Math.abs(Math.min(0, this.gastos.desvantagens || 0));
-        desvantagensTotal += Math.abs(Math.min(0, this.gastos.peculiaridades || 0));
+        // DESVANTAGENS: soma tudo que é desvantagem
+        let desvantagensTotal = 0;
+        if (pontosAtributos < 0) {
+            desvantagensTotal += Math.abs(pontosAtributos);
+        }
         
-        // Cálculo final
+        desvantagensTotal += Math.abs(this.gastos.desvantagens || 0);
+        desvantagensTotal += Math.abs(this.gastos.peculiaridades || 0);
+        
+        // Cálculo final: pontos iniciais - vantagens + desvantagens
         const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
         
         return {
@@ -161,7 +150,7 @@ class PontosManager {
             desvantagens: desvantagensTotal,
             disponiveis: pontosDisponiveis,
             totalDesvantagensAbs: desvantagensTotal,
-            peculiaridadesAbs: Math.abs(Math.min(0, this.gastos.peculiaridades || 0))
+            peculiaridadesAbs: Math.abs(this.gastos.peculiaridades || 0)
         };
     }
     
@@ -194,14 +183,22 @@ class PontosManager {
         const elemento = document.getElementById(`pontos${this.capitalizar(aba)}`);
         if (!elemento) return;
         
-        const pontos = this.gastos[aba] || 0;
+        let pontos = this.gastos[aba] || 0;
+        let valorExibicao = pontos;
         
-        // Formata pontos (se negativo, mostra negativo)
-        elemento.textContent = pontos;
+        // Para desvantagens e peculiaridades: exibe positivo (mas é negativo internamente)
+        if (aba === 'desvantagens' || aba === 'peculiaridades') {
+            valorExibicao = Math.abs(pontos);
+        }
         
+        elemento.textContent = valorExibicao;
+        
+        // Aplica classe CSS correta
         elemento.parentElement.classList.remove('positivo', 'negativo');
         
-        if (pontos > 0) {
+        if (aba === 'desvantagens' || aba === 'peculiaridades') {
+            elemento.parentElement.classList.add('negativo');
+        } else if (pontos > 0) {
             elemento.parentElement.classList.add('positivo');
         } else if (pontos < 0) {
             elemento.parentElement.classList.add('negativo');
@@ -214,11 +211,11 @@ class PontosManager {
         const elemento = document.getElementById(`perc${this.capitalizar(aba)}`);
         if (!elemento) return;
         
-        const pontos = this.gastos[aba] || 0;
+        const pontos = Math.abs(this.gastos[aba] || 0);
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
         if (totalPontos > 0) {
-            const percentual = Math.round((Math.abs(pontos) / totalPontos) * 100);
+            const percentual = Math.round((pontos / totalPontos) * 100);
             elemento.textContent = `${percentual}%`;
             
             if (percentual > 50) {
@@ -437,7 +434,8 @@ window.obterPontosManager = () => {
 
 window.atualizarPontosAba = (aba, pontos) => {
     if (pontosManager) {
-        return pontosManager.atualizarGastosAba(aba, pontos);
+        pontosManager.atualizarGastosAba(aba, pontos);
+        return true;
     }
     return false;
 };
