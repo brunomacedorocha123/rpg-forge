@@ -1,5 +1,5 @@
 // ===========================================
-// ATRIBUTOS.JS - VERSÃO FINAL CORRETA
+// ATRIBUTOS.JS - VERSÃO FINAL CORRIGIDA
 // ===========================================
 
 const cargasTable = {
@@ -125,11 +125,11 @@ function atualizarTudo() {
     
     const totalGastos = calcularCustos();
     
-    // ============ LINHA ÚNICA E CRÍTICA ============
-    window.dispatchEvent(new CustomEvent('atributosAtualizados', {
+    // ============ LINHA CORRIGIDA ============
+    document.dispatchEvent(new CustomEvent('atributosAtualizados', {
         detail: { pontosGastos: totalGastos }
     }));
-    // ================================================
+    // ==========================================
     
     atualizarTotaisSecundarios();
 }
