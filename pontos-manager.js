@@ -1,5 +1,5 @@
 // ===========================================
-// PONTOS-MANAGER.JS - VERSÃO FINAL COMPLETA
+// PONTOS-MANAGER.JS - VERSÃO COMPLETA
 // ===========================================
 
 class PontosManager {
@@ -8,23 +8,14 @@ class PontosManager {
         this.pontosGanhosCampanha = 0;
         
         this.gastos = {
-            // ATRIBUTOS (+ ou -)
             atributos: 0,
-            
-            // VANTAGENS (sempre positivas)
-            vantagens: 0,           // Riqueza positiva, outras vantagens
-            
-            // DESVANTAGENS (sempre positivas - SOMADAS)
+            vantagens: 0,
             desvantagens: {
-                riqueza: 0,         // Ex: Batalhador (-10) = 10 pts
-                caracteristicas: 0, // Ex: Magro (-5) = 5 pts
-                outras: 0           // Futuras desvantagens
+                riqueza: 0,
+                caracteristicas: 0,
+                outras: 0
             },
-            
-            // PECULIARIDADES (sempre positivas)
             peculiaridades: 0,
-            
-            // OUTROS (sempre positivas)
             pericias: 0,
             tecnicas: 0,
             magia: 0,
@@ -46,7 +37,6 @@ class PontosManager {
     }
     
     configurarInputs() {
-        // Pontos iniciais
         const inputPontosIniciais = document.getElementById('pontosIniciais');
         if (inputPontosIniciais) {
             inputPontosIniciais.value = this.pontosIniciais;
@@ -56,7 +46,6 @@ class PontosManager {
             });
         }
         
-        // Pontos da campanha
         const inputPontosGanhos = document.getElementById('pontosGanhos');
         if (inputPontosGanhos) {
             inputPontosGanhos.value = this.pontosGanhosCampanha;
@@ -66,7 +55,6 @@ class PontosManager {
             });
         }
         
-        // Limites
         const limiteDesvantagens = document.getElementById('limiteDesvantagens');
         if (limiteDesvantagens) {
             limiteDesvantagens.value = this.limites.desvantagens;
@@ -87,7 +75,6 @@ class PontosManager {
     }
     
     configurarEventos() {
-        // 1. ATRIBUTOS
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail?.pontosGastos !== undefined) {
                 this.gastos.atributos = e.detail.pontosGastos;
@@ -95,31 +82,25 @@ class PontosManager {
             }
         });
         
-        // 2. RIQUEZA - Trata vantagens e desvantagens separadamente
         document.addEventListener('riquezaAtualizadaParaSoma', (e) => {
             if (e.detail?.pontos !== undefined) {
-                // Riqueza NEGATIVA = DESVANTAGEM (ganha pontos)
-                if (e.detail.pontos < 0) {
-                    const pontos = Math.abs(e.detail.pontos);
-                    this.gastos.desvantagens.riqueza = pontos;
-                    this.gastos.vantagens = 0; // Zera vantagens se for desvantagem
-                    this.atualizarTudo();
+                const pontos = e.detail.pontos;
+                
+                if (pontos < 0) {
+                    this.gastos.desvantagens.riqueza = Math.abs(pontos);
+                    this.gastos.vantagens = 0;
+                } else if (pontos > 0) {
+                    this.gastos.vantagens = pontos;
+                    this.gastos.desvantagens.riqueza = 0;
+                } else {
+                    this.gastos.vantagens = 0;
+                    this.gastos.desvantagens.riqueza = 0;
                 }
-                // Riqueza POSITIVA já é tratada no evento 'vantagensAtualizadas'
-            }
-        });
-        
-        // 3. VANTAGENS DE RIQUEZA (positivas)
-        document.addEventListener('vantagensAtualizadas', (e) => {
-            if (e.detail?.pontos !== undefined && e.detail.tipo === 'riqueza') {
-                // Riqueza POSITIVA = VANTAGEM (custa pontos)
-                this.gastos.vantagens = e.detail.pontos;
-                this.gastos.desvantagens.riqueza = 0; // Zera desvantagens se for vantagem
+                
                 this.atualizarTudo();
             }
         });
         
-        // 4. CARACTERÍSTICAS FÍSICAS (sempre desvantagens)
         document.addEventListener('desvantagensAtualizadas', (e) => {
             if (e.detail?.pontosGastos !== undefined && 
                 e.detail.origem === 'caracteristicas_fisicas') {
@@ -129,10 +110,16 @@ class PontosManager {
             }
         });
         
-        // 5. PECULIARIDADES
         document.addEventListener('peculiaridadesAtualizadas', (e) => {
             if (e.detail?.pontos !== undefined) {
                 this.gastos.peculiaridades = e.detail.pontos;
+                this.atualizarTudo();
+            }
+        });
+        
+        document.addEventListener('vantagensAtualizadas', (e) => {
+            if (e.detail?.pontos !== undefined && e.detail.tipo === 'riqueza') {
+                this.gastos.vantagens = e.detail.pontos;
                 this.atualizarTudo();
             }
         });
@@ -141,39 +128,30 @@ class PontosManager {
     calcularPontosDisponiveis() {
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
-        // 1. VANTAGENS (SUBTRAI DO TOTAL - custa pontos)
         let vantagensTotal = 0;
         
-        // Atributos positivos
         if (this.gastos.atributos > 0) {
             vantagensTotal += this.gastos.atributos;
         }
         
-        // Riqueza positiva e outras vantagens
         vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
         vantagensTotal += Math.max(0, this.gastos.pericias || 0);
         vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
         vantagensTotal += Math.max(0, this.gastos.magia || 0);
         vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
         
-        // 2. DESVANTAGENS (ADICIONA AO TOTAL - ganha pontos)
         let desvantagensTotal = 0;
         
-        // Atributos negativos
         if (this.gastos.atributos < 0) {
             desvantagensTotal += Math.abs(this.gastos.atributos);
         }
         
-        // SOMA todas as desvantagens
         desvantagensTotal += Math.abs(this.gastos.desvantagens.riqueza || 0);
         desvantagensTotal += Math.abs(this.gastos.desvantagens.caracteristicas || 0);
         desvantagensTotal += Math.abs(this.gastos.desvantagens.outras || 0);
         
-        // Peculiaridades são desvantagens também
         desvantagensTotal += Math.abs(this.gastos.peculiaridades || 0);
         
-        // 3. CÁLCULO FINAL
-        // Total = Pontos Base - Vantagens + Desvantagens
         const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
         
         return {
@@ -194,14 +172,9 @@ class PontosManager {
             pontos = this.gastos[aba];
             elemento.textContent = pontos >= 0 ? `+${pontos}` : pontos;
         } else if (aba === 'desvantagens') {
-            // SOMA todas as desvantagens
             pontos = this.gastos.desvantagens.riqueza + 
                     this.gastos.desvantagens.caracteristicas + 
                     this.gastos.desvantagens.outras;
-            elemento.textContent = pontos;
-        } else if (aba === 'vantagens') {
-            // Mostra vantagens (riqueza positiva + outras)
-            pontos = this.gastos[aba] || 0;
             elemento.textContent = pontos;
         } else if (aba === 'peculiaridades') {
             pontos = this.gastos[aba];
@@ -211,15 +184,12 @@ class PontosManager {
             elemento.textContent = pontos;
         }
         
-        // Atualiza cor do card
         const card = elemento.closest('.category');
         if (card) {
             card.classList.remove('positivo', 'negativo');
             
             if (aba === 'desvantagens' || aba === 'peculiaridades') {
-                if (pontos > 0) {
-                    card.classList.add('negativo');
-                }
+                if (pontos > 0) card.classList.add('negativo');
             } else if (pontos > 0) {
                 card.classList.add('positivo');
             }
@@ -227,7 +197,6 @@ class PontosManager {
     }
     
     atualizarTudo() {
-        // Atualiza todos os displays
         this.atualizarDisplay('atributos');
         this.atualizarDisplay('vantagens');
         this.atualizarDisplay('desvantagens');
@@ -236,10 +205,8 @@ class PontosManager {
         this.atualizarDisplay('tecnicas');
         this.atualizarDisplay('magia');
         
-        // Calcula totais
         const calculo = this.calcularPontosDisponiveis();
         
-        // Pontos disponíveis
         const elementoDisponiveis = document.getElementById('pontosDisponiveis');
         if (elementoDisponiveis) {
             elementoDisponiveis.textContent = calculo.disponiveis;
@@ -253,29 +220,16 @@ class PontosManager {
             }
         }
         
-        // Total gasto (vantagens)
         const elementoGastos = document.getElementById('pontosGastos');
         if (elementoGastos) {
             elementoGastos.textContent = calculo.vantagens;
-            
-            if (calculo.vantagens > 0) {
-                elementoGastos.style.color = '#e74c3c';
-                elementoGastos.style.fontWeight = 'bold';
-            } else {
-                elementoGastos.style.color = '';
-                elementoGastos.style.fontWeight = '';
-            }
         }
         
-        // Atualiza limites
         this.atualizarLimites(calculo.desvantagens);
-        
-        // Atualiza percentuais
         this.atualizarPercentuais(calculo);
     }
     
     atualizarLimites(desvantagensTotal) {
-        // Limite de desvantagens
         const progressDesv = document.getElementById('progressDesvantagens');
         const textDesv = document.getElementById('textDesvantagens');
         const percentDesv = document.getElementById('percentDesvantagens');
@@ -290,7 +244,6 @@ class PontosManager {
                                                 percentual >= 80 ? '#f39c12' : '#3498db';
         }
         
-        // Limite de peculiaridades
         const peculiaresTotal = this.gastos.peculiaridades || 0;
         const progressPec = document.getElementById('progressPeculiaridades');
         const textPec = document.getElementById('textPeculiaridades');
@@ -314,21 +267,18 @@ class PontosManager {
             return totalPontos > 0 ? Math.round((Math.abs(valor) / totalPontos) * 100) : 0;
         };
         
-        // Atributos
         const percAtributos = document.getElementById('percAtributos');
         if (percAtributos) {
             const percent = calcPercent(this.gastos.atributos);
             percAtributos.textContent = `${percent}%`;
         }
         
-        // Vantagens
         const percVantagens = document.getElementById('percVantagens');
         if (percVantagens) {
             const percent = calcPercent(this.gastos.vantagens);
             percVantagens.textContent = `${percent}%`;
         }
         
-        // Desvantagens
         const percDesvantagens = document.getElementById('percDesvantagens');
         if (percDesvantagens) {
             const desvTotal = this.gastos.desvantagens.riqueza + 
@@ -338,14 +288,12 @@ class PontosManager {
             percDesvantagens.textContent = `${percent}%`;
         }
         
-        // Peculiaridades
         const percPeculiaridades = document.getElementById('percPeculiaridades');
         if (percPeculiaridades) {
             const percent = calcPercent(this.gastos.peculiaridades);
             percPeculiaridades.textContent = `${percent}%`;
         }
         
-        // Outros (0% por enquanto)
         ['Pericias', 'Tecnicas', 'Magia'].forEach(tipo => {
             const elemento = document.getElementById(`perc${tipo}`);
             if (elemento) elemento.textContent = '0%';
