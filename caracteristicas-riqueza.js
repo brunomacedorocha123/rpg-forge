@@ -1,6 +1,6 @@
 // ===========================================
-// CARACTERÍSTICAS-RIQUEZA.JS - VERSÃO COMPLETA
-// Sistema de Nível de Riqueza que SOMA com outras desvantagens
+// CARACTERÍSTICAS-RIQUEZA.JS - VERSÃO CORRIGIDA
+// Envia eventos para o novo sistema que SOMA
 // ===========================================
 
 class SistemaRiqueza {
@@ -99,17 +99,20 @@ class SistemaRiqueza {
         this.nivelAtual = "0";
         this.pontosRiqueza = 0;
         this.inicializado = false;
-        this.carregarDoLocalStorage();
+        
+        this.inicializar();
     }
 
     inicializar() {
         if (this.inicializado) return;
         
+        this.carregarDoLocalStorage();
         this.configurarEventos();
         this.atualizarDisplay();
-        this.inicializado = true;
+        this.enviarEventoParaPontosManager();
         
-        this.enviarEventoAtualizacao();
+        this.inicializado = true;
+        console.log('💰 Sistema de Riqueza inicializado!');
     }
 
     configurarEventos() {
@@ -126,6 +129,7 @@ class SistemaRiqueza {
         this.nivelAtual = valor;
         this.pontosRiqueza = parseInt(valor);
         
+        // Atualiza select
         const select = document.getElementById('nivelRiqueza');
         if (select) {
             select.value = valor;
@@ -133,25 +137,23 @@ class SistemaRiqueza {
         
         this.atualizarDisplay();
         this.salvarNoLocalStorage();
-        this.enviarEventoAtualizacao();
+        this.enviarEventoParaPontosManager();
         
-        console.log(`Riqueza: ${nivelAnterior} -> ${valor} (${this.pontosRiqueza} pts)`);
+        console.log(`💰 Riqueza: ${nivelAnterior} -> ${valor} (${this.pontosRiqueza} pts)`);
     }
 
-    enviarEventoAtualizacao() {
-        const nivel = this.niveisRiqueza[this.nivelAtual];
-        
-        const evento = new CustomEvent('riquezaAtualizadaComSoma', {
+    enviarEventoParaPontosManager() {
+        // ENVIA EVENTO PARA O NOVO SISTEMA QUE SOMA
+        const evento = new CustomEvent('riquezaAtualizadaParaSoma', {
             detail: {
                 pontos: this.pontosRiqueza,
-                tipo: this.getTipoPontos(),
-                nivel: nivel.nome,
-                nivelId: this.nivelAtual,
-                multiplicador: nivel.multiplicador,
-                rendaMensal: nivel.rendaBase
+                nivel: this.nivelAtual,
+                nome: this.niveisRiqueza[this.nivelAtual]?.nome || 'Desconhecido'
             }
         });
         document.dispatchEvent(evento);
+        
+        console.log('📤 Evento de riqueza enviado:', this.pontosRiqueza, 'pts');
     }
 
     atualizarDisplay() {
@@ -232,9 +234,10 @@ class SistemaRiqueza {
         try {
             const dados = {
                 nivelRiqueza: this.nivelAtual,
+                pontosRiqueza: this.pontosRiqueza,
                 timestamp: new Date().toISOString()
             };
-            localStorage.setItem('rpgforge_riqueza', JSON.stringify(dados));
+            localStorage.setItem('rpgforge_riqueza_corrigida', JSON.stringify(dados));
         } catch (error) {
             console.error('Erro ao salvar riqueza:', error);
         }
@@ -242,18 +245,19 @@ class SistemaRiqueza {
 
     carregarDoLocalStorage() {
         try {
-            const dadosSalvos = localStorage.getItem('rpgforge_riqueza');
+            const dadosSalvos = localStorage.getItem('rpgforge_riqueza_corrigida');
             if (dadosSalvos) {
                 const dados = JSON.parse(dadosSalvos);
                 if (dados.nivelRiqueza !== undefined) {
                     this.nivelAtual = dados.nivelRiqueza;
-                    this.pontosRiqueza = parseInt(dados.nivelRiqueza);
+                    this.pontosRiqueza = dados.pontosRiqueza || parseInt(dados.nivelRiqueza);
                     
                     const select = document.getElementById('nivelRiqueza');
                     if (select) {
                         select.value = dados.nivelRiqueza;
                     }
                     
+                    console.log('💰 Riqueza carregada:', this.nivelAtual, '(', this.pontosRiqueza, 'pts)');
                     return true;
                 }
             }
@@ -273,7 +277,8 @@ class SistemaRiqueza {
                 nome: nivel.nome,
                 nivel: this.nivelAtual,
                 multiplicador: nivel.multiplicador,
-                rendaMensal: nivel.rendaBase
+                rendaMensal: nivel.rendaBase,
+                descricao: nivel.descricao
             }
         };
     }
@@ -283,6 +288,8 @@ class SistemaRiqueza {
     }
 }
 
+// ==================== INSTANCIAÇÃO GLOBAL ====================
+
 let sistemaRiqueza = null;
 
 function inicializarSistemaRiqueza() {
@@ -291,20 +298,82 @@ function inicializarSistemaRiqueza() {
     }
     
     const select = document.getElementById('nivelRiqueza');
-    if (!select) return null;
+    if (!select) {
+        console.log('⚠️ Select de riqueza não encontrado');
+        return null;
+    }
     
     sistemaRiqueza.inicializar();
     return sistemaRiqueza;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('nivelRiqueza')) {
-        setTimeout(inicializarSistemaRiqueza, 100);
+// ==================== TESTE DA RIQUEZA ====================
+
+function testarRiqueza() {
+    if (!sistemaRiqueza) {
+        console.log('❌ Sistema de riqueza não inicializado');
+        return;
     }
+    
+    console.log('🧪 Testando sistema de riqueza...');
+    
+    // Testa mudar para Batalhador (-10)
+    sistemaRiqueza.definirNivel("-10");
+    
+    // Testa mudar para Rico (+20)
+    setTimeout(() => {
+        sistemaRiqueza.definirNivel("20");
+        
+        // Testa voltar para Médio (0)
+        setTimeout(() => {
+            sistemaRiqueza.definirNivel("0");
+            console.log('✅ Teste de riqueza completado!');
+        }, 500);
+    }, 500);
+}
+
+// ==================== INICIALIZAÇÃO ====================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Espera a aba principal estar ativa
+    setTimeout(() => {
+        if (document.getElementById('nivelRiqueza')) {
+            inicializarSistemaRiqueza();
+            console.log('🔄 Sistema de riqueza inicializado na aba principal');
+        }
+    }, 300);
+    
+    // Inicializa quando muda para aba principal
+    document.addEventListener('tabChanged', function(e) {
+        if (e.detail === 'principal') {
+            setTimeout(() => {
+                if (!sistemaRiqueza && document.getElementById('nivelRiqueza')) {
+                    inicializarSistemaRiqueza();
+                }
+            }, 300);
+        }
+    });
 });
+
+// ==================== EXPORTAÇÕES ====================
 
 window.SistemaRiqueza = SistemaRiqueza;
 window.inicializarSistemaRiqueza = inicializarSistemaRiqueza;
+window.testarRiqueza = testarRiqueza;
 window.getPontosRiqueza = function() {
     return sistemaRiqueza ? sistemaRiqueza.getPontosRiqueza() : 0;
+};
+
+// ==================== FUNÇÃO PARA DEBUG ====================
+
+window.mostrarStatusRiqueza = function() {
+    if (sistemaRiqueza) {
+        console.log('💰 STATUS DA RIQUEZA:');
+        console.log('- Nível:', sistemaRiqueza.nivelAtual);
+        console.log('- Pontos:', sistemaRiqueza.pontosRiqueza);
+        console.log('- Tipo:', sistemaRiqueza.getTipoPontos());
+        console.log('- Nome:', sistemaRiqueza.niveisRiqueza[sistemaRiqueza.nivelAtual]?.nome);
+    } else {
+        console.log('❌ Sistema de riqueza não inicializado');
+    }
 };
