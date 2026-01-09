@@ -1,5 +1,5 @@
 // ===========================================
-// ATRIBUTOS.JS - ORIGINAL FUNCIONAL
+// ATRIBUTOS.JS - CORRIGIDO (COM EVENTO PARA PONTOS MANAGER)
 // ===========================================
 
 const cargasTable = {
@@ -145,10 +145,17 @@ function atualizarTudo() {
     // Calcular custos
     const totalGastos = calcularCustos();
     
+    // ===========================================
+    // LINHA CRÍTICA - DISPARA EVENTO PARA PONTOS MANAGER
+    // ===========================================
+    document.dispatchEvent(new CustomEvent('atributosAtualizados', {
+        detail: { pontosGastos: totalGastos }
+    }));
+    
     // Atualizar totais secundários
     atualizarTotaisSecundarios();
     
-    // Atualizar sistema de pontos
+    // Atualizar sistema de pontos (para compatibilidade antiga)
     if (window.atualizarPontosAba) {
         window.atualizarPontosAba('atributos', totalGastos);
     }
