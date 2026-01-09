@@ -1,5 +1,5 @@
 // ===========================================
-// PONTOS-MANAGER.JS - VERSÃO FINAL COM SOMA DE DESVANTAGENS
+// PONTOS-MANAGER.JS - VERSÃO ESTÁVEL E FUNCIONAL
 // ===========================================
 
 class PontosManager {
@@ -83,20 +83,22 @@ class PontosManager {
     configurarEventos() {
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
-                this.atualizarGastosAba('atributos', e.detail.pontosGastos, true);
+                this.atualizarGastosAba('atributos', e.detail.pontosGastos);
             }
         });
         
         document.addEventListener('vantagensAtualizadas', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
-                this.atualizarGastosAba('vantagens', e.detail.pontosGastos, true);
+                this.atualizarGastosAba('vantagens', e.detail.pontosGastos);
             }
         });
         
+        // AQUI ESTÁ A CORREÇÃO: desvantagens SOMAM
         document.addEventListener('desvantagensAtualizadas', (e) => {
             if (e.detail && e.detail.pontosGastos !== undefined) {
-                // Para desvantagens normais, SOMAR
-                this.atualizarGastosAba('desvantagens', e.detail.pontosGastos, false);
+                const pontosAtuais = this.gastos.desvantagens || 0;
+                const novosPontos = pontosAtuais + e.detail.pontosGastos;
+                this.atualizarGastosAba('desvantagens', novosPontos);
             }
         });
         
@@ -104,75 +106,32 @@ class PontosManager {
             if (e.detail && e.detail.pontos !== undefined) {
                 const pontos = e.detail.pontos;
                 if (pontos > 0) {
-                    // É vantagem - substituir
-                    this.atualizarGastosAba('vantagens', pontos, true);
+                    // Vantagem: substitui
+                    this.atualizarGastosAba('vantagens', pontos);
                 } else if (pontos < 0) {
-                    // É desvantagem - substituir (pois riqueza é única)
-                    this.atualizarGastosAba('desvantagens', Math.abs(pontos), true);
-                } else {
-                    // Neutro - zerar
-                    this.atualizarGastosAba('vantagens', 0, true);
-                    this.atualizarGastosAba('desvantagens', 0, true);
+                    // Desvantagem: substitui
+                    this.atualizarGastosAba('desvantagens', Math.abs(pontos));
                 }
+                // Se 0, não faz nada (mantém o que tinha)
             }
         });
-    }
-    
-    atualizarGastosAba(aba, pontos, substituir = false) {
-        let novosPontos;
-        
-        if (substituir) {
-            // Substitui o valor (para vantagens e riqueza)
-            novosPontos = pontos;
-        } else {
-            // Soma ao valor existente (para desvantagens normais)
-            const pontosAtuais = this.gastos[aba] || 0;
-            novosPontos = pontosAtuais + pontos;
-        }
-        
-        // Não permite valores negativos para desvantagens/peculiaridades
-        if (aba === 'desvantagens' || aba === 'peculiaridades') {
-            novosPontos = Math.max(0, novosPontos);
-        }
-        
-        // Atualiza se mudou
-        if (this.gastos[aba] !== novosPontos) {
-            this.gastos[aba] = novosPontos;
-            
-            this.atualizarDisplayAba(aba);
-            this.atualizarTotais();
-            this.verificarLimites();
-            
-            this.salvarDados();
-            
-            this.dispararEventoAtualizacao(aba, novosPontos);
-        }
     }
     
     calcularPontosDisponiveis() {
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
-        // ATRIBUTOS: valor negativo = desvantagem, positivo = vantagem
-        const pontosAtributos = this.gastos.atributos || 0;
-        
-        // VANTAGENS: soma tudo que é positivo
+        // VANTAGENS: soma tudo que custa pontos
         let vantagensTotal = 0;
-        if (pontosAtributos > 0) {
-            vantagensTotal += pontosAtributos;
-        }
-        
+        vantagensTotal += Math.max(0, this.gastos.atributos || 0);
         vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
         vantagensTotal += Math.max(0, this.gastos.pericias || 0);
         vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
         vantagensTotal += Math.max(0, this.gastos.magia || 0);
         vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
         
-        // DESVANTAGENS: soma tudo que é desvantagem
+        // DESVANTAGENS: soma tudo que dá pontos
         let desvantagensTotal = 0;
-        if (pontosAtributos < 0) {
-            desvantagensTotal += Math.abs(pontosAtributos);
-        }
-        
+        desvantagensTotal += Math.abs(Math.min(0, this.gastos.atributos || 0));
         desvantagensTotal += Math.abs(this.gastos.desvantagens || 0);
         desvantagensTotal += Math.abs(this.gastos.peculiaridades || 0);
         
@@ -189,6 +148,22 @@ class PontosManager {
         };
     }
     
+    atualizarGastosAba(aba, pontos) {
+        const pontosAnteriores = this.gastos[aba] || 0;
+        
+        if (pontosAnteriores !== pontos) {
+            this.gastos[aba] = pontos;
+            
+            this.atualizarDisplayAba(aba);
+            this.atualizarTotais();
+            this.verificarLimites();
+            
+            this.salvarDados();
+            
+            this.dispararEventoAtualizacao(aba, pontos);
+        }
+    }
+    
     atualizarTudo() {
         Object.keys(this.gastos).forEach(aba => {
             this.atualizarDisplayAba(aba);
@@ -202,7 +177,7 @@ class PontosManager {
         const elemento = document.getElementById(`pontos${this.capitalizar(aba)}`);
         if (!elemento) return;
         
-        let pontos = this.gastos[aba] || 0;
+        const pontos = this.gastos[aba] || 0;
         
         elemento.textContent = pontos;
         
@@ -438,9 +413,9 @@ window.obterPontosManager = () => {
     return pontosManager;
 };
 
-window.atualizarPontosAba = (aba, pontos, substituir = false) => {
+window.atualizarPontosAba = (aba, pontos) => {
     if (pontosManager) {
-        pontosManager.atualizarGastosAba(aba, pontos, substituir);
+        pontosManager.atualizarGastosAba(aba, pontos);
         return true;
     }
     return false;
