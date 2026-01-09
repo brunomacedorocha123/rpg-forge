@@ -1,6 +1,5 @@
 // =============================================
-// CARACTERÍSTICAS FÍSICAS - SISTEMA COMPLETO CORRIGIDO
-// VERSÃO QUE ENVIA EVENTOS PARA O NOVO SISTEMA DE PONTOS
+// CARACTERÍSTICAS FÍSICAS - ORIGINAL FUNCIONAL
 // =============================================
 
 class CaracteristicasFisicasSistema {
@@ -100,6 +99,8 @@ class CaracteristicasFisicasSistema {
         this.altura = 1.70;
         this.peso = 70;
         this.stAtual = 10;
+        
+        this.pontosManager = null;
     }
 
     inicializar() {
@@ -109,7 +110,13 @@ class CaracteristicasFisicasSistema {
         this.carregarDados();
         this.atualizarTudo();
         
-        console.log('✅ Sistema de características físicas inicializado!');
+        // Tenta obter o pontos manager
+        setTimeout(() => {
+            if (window.obterPontosManager) {
+                this.pontosManager = window.obterPontosManager();
+                console.log('✅ Sistema de características físicas conectado ao Pontos Manager');
+            }
+        }, 1000);
     }
 
     configurarModal() {
@@ -119,15 +126,11 @@ class CaracteristicasFisicasSistema {
             return;
         }
         
-        // Botão para abrir modal
         document.getElementById('customizeBtn')?.addEventListener('click', () => this.abrirModal());
-        
-        // Botões para fechar modal
         modal.querySelector('.modal-close')?.addEventListener('click', () => this.fecharModal());
         document.getElementById('cancelBtn')?.addEventListener('click', () => this.fecharModal());
         document.getElementById('applyBtn')?.addEventListener('click', () => this.aplicarAlteracoes());
         
-        // Botões das características
         modal.querySelectorAll('.feature-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tipo = e.currentTarget.dataset.type;
@@ -135,7 +138,6 @@ class CaracteristicasFisicasSistema {
             });
         });
         
-        // Controles de altura/peso no modal
         const btnAlturaMenos = document.querySelector('#alturaModal')?.parentElement.querySelector('.minus');
         const btnAlturaMais = document.querySelector('#alturaModal')?.parentElement.querySelector('.plus');
         const inputAltura = document.getElementById('alturaModal');
@@ -150,7 +152,6 @@ class CaracteristicasFisicasSistema {
         if (inputAltura) inputAltura.onchange = () => this.atualizarValorAltura();
         if (inputPeso) inputPeso.onchange = () => this.atualizarValorPeso();
         
-        // Fechar modal ao clicar fora
         modal.addEventListener('click', (e) => {
             if (e.target === modal) this.fecharModal();
         });
@@ -163,33 +164,25 @@ class CaracteristicasFisicasSistema {
         const btnIdadeMenos = inputIdade?.parentElement.querySelector('.btn-number.minus');
         const btnIdadeMais = inputIdade?.parentElement.querySelector('.btn-number.plus');
         
-        // Eventos dos inputs principais
-        if (inputAltura) {
-            inputAltura.addEventListener('change', () => {
-                this.altura = parseFloat(inputAltura.value) || 1.70;
-                this.atualizarStatusInputs();
-                this.salvarDados();
-                this.enviarPontosParaSistema(); // Atualiza pontos
-            });
-        }
+        if (inputAltura) inputAltura.addEventListener('change', () => {
+            this.altura = parseFloat(inputAltura.value) || 1.70;
+            this.atualizarStatusInputs();
+            this.salvarDados();
+        });
         
-        if (inputPeso) {
-            inputPeso.addEventListener('change', () => {
-                this.peso = parseInt(inputPeso.value) || 70;
-                this.atualizarStatusInputs();
-                this.salvarDados();
-                this.enviarPontosParaSistema(); // Atualiza pontos
-            });
-        }
+        if (inputPeso) inputPeso.addEventListener('change', () => {
+            this.peso = parseInt(inputPeso.value) || 70;
+            this.atualizarStatusInputs();
+            this.salvarDados();
+        });
         
-        // Botões de idade
         if (btnIdadeMenos) btnIdadeMenos.onclick = () => this.ajustarIdade(-1);
         if (btnIdadeMais) btnIdadeMais.onclick = () => this.ajustarIdade(1);
         
-        // Escuta atualizações de atributos (ST pode mudar)
+        // Escuta atualizações de atributos
         document.addEventListener('atributosAtualizados', (e) => {
-            if (e.detail?.atributos?.ST) {
-                this.stAtual = e.detail.atributos.ST;
+            if (e.detail?.ST) {
+                this.stAtual = e.detail.ST;
                 this.atualizarTudo();
                 console.log('💪 ST atualizado para:', this.stAtual);
             }
@@ -201,8 +194,6 @@ class CaracteristicasFisicasSistema {
         if (!modal) return;
         
         this.atualizarST();
-        
-        // Atualizar valores no modal
         const statusST = document.getElementById('statusST');
         if (statusST) statusST.textContent = this.stAtual;
         
@@ -230,11 +221,9 @@ class CaracteristicasFisicasSistema {
         const alturaModal = document.getElementById('alturaModal');
         const pesoModal = document.getElementById('pesoModal');
         
-        // Aplica valores do modal
         if (alturaModal) this.altura = parseFloat(alturaModal.value) || 1.70;
         if (pesoModal) this.peso = parseInt(pesoModal.value) || 70;
         
-        // Atualiza inputs principais
         const inputAltura = document.getElementById('altura');
         const inputPeso = document.getElementById('peso');
         if (inputAltura) inputAltura.value = this.altura.toFixed(2);
@@ -243,7 +232,7 @@ class CaracteristicasFisicasSistema {
         this.fecharModal();
         this.atualizarStatusInputs();
         this.salvarDados();
-        this.enviarPontosParaSistema(); // Atualiza pontos
+        this.enviarPontosParaSistema();
     }
 
     alternarCaracteristica(tipo) {
@@ -262,7 +251,7 @@ class CaracteristicasFisicasSistema {
         this.atualizarBotoesCaracteristicas();
         this.atualizarFaixasModal();
         this.atualizarStatusModal();
-        this.enviarPontosParaSistema(); // ATUALIZA PONTOS
+        this.enviarPontosParaSistema();
         this.salvarDados();
         this.atualizarStatusInputs();
     }
@@ -296,7 +285,7 @@ class CaracteristicasFisicasSistema {
         
         console.log('✅ Característica adicionada:', caracteristica.nome, '(', caracteristica.pontos, 'pts)');
         
-        // Ajusta altura automaticamente se for nanismo
+        // Ajusta altura se for nanismo
         if (tipo === 'nanismo' && this.altura > 1.32) {
             this.altura = 1.32;
             const inputAltura = document.getElementById('altura');
@@ -381,20 +370,17 @@ class CaracteristicasFisicasSistema {
         let multiplicadorPeso = 1.0;
         let caracteristicaAtiva = null;
         
-        // Verifica se há característica que afeta peso
         const caracteristicaPeso = this.caracteristicasSelecionadas.find(c => c.pesoMultiplicador);
         if (caracteristicaPeso) {
             multiplicadorPeso = caracteristicaPeso.pesoMultiplicador;
             caracteristicaAtiva = caracteristicaPeso;
         }
         
-        // Ajusta faixa de peso conforme característica
         const faixaPesoAjustada = {
             min: Math.round(faixaPesoBase.min * multiplicadorPeso),
             max: Math.round(faixaPesoBase.max * multiplicadorPeso)
         };
         
-        // Verifica nanismo
         const nanismo = this.caracteristicasSelecionadas.find(c => c.tipo === 'nanismo');
         let alturaValida = true;
         let mensagemAltura = '';
@@ -413,7 +399,6 @@ class CaracteristicasFisicasSistema {
                     `Acima do máximo (${faixaAltura.max.toFixed(2)}m)`;
         }
         
-        // Verifica peso
         const pesoValido = this.peso >= faixaPesoAjustada.min && this.peso <= faixaPesoAjustada.max;
         let mensagemPeso = '';
         
@@ -462,7 +447,6 @@ class CaracteristicasFisicasSistema {
             max: Math.round(faixaPesoBase.max * multiplicadorPeso)
         };
         
-        // Atualiza display das faixas no modal
         const faixaAlturaElement = document.getElementById('faixaAltura');
         if (faixaAlturaElement) {
             faixaAlturaElement.textContent = `${faixaAltura.min.toFixed(2)}m - ${faixaAltura.max.toFixed(2)}m`;
@@ -491,11 +475,8 @@ class CaracteristicasFisicasSistema {
     ajustarAltura(variacao) {
         let novaAltura = this.altura + variacao;
         
-        // Limites do nanismo
         const nanismo = this.caracteristicasSelecionadas.find(c => c.tipo === 'nanismo');
         if (nanismo && novaAltura > 1.32) novaAltura = 1.32;
-        
-        // Limites gerais
         if (novaAltura < 1.20) novaAltura = 1.20;
         if (novaAltura > 2.50) novaAltura = 2.50;
         
@@ -544,7 +525,7 @@ class CaracteristicasFisicasSistema {
 
     atualizarTudo() {
         this.atualizarStatusInputs();
-        this.enviarPontosParaSistema(); // ATUALIZA PONTOS
+        this.enviarPontosParaSistema();
     }
 
     atualizarStatusInputs() {
@@ -552,7 +533,6 @@ class CaracteristicasFisicasSistema {
         const inputAltura = document.getElementById('altura');
         const inputPeso = document.getElementById('peso');
         
-        // Aplica cores nos inputs baseado na validade
         if (inputAltura) {
             if (conformidade.nanismoAtivo && this.altura > 1.32) {
                 inputAltura.style.borderColor = '#e74c3c';
@@ -579,8 +559,6 @@ class CaracteristicasFisicasSistema {
 
     atualizarStatusModal() {
         const conformidade = this.verificarConformidade();
-        
-        // Atualiza mensagens de status no modal
         const statusAltura = document.querySelector('#alturaModal')?.parentElement?.nextElementSibling;
         const statusPeso = document.querySelector('#pesoModal')?.parentElement?.nextElementSibling;
         
@@ -600,7 +578,6 @@ class CaracteristicasFisicasSistema {
             const tipo = btn.dataset.type;
             const selecionada = this.caracteristicasSelecionadas.find(c => c.tipo === tipo);
             
-            // Aplica estilo ao botão selecionado
             if (selecionada) {
                 btn.style.backgroundColor = '#3498db';
                 btn.style.color = 'white';
@@ -618,11 +595,10 @@ class CaracteristicasFisicasSistema {
     enviarPontosParaSistema() {
         const pontos = this.calcularPontosCaracteristicas();
         
-        // ENVIA EVENTO CORRETO para o novo sistema de pontos
-        // PONTOS NEGATIVOS: -5, -15, etc. (GANHA pontos)
+        // ENVIA EVENTO PARA O NOVO PONTOS-MANAGER.JS
         const evento = new CustomEvent('desvantagensAtualizadas', {
             detail: {
-                pontos: pontos,  // VALOR NEGATIVO: Ex: -5 (Magro)
+                pontosGastos: pontos,
                 tipo: 'caracteristicasFisicas',
                 origem: 'caracteristicas_fisicas',
                 timestamp: new Date().toISOString()
@@ -630,9 +606,9 @@ class CaracteristicasFisicasSistema {
         });
         document.dispatchEvent(evento);
         
-        console.log('📤 Características físicas enviadas para sistema de pontos:', pontos, 'pts (negativo = ganha pontos)');
+        console.log('📤 Características físicas enviadas para sistema de pontos:', pontos, 'pts');
         
-        // Para compatibilidade com sistema antigo
+        // Também chama a função antiga para compatibilidade
         if (window.atualizarPontosAba) {
             window.atualizarPontosAba('desvantagens', pontos);
         }
@@ -649,7 +625,7 @@ class CaracteristicasFisicasSistema {
                 stAtual: this.stAtual,
                 timestamp: new Date().toISOString()
             };
-            localStorage.setItem('rpgforge_caracteristicas_fisicas', JSON.stringify(dados));
+            localStorage.setItem('rpgforge_caracteristicas_fisicas_corrigido', JSON.stringify(dados));
         } catch (error) {
             console.error('Erro ao salvar características físicas:', error);
         }
@@ -657,7 +633,7 @@ class CaracteristicasFisicasSistema {
 
     carregarDados() {
         try {
-            const dadosSalvos = localStorage.getItem('rpgforge_caracteristicas_fisicas');
+            const dadosSalvos = localStorage.getItem('rpgforge_caracteristicas_fisicas_corrigido');
             if (dadosSalvos) {
                 const dados = JSON.parse(dadosSalvos);
                 
@@ -689,42 +665,6 @@ class CaracteristicasFisicasSistema {
             console.error('Erro ao carregar características físicas:', error);
         }
     }
-    
-    // ==================== FUNÇÕES ADICIONAIS ====================
-    
-    obterCaracteristicasAtivas() {
-        return [...this.caracteristicasSelecionadas];
-    }
-    
-    obterPontosTotais() {
-        return this.calcularPontosCaracteristicas();
-    }
-    
-    obterDescricaoCaracteristicas() {
-        if (this.caracteristicasSelecionadas.length === 0) {
-            return "Nenhuma característica física selecionada";
-        }
-        
-        return this.caracteristicasSelecionadas.map(c => 
-            `${c.nome} (${c.pontos >= 0 ? '+' : ''}${c.pontos} pts): ${c.efeitos}`
-        ).join(' | ');
-    }
-    
-    resetar() {
-        this.caracteristicasSelecionadas = [];
-        this.altura = 1.70;
-        this.peso = 70;
-        this.stAtual = 10;
-        
-        // Atualiza inputs
-        const inputAltura = document.getElementById('altura');
-        const inputPeso = document.getElementById('peso');
-        if (inputAltura) inputAltura.value = this.altura.toFixed(2);
-        if (inputPeso) inputPeso.value = this.peso;
-        
-        this.atualizarTudo();
-        console.log('🔄 Características físicas resetadas');
-    }
 }
 
 // ==================== INSTANCIAÇÃO GLOBAL ====================
@@ -748,36 +688,39 @@ function testarCaracteristicasFisicas() {
         inicializarSistemaCaracteristicas();
     }
     
+    // Testa adicionar Magro (-5)
     console.log('1. Adicionando Magro (-5 pts)...');
     sistemaCaracteristicas.alternarCaracteristica('magro');
     
+    // Testa adicionar Gordo (-3) - deve remover Magro
     setTimeout(() => {
-        console.log('2. Adicionando Peso ajustado...');
-        sistemaCaracteristicas.peso = 50;
-        sistemaCaracteristicas.atualizarTudo();
+        console.log('2. Adicionando Gordo (-3 pts)...');
+        sistemaCaracteristicas.alternarCaracteristica('gordo');
         
+        // Testa adicionar Nanismo (-15)
         setTimeout(() => {
             console.log('3. Adicionando Nanismo (-15 pts)...');
             sistemaCaracteristicas.alternarCaracteristica('nanismo');
             
+            // Verifica resultado
             setTimeout(() => {
                 const pontos = sistemaCaracteristicas.calcularPontosCaracteristicas();
                 console.log('📊 RESULTADO:');
                 console.log('- Pontos totais:', pontos, 'pts');
-                console.log('- Esperado: Magro (-5) + Nanismo (-15) = -20 pts');
-                console.log('- Características:', sistemaCaracteristicas.obterDescricaoCaracteristicas());
+                console.log('- Características selecionadas:', sistemaCaracteristicas.caracteristicasSelecionadas.length);
+                console.log('- Esperado: Gordo (-3) + Nanismo (-15) = -18 pts');
                 
-                if (pontos === -20) {
-                    console.log('✅ TESTE PASSOU! Sistema funcionando!');
+                if (pontos === -18) {
+                    console.log('✅ TESTE PASSOU! Características físicas funcionando!');
                 } else {
                     console.log('❌ TESTE FALHOU! Pontos incorretos.');
                 }
-            }, 300);
-        }, 300);
-    }, 300);
+            }, 500);
+        }, 500);
+    }, 500);
 }
 
-// ==================== INICIALIZAÇÃO AUTOMÁTICA ====================
+// ==================== INICIALIZAÇÃO ====================
 
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
@@ -788,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
 });
 
-// ==================== ESTILOS DINÂMICOS ====================
+// ==================== ESTILOS ====================
 
 const style = document.createElement('style');
 style.textContent = `
@@ -803,18 +746,11 @@ style.textContent = `
     
     .feature-btn {
         transition: all 0.3s ease;
-        cursor: pointer;
     }
     
     .feature-btn:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    
-    .feature-btn.selecionado {
-        background-color: #3498db !important;
-        color: white !important;
-        border-color: #2980b9 !important;
     }
     
     .adjustment-controls {
@@ -857,47 +793,19 @@ style.textContent = `
         border-radius: 0 4px 4px 0;
     }
     
-    /* Inputs com validação */
-    input.valido {
-        border-color: #27ae60 !important;
-        background-color: #d4edda !important;
-    }
-    
-    input.invalido {
-        border-color: #e74c3c !important;
-        background-color: #f8d7da !important;
-    }
-    
-    input.aviso {
-        border-color: #f39c12 !important;
-        background-color: #fff3cd !important;
+    .feature-btn.selecionado {
+        background-color: #3498db !important;
+        color: white !important;
+        border-color: #2980b9 !important;
     }
 `;
 document.head.appendChild(style);
 
-// ==================== EXPORTAÇÕES GLOBAIS ====================
+// ==================== EXPORTAÇÕES ====================
 
 window.CaracteristicasFisicasSistema = CaracteristicasFisicasSistema;
 window.inicializarSistemaCaracteristicas = inicializarSistemaCaracteristicas;
 window.testarCaracteristicasFisicas = testarCaracteristicasFisicas;
 window.obterSistemaCaracteristicas = function() {
     return sistemaCaracteristicas;
-};
-
-window.obterPontosCaracteristicasFisicas = function() {
-    return sistemaCaracteristicas ? sistemaCaracteristicas.calcularPontosCaracteristicas() : 0;
-};
-
-window.resetCaracteristicasFisicas = function() {
-    if (sistemaCaracteristicas) {
-        sistemaCaracteristicas.resetar();
-    }
-};
-
-// ==================== COMPATIBILIDADE COM SISTEMA ANTIGO ====================
-
-window.atualizarCaracteristicasFisicas = function(pontos) {
-    if (sistemaCaracteristicas) {
-        sistemaCaracteristicas.enviarPontosParaSistema();
-    }
 };
