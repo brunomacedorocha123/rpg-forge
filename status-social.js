@@ -968,169 +968,433 @@ class StatusSocialManager {
         }
     }
     
-    // ===========================================
-    // 8. SISTEMA DE DEPENDENTES
-    // ===========================================
-    configurarSistemaDependentes() {
-        const btnAdicionar = document.querySelector('.btn-add[data-tipo="dependente"]');
-        if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => {
-                console.log('❤️ Abrindo modal de Dependente');
-                this.abrirModal('dependente');
-            });
-        }
-        
-        this.atualizarDisplayDependentes();
-    }
-    
-    configurarModalDependente() {
-        // Atualizar preview
-        ['dependenteCapacidade', 'dependenteImportancia', 'dependenteFrequencia'].forEach(id => {
-            const elemento = document.getElementById(id);
-            if (elemento) {
-                elemento.addEventListener('change', () => this.atualizarPreviewDependente());
-            }
+   // ===========================================
+// 8. SISTEMA DE DEPENDENTES
+// ===========================================
+configurarSistemaDependentes() {
+    const btnAdicionar = document.querySelector('.btn-add[data-tipo="dependente"]');
+    if (btnAdicionar) {
+        btnAdicionar.addEventListener('click', () => {
+            console.log('❤️ Abrindo modal de Dependente');
+            this.abrirModal('dependente');
         });
-        
-        // Botão confirmar
-        const btnConfirmar = document.getElementById('btnConfirmarDependente');
-        if (btnConfirmar) {
-            btnConfirmar.addEventListener('click', () => this.adicionarDependente());
-        }
-        
-        this.atualizarPreviewDependente();
     }
     
-    atualizarPreviewDependente() {
-        const capacidade = parseInt(document.getElementById('dependenteCapacidade')?.value) || 75;
-        const importancia = document.getElementById('dependenteImportancia')?.value || 'amigo';
-        const frequencia = parseInt(document.getElementById('dependenteFrequencia')?.value) || 9;
-        
-        const pontos = this.calcularCustoDependente(capacidade, importancia, frequencia);
-        
-        const previewBase = document.getElementById('previewDependenteBase');
-        const previewImportancia = document.getElementById('previewDependenteImportancia');
-        const previewFreq = document.getElementById('previewDependenteFreq');
-        const previewTotal = document.getElementById('previewDependenteTotal');
-        
-        if (previewBase) previewBase.textContent = this.obterCustoBaseDependente(capacidade) + ' pts';
-        if (previewImportancia) {
-            const mult = this.obterMultiplicadorImportancia(importancia);
-            previewImportancia.textContent = `×${mult}`;
-        }
-        if (previewFreq) previewFreq.textContent = `×${this.obterMultiplicadorFrequencia(frequencia)}`;
-        if (previewTotal) {
-            previewTotal.textContent = `${pontos} pts`;
-            previewTotal.className = 'total-negativo';
-        }
+    // Configurar listeners para inputs de capacidade, importância e frequência
+    const capacidadeInput = document.getElementById('dependenteCapacidade');
+    const importanciaSelect = document.getElementById('dependenteImportancia');
+    const frequenciaInput = document.getElementById('dependenteFrequencia');
+    
+    if (capacidadeInput) {
+        capacidadeInput.addEventListener('input', () => {
+            this.atualizarPreviewDependente();
+            this.atualizarValorCapacidade();
+        });
     }
     
-    obterCustoBaseDependente(capacidade) {
-        if (capacidade <= 100) return -1;
-        if (capacidade <= 75) return -2;
-        if (capacidade <= 50) return -5;
-        if (capacidade <= 25) return -10;
-        if (capacidade <= 0) return -15;
-        return 0;
+    if (importanciaSelect) {
+        importanciaSelect.addEventListener('change', () => this.atualizarPreviewDependente());
     }
     
-    obterMultiplicadorImportancia(importancia) {
-        switch(importancia) {
-            case 'empregado': return 0.5;
-            case 'amigo': return 1;
-            case 'ser_amado': return 2;
-            default: return 1;
-        }
+    if (frequenciaInput) {
+        frequenciaInput.addEventListener('input', () => {
+            this.atualizarPreviewDependente();
+            this.atualizarValorFrequencia();
+        });
     }
     
-    adicionarDependente() {
-        const nome = document.getElementById('dependenteNome')?.value.trim();
-        if (!nome) {
-            alert('Digite um nome para o dependente!');
-            return;
+    // Configurar botão de confirmação
+    const btnConfirmar = document.getElementById('btnConfirmarDependente');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', () => this.adicionarDependente());
+    }
+    
+    // Configurar botão de cancelar
+    const btnCancelar = document.querySelector('#modalDependente .btn-cancelar');
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', () => this.fecharModal('dependente'));
+    }
+    
+    // Configurar deleção de dependentes
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-remove-item[data-tipo="dependente"]')) {
+            const button = e.target.closest('.btn-remove-item');
+            const id = parseInt(button.getAttribute('data-id'));
+            this.removerDependente(id);
         }
+    });
+    
+    this.atualizarValorCapacidade();
+    this.atualizarValorFrequencia();
+    this.atualizarPreviewDependente();
+    this.atualizarDisplayDependentes();
+}
+
+atualizarValorCapacidade() {
+    const input = document.getElementById('dependenteCapacidade');
+    const display = document.getElementById('dependenteCapacidadeValor');
+    if (input && display) {
+        display.textContent = `${input.value}%`;
+    }
+}
+
+atualizarValorFrequencia() {
+    const input = document.getElementById('dependenteFrequencia');
+    const display = document.getElementById('dependenteFrequenciaValor');
+    if (input && display) {
+        const valor = parseInt(input.value);
+        display.textContent = `${valor}/10`;
+    }
+}
+
+atualizarPreviewDependente() {
+    const capacidade = parseInt(document.getElementById('dependenteCapacidade')?.value) || 75;
+    const importancia = document.getElementById('dependenteImportancia')?.value || 'amigo';
+    const frequencia = parseInt(document.getElementById('dependenteFrequencia')?.value) || 9;
+    
+    const pontos = this.calcularCustoDependente(capacidade, importancia, frequencia);
+    const custoBase = this.obterCustoBaseDependente(capacidade);
+    const multImportancia = this.obterMultiplicadorImportancia(importancia);
+    const multFrequencia = this.obterMultiplicadorFrequencia(frequencia);
+    
+    const previewBase = document.getElementById('previewDependenteBase');
+    const previewImportancia = document.getElementById('previewDependenteImportancia');
+    const previewFreq = document.getElementById('previewDependenteFreq');
+    const previewTotal = document.getElementById('previewDependenteTotal');
+    
+    if (previewBase) previewBase.textContent = `${custoBase} pts`;
+    if (previewImportancia) {
+        previewImportancia.textContent = `×${multImportancia}`;
+    }
+    if (previewFreq) previewFreq.textContent = `×${multFrequencia}`;
+    if (previewTotal) {
+        previewTotal.textContent = `${pontos} pts`;
+        previewTotal.className = pontos < 0 ? 'total-negativo' : 'total-positivo';
+    }
+    
+    // Atualizar descrição da capacidade
+    const descCapacidade = document.getElementById('descricaoCapacidade');
+    if (descCapacidade) {
+        descCapacidade.textContent = this.obterDescricaoCapacidade(capacidade);
+    }
+}
+
+obterCustoBaseDependente(capacidade) {
+    // Corrigido: valores decrescentes conforme a capacidade diminui
+    if (capacidade >= 100) return -1;      // 100% - Quase independente
+    if (capacidade >= 75) return -2;       // 75-99% - Pouca ajuda necessária
+    if (capacidade >= 50) return -5;       // 50-74% - Ajuda moderada
+    if (capacidade >= 25) return -10;      // 25-49% - Ajuda significativa
+    if (capacidade >= 0) return -15;       // 0-24% - Totalmente dependente
+    return -20;                            // Negativo - Incapacitado total
+}
+
+obterDescricaoCapacidade(capacidade) {
+    if (capacidade >= 100) return "Quase independente";
+    if (capacidade >= 75) return "Pouca ajuda necessária";
+    if (capacidade >= 50) return "Ajuda moderada";
+    if (capacidade >= 25) return "Ajuda significativa";
+    if (capacidade >= 0) return "Totalmente dependente";
+    return "Incapacitado total";
+}
+
+obterMultiplicadorImportancia(importancia) {
+    switch(importancia) {
+        case 'empregado': return 0.5;
+        case 'conhecido': return 0.75;
+        case 'amigo': return 1;
+        case 'familiar': return 1.5;
+        case 'ser_amado': return 2;
+        case 'outro': return 1;
+        default: return 1;
+    }
+}
+
+obterMultiplicadorFrequencia(frequencia) {
+    // Escala de 1 a 10
+    if (frequencia <= 1) return 0.1;    // Raramente (1/10)
+    if (frequencia <= 3) return 0.3;    // Pouco frequente (2-3/10)
+    if (frequencia <= 5) return 0.5;    // Ocasional (4-5/10)
+    if (frequencia <= 7) return 0.7;    // Frequente (6-7/10)
+    if (frequencia <= 9) return 0.9;    // Muito frequente (8-9/10)
+    return 1.0;                         // Constante (10/10)
+}
+
+obterTextoFrequencia(frequencia) {
+    if (frequencia <= 1) return "Raramente";
+    if (frequencia <= 3) return "Pouco frequente";
+    if (frequencia <= 5) return "Ocasional";
+    if (frequencia <= 7) return "Frequente";
+    if (frequencia <= 9) return "Muito frequente";
+    return "Constante";
+}
+
+adicionarDependente() {
+    const nome = document.getElementById('dependenteNome')?.value.trim();
+    if (!nome) {
+        alert('Digite um nome para o dependente!');
+        return;
+    }
+    
+    const capacidade = parseInt(document.getElementById('dependenteCapacidade')?.value) || 75;
+    const importancia = document.getElementById('dependenteImportancia')?.value || 'amigo';
+    const frequencia = parseInt(document.getElementById('dependenteFrequencia')?.value) || 9;
+    const relacao = document.getElementById('dependenteRelacao')?.value || '';
+    const detalhes = document.getElementById('dependenteDetalhes')?.value || '';
+    
+    const pontos = this.calcularCustoDependente(capacidade, importancia, frequencia);
+    
+    const dependente = {
+        id: this.nextId++,
+        nome: nome,
+        capacidade: capacidade,
+        importancia: importancia,
+        frequencia: frequencia,
+        relacao: relacao,
+        detalhes: detalhes,
+        pontos: pontos,
+        dataAdicao: new Date().toISOString()
+    };
+    
+    this.dependentes.push(dependente);
+    
+    // Limpar formulário
+    this.fecharModal('dependente');
+    document.getElementById('dependenteNome').value = '';
+    document.getElementById('dependenteRelacao').value = '';
+    document.getElementById('dependenteDetalhes').value = '';
+    
+    // Resetar valores padrão
+    document.getElementById('dependenteCapacidade').value = 75;
+    document.getElementById('dependenteImportancia').value = 'amigo';
+    document.getElementById('dependenteFrequencia').value = 9;
+    
+    // Atualizar displays
+    this.atualizarValorCapacidade();
+    this.atualizarValorFrequencia();
+    this.atualizarPreviewDependente();
+    this.atualizarDisplayDependentes();
+    this.atualizarSistemaPontos();
+    this.salvarLocalStorage();
+    
+    console.log(`✅ Dependente adicionado: ${nome} (${pontos} pts)`);
+    this.mostrarNotificacao(`Dependente "${nome}" adicionado!`, 'success');
+}
+
+calcularCustoDependente(pontosPercentual, importancia, frequencia) {
+    const custoBase = this.obterCustoBaseDependente(pontosPercentual);
+    const multImportancia = this.obterMultiplicadorImportancia(importancia);
+    const multFrequencia = this.obterMultiplicadorFrequencia(frequencia);
+    
+    // Arredondar para inteiro
+    return Math.round(custoBase * multImportancia * multFrequencia);
+}
+
+atualizarDisplayDependentes() {
+    const container = document.getElementById('listaDependentes');
+    const badge = document.getElementById('pontosDependentes');
+    const contador = document.getElementById('contadorDependentes');
+    
+    if (!container || !badge) return;
+    
+    const totalPontos = this.dependentes.reduce((total, dependente) => total + dependente.pontos, 0);
+    
+    // Atualizar badge
+    badge.textContent = `${totalPontos} pts`;
+    badge.className = totalPontos < 0 ? 'pontos-badge negativo' : 'pontos-badge positivo';
+    
+    // Atualizar contador
+    if (contador) {
+        contador.textContent = `(${this.dependentes.length})`;
+    }
+    
+    // Atualizar lista
+    if (this.dependentes.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <p>Nenhum dependente adicionado</p>
+                <small>Clique no botão "+" para adicionar um dependente</small>
+            </div>
+        `;
+    } else {
+        container.innerHTML = this.dependentes.map(dependente => `
+            <div class="item-lista desvantagem" data-id="${dependente.id}">
+                <div class="item-info">
+                    <div class="item-header">
+                        <strong class="item-nome">${dependente.nome}</strong>
+                        <span class="item-pontos-detalhe pontos-negativo">${dependente.pontos} pts</span>
+                    </div>
+                    ${dependente.relacao ? `<small class="item-relacao">${dependente.relacao}</small>` : ''}
+                    <div class="item-detalhes">
+                        <span class="badge capacidade">${dependente.capacidade}% capacidade</span>
+                        <span class="badge importancia">${this.obterTextoImportancia(dependente.importancia)}</span>
+                        <span class="badge frequencia">${this.obterTextoFrequencia(dependente.frequencia)}</span>
+                    </div>
+                    ${dependente.detalhes ? `<p class="item-descricao">${dependente.detalhes}</p>` : ''}
+                </div>
+                <div class="item-actions">
+                    <button class="btn-icon btn-edit-item" data-id="${dependente.id}" data-tipo="dependente" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-remove-item" data-id="${dependente.id}" data-tipo="dependente" title="Remover">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
         
-        const capacidade = parseInt(document.getElementById('dependenteCapacidade')?.value) || 75;
-        const importancia = document.getElementById('dependenteImportancia')?.value || 'amigo';
-        const frequencia = parseInt(document.getElementById('dependenteFrequencia')?.value) || 9;
-        const relacao = document.getElementById('dependenteRelacao')?.value || '';
-        
-        const pontos = this.calcularCustoDependente(capacidade, importancia, frequencia);
-        
-        const dependente = {
-            id: this.nextId++,
-            nome: nome,
-            capacidade: capacidade,
-            importancia: importancia,
-            frequencia: frequencia,
-            relacao: relacao,
-            pontos: pontos,
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.dependentes.push(dependente);
-        
-        this.fecharModal('dependente');
-        document.getElementById('dependenteNome').value = '';
-        document.getElementById('dependenteRelacao').value = '';
+        // Configurar listeners para edição
+        this.configurarListenersEdicaoDependentes();
+    }
+}
+
+obterTextoImportancia(importancia) {
+    switch(importancia) {
+        case 'empregado': return 'Empregado';
+        case 'conhecido': return 'Conhecido';
+        case 'amigo': return 'Amigo';
+        case 'familiar': return 'Familiar';
+        case 'ser_amado': return 'Ser Amado';
+        case 'outro': return 'Outro';
+        default: return importancia;
+    }
+}
+
+configurarListenersEdicaoDependentes() {
+    document.querySelectorAll('.btn-edit-item[data-tipo="dependente"]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = parseInt(btn.getAttribute('data-id'));
+            this.editarDependente(id);
+        });
+    });
+}
+
+editarDependente(id) {
+    const dependente = this.dependentes.find(d => d.id === id);
+    if (!dependente) return;
+    
+    // Preencher modal com dados do dependente
+    document.getElementById('dependenteNome').value = dependente.nome;
+    document.getElementById('dependenteCapacidade').value = dependente.capacidade;
+    document.getElementById('dependenteImportancia').value = dependente.importancia;
+    document.getElementById('dependenteFrequencia').value = dependente.frequencia;
+    document.getElementById('dependenteRelacao').value = dependente.relacao || '';
+    document.getElementById('dependenteDetalhes').value = dependente.detalhes || '';
+    
+    // Alterar botão de confirmação para edição
+    const btnConfirmar = document.getElementById('btnConfirmarDependente');
+    btnConfirmar.textContent = 'Atualizar Dependente';
+    btnConfirmar.onclick = () => this.atualizarDependente(id);
+    
+    // Abrir modal
+    this.abrirModal('dependente');
+    
+    // Atualizar preview
+    this.atualizarValorCapacidade();
+    this.atualizarValorFrequencia();
+    this.atualizarPreviewDependente();
+}
+
+atualizarDependente(id) {
+    const dependenteIndex = this.dependentes.findIndex(d => d.id === id);
+    if (dependenteIndex === -1) return;
+    
+    const nome = document.getElementById('dependenteNome')?.value.trim();
+    if (!nome) {
+        alert('Digite um nome para o dependente!');
+        return;
+    }
+    
+    const capacidade = parseInt(document.getElementById('dependenteCapacidade')?.value) || 75;
+    const importancia = document.getElementById('dependenteImportancia')?.value || 'amigo';
+    const frequencia = parseInt(document.getElementById('dependenteFrequencia')?.value) || 9;
+    const relacao = document.getElementById('dependenteRelacao')?.value || '';
+    const detalhes = document.getElementById('dependenteDetalhes')?.value || '';
+    
+    const pontos = this.calcularCustoDependente(capacidade, importancia, frequencia);
+    
+    this.dependentes[dependenteIndex] = {
+        ...this.dependentes[dependenteIndex],
+        nome,
+        capacidade,
+        importancia,
+        frequencia,
+        relacao,
+        detalhes,
+        pontos
+    };
+    
+    // Fechar modal e resetar
+    this.fecharModal('dependente');
+    this.resetarFormularioDependente();
+    
+    // Restaurar botão de adicionar
+    const btnConfirmar = document.getElementById('btnConfirmarDependente');
+    btnConfirmar.textContent = 'Adicionar Dependente';
+    btnConfirmar.onclick = () => this.adicionarDependente();
+    
+    // Atualizar displays
+    this.atualizarDisplayDependentes();
+    this.atualizarSistemaPontos();
+    this.salvarLocalStorage();
+    
+    console.log(`✏️ Dependente atualizado: ${nome} (${pontos} pts)`);
+    this.mostrarNotificacao(`Dependente "${nome}" atualizado!`, 'success');
+}
+
+removerDependente(id) {
+    const dependente = this.dependentes.find(d => d.id === id);
+    if (!dependente) return;
+    
+    if (confirm(`Tem certeza que deseja remover o dependente "${dependente.nome}"?`)) {
+        this.dependentes = this.dependentes.filter(d => d.id !== id);
         
         this.atualizarDisplayDependentes();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
         
-        console.log(`✅ Dependente adicionado: ${nome} (${pontos} pts)`);
+        console.log(`🗑️ Dependente removido: ${dependente.nome}`);
+        this.mostrarNotificacao(`Dependente "${dependente.nome}" removido!`, 'warning');
     }
+}
+
+resetarFormularioDependente() {
+    document.getElementById('dependenteNome').value = '';
+    document.getElementById('dependenteCapacidade').value = 75;
+    document.getElementById('dependenteImportancia').value = 'amigo';
+    document.getElementById('dependenteFrequencia').value = 9;
+    document.getElementById('dependenteRelacao').value = '';
+    document.getElementById('dependenteDetalhes').value = '';
     
-    calcularCustoDependente(pontosPercentual, importancia, frequencia) {
-        const custoBase = this.obterCustoBaseDependente(pontosPercentual);
-        const multImportancia = this.obterMultiplicadorImportancia(importancia);
-        const multFrequencia = this.obterMultiplicadorFrequencia(frequencia);
-        
-        return Math.round(custoBase * multImportancia * multFrequencia);
-    }
+    this.atualizarValorCapacidade();
+    this.atualizarValorFrequencia();
+    this.atualizarPreviewDependente();
+}
+
+// Função auxiliar para mostrar notificações (adicionar se não existir)
+mostrarNotificacao(mensagem, tipo = 'info') {
+    // Implementação básica de notificação
+    const notification = document.createElement('div');
+    notification.className = `notification ${tipo}`;
+    notification.innerHTML = `
+        <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${mensagem}</span>
+    `;
     
-    atualizarDisplayDependentes() {
-        const container = document.getElementById('listaDependentes');
-        const badge = document.getElementById('pontosDependentes');
-        
-        if (!container || !badge) return;
-        
-        const totalPontos = this.dependentes.reduce((total, dependente) => total + dependente.pontos, 0);
-        
-        badge.textContent = `${totalPontos} pts`;
-        badge.className = 'pontos-badge negativo';
-        
-        if (this.dependentes.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum dependente adicionado</div>';
-        } else {
-            container.innerHTML = this.dependentes.map(dependente => `
-                <div class="item-lista desvantagem">
-                    <div class="item-info">
-                        <strong>${dependente.nome}</strong>
-                        <small>${dependente.relacao || ''}</small>
-                        <div class="item-detalhes">
-                            <small>${this.obterTextoImportancia(dependente.importancia)} | ${this.obterTextoFrequencia(dependente.frequencia)}</small>
-                        </div>
-                    </div>
-                    <div class="item-pontos">
-                        <span class="pontos-negativo">${dependente.pontos} pts</span>
-                        <button class="btn-remove-item" data-id="${dependente.id}" data-tipo="dependente">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-    }
+    document.body.appendChild(notification);
     
-    obterTextoImportancia(importancia) {
-        switch(importancia) {
-            case 'empregado': return 'Empregado/Conhecido';
-            case 'amigo': return 'Amigo';
-            case 'ser_amado': return 'Ser Amado';
-            default: return importancia;
-        }
-    }
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
     
     // ===========================================
     // FUNÇÕES AUXILIARES
