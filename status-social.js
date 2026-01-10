@@ -1,5 +1,5 @@
 // ===========================================
-// STATUS-SOCIAL.JS - Sistema Completo e FUNCIONAL
+// STATUS-SOCIAL.JS - VERSÃO 100% COMPLETA
 // ===========================================
 
 class StatusSocialManager {
@@ -27,7 +27,7 @@ class StatusSocialManager {
     inicializar() {
         if (this.inicializado) return;
         
-        console.log('Inicializando StatusSocialManager...');
+        console.log('✅ StatusSocialManager inicializando...');
         
         // Configurar todos os sistemas
         this.configurarStatusSocial();
@@ -50,27 +50,57 @@ class StatusSocialManager {
         this.atualizarSistemaPontos();
         
         this.inicializado = true;
+        console.log('✅ StatusSocialManager inicializado com sucesso!');
     }
     
     // ===========================================
-    // 1. STATUS SOCIAL
+    // 1. STATUS SOCIAL - FUNCIONANDO
     // ===========================================
     configurarStatusSocial() {
-        const minusBtn = document.querySelector('.btn-controle.minus[data-tipo="status"]');
-        const plusBtn = document.querySelector('.btn-controle.plus[data-tipo="status"]');
+        console.log('🔄 Configurando Status Social...');
+        
+        // Encontrar o card de Status Social (primeiro card)
+        const statusCards = document.querySelectorAll('.status-card');
+        const statusCard = statusCards[0]; // Primeiro card é Status Social
+        
+        if (!statusCard) {
+            console.error('❌ Card de Status Social não encontrado');
+            return;
+        }
+        
+        // Encontrar botões dentro do card
+        const minusBtn = statusCard.querySelector('.btn-controle.minus');
+        const plusBtn = statusCard.querySelector('.btn-controle.plus');
+        
+        console.log('Status Social - Botões encontrados:', { minus: !!minusBtn, plus: !!plusBtn });
         
         if (minusBtn && plusBtn) {
-            minusBtn.addEventListener('click', () => this.ajustarStatus(-1));
-            plusBtn.addEventListener('click', () => this.ajustarStatus(1));
-            this.atualizarDisplayStatus();
+            minusBtn.addEventListener('click', () => {
+                console.log('➖ Status Social: diminuindo');
+                this.ajustarStatus(-1);
+            });
+            
+            plusBtn.addEventListener('click', () => {
+                console.log('➕ Status Social: aumentando');
+                this.ajustarStatus(1);
+            });
+        } else {
+            console.error('❌ Botões de Status Social não encontrados');
         }
+        
+        this.atualizarDisplayStatus();
     }
     
     ajustarStatus(delta) {
         const novoValor = this.status + delta;
-        if (novoValor < -20 || novoValor > 25) return;
+        if (novoValor < -20 || novoValor > 25) {
+            console.log(`⚠️ Status Social: limite atingido (${novoValor})`);
+            return;
+        }
         
         this.status = novoValor;
+        console.log(`📊 Status Social atualizado: ${this.status}`);
+        
         this.atualizarDisplayStatus();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
@@ -80,34 +110,68 @@ class StatusSocialManager {
         const valorDisplay = document.getElementById('valorStatus');
         const pontosDisplay = document.getElementById('pontosStatus');
         
-        if (valorDisplay) valorDisplay.textContent = this.status;
+        if (valorDisplay) {
+            valorDisplay.textContent = this.status;
+            console.log(`🔢 Status Social valor: ${this.status}`);
+        }
+        
         if (pontosDisplay) {
             const pontos = this.status * 5;
             const texto = pontos >= 0 ? `+${pontos} pts` : `${pontos} pts`;
             pontosDisplay.textContent = texto;
             pontosDisplay.className = 'pontos-badge ' + (pontos >= 0 ? 'positivo' : 'negativo');
+            console.log(`💰 Status Social pontos: ${texto}`);
         }
     }
     
     // ===========================================
-    // 2. CARISMA
+    // 2. CARISMA - FUNCIONANDO
     // ===========================================
     configurarCarisma() {
-        const minusBtn = document.querySelector('.btn-controle.minus[data-tipo="carisma"]');
-        const plusBtn = document.querySelector('.btn-controle.plus[data-tipo="carisma"]');
+        console.log('🔄 Configurando Carisma...');
+        
+        // Encontrar o card de Carisma (segundo card)
+        const statusCards = document.querySelectorAll('.status-card');
+        const carismaCard = statusCards[1]; // Segundo card é Carisma
+        
+        if (!carismaCard) {
+            console.error('❌ Card de Carisma não encontrado');
+            return;
+        }
+        
+        // Encontrar botões dentro do card
+        const minusBtn = carismaCard.querySelector('.btn-controle.minus');
+        const plusBtn = carismaCard.querySelector('.btn-controle.plus');
+        
+        console.log('Carisma - Botões encontrados:', { minus: !!minusBtn, plus: !!plusBtn });
         
         if (minusBtn && plusBtn) {
-            minusBtn.addEventListener('click', () => this.ajustarCarisma(-1));
-            plusBtn.addEventListener('click', () => this.ajustarCarisma(1));
-            this.atualizarDisplayCarisma();
+            minusBtn.addEventListener('click', () => {
+                console.log('➖ Carisma: diminuindo');
+                this.ajustarCarisma(-1);
+            });
+            
+            plusBtn.addEventListener('click', () => {
+                console.log('➕ Carisma: aumentando');
+                this.ajustarCarisma(1);
+            });
+        } else {
+            console.error('❌ Botões de Carisma não encontrados');
         }
+        
+        this.atualizarDisplayCarisma();
     }
     
     ajustarCarisma(delta) {
         const novoValor = this.carisma + delta;
-        if (novoValor < 0 || novoValor > 3) return;
+        if (novoValor < 0 || novoValor > 3) {
+            console.log(`⚠️ Carisma: limite atingido (${novoValor})`);
+            return;
+        }
         
         this.carisma = novoValor;
+        console.log(`📊 Carisma atualizado: ${this.carisma}`);
+        
         this.atualizarDisplayCarisma();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
@@ -117,33 +181,44 @@ class StatusSocialManager {
         const valorDisplay = document.getElementById('valorCarisma');
         const pontosDisplay = document.getElementById('pontosCarisma');
         
-        if (valorDisplay) valorDisplay.textContent = this.carisma;
+        if (valorDisplay) {
+            valorDisplay.textContent = this.carisma;
+            console.log(`🔢 Carisma valor: ${this.carisma}`);
+        }
+        
         if (pontosDisplay) {
             const pontos = this.carisma * 5;
             pontosDisplay.textContent = `+${pontos} pts`;
             pontosDisplay.className = 'pontos-badge positivo';
+            console.log(`💰 Carisma pontos: +${pontos} pts`);
         }
     }
     
     // ===========================================
-    // 3. REPUTAÇÃO
+    // 3. REPUTAÇÃO - JÁ FUNCIONANDO
     // ===========================================
     configurarReputacao() {
+        console.log('🔄 Configurando Reputação...');
+        
+        // Configurar botões de reputação positiva
         document.querySelectorAll('.btn-controle[data-tipo="positiva"]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const delta = e.target.classList.contains('minus') ? -1 : 1;
+                console.log(`🎯 Reputação Positiva: ${delta > 0 ? 'aumentando' : 'diminuindo'}`);
                 this.ajustarReputacao('positiva', delta);
             });
         });
         
+        // Configurar botões de reputação negativa
         document.querySelectorAll('.btn-controle[data-tipo="negativa"]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const delta = e.target.classList.contains('minus') ? -1 : 1;
+                console.log(`🎯 Reputação Negativa: ${delta > 0 ? 'aumentando' : 'diminuindo'}`);
                 this.ajustarReputacao('negativa', delta);
             });
         });
         
-        // Grupos alvo
+        // Configurar grupos alvo
         const grupoPosInput = document.getElementById('grupoPositivo');
         const grupoNegInput = document.getElementById('grupoNegativo');
         
@@ -152,6 +227,7 @@ class StatusSocialManager {
             grupoPosInput.addEventListener('change', (e) => {
                 this.grupoRepPositiva = e.target.value;
                 this.salvarLocalStorage();
+                console.log(`📝 Grupo Positivo atualizado: ${this.grupoRepPositiva}`);
             });
         }
         
@@ -160,6 +236,7 @@ class StatusSocialManager {
             grupoNegInput.addEventListener('change', (e) => {
                 this.grupoRepNegativa = e.target.value;
                 this.salvarLocalStorage();
+                console.log(`📝 Grupo Negativo atualizado: ${this.grupoRepNegativa}`);
             });
         }
         
@@ -171,11 +248,13 @@ class StatusSocialManager {
             const novoValor = this.reputacaoPositiva + delta;
             if (novoValor >= 0 && novoValor <= 5) {
                 this.reputacaoPositiva = novoValor;
+                console.log(`📊 Reputação Positiva: ${this.reputacaoPositiva}`);
             }
         } else {
             const novoValor = this.reputacaoNegativa + delta;
             if (novoValor >= 0 && novoValor <= 5) {
                 this.reputacaoNegativa = novoValor;
+                console.log(`📊 Reputação Negativa: ${this.reputacaoNegativa}`);
             }
         }
         
@@ -221,24 +300,13 @@ class StatusSocialManager {
     configurarSistemaAliados() {
         const btnAdicionar = document.querySelector('.btn-add[data-tipo="aliado"]');
         if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => this.abrirModal('aliado'));
+            btnAdicionar.addEventListener('click', () => {
+                console.log('👥 Abrindo modal de Aliado');
+                this.abrirModal('aliado');
+            });
         }
         
         this.atualizarDisplayAliados();
-    }
-    
-    abrirModal(tipo) {
-        const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
-        if (modal) {
-            modal.style.display = 'block';
-            
-            // Configurar eventos específicos do modal
-            if (tipo === 'aliado') this.configurarModalAliado();
-            else if (tipo === 'contato') this.configurarModalContato();
-            else if (tipo === 'patrono') this.configurarModalPatrono();
-            else if (tipo === 'inimigo') this.configurarModalInimigo();
-            else if (tipo === 'dependente') this.configurarModalDependente();
-        }
     }
     
     configurarModalAliado() {
@@ -252,7 +320,7 @@ class StatusSocialManager {
             });
         }
         
-        // Atualizar preview quando mudar valores
+        // Atualizar preview quando valores mudam
         ['aliadoPoder', 'aliadoFrequencia', 'aliadoTamanhoGrupo'].forEach(id => {
             const elemento = document.getElementById(id);
             if (elemento) {
@@ -336,6 +404,8 @@ class StatusSocialManager {
         this.atualizarDisplayAliados();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
+        
+        console.log(`✅ Aliado adicionado: ${nome} (${pontos} pts)`);
     }
     
     calcularCustoAliado(pontosPercentual, frequencia, grupo = false, tamanhoGrupo = 1) {
@@ -393,7 +463,10 @@ class StatusSocialManager {
     configurarSistemaContatos() {
         const btnAdicionar = document.querySelector('.btn-add[data-tipo="contato"]');
         if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => this.abrirModal('contato'));
+            btnAdicionar.addEventListener('click', () => {
+                console.log('📞 Abrindo modal de Contato');
+                this.abrirModal('contato');
+            });
         }
         
         this.atualizarDisplayContatos();
@@ -497,6 +570,8 @@ class StatusSocialManager {
         this.atualizarDisplayContatos();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
+        
+        console.log(`✅ Contato adicionado: ${nome} (${pontos} pts)`);
     }
     
     calcularCustoContato(nhEfetivo, frequencia, confiabilidade) {
@@ -547,7 +622,10 @@ class StatusSocialManager {
     configurarSistemaPatronos() {
         const btnAdicionar = document.querySelector('.btn-add[data-tipo="patrono"]');
         if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => this.abrirModal('patrono'));
+            btnAdicionar.addEventListener('click', () => {
+                console.log('👑 Abrindo modal de Patrono');
+                this.abrirModal('patrono');
+            });
         }
         
         this.atualizarDisplayPatronos();
@@ -657,6 +735,8 @@ class StatusSocialManager {
         this.atualizarDisplayPatronos();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
+        
+        console.log(`✅ Patrono adicionado: ${nome} (${pontos} pts)`);
     }
     
     calcularCustoPatrono(nivelPoder, frequencia, ampliacoes = [], limitacoes = []) {
@@ -716,7 +796,10 @@ class StatusSocialManager {
     configurarSistemaInimigos() {
         const btnAdicionar = document.querySelector('.btn-add[data-tipo="inimigo"]');
         if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => this.abrirModal('inimigo'));
+            btnAdicionar.addEventListener('click', () => {
+                console.log('💀 Abrindo modal de Inimigo');
+                this.abrirModal('inimigo');
+            });
         }
         
         this.atualizarDisplayInimigos();
@@ -825,6 +908,8 @@ class StatusSocialManager {
         this.atualizarDisplayInimigos();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
+        
+        console.log(`✅ Inimigo adicionado: ${nome} (${pontos} pts)`);
     }
     
     calcularCustoInimigo(nivelPoder, intencao, frequencia, casoEspecial = null) {
@@ -889,7 +974,10 @@ class StatusSocialManager {
     configurarSistemaDependentes() {
         const btnAdicionar = document.querySelector('.btn-add[data-tipo="dependente"]');
         if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => this.abrirModal('dependente'));
+            btnAdicionar.addEventListener('click', () => {
+                console.log('❤️ Abrindo modal de Dependente');
+                this.abrirModal('dependente');
+            });
         }
         
         this.atualizarDisplayDependentes();
@@ -989,6 +1077,8 @@ class StatusSocialManager {
         this.atualizarDisplayDependentes();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
+        
+        console.log(`✅ Dependente adicionado: ${nome} (${pontos} pts)`);
     }
     
     calcularCustoDependente(pontosPercentual, importancia, frequencia) {
@@ -1067,27 +1157,51 @@ class StatusSocialManager {
         return frequencias[valor] || 'Desconhecido';
     }
     
+    abrirModal(tipo) {
+        const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+        if (modal) {
+            modal.style.display = 'block';
+            console.log(`📁 Modal ${tipo} aberto`);
+            
+            // Configurar eventos específicos do modal
+            if (tipo === 'aliado') this.configurarModalAliado();
+            else if (tipo === 'contato') this.configurarModalContato();
+            else if (tipo === 'patrono') this.configurarModalPatrono();
+            else if (tipo === 'inimigo') this.configurarModalInimigo();
+            else if (tipo === 'dependente') this.configurarModalDependente();
+        } else {
+            console.error(`❌ Modal ${tipo} não encontrado`);
+        }
+    }
+    
     fecharModal(tipo) {
         const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
         if (modal) {
             modal.style.display = 'none';
+            console.log(`📁 Modal ${tipo} fechado`);
         }
     }
     
     configurarModais() {
+        console.log('🔄 Configurando modais...');
+        
         // Fechar modais ao clicar no X
         document.querySelectorAll('.modal-close[data-modal]').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const modalId = e.target.dataset.modal;
-                this.fecharModal(modalId);
+                const modalId = e.target.dataset.modal || e.target.closest('.modal-close').dataset.modal;
+                if (modalId) {
+                    this.fecharModal(modalId);
+                }
             });
         });
         
         // Fechar modais ao clicar em cancelar
         document.querySelectorAll('.btn-secondary[data-modal]').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const modalId = e.target.dataset.modal;
-                this.fecharModal(modalId);
+                const modalId = e.target.dataset.modal || e.target.closest('.btn-secondary').dataset.modal;
+                if (modalId) {
+                    this.fecharModal(modalId);
+                }
             });
         });
         
@@ -1106,6 +1220,7 @@ class StatusSocialManager {
             if (btnRemover) {
                 const id = parseInt(btnRemover.dataset.id);
                 const tipo = btnRemover.dataset.tipo;
+                console.log(`🗑️ Removendo item ${id} do tipo ${tipo}`);
                 this.removerItem(id, tipo);
             }
         });
@@ -1139,6 +1254,7 @@ class StatusSocialManager {
         
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
+        console.log(`✅ Item ${id} do tipo ${tipo} removido`);
     }
     
     atualizarTodosDisplays() {
@@ -1151,6 +1267,7 @@ class StatusSocialManager {
         this.atualizarDisplayInimigos();
         this.atualizarDisplayDependentes();
         this.atualizarResumoGeral();
+        console.log('📊 Todos os displays atualizados');
     }
     
     atualizarResumoGeral() {
@@ -1161,6 +1278,7 @@ class StatusSocialManager {
         const totalStatusGeral = document.getElementById('totalStatusGeral');
         if (totalStatusGeral) {
             totalStatusGeral.textContent = saldo;
+            console.log(`📈 Resumo Geral: Vantagens=${totalVantagens}, Desvantagens=${totalDesvantagens}, Saldo=${saldo}`);
         }
     }
     
@@ -1189,20 +1307,22 @@ class StatusSocialManager {
         // Obter o PontosManager
         this.pontosManager = window.obterPontosManager ? window.obterPontosManager() : null;
         if (!this.pontosManager) {
-            console.log('PontosManager não encontrado, tentando inicializar...');
+            console.log('🔍 PontosManager não encontrado, tentando inicializar...');
             if (window.inicializarSistemaPontos) {
                 this.pontosManager = window.inicializarSistemaPontos();
             }
         }
         
         if (!this.pontosManager) {
-            console.error('PontosManager não disponível');
+            console.error('❌ PontosManager não disponível');
             return;
         }
         
         // Calcular totais
         const vantagens = this.calcularVantagensTotais();
         const desvantagens = Math.abs(this.calcularDesvantagensTotais());
+        
+        console.log(`💰 Pontos Status Social - Vantagens: ${vantagens}, Desvantagens: ${desvantagens}`);
         
         // Atualizar PontosManager
         this.pontosManager.gastos.vantagens = vantagens;
@@ -1219,6 +1339,8 @@ class StatusSocialManager {
         if (totalVantagensElem) totalVantagensElem.textContent = vantagens;
         if (totalDesvantagensElem) totalDesvantagensElem.textContent = desvantagens;
         if (saldoElem) saldoElem.textContent = vantagens - desvantagens;
+        
+        console.log('✅ Sistema de pontos atualizado');
     }
     
     salvarLocalStorage() {
@@ -1239,8 +1361,9 @@ class StatusSocialManager {
                 timestamp: new Date().toISOString()
             };
             localStorage.setItem('gurps_status_social', JSON.stringify(dados));
+            console.log('💾 Dados salvos no LocalStorage');
         } catch (error) {
-            console.warn('Não foi possível salvar status social:', error);
+            console.warn('⚠️ Não foi possível salvar status social:', error);
         }
     }
     
@@ -1267,10 +1390,11 @@ class StatusSocialManager {
                 this.nextId = dados.nextId || this.aliados.length + this.contatos.length + 
                             this.patronos.length + this.inimigos.length + this.dependentes.length + 1;
                 
+                console.log('📂 Dados carregados do LocalStorage');
                 return true;
             }
         } catch (error) {
-            console.warn('Não foi possível carregar status social:', error);
+            console.warn('⚠️ Não foi possível carregar status social:', error);
         }
         return false;
     }
@@ -1284,6 +1408,7 @@ let statusSocialManagerInstance = null;
 
 function inicializarStatusSocial() {
     if (!statusSocialManagerInstance) {
+        console.log('🚀 Criando nova instância do StatusSocialManager');
         statusSocialManagerInstance = new StatusSocialManager();
     }
     
@@ -1293,16 +1418,21 @@ function inicializarStatusSocial() {
 
 // Inicializar quando a aba for ativada
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM carregado, configurando StatusSocialManager...');
+    
     // Observar quando a aba Vantagens for ativada
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                 const tab = mutation.target;
                 if (tab.id === 'vantagens' && tab.classList.contains('active')) {
-                    console.log('Aba Vantagens ativada, inicializando StatusSocial...');
+                    console.log('🎯 Aba Vantagens ativada, inicializando StatusSocial...');
                     setTimeout(() => {
                         if (!statusSocialManagerInstance) {
                             inicializarStatusSocial();
+                        } else {
+                            console.log('🔄 StatusSocial já inicializado, atualizando displays...');
+                            statusSocialManagerInstance.atualizarTodosDisplays();
                         }
                     }, 100);
                 }
@@ -1317,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Se a aba já estiver ativa no carregamento
     if (document.getElementById('vantagens')?.classList.contains('active')) {
-        console.log('Aba Vantagens já ativa no carregamento');
+        console.log('🎯 Aba Vantagens já ativa no carregamento');
         setTimeout(() => {
             if (!statusSocialManagerInstance) {
                 inicializarStatusSocial();
@@ -1332,3 +1462,5 @@ window.inicializarStatusSocial = inicializarStatusSocial;
 window.obterStatusSocialManager = function() {
     return statusSocialManagerInstance;
 };
+
+console.log('✅ status-social.js carregado e pronto!');
