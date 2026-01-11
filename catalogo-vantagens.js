@@ -1,4 +1,4 @@
-// catalogo-vantagens.js
+// catalogo-vantagens.js - ATUALIZADO
 const vantagensCatalogo = [
   {
     id: 1,
@@ -6,34 +6,32 @@ const vantagensCatalogo = [
     custoBase: 5,
     categoria: "fisicas",
     descricao: "O personagem é capaz de lutar e manusear igualmente bem com qualquer uma das mãos e nunca sofre a penalidade de -4 na DX por estar usando a mão inábil.",
-    tipo: "simples", // Adiciona direto sem modal
+    tipo: "simples",
     ordem: "A"
   },
   {
     id: 2,
     nome: "Aptidão Mágica",
-    custoBase: 5, // Custo para nível 0
-    custoPorNivel: 10, // Custo adicional por nível acima de 0
+    custoBase: 5,
     categoria: "mental-sobrenatural",
     descricao: "O personagem é um adepto da magia. Aptidão Mágica 0 concede detecção mágica básica. Níveis mais altos facilitam aprendizado e uso de magia.",
-    tipo: "niveis_com_limitações", // Modal com níveis + limitações
-    niveisMaximo: 4,
+    tipo: "niveis_com_limitações",
+    niveisMaximo: 3, // Corrigido: máximo +3 como solicitado
     descricaoNiveis: [
       "Nível 0: Detecção mágica básica (5 pontos)",
       "Nível 1: +1 em aprendizado (15 pontos)",
       "Nível 2: +2 em aprendizado (25 pontos)",
-      "Nível 3: +3 em aprendizado (35 pontos)",
-      "Nível 4: +4 em aprendizado (45 pontos)"
+      "Nível 3: +3 em aprendizado (35 pontos)"
     ],
     limitações: [
-      { nome: "Canção", custo: -40, descricao: "Tem que cantar para fazer mágicas." },
-      { nome: "Dança", custo: -40, descricao: "Tem que dançar para fazer mágicas." },
-      { nome: "Manifestação Diurna", custo: -40, descricao: "Só funciona durante o dia." },
-      { nome: "Manifestação Noturna", custo: -40, descricao: "Só funciona durante a noite." },
-      { nome: "Manifestação Obscura", custo: -50, descricao: "Só funciona no escuro." },
-      { nome: "Musical", custo: -50, descricao: "Precisa de instrumento musical." },
-      { nome: "Solitária", custo: -40, descricao: "Penalidade por pessoas próximas." },
-      { nome: "Uma Única Escola", custo: -40, descricao: "Apenas para uma escola de magia." }
+      { id: "cancao", nome: "Canção", custo: -40, descricao: "Tem que cantar para fazer mágicas." },
+      { id: "danca", nome: "Dança", custo: -40, descricao: "Tem que dançar para fazer mágicas." },
+      { id: "diurna", nome: "Manifestação Diurna", custo: -40, descricao: "Só funciona durante o dia." },
+      { id: "noturna", nome: "Manifestação Noturna", custo: -40, descricao: "Só funciona durante a noite." },
+      { id: "obscura", nome: "Manifestação Obscura", custo: -50, descricao: "Só funciona no escuro." },
+      { id: "musical", nome: "Musical", custo: -50, descricao: "Precisa de instrumento musical." },
+      { id: "solitária", nome: "Solitária", custo: -40, descricao: "Penalidade por pessoas próximas." },
+      { id: "uma_escola", nome: "Uma Única Escola", custo: -40, descricao: "Apenas para uma escola de magia." }
     ],
     ordem: "A"
   },
@@ -58,8 +56,7 @@ const vantagensCatalogo = [
   {
     id: 5,
     nome: "Destemor",
-    custoBase: 2, // Custo por nível
-    custoPorNivel: 2,
+    custoBase: 2,
     categoria: "mental-sobrenatural",
     descricao: "Não é fácil assustar ou intimidar o personagem. Adiciona nível à Vontade contra medo e intimidação.",
     tipo: "niveis",
@@ -76,8 +73,7 @@ const vantagensCatalogo = [
   {
     id: 6,
     nome: "Duro de Matar",
-    custoBase: 2, // Custo por nível
-    custoPorNivel: 2,
+    custoBase: 2,
     categoria: "fisicas",
     descricao: "É incrivelmente difícil matar o personagem. +1 em testes de HT para sobreviver quando PV abaixo de zero.",
     tipo: "niveis",
@@ -103,17 +99,17 @@ const vantagensCatalogo = [
   {
     id: 8,
     nome: "Mestre de Armas",
-    custoBase: 20, // Custo mínimo
+    custoBase: 20,
     categoria: "mental-sobrenatural",
     descricao: "Alto grau de treinamento com uma categoria específica de armas motoras. Escolha a classe de armas.",
-    tipo: "opcoes", // Modal com escolha única
+    tipo: "opcoes",
     opcoes: [
-      { nome: "Uma arma específica", custo: 20 },
-      { nome: "Duas armas usadas em conjunto", custo: 25 },
-      { nome: "Uma classe pequena de armas", custo: 30 },
-      { nome: "Uma classe intermediária de armas", custo: 35 },
-      { nome: "Uma classe ampla de armas", custo: 40 },
-      { nome: "Todas as armas motoras", custo: 45 }
+      { id: "uma_especifica", nome: "Uma arma específica", custo: 20 },
+      { id: "duas_em_conjunto", nome: "Duas armas usadas em conjunto", custo: 25 },
+      { id: "classe_pequena", nome: "Uma classe pequena de armas", custo: 30 },
+      { id: "classe_intermediaria", nome: "Uma classe intermediária de armas", custo: 35 },
+      { id: "classe_ampla", nome: "Uma classe ampla de armas", custo: 40 },
+      { id: "todas", nome: "Todas as armas motoras", custo: 45 }
     ],
     descricaoOpcoes: "Escolha o nível de proficiência com armas. Custo varia conforme a amplitude da classe escolhida.",
     ordem: "M"
@@ -130,23 +126,28 @@ const vantagensCatalogo = [
   {
     id: 10,
     nome: "Sorte",
-    custoBase: 15, // Custo para Sorte básica
+    custoBase: 15,
     categoria: "mental-sobrenatural",
     descricao: "O personagem nasceu com sorte! Pode refazer testes ruins periodicamente.",
-    tipo: "niveis_com_limitações",
-    niveis: [
-      { nome: "Sorte", custo: 15, intervalo: "1 hora", descricao: "Refazer teste a cada hora" },
-      { nome: "Sorte Extraordinária", custo: 30, intervalo: "30 minutos", descricao: "Refazer teste a cada 30 minutos" },
-      { nome: "Sorte Impossível", custo: 60, intervalo: "10 minutos", descricao: "Refazer teste a cada 10 minutos" }
+    tipo: "opcoes_com_limitações",
+    opcoes: [
+      { id: "normal", nome: "Sorte", custo: 15, intervalo: "1 hora" },
+      { id: "extraordinaria", nome: "Sorte Extraordinária", custo: 30, intervalo: "30 minutos" },
+      { id: "impossivel", nome: "Sorte Impossível", custo: 60, intervalo: "10 minutos" }
     ],
     limitações: [
-      { nome: "Ativa", custo: -40, descricao: "Deve declarar uso antes da jogada" },
-      { nome: "Defensiva", custo: -20, descricao: "Apenas para defesas e testes de resistência" },
-      { nome: "Seletiva", custo: -20, descricao: "Apenas para classe específica de tarefas" }
+      { id: "ativa", nome: "Ativa", custo: -40, descricao: "Deve declarar uso antes da jogada" },
+      { id: "defensiva", nome: "Defensiva", custo: -20, descricao: "Apenas para defesas e testes de resistência" },
+      { id: "seletiva", nome: "Seletiva", custo: -20, descricao: "Apenas para classe específica de tarefas" }
     ],
     ordem: "S"
   }
 ];
 
 // Ordenar por ordem alfabética
-vantagensCatalogo.sort((a, b) => a.ordem.localeCompare(b.ordem));
+vantagensCatalogo.sort((a, b) => {
+  if (a.ordem !== b.ordem) {
+    return a.ordem.localeCompare(b.ordem);
+  }
+  return a.nome.localeCompare(b.nome);
+});
