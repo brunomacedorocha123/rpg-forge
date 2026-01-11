@@ -1,4 +1,4 @@
-// vantagens.js - VERSÃO COMPLETA E FUNCIONAL
+// vantagens.js - VERSÃO COMPLETA E CORRIGIDA
 class VantagensManager {
     constructor() {
         this.vantagensAdquiridas = JSON.parse(localStorage.getItem('vantagensAdquiridas')) || [];
@@ -43,6 +43,7 @@ class VantagensManager {
                     <small>Tente outro filtro ou termo de busca</small>
                 </div>
             `;
+            document.getElementById('contadorVantagens').textContent = '0';
             return;
         }
         
@@ -88,17 +89,22 @@ class VantagensManager {
         
         container.innerHTML = html;
         
+        // Configurar eventos para os itens do catálogo
         container.querySelectorAll('.vantagem-item').forEach(item => {
             const id = parseInt(item.dataset.id);
             const vantagem = this.catalogo.find(v => v.id === id);
+            if (!vantagem) return;
             
+            // Clique no item para mostrar detalhes
             item.addEventListener('click', (e) => {
-                if (!e.target.closest('.btn-editar') && !e.target.closest('.btn-excluir') && 
+                if (!e.target.closest('.btn-editar') && 
+                    !e.target.closest('.btn-excluir') && 
                     !e.target.closest('.btn-adicionar')) {
                     this.mostrarDetalhes(vantagem);
                 }
             });
             
+            // Botão Adicionar
             const btnAdicionar = item.querySelector('.btn-adicionar');
             if (btnAdicionar) {
                 btnAdicionar.addEventListener('click', (e) => {
@@ -107,6 +113,7 @@ class VantagensManager {
                 });
             }
             
+            // Botão Editar
             const btnEditar = item.querySelector('.btn-editar');
             if (btnEditar) {
                 btnEditar.addEventListener('click', (e) => {
@@ -115,6 +122,7 @@ class VantagensManager {
                 });
             }
             
+            // Botão Excluir
             const btnExcluir = item.querySelector('.btn-excluir');
             if (btnExcluir) {
                 btnExcluir.addEventListener('click', (e) => {
@@ -133,12 +141,14 @@ class VantagensManager {
         
         if (this.vantagensAdquiridas.length === 0) {
             container.innerHTML = `
-                <div class="lista-vazia">
+                <div class="empty-state">
                     <i class="fas fa-star"></i>
-                    <p>Nenhuma vantagem adquirida</p>
-                    <small>Selecione vantagens do catálogo</small>
+                    <p>Nenhuma vantagem</p>
+                    <small>Clique no catálogo</small>
                 </div>
             `;
+            document.getElementById('totalVantagensAdquiridas').textContent = '0';
+            document.getElementById('pontosVantagensAdquiridas').textContent = '0 pts';
             return;
         }
         
@@ -175,30 +185,41 @@ class VantagensManager {
         
         container.innerHTML = html;
         
+        // Configurar eventos para vantagens adquiridas
         container.querySelectorAll('.vantagem-item').forEach(item => {
             const id = parseInt(item.dataset.id);
             const btnEditar = item.querySelector('.btn-editar');
             const btnExcluir = item.querySelector('.btn-excluir');
             const original = this.catalogo.find(v => v.id === id);
             
-            btnEditar.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (original) this.abrirModalVantagem(original, true);
-            });
+            if (btnEditar) {
+                btnEditar.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (original) this.abrirModalVantagem(original, true);
+                });
+            }
             
-            btnExcluir.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.removerVantagem(id);
-            });
+            if (btnExcluir) {
+                btnExcluir.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.removerVantagem(id);
+                });
+            }
             
-            item.addEventListener('click', (e) => {
-                if (!e.target.closest('.btn-editar') && !e.target.closest('.btn-excluir')) {
-                    if (original) this.mostrarDetalhes(original);
-                }
-            });
+            if (original) {
+                item.addEventListener('click', (e) => {
+                    if (!e.target.closest('.btn-editar') && !e.target.closest('.btn-excluir')) {
+                        this.mostrarDetalhes(original);
+                    }
+                });
+            }
         });
         
-        document.getElementById('totalVantagensAdquiridas').textContent = this.vantagensAdquiridas.length;
+        const total = this.vantagensAdquiridas.length;
+        const pontos = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
+        
+        document.getElementById('totalVantagensAdquiridas').textContent = total;
+        document.getElementById('pontosVantagensAdquiridas').textContent = `${pontos} pts`;
     }
     
     abrirModalVantagem(vantagem, editando = false) {
@@ -206,9 +227,16 @@ class VantagensManager {
         const titulo = document.getElementById('modalTitulo');
         const corpo = document.getElementById('modalCorpo');
         const btnAdicionar = document.getElementById('btnAdicionarModal');
+        const modal = document.getElementById('modalVantagem');
+        
+        if (!modal || !titulo || !corpo || !btnAdicionar) {
+            console.error('Elementos do modal não encontrados');
+            return;
+        }
         
         titulo.textContent = vantagem.nome;
         btnAdicionar.textContent = this.vantagemEditando ? 'Atualizar' : 'Adicionar';
+        btnAdicionar.style.display = 'block';
         
         switch(vantagem.tipo) {
             case 'simples':
@@ -236,7 +264,18 @@ class VantagensManager {
             this.carregarConfiguracaoExistente(vantagem);
         }
         
-        document.getElementById('modalVantagem').style.display = 'block';
+        // USAR CLASSE .show PARA MOSTRAR O MODAL
+        modal.classList.add('show');
+        document.body.classList.add('modal-aberto');
+        
+        // Garantir que o primeiro radio button esteja selecionado
+        setTimeout(() => {
+            const primeiroRadio = modal.querySelector('input[type="radio"]');
+            if (primeiroRadio && !modal.querySelector('input[type="radio"]:checked')) {
+                primeiroRadio.checked = true;
+                this.atualizarCustoModal(vantagem);
+            }
+        }, 10);
     }
     
     criarModalSimples(vantagem) {
@@ -259,7 +298,7 @@ class VantagensManager {
             const custo = vantagem.custoBase * i;
             opcoesHTML += `
                 <label class="opcao-radio">
-                    <input type="radio" name="nivel" value="${i}" data-custo="${custo}">
+                    <input type="radio" name="nivel" value="${i}" data-custo="${custo}" ${i === 1 ? 'checked' : ''}>
                     <div class="opcao-conteudo">
                         <span class="opcao-nome">Nível ${i}</span>
                         <span class="opcao-custo">${custo} pts</span>
@@ -288,7 +327,7 @@ class VantagensManager {
         vantagem.opcoes.forEach((opcao, index) => {
             opcoesHTML += `
                 <label class="opcao-radio">
-                    <input type="radio" name="opcao" value="${opcao.id}" data-custo="${opcao.custo}">
+                    <input type="radio" name="opcao" value="${opcao.id}" data-custo="${opcao.custo}" ${index === 0 ? 'checked' : ''}>
                     <div class="opcao-conteudo">
                         <span class="opcao-nome">${opcao.nome}</span>
                         <span class="opcao-custo">${opcao.custo} pts</span>
@@ -318,7 +357,7 @@ class VantagensManager {
             const custo = vantagem.custoBase + (i * 10);
             niveisHTML += `
                 <label class="opcao-radio">
-                    <input type="radio" name="nivel" value="${i}" data-custo-base="${custo}">
+                    <input type="radio" name="nivel" value="${i}" data-custo-base="${custo}" ${i === 0 ? 'checked' : ''}>
                     <div class="opcao-conteudo">
                         <span class="opcao-nome">Nível ${i}</span>
                         <span class="opcao-custo">${custo} pts</span>
@@ -365,7 +404,7 @@ class VantagensManager {
         vantagem.opcoes.forEach((opcao, index) => {
             opcoesHTML += `
                 <label class="opcao-radio">
-                    <input type="radio" name="opcao" value="${opcao.id}" data-custo-base="${opcao.custo}">
+                    <input type="radio" name="opcao" value="${opcao.id}" data-custo-base="${opcao.custo}" ${index === 0 ? 'checked' : ''}>
                     <div class="opcao-conteudo">
                         <span class="opcao-nome">${opcao.nome}</span>
                         <span class="opcao-custo">${opcao.custo} pts</span>
@@ -409,48 +448,67 @@ class VantagensManager {
     
     configurarEventosModal(vantagem) {
         const btnAdicionar = document.getElementById('btnAdicionarModal');
-        btnAdicionar.onclick = () => this.salvarVantagem(vantagem);
+        if (btnAdicionar) {
+            btnAdicionar.onclick = () => this.salvarVantagem(vantagem);
+        }
         
-        const inputs = document.querySelectorAll('#modalVantagem input');
-        inputs.forEach(input => {
-            input.addEventListener('change', () => this.atualizarCustoModal(vantagem));
-        });
-        
-        this.atualizarCustoModal(vantagem);
+        // Configurar eventos para todos os inputs
+        setTimeout(() => {
+            const inputs = document.querySelectorAll('#modalVantagem input');
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    this.atualizarCustoModal(vantagem);
+                });
+            });
+            
+            // Atualizar custo inicial
+            this.atualizarCustoModal(vantagem);
+        }, 10);
     }
     
     atualizarCustoModal(vantagem) {
         let custoBase = vantagem.custoBase;
         let porcentagem = 0;
         
+        const modal = document.getElementById('modalVantagem');
+        if (!modal) return;
+        
         switch(vantagem.tipo) {
             case 'niveis':
-                const nivelInput = document.querySelector('input[name="nivel"]:checked');
-                if (nivelInput) custoBase = parseInt(nivelInput.dataset.custo);
+                const nivelInput = modal.querySelector('input[name="nivel"]:checked');
+                if (nivelInput) {
+                    custoBase = parseInt(nivelInput.dataset.custo) || vantagem.custoBase;
+                }
                 break;
                 
             case 'opcoes':
-                const opcaoInput = document.querySelector('input[name="opcao"]:checked');
-                if (opcaoInput) custoBase = parseInt(opcaoInput.dataset.custo);
+                const opcaoInput = modal.querySelector('input[name="opcao"]:checked');
+                if (opcaoInput) {
+                    custoBase = parseInt(opcaoInput.dataset.custo) || vantagem.custoBase;
+                }
                 break;
                 
             case 'niveis_com_limitações':
-                const nivelSel = document.querySelector('input[name="nivel"]:checked');
-                if (nivelSel) custoBase = parseInt(nivelSel.dataset.custoBase);
+                const nivelSel = modal.querySelector('input[name="nivel"]:checked');
+                if (nivelSel) {
+                    custoBase = parseInt(nivelSel.dataset.custoBase) || vantagem.custoBase;
+                }
                 
-                const limitacoes = document.querySelectorAll('input[name="limitacao"]:checked');
+                const limitacoes = modal.querySelectorAll('input[name="limitacao"]:checked');
                 limitacoes.forEach(lim => {
-                    porcentagem += parseInt(lim.dataset.custo);
+                    porcentagem += parseInt(lim.dataset.custo) || 0;
                 });
                 break;
                 
             case 'opcoes_com_limitações':
-                const opcaoSel = document.querySelector('input[name="opcao"]:checked');
-                if (opcaoSel) custoBase = parseInt(opcaoSel.dataset.custoBase);
+                const opcaoSel = modal.querySelector('input[name="opcao"]:checked');
+                if (opcaoSel) {
+                    custoBase = parseInt(opcaoSel.dataset.custoBase) || vantagem.custoBase;
+                }
                 
-                const limitacoesSel = document.querySelectorAll('input[name="limitacao"]:checked');
+                const limitacoesSel = modal.querySelectorAll('input[name="limitacao"]:checked');
                 limitacoesSel.forEach(lim => {
-                    porcentagem += parseInt(lim.dataset.custo);
+                    porcentagem += parseInt(lim.dataset.custo) || 0;
                 });
                 break;
         }
@@ -470,37 +528,39 @@ class VantagensManager {
         if (!this.vantagemEditando) return;
         
         const config = this.vantagemEditando.dados.config;
+        const modal = document.getElementById('modalVantagem');
+        if (!modal) return;
         
         switch(vantagem.tipo) {
             case 'niveis':
-                const radioNivel = document.querySelector(`input[name="nivel"][value="${config.nivel}"]`);
+                const radioNivel = modal.querySelector(`input[name="nivel"][value="${config.nivel}"]`);
                 if (radioNivel) radioNivel.checked = true;
                 break;
                 
             case 'opcoes':
-                const radioOpcao = document.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
+                const radioOpcao = modal.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
                 if (radioOpcao) radioOpcao.checked = true;
                 break;
                 
             case 'niveis_com_limitações':
-                const radioNivelCom = document.querySelector(`input[name="nivel"][value="${config.nivel}"]`);
+                const radioNivelCom = modal.querySelector(`input[name="nivel"][value="${config.nivel}"]`);
                 if (radioNivelCom) radioNivelCom.checked = true;
                 
                 if (config.limitações) {
                     config.limitações.forEach(limitacao => {
-                        const checkbox = document.querySelector(`input[name="limitacao"][value="${limitacao.id}"]`);
+                        const checkbox = modal.querySelector(`input[name="limitacao"][value="${limitacao.id}"]`);
                         if (checkbox) checkbox.checked = true;
                     });
                 }
                 break;
                 
             case 'opcoes_com_limitações':
-                const radioOpcaoCom = document.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
+                const radioOpcaoCom = modal.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
                 if (radioOpcaoCom) radioOpcaoCom.checked = true;
                 
                 if (config.limitações) {
                     config.limitações.forEach(limitacao => {
-                        const checkbox = document.querySelector(`input[name="limitacao"][value="${limitacao.id}"]`);
+                        const checkbox = modal.querySelector(`input[name="limitacao"][value="${limitacao.id}"]`);
                         if (checkbox) checkbox.checked = true;
                     });
                 }
@@ -513,6 +573,11 @@ class VantagensManager {
     salvarVantagem(vantagem) {
         const config = this.coletarConfiguracoes(vantagem);
         
+        if (!config) {
+            alert('Por favor, selecione uma opção antes de salvar.');
+            return;
+        }
+        
         const vantagemAdquirida = {
             id: vantagem.id,
             nome: config.nomeFinal,
@@ -523,7 +588,10 @@ class VantagensManager {
             }
         };
         
+        // Remover versão anterior se existir
         this.vantagensAdquiridas = this.vantagensAdquiridas.filter(v => v.id !== vantagem.id);
+        
+        // Adicionar nova versão
         this.vantagensAdquiridas.push(vantagemAdquirida);
         
         this.salvarLocalStorage();
@@ -536,36 +604,55 @@ class VantagensManager {
     }
     
     coletarConfiguracoes(vantagem) {
+        const modal = document.getElementById('modalVantagem');
+        if (!modal) return null;
+        
         let nomeFinal = vantagem.nome;
         let custoFinal = vantagem.custoBase;
         let config = { tipo: vantagem.tipo };
         
         switch(vantagem.tipo) {
             case 'niveis':
-                const nivelInput = document.querySelector('input[name="nivel"]:checked');
+                const nivelInput = modal.querySelector('input[name="nivel"]:checked');
+                if (!nivelInput) {
+                    const primeiroRadio = modal.querySelector('input[name="nivel"]');
+                    if (primeiroRadio) primeiroRadio.checked = true;
+                    return this.coletarConfiguracoes(vantagem);
+                }
                 const nivel = parseInt(nivelInput.value);
                 nomeFinal = `${vantagem.nome} (Nível ${nivel})`;
-                custoFinal = parseInt(nivelInput.dataset.custo);
+                custoFinal = parseInt(nivelInput.dataset.custo) || vantagem.custoBase;
                 config.nivel = nivel;
                 break;
                 
             case 'opcoes':
-                const opcaoInput = document.querySelector('input[name="opcao"]:checked');
+                const opcaoInput = modal.querySelector('input[name="opcao"]:checked');
+                if (!opcaoInput) {
+                    const primeiroRadio = modal.querySelector('input[name="opcao"]');
+                    if (primeiroRadio) primeiroRadio.checked = true;
+                    return this.coletarConfiguracoes(vantagem);
+                }
                 const opcaoId = opcaoInput.value;
                 const opcao = vantagem.opcoes.find(o => o.id === opcaoId);
+                if (!opcao) break;
                 nomeFinal = `${vantagem.nome} (${opcao.nome})`;
                 custoFinal = opcao.custo;
                 config.opcao = opcao;
                 break;
                 
             case 'niveis_com_limitações':
-                const nivelSel = document.querySelector('input[name="nivel"]:checked');
+                const nivelSel = modal.querySelector('input[name="nivel"]:checked');
+                if (!nivelSel) {
+                    const primeiroRadio = modal.querySelector('input[name="nivel"]');
+                    if (primeiroRadio) primeiroRadio.checked = true;
+                    return this.coletarConfiguracoes(vantagem);
+                }
                 const nivelVal = parseInt(nivelSel.value);
                 nomeFinal = `${vantagem.nome} (Nível ${nivelVal})`;
-                custoFinal = parseInt(nivelSel.dataset.custoBase);
+                custoFinal = parseInt(nivelSel.dataset.custoBase) || vantagem.custoBase;
                 
                 const limitacoes = [];
-                const limitacoesInputs = document.querySelectorAll('input[name="limitacao"]:checked');
+                const limitacoesInputs = modal.querySelectorAll('input[name="limitacao"]:checked');
                 limitacoesInputs.forEach(input => {
                     const limitacao = vantagem.limitações.find(l => l.id === input.value);
                     if (limitacao) limitacoes.push(limitacao);
@@ -581,14 +668,20 @@ class VantagensManager {
                 break;
                 
             case 'opcoes_com_limitações':
-                const opcaoSel = document.querySelector('input[name="opcao"]:checked');
+                const opcaoSel = modal.querySelector('input[name="opcao"]:checked');
+                if (!opcaoSel) {
+                    const primeiroRadio = modal.querySelector('input[name="opcao"]');
+                    if (primeiroRadio) primeiroRadio.checked = true;
+                    return this.coletarConfiguracoes(vantagem);
+                }
                 const opcaoIdSel = opcaoSel.value;
                 const opcaoObj = vantagem.opcoes.find(o => o.id === opcaoIdSel);
+                if (!opcaoObj) break;
                 nomeFinal = `${vantagem.nome} (${opcaoObj.nome})`;
                 custoFinal = opcaoObj.custo;
                 
                 const limitacoesSel = [];
-                const limitacoesInputsSel = document.querySelectorAll('input[name="limitacao"]:checked');
+                const limitacoesInputsSel = modal.querySelectorAll('input[name="limitacao"]:checked');
                 limitacoesInputsSel.forEach(input => {
                     const limitacao = vantagem.limitações.find(l => l.id === input.value);
                     if (limitacao) limitacoesSel.push(limitacao);
@@ -623,6 +716,8 @@ class VantagensManager {
         const corpo = document.getElementById('modalCorpo');
         const btnAdicionar = document.getElementById('btnAdicionarModal');
         
+        if (!modal || !titulo || !corpo || !btnAdicionar) return;
+        
         titulo.textContent = `Detalhes: ${vantagem.nome}`;
         
         let html = `
@@ -642,15 +737,31 @@ class VantagensManager {
         corpo.innerHTML = html;
         btnAdicionar.style.display = 'none';
         
-        modal.style.display = 'block';
+        // Mostrar modal
+        modal.classList.add('show');
+        document.body.classList.add('modal-aberto');
         
+        // Configurar botão de fechar para restaurar estado
         const fecharBtn = modal.querySelector('.modal-close');
-        const originalClick = fecharBtn.onclick;
-        fecharBtn.onclick = () => {
+        const fecharModalBtn = modal.querySelector('.fechar-modal');
+        
+        const restaurarEBtnAdicionar = () => {
             btnAdicionar.style.display = 'block';
-            fecharBtn.onclick = originalClick;
-            this.fecharModal();
         };
+        
+        if (fecharBtn) {
+            fecharBtn.onclick = () => {
+                restaurarEBtnAdicionar();
+                this.fecharModal();
+            };
+        }
+        
+        if (fecharModalBtn) {
+            fecharModalBtn.onclick = () => {
+                restaurarEBtnAdicionar();
+                this.fecharModal();
+            };
+        }
     }
     
     getCustoTexto(vantagem) {
@@ -688,6 +799,7 @@ class VantagensManager {
         const total = this.vantagensAdquiridas.length;
         const pontos = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
         
+        // Atualizar todos os elementos de resumo
         const elementos = {
             'pontosVantagensAdquiridas': `${pontos} pts`,
             'totalVantagensAdquiridas': total,
@@ -718,11 +830,16 @@ class VantagensManager {
         
         setTimeout(() => {
             notificacao.classList.add('fade-out');
-            setTimeout(() => notificacao.remove(), 300);
+            setTimeout(() => {
+                if (notificacao.parentNode) {
+                    notificacao.parentNode.removeChild(notificacao);
+                }
+            }, 300);
         }, 3000);
     }
     
     setupEventListeners() {
+        // Filtros
         document.querySelectorAll('.filtro-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
@@ -732,6 +849,7 @@ class VantagensManager {
             });
         });
         
+        // Busca
         const buscaInput = document.getElementById('buscarVantagem');
         if (buscaInput) {
             buscaInput.addEventListener('input', (e) => {
@@ -740,6 +858,7 @@ class VantagensManager {
             });
         }
         
+        // Limpar tudo
         const btnLimpar = document.getElementById('limparVantagens');
         if (btnLimpar) {
             btnLimpar.addEventListener('click', () => {
@@ -754,33 +873,55 @@ class VantagensManager {
             });
         }
         
+        // Fechar modal
         document.querySelectorAll('.modal-close, .fechar-modal').forEach(btn => {
-            btn.addEventListener('click', () => this.fecharModal());
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.fecharModal();
+            });
         });
         
-        document.getElementById('modalVantagem').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('modalVantagem')) {
-                this.fecharModal();
-            }
-        });
+        // Fechar modal ao clicar no fundo
+        const modal = document.getElementById('modalVantagem');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.fecharModal();
+                }
+            });
+        }
     }
     
     fecharModal() {
-        document.getElementById('modalVantagem').style.display = 'none';
+        const modal = document.getElementById('modalVantagem');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        document.body.classList.remove('modal-aberto');
         this.vantagemEditando = null;
+        
         const btnAdicionar = document.getElementById('btnAdicionarModal');
-        if (btnAdicionar) btnAdicionar.style.display = 'block';
+        if (btnAdicionar) {
+            btnAdicionar.style.display = 'block';
+        }
     }
     
     salvarLocalStorage() {
-        localStorage.setItem('vantagensAdquiridas', JSON.stringify(this.vantagensAdquiridas));
+        try {
+            localStorage.setItem('vantagensAdquiridas', JSON.stringify(this.vantagensAdquiridas));
+        } catch (e) {
+            console.error('Erro ao salvar no localStorage:', e);
+        }
     }
 }
 
+// Inicializar quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     window.vantagensManager = new VantagensManager();
 });
 
+// Função para atualizar pontos em outros lugares da aplicação
 window.atualizarPontosVantagens = function(pontos) {
     const elemento = document.getElementById('pontosVantagens');
     if (elemento) elemento.textContent = pontos;
