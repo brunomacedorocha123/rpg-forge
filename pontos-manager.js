@@ -1,7 +1,4 @@
-// ===========================================
-// PONTOS-MANAGER.JS - VERSÃO COMPLETA
-// ===========================================
-
+// pontos-manager.js - VERSÃO ATUALIZADA COM INTEGRAÇÃO COMPLETA
 class PontosManager {
     constructor() {
         this.pontosIniciais = 150;
@@ -9,10 +6,30 @@ class PontosManager {
         
         this.gastos = {
             atributos: 0,
-            vantagens: 0,
+            vantagens: {
+                aparência: 0,
+                atributosComplementares: 0,
+                idiomas: 0,
+                statusSocial: 0,
+                carisma: 0,
+                reputacao: 0,
+                aliados: 0,
+                contatos: 0,
+                patronos: 0,
+                inimigos: 0,
+                dependentes: 0,
+                catálogo: 0,  // Vantagens do catálogo
+                outras: 0
+            },
             desvantagens: {
                 riqueza: 0,
                 caracteristicas: 0,
+                aparência: 0,
+                idiomas: 0,
+                statusSocial: 0,
+                reputacao: 0,
+                inimigos: 0,
+                dependentes: 0,
                 outras: 0
             },
             peculiaridades: 0,
@@ -34,6 +51,10 @@ class PontosManager {
         this.configurarInputs();
         this.configurarEventos();
         this.atualizarTudo();
+        
+        // Notificar que o sistema está pronto
+        const evento = new CustomEvent('pontosManagerInicializado');
+        document.dispatchEvent(evento);
     }
     
     configurarInputs() {
@@ -75,6 +96,7 @@ class PontosManager {
     }
     
     configurarEventos() {
+        // Evento de atributos
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail?.pontosGastos !== undefined) {
                 this.gastos.atributos = e.detail.pontosGastos;
@@ -82,18 +104,19 @@ class PontosManager {
             }
         });
         
+        // Evento de riqueza
         document.addEventListener('riquezaAtualizadaParaSoma', (e) => {
             if (e.detail?.pontos !== undefined) {
                 const pontos = e.detail.pontos;
                 
                 if (pontos < 0) {
                     this.gastos.desvantagens.riqueza = Math.abs(pontos);
-                    this.gastos.vantagens = 0;
+                    this.gastos.vantagens.outras = 0;
                 } else if (pontos > 0) {
-                    this.gastos.vantagens = pontos;
+                    this.gastos.vantagens.outras = pontos;
                     this.gastos.desvantagens.riqueza = 0;
                 } else {
-                    this.gastos.vantagens = 0;
+                    this.gastos.vantagens.outras = 0;
                     this.gastos.desvantagens.riqueza = 0;
                 }
                 
@@ -101,6 +124,7 @@ class PontosManager {
             }
         });
         
+        // Evento de características físicas
         document.addEventListener('desvantagensAtualizadas', (e) => {
             if (e.detail?.pontosGastos !== undefined && 
                 e.detail.origem === 'caracteristicas_fisicas') {
@@ -110,6 +134,7 @@ class PontosManager {
             }
         });
         
+        // Evento de peculiaridades
         document.addEventListener('peculiaridadesAtualizadas', (e) => {
             if (e.detail?.pontos !== undefined) {
                 this.gastos.peculiaridades = e.detail.pontos;
@@ -117,9 +142,75 @@ class PontosManager {
             }
         });
         
+        // Evento de vantagens do catálogo
         document.addEventListener('vantagensAtualizadas', (e) => {
-            if (e.detail?.pontos !== undefined && e.detail.tipo === 'riqueza') {
-                this.gastos.vantagens = e.detail.pontos;
+            if (e.detail?.pontos !== undefined) {
+                if (e.detail.tipo === 'catálogo' || e.detail.tipo === 'catalogo') {
+                    this.gastos.vantagens.catálogo = e.detail.pontos;
+                } else if (e.detail.tipo === 'riqueza') {
+                    this.gastos.vantagens.outras = e.detail.pontos;
+                } else if (e.detail.tipo === 'aparência') {
+                    const pontos = e.detail.pontos;
+                    if (pontos >= 0) {
+                        this.gastos.vantagens.aparência = pontos;
+                        this.gastos.desvantagens.aparência = 0;
+                    } else {
+                        this.gastos.desvantagens.aparência = Math.abs(pontos);
+                        this.gastos.vantagens.aparência = 0;
+                    }
+                } else if (e.detail.tipo === 'idiomas') {
+                    this.gastos.desvantagens.idiomas = Math.abs(e.detail.pontos);
+                } else if (e.detail.tipo === 'statusSocial') {
+                    const pontos = e.detail.pontos;
+                    if (pontos >= 0) {
+                        this.gastos.vantagens.statusSocial = pontos;
+                        this.gastos.desvantagens.statusSocial = 0;
+                    } else {
+                        this.gastos.desvantagens.statusSocial = Math.abs(pontos);
+                        this.gastos.vantagens.statusSocial = 0;
+                    }
+                }
+                this.atualizarTudo();
+            }
+        });
+        
+        // Evento de carisma
+        document.addEventListener('carismaAtualizado', (e) => {
+            if (e.detail?.pontos !== undefined) {
+                this.gastos.vantagens.carisma = e.detail.pontos;
+                this.atualizarTudo();
+            }
+        });
+        
+        // Evento de reputação
+        document.addEventListener('reputacaoAtualizada', (e) => {
+            if (e.detail?.pontosPositiva !== undefined && e.detail?.pontosNegativa !== undefined) {
+                this.gastos.vantagens.reputacao = e.detail.pontosPositiva;
+                this.gastos.desvantagens.reputacao = e.detail.pontosNegativa;
+                this.atualizarTudo();
+            }
+        });
+        
+        // Evento de aliados/contatos/patronos
+        document.addEventListener('vantagemStatusAtualizada', (e) => {
+            if (e.detail?.tipo && e.detail?.pontos !== undefined) {
+                const tipo = e.detail.tipo;
+                const pontos = e.detail.pontos;
+                
+                if (['aliados', 'contatos', 'patronos'].includes(tipo)) {
+                    this.gastos.vantagens[tipo] = pontos;
+                } else if (['inimigos', 'dependentes'].includes(tipo)) {
+                    this.gastos.desvantagens[tipo] = Math.abs(pontos);
+                }
+                
+                this.atualizarTudo();
+            }
+        });
+        
+        // Evento de atributos complementares
+        document.addEventListener('atributosComplementaresAtualizados', (e) => {
+            if (e.detail?.pontos !== undefined) {
+                this.gastos.vantagens.atributosComplementares = e.detail.pontos;
                 this.atualizarTudo();
             }
         });
@@ -128,28 +219,34 @@ class PontosManager {
     calcularPontosDisponiveis() {
         const totalPontos = this.pontosIniciais + this.pontosGanhosCampanha;
         
+        // Calcular vantagens totais
         let vantagensTotal = 0;
         
-        if (this.gastos.atributos > 0) {
-            vantagensTotal += this.gastos.atributos;
-        }
+        // Atributos (podem ser positivos ou negativos)
+        vantagensTotal += Math.max(0, this.gastos.atributos);
         
-        vantagensTotal += Math.max(0, this.gastos.vantagens || 0);
+        // Todas as vantagens
+        Object.values(this.gastos.vantagens).forEach(valor => {
+            vantagensTotal += Math.max(0, valor || 0);
+        });
+        
         vantagensTotal += Math.max(0, this.gastos.pericias || 0);
         vantagensTotal += Math.max(0, this.gastos.tecnicas || 0);
         vantagensTotal += Math.max(0, this.gastos.magia || 0);
         vantagensTotal += Math.max(0, this.gastos.equipamentos || 0);
         
+        // Calcular desvantagens totais (são valores negativos)
         let desvantagensTotal = 0;
         
-        if (this.gastos.atributos < 0) {
-            desvantagensTotal += Math.abs(this.gastos.atributos);
-        }
+        // Atributos negativos
+        desvantagensTotal += Math.abs(Math.min(0, this.gastos.atributos));
         
-        desvantagensTotal += Math.abs(this.gastos.desvantagens.riqueza || 0);
-        desvantagensTotal += Math.abs(this.gastos.desvantagens.caracteristicas || 0);
-        desvantagensTotal += Math.abs(this.gastos.desvantagens.outras || 0);
+        // Todas as desvantagens
+        Object.values(this.gastos.desvantagens).forEach(valor => {
+            desvantagensTotal += Math.abs(valor || 0);
+        });
         
+        // Peculiaridades são sempre negativas
         desvantagensTotal += Math.abs(this.gastos.peculiaridades || 0);
         
         const pontosDisponiveis = totalPontos - vantagensTotal + desvantagensTotal;
@@ -172,9 +269,15 @@ class PontosManager {
             pontos = this.gastos[aba];
             elemento.textContent = pontos >= 0 ? `+${pontos}` : pontos;
         } else if (aba === 'desvantagens') {
-            pontos = this.gastos.desvantagens.riqueza + 
-                    this.gastos.desvantagens.caracteristicas + 
-                    this.gastos.desvantagens.outras;
+            pontos = 0;
+            Object.values(this.gastos.desvantagens).forEach(valor => {
+                pontos += Math.abs(valor || 0);
+            });
+            // Adicionar atributos negativos
+            pontos += Math.abs(Math.min(0, this.gastos.atributos));
+            elemento.textContent = pontos;
+        } else if (aba === 'vantagens') {
+            pontos = this.gastos.vantagens.catálogo || 0;
             elemento.textContent = pontos;
         } else if (aba === 'peculiaridades') {
             pontos = this.gastos[aba];
@@ -275,15 +378,18 @@ class PontosManager {
         
         const percVantagens = document.getElementById('percVantagens');
         if (percVantagens) {
-            const percent = calcPercent(this.gastos.vantagens);
+            const vantagensCatálogo = this.gastos.vantagens.catálogo || 0;
+            const percent = calcPercent(vantagensCatálogo);
             percVantagens.textContent = `${percent}%`;
         }
         
         const percDesvantagens = document.getElementById('percDesvantagens');
         if (percDesvantagens) {
-            const desvTotal = this.gastos.desvantagens.riqueza + 
-                            this.gastos.desvantagens.caracteristicas + 
-                            this.gastos.desvantagens.outras;
+            let desvTotal = 0;
+            Object.values(this.gastos.desvantagens).forEach(valor => {
+                desvTotal += Math.abs(valor || 0);
+            });
+            desvTotal += Math.abs(Math.min(0, this.gastos.atributos));
             const percent = calcPercent(desvTotal);
             percDesvantagens.textContent = `${percent}%`;
         }
@@ -302,6 +408,20 @@ class PontosManager {
     
     capitalize(str) {
         return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    
+    // Método para obter pontos específicos
+    obterPontosVantagens() {
+        return this.gastos.vantagens.catálogo || 0;
+    }
+    
+    obterPontosDesvantagens() {
+        let total = 0;
+        Object.values(this.gastos.desvantagens).forEach(valor => {
+            total += Math.abs(valor || 0);
+        });
+        total += Math.abs(Math.min(0, this.gastos.atributos));
+        return total;
     }
 }
 

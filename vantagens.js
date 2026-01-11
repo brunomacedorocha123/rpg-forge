@@ -1,4 +1,4 @@
-// vantagens.js - VERSÃO COMPLETA E CORRIGIDA
+// vantagens.js - VERSÃO COMPLETA COM INTEGRAÇÃO DE PONTOS
 class VantagensManager {
     constructor() {
         this.vantagensAdquiridas = JSON.parse(localStorage.getItem('vantagensAdquiridas')) || [];
@@ -15,6 +15,7 @@ class VantagensManager {
         this.carregarAdquiridas();
         this.setupEventListeners();
         this.atualizarResumo();
+        this.integrarComPontosManager();
     }
     
     carregarCatalogo() {
@@ -147,8 +148,7 @@ class VantagensManager {
                     <small>Clique no catálogo</small>
                 </div>
             `;
-            document.getElementById('totalVantagensAdquiridas').textContent = '0';
-            document.getElementById('pontosVantagensAdquiridas').textContent = '0 pts';
+            this.atualizarDisplayVantagens(0, 0);
             return;
         }
         
@@ -215,11 +215,37 @@ class VantagensManager {
             }
         });
         
-        const total = this.vantagensAdquiridas.length;
-        const pontos = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
+        this.atualizarDisplayVantagens();
+    }
+    
+    atualizarDisplayVantagens(total = null, pontos = null) {
+        if (total === null) total = this.vantagensAdquiridas.length;
+        if (pontos === null) pontos = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
         
         document.getElementById('totalVantagensAdquiridas').textContent = total;
         document.getElementById('pontosVantagensAdquiridas').textContent = `${pontos} pts`;
+        
+        // Atualizar resumo na aba principal
+        this.atualizarResumoNaAbaPrincipal(pontos);
+        
+        // Notificar o sistema de pontos
+        this.notificarPontosVantagens(pontos);
+    }
+    
+    atualizarResumoNaAbaPrincipal(pontosVantagens) {
+        const elemento = document.getElementById('pontosVantagens');
+        if (elemento) elemento.textContent = pontosVantagens;
+    }
+    
+    notificarPontosVantagens(pontosVantagens) {
+        // Disparar evento para o sistema de pontos
+        const evento = new CustomEvent('vantagensAtualizadas', {
+            detail: {
+                pontos: pontosVantagens,
+                tipo: 'catalogo'
+            }
+        });
+        document.dispatchEvent(evento);
     }
     
     abrirModalVantagem(vantagem, editando = false) {
@@ -589,7 +615,12 @@ class VantagensManager {
         };
         
         // Remover versão anterior se existir
-        this.vantagensAdquiridas = this.vantagensAdquiridas.filter(v => v.id !== vantagem.id);
+        const vantagemExistenteIndex = this.vantagensAdquiridas.findIndex(v => v.id === vantagem.id);
+        
+        if (vantagemExistenteIndex !== -1) {
+            // Se já existe, remover os pontos da antiga
+            this.vantagensAdquiridas.splice(vantagemExistenteIndex, 1);
+        }
         
         // Adicionar nova versão
         this.vantagensAdquiridas.push(vantagemAdquirida);
@@ -799,21 +830,19 @@ class VantagensManager {
         const total = this.vantagensAdquiridas.length;
         const pontos = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
         
-        // Atualizar todos os elementos de resumo
-        const elementos = {
-            'pontosVantagensAdquiridas': `${pontos} pts`,
-            'totalVantagensAdquiridas': total,
-            'resumoPontos': pontos
+        // Atualizar o resumo na aba de vantagens
+        const elementosResumo = {
+            'totalVantagensPontos': pontos,
+            'saldoVantagens': pontos
         };
         
-        Object.keys(elementos).forEach(id => {
+        Object.keys(elementosResumo).forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.textContent = elementos[id];
+            if (el) el.textContent = elementosResumo[id];
         });
         
-        if (typeof window.atualizarPontosVantagens === 'function') {
-            window.atualizarPontosVantagens(pontos);
-        }
+        // Atualizar display das vantagens adquiridas
+        this.atualizarDisplayVantagens(total, pontos);
     }
     
     mostrarNotificacao(mensagem) {
@@ -914,6 +943,23 @@ class VantagensManager {
             console.error('Erro ao salvar no localStorage:', e);
         }
     }
+    
+    integrarComPontosManager() {
+        // Quando o sistema de pontos for inicializado, notificar sobre as vantagens existentes
+        document.addEventListener('pontosManagerInicializado', () => {
+            const pontosVantagens = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
+            this.notificarPontosVantagens(pontosVantagens);
+        });
+        
+        // Verificar se o pontosManager já está disponível
+        if (window.obterPontosManager) {
+            const pontosManager = window.obterPontosManager();
+            if (pontosManager) {
+                const pontosVantagens = this.vantagensAdquiridas.reduce((sum, v) => sum + v.custo, 0);
+                this.notificarPontosVantagens(pontosVantagens);
+            }
+        }
+    }
 }
 
 // Inicializar quando o DOM estiver pronto
@@ -921,8 +967,16 @@ document.addEventListener('DOMContentLoaded', () => {
     window.vantagensManager = new VantagensManager();
 });
 
-// Função para atualizar pontos em outros lugares da aplicação
+// Exportar funções para integração
 window.atualizarPontosVantagens = function(pontos) {
     const elemento = document.getElementById('pontosVantagens');
     if (elemento) elemento.textContent = pontos;
+};
+
+// Evento para quando o sistema de vantagens é atualizado
+window.atualizarVantagensDoSistema = function() {
+    if (window.vantagensManager) {
+        window.vantagensManager.carregarAdquiridas();
+        window.vantagensManager.atualizarResumo();
+    }
 };
