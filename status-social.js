@@ -2,7 +2,6 @@
 // STATUS-SOCIAL.JS - VERSÃO FINAL CORRIGIDA
 // ===========================================
 
-
 class StatusSocialManager {
   constructor() {
     this.status = 0;
@@ -61,10 +60,7 @@ class StatusSocialManager {
   
   configurarStatusSocial() {
     // Usa escopo específico para evitar vazamento
-    const vantagensTab = document.getElementById('vantagens');
-    if (!vantagensTab) return;
-    
-    const subtabStatus = vantagensTab.querySelector('#subtab-status');
+    const subtabStatus = document.querySelector('#subtab-status');
     if (!subtabStatus) return;
     
     const statusCard = subtabStatus.querySelector('.status-card');
@@ -114,10 +110,7 @@ class StatusSocialManager {
   // ===========================================
   
   configurarCarisma() {
-    const vantagensTab = document.getElementById('vantagens');
-    if (!vantagensTab) return;
-    
-    const subtabStatus = vantagensTab.querySelector('#subtab-status');
+    const subtabStatus = document.querySelector('#subtab-status');
     if (!subtabStatus) return;
     
     const cards = subtabStatus.querySelectorAll('.status-card');
@@ -167,22 +160,19 @@ class StatusSocialManager {
   // ===========================================
   
   configurarReputacao() {
-    const vantagensTab = document.getElementById('vantagens');
-    if (!vantagensTab) return;
-    
-    const subtabStatus = vantagensTab.querySelector('#subtab-status');
+    const subtabStatus = document.querySelector('#subtab-status');
     if (!subtabStatus) return;
     
-    // Botões positivos
-    subtabStatus.querySelectorAll('.btn-controle[data-tipo="positiva"]').forEach(btn => {
+    // Botões positivos - CORREÇÃO AQUI
+    subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-positiva"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const delta = e.target.classList.contains('minus') ? -1 : 1;
         this.ajustarReputacao('positiva', delta);
       });
     });
     
-    // Botões negativos
-    subtabStatus.querySelectorAll('.btn-controle[data-tipo="negativa"]').forEach(btn => {
+    // Botões negativos - CORREÇÃO AQUI
+    subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-negativa"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const delta = e.target.classList.contains('minus') ? -1 : 1;
         this.ajustarReputacao('negativa', delta);
@@ -262,14 +252,14 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 4. SISTEMA DE ALIADOS (COM MODAL)
+  // 4. SISTEMA DE ALIADOS (COM MODAL) - CORRIGIDO
   // ===========================================
   
   configurarSistemaAliados() {
-    // Configura botão de adicionar aliado
+    // Configura botão de adicionar aliado - CORREÇÃO AQUI
     document.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-add') &&
-        e.target.closest('.btn-add').getAttribute('onclick')?.includes('aliado')) {
+      const btnAdd = e.target.closest('.btn-add');
+      if (btnAdd && btnAdd.dataset.tipo === 'aliado') {
         this.abrirModal('aliado');
       }
     });
@@ -333,13 +323,14 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 5. SISTEMA DE CONTATOS (COM MODAL)
+  // 5. SISTEMA DE CONTATOS (COM MODAL) - CORRIGIDO
   // ===========================================
   
   configurarSistemaContatos() {
+    // Configura botão de adicionar contato - CORREÇÃO AQUI
     document.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-add') &&
-        e.target.closest('.btn-add').getAttribute('onclick')?.includes('contato')) {
+      const btnAdd = e.target.closest('.btn-add');
+      if (btnAdd && btnAdd.dataset.tipo === 'contato') {
         this.abrirModal('contato');
       }
     });
@@ -383,13 +374,14 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 6. SISTEMA DE PATRONOS (COM MODAL)
+  // 6. SISTEMA DE PATRONOS (COM MODAL) - CORRIGIDO
   // ===========================================
   
   configurarSistemaPatronos() {
+    // Configura botão de adicionar patrono - CORREÇÃO AQUI
     document.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-add') &&
-        e.target.closest('.btn-add').getAttribute('onclick')?.includes('patrono')) {
+      const btnAdd = e.target.closest('.btn-add');
+      if (btnAdd && btnAdd.dataset.tipo === 'patrono') {
         this.abrirModal('patrono');
       }
     });
@@ -431,13 +423,14 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 7. SISTEMA DE INIMIGOS (COM MODAL)
+  // 7. SISTEMA DE INIMIGOS (COM MODAL) - CORRIGIDO
   // ===========================================
   
   configurarSistemaInimigos() {
+    // Configura botão de adicionar inimigo - CORREÇÃO AQUI
     document.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-add') &&
-        e.target.closest('.btn-add').getAttribute('onclick')?.includes('inimigo')) {
+      const btnAdd = e.target.closest('.btn-add');
+      if (btnAdd && btnAdd.dataset.tipo === 'inimigo') {
         this.abrirModal('inimigo');
       }
     });
@@ -482,13 +475,14 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 8. SISTEMA DE DEPENDENTES (COM MODAL)
+  // 8. SISTEMA DE DEPENDENTES (COM MODAL) - CORRIGIDO
   // ===========================================
   
   configurarSistemaDependentes() {
+    // Configura botão de adicionar dependente - CORREÇÃO AQUI
     document.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-add') &&
-        e.target.closest('.btn-add').getAttribute('onclick')?.includes('dependente')) {
+      const btnAdd = e.target.closest('.btn-add');
+      if (btnAdd && btnAdd.dataset.tipo === 'dependente') {
         this.abrirModal('dependente');
       }
     });
@@ -546,7 +540,7 @@ class StatusSocialManager {
     badge.className = 'pontos-badge positivo';
     
     if (this.aliados.length === 0) {
-      container.innerHTML = '<div class="empty-state">Nenhum aliado adicionado</div>';
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-user-friends"></i><p>Nenhum aliado adicionado</p><small>Clique para adicionar aliados</small></div>';
     } else {
       container.innerHTML = this.aliados.map(aliado => `
         <div class="item-lista vantagem">
@@ -580,7 +574,7 @@ class StatusSocialManager {
     badge.className = 'pontos-badge positivo';
     
     if (this.contatos.length === 0) {
-      container.innerHTML = '<div class="empty-state">Nenhum contato adicionado</div>';
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-address-book"></i><p>Nenhum contato adicionado</p><small>Clique para adicionar contatos</small></div>';
     } else {
       container.innerHTML = this.contatos.map(contato => `
         <div class="item-lista vantagem">
@@ -614,7 +608,7 @@ class StatusSocialManager {
     badge.className = 'pontos-badge positivo';
     
     if (this.patronos.length === 0) {
-      container.innerHTML = '<div class="empty-state">Nenhum patrono adicionado</div>';
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-landmark"></i><p>Nenhum patrono adicionado</p><small>Clique para adicionar patronos</small></div>';
     } else {
       container.innerHTML = this.patronos.map(patrono => `
         <div class="item-lista vantagem">
@@ -648,7 +642,7 @@ class StatusSocialManager {
     badge.className = 'pontos-badge negativo';
     
     if (this.inimigos.length === 0) {
-      container.innerHTML = '<div class="empty-state">Nenhum inimigo adicionado</div>';
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-skull-crossbones"></i><p>Nenhum inimigo adicionado</p><small>Clique para adicionar inimigos</small></div>';
     } else {
       container.innerHTML = this.inimigos.map(inimigo => `
         <div class="item-lista desvantagem">
@@ -679,10 +673,10 @@ class StatusSocialManager {
     const totalPontos = this.dependentes.reduce((total, dependente) => total + dependente.pontos, 0);
     
     badge.textContent = `${totalPontos} pts`;
-    badge.className = totalPontos < 0 ? 'pontos-badge negativo' : 'pontos-badge positivo';
+    badge.className = totalPontos < 0 ? 'pontos-badge negativo' : 'pontos-badge';
     
     if (this.dependentes.length === 0) {
-      container.innerHTML = '<div class="empty-state">Nenhum dependente adicionado</div>';
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-heart"></i><p>Nenhum dependente adicionado</p><small>Clique para adicionar dependentes</small></div>';
     } else {
       container.innerHTML = this.dependentes.map(dependente => `
         <div class="item-lista desvantagem" data-id="${dependente.id}">
@@ -697,7 +691,6 @@ class StatusSocialManager {
               <span class="badge importancia">${this.obterTextoImportancia(dependente.importancia)}</span>
               <span class="badge frequencia">${this.obterTextoFrequencia(dependente.frequencia)}</span>
             </div>
-            ${dependente.detalhes ? `<p class="item-descricao">${dependente.detalhes}</p>` : ''}
           </div>
           <div class="item-actions">
             <button class="btn-icon btn-remove-item" data-id="${dependente.id}" data-tipo="dependente" title="Remover">
@@ -747,9 +740,7 @@ class StatusSocialManager {
   obterTextoImportancia(importancia) {
     switch(importancia) {
       case 'empregado': return 'Empregado';
-      case 'conhecido': return 'Conhecido';
       case 'amigo': return 'Amigo';
-      case 'familiar': return 'Familiar';
       case 'ser_amado': return 'Ser Amado';
       default: return importancia;
     }
@@ -870,10 +861,15 @@ class StatusSocialManager {
     const vantagens = this.calcularVantagensTotais();
     const desvantagens = Math.abs(this.calcularDesvantagensTotais());
     
-    this.pontosManager.gastos.vantagens = vantagens;
-    this.pontosManager.gastos.desvantagens.outras = desvantagens;
+    if (this.pontosManager.gastos) {
+      this.pontosManager.gastos.vantagens = vantagens;
+      this.pontosManager.gastos.desvantagens = this.pontosManager.gastos.desvantagens || {};
+      this.pontosManager.gastos.desvantagens.outras = desvantagens;
+    }
     
-    this.pontosManager.atualizarTudo();
+    if (this.pontosManager.atualizarTudo) {
+      this.pontosManager.atualizarTudo();
+    }
     
     // Atualizar resumo na aba de Vantagens
     const totalVantagensElem = document.getElementById('totalVantagensPontos');
@@ -963,14 +959,11 @@ class StatusSocialManager {
   }
 }
 
-
 // ===========================================
 // INICIALIZAÇÃO GLOBAL
 // ===========================================
 
-
 let statusSocialManagerInstance = null;
-
 
 function inicializarStatusSocial() {
   if (!statusSocialManagerInstance) {
@@ -981,7 +974,6 @@ function inicializarStatusSocial() {
   return statusSocialManagerInstance;
 }
 
-
 // Inicializar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
   // Espera um pouco para garantir que o DOM esteja pronto
@@ -990,7 +982,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 500);
 });
 
-
 // Exportar para uso global
 window.StatusSocialManager = StatusSocialManager;
 window.inicializarStatusSocial = inicializarStatusSocial;
@@ -998,10 +989,19 @@ window.obterStatusSocialManager = function() {
   return statusSocialManagerInstance;
 };
 
-
 // Função global para abrir modais (mantida para compatibilidade)
 window.abrirModal = function(tipo) {
   if (statusSocialManagerInstance) {
     statusSocialManagerInstance.abrirModal(tipo);
   }
 };
+
+// Inicialização automática se a aba status estiver ativa
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.sub-tab') && e.target.closest('.sub-tab').dataset.subtab === 'status') {
+    // Garante que o sistema seja inicializado quando a aba status for clicada
+    setTimeout(() => {
+      inicializarStatusSocial();
+    }, 100);
+  }
+});
