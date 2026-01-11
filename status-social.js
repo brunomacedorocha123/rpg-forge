@@ -1,5 +1,5 @@
 // ===========================================
-// STATUS-SOCIAL.JS - VERSÃO FINAL CORRIGIDA
+// STATUS-SOCIAL.JS - VERSÃO DEFINITIVA SEM VAZAMENTOS
 // ===========================================
 
 class StatusSocialManager {
@@ -20,31 +20,44 @@ class StatusSocialManager {
         this.nextId = 1;
         this.inicializado = false;
         this.pontosManager = null;
+        
+        // Cache de elementos para evitar queries repetidas
+        this.elementosCache = {};
+        
+        // Controlador de listeners para evitar duplicação
+        this.listenersAtivos = new Map();
     }
     
     // ===========================================
-    // INICIALIZAÇÃO PRINCIPAL
+    // INICIALIZAÇÃO COM CONTROLE DE ESCOPO
     // ===========================================
     
     inicializar() {
-        if (this.inicializado) return;
+        if (this.inicializado) {
+            console.warn('StatusSocialManager já inicializado');
+            return;
+        }
         
-        // Primeiro carrega os dados
+        console.log('Inicializando StatusSocialManager...');
+        
+        // Verifica se a aba de vantagens está ativa
+        const vantagensTab = document.getElementById('vantagens');
+        if (!vantagensTab || !vantagensTab.classList.contains('active')) {
+            console.log('Aba vantagens não está ativa, aguardando...');
+            // Agenda nova tentativa
+            setTimeout(() => this.inicializar(), 100);
+            return;
+        }
+        
+        // Limpa listeners antigos se existirem
+        this.limparTodosListeners();
+        
+        // Carrega dados
         this.carregarLocalStorage();
         
-        // Configura todos os sistemas
-        this.configurarStatusSocial();
-        this.configurarCarisma();
-        this.configurarReputacao();
-        
-        // Configura sistemas de lista
-        this.configurarSistemaAliados();
-        this.configurarSistemaContatos();
-        this.configurarSistemaPatronos();
-        this.configurarSistemaInimigos();
-        this.configurarSistemaDependentes();
-        
-        // Configura modais
+        // Configura sistemas com escopo correto
+        this.configurarSistemasBasicos(vantagensTab);
+        this.configurarSistemasLista(vantagensTab);
         this.configurarModais();
         
         // Atualiza displays
@@ -52,33 +65,149 @@ class StatusSocialManager {
         this.atualizarSistemaPontos();
         
         this.inicializado = true;
+        console.log('StatusSocialManager inicializado com sucesso');
+    }
+    
+    configurarSistemasBasicos(vantagensTab) {
+        // Configura apenas na subaba status se estiver ativa
+        const subtabStatus = vantagensTab.querySelector('#subtab-status');
+        if (subtabStatus && subtabStatus.classList.contains('active')) {
+            this.configurarStatusSocial(subtabStatus);
+            this.configurarCarisma(subtabStatus);
+            this.configurarReputacao(subtabStatus);
+        }
+    }
+    
+    configurarSistemasLista(vantagensTab) {
+        // Configura listeners delegados uma única vez
+        this.configurarListenersDelegados(vantagensTab);
+        
+        // Configura sistemas individuais apenas se necessário
+        const subtabStatus = vantagensTab.querySelector('#subtab-status');
+        if (subtabStatus && subtabStatus.classList.contains('active')) {
+            this.atualizarDisplayAliados();
+            this.atualizarDisplayContatos();
+            this.atualizarDisplayPatronos();
+            this.atualizarDisplayInimigos();
+            this.atualizarDisplayDependentes();
+        }
     }
     
     // ===========================================
-    // 1. STATUS SOCIAL
+    // SISTEMA DE LISTENERS DELEGADOS (EVITA DUPLICAÇÃO)
     // ===========================================
     
-    configurarStatusSocial() {
-        // Usa escopo específico para evitar vazamento
-        const vantagensTab = document.getElementById('vantagens');
-        if (!vantagensTab) return;
+    configurarListenersDelegados(container) {
+        // Remove listeners antigos
+        this.removerListener('click', container);
         
-        const subtabStatus = vantagensTab.querySelector('#subtab-status');
-        if (!subtabStatus) return;
+        // Adiciona listener delegado único
+        const handler = (e) => this.tratarClickDelegado(e);
+        container.addEventListener('click', handler);
+        this.registrarListener('click', container, handler);
         
-        const statusCard = subtabStatus.querySelector('.status-card');
-        if (!statusCard) return;
-        
-        const minusBtn = statusCard.querySelector('.btn-controle.minus');
-        const plusBtn = statusCard.querySelector('.btn-controle.plus');
-        
-        if (minusBtn) {
-            minusBtn.addEventListener('click', () => this.ajustarStatus(-1));
+        // Listener para sub-tabs
+        this.configurarSubTabs(container);
+    }
+    
+    tratarClickDelegado(e) {
+        // Botões de controle (status, carisma, reputação)
+        const btnControle = e.target.closest('.btn-controle');
+        if (btnControle) {
+            const tipo = btnControle.dataset.controle;
+            const isMinus = btnControle.classList.contains('minus');
+            this.tratarControleClick(tipo, isMinus ? -1 : 1);
+            e.preventDefault();
+            return;
         }
         
-        if (plusBtn) {
-            plusBtn.addEventListener('click', () => this.ajustarStatus(1));
+        // Botões de adicionar
+        const btnAdd = e.target.closest('.btn-add[data-action="modal"]');
+        if (btnAdd) {
+            const tipo = btnAdd.dataset.tipo;
+            this.abrirModal(tipo);
+            e.preventDefault();
+            return;
         }
+        
+        // Botões de remover
+        const btnRemove = e.target.closest('.btn-remove-item');
+        if (btnRemove) {
+            const id = parseInt(btnRemove.dataset.id);
+            const tipo = btnRemove.dataset.tipo;
+            this.removerItem(id, tipo);
+            e.preventDefault();
+            return;
+        }
+        
+        // Botões limpar
+        const btnLimpar = e.target.closest('.btn-limpar');
+        if (btnLimpar) {
+            const tipo = btnLimpar.dataset.tipo;
+            this.limparLista(tipo);
+            e.preventDefault();
+            return;
+        }
+    }
+    
+    tratarControleClick(tipo, delta) {
+        switch(tipo) {
+            case 'status':
+                this.ajustarStatus(delta);
+                break;
+            case 'carisma':
+                this.ajustarCarisma(delta);
+                break;
+            case 'rep-positiva':
+                this.ajustarReputacao('positiva', delta);
+                break;
+            case 'rep-negativa':
+                this.ajustarReputacao('negativa', delta);
+                break;
+        }
+    }
+    
+    configurarSubTabs(container) {
+        const subTabs = container.querySelectorAll('.sub-tab');
+        subTabs.forEach(tab => {
+            this.removerListener('click', tab);
+            
+            const handler = (e) => {
+                e.preventDefault();
+                const subTabId = tab.dataset.subtab;
+                
+                // Remove active de todas as sub-tabs
+                subTabs.forEach(t => t.classList.remove('active'));
+                container.querySelectorAll('.sub-content').forEach(c => c.classList.remove('active'));
+                
+                // Adiciona active na sub-tab clicada
+                tab.classList.add('active');
+                const content = container.querySelector(`#subtab-${subTabId}`);
+                if (content) {
+                    content.classList.add('active');
+                }
+                
+                // Re-inicializa sistemas se necessário
+                if (subTabId === 'status') {
+                    this.configurarSistemasBasicos(container.closest('#vantagens'));
+                }
+            };
+            
+            tab.addEventListener('click', handler);
+            this.registrarListener('click', tab, handler);
+        });
+    }
+    
+    // ===========================================
+    // 1. STATUS SOCIAL (REESCRITO COM CACHE)
+    // ===========================================
+    
+    configurarStatusSocial(subtab) {
+        const valorDisplay = subtab.querySelector('#valorStatus');
+        const pontosDisplay = subtab.querySelector('#pontosStatus');
+        
+        if (valorDisplay) this.elementosCache.valorStatus = valorDisplay;
+        if (pontosDisplay) this.elementosCache.pontosStatus = pontosDisplay;
         
         this.atualizarDisplayStatus();
     }
@@ -88,51 +217,34 @@ class StatusSocialManager {
         if (novoValor < -20 || novoValor > 25) return;
         
         this.status = novoValor;
-        
         this.atualizarDisplayStatus();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
     }
     
     atualizarDisplayStatus() {
-        const valorDisplay = document.getElementById('valorStatus');
-        const pontosDisplay = document.getElementById('pontosStatus');
+        if (this.elementosCache.valorStatus) {
+            this.elementosCache.valorStatus.textContent = this.status;
+        }
         
-        if (valorDisplay) valorDisplay.textContent = this.status;
-        
-        if (pontosDisplay) {
+        if (this.elementosCache.pontosStatus) {
             const pontos = this.status * 5;
             const texto = pontos >= 0 ? `+${pontos} pts` : `${pontos} pts`;
-            pontosDisplay.textContent = texto;
-            pontosDisplay.className = 'pontos-badge ' + (pontos >= 0 ? 'positivo' : 'negativo');
+            this.elementosCache.pontosStatus.textContent = texto;
+            this.elementosCache.pontosStatus.className = 'pontos-badge ' + (pontos >= 0 ? 'positivo' : 'negativo');
         }
     }
     
     // ===========================================
-    // 2. CARISMA
+    // 2. CARISMA (REESCRITO COM CACHE)
     // ===========================================
     
-    configurarCarisma() {
-        const vantagensTab = document.getElementById('vantagens');
-        if (!vantagensTab) return;
+    configurarCarisma(subtab) {
+        const valorDisplay = subtab.querySelector('#valorCarisma');
+        const pontosDisplay = subtab.querySelector('#pontosCarisma');
         
-        const subtabStatus = vantagensTab.querySelector('#subtab-status');
-        if (!subtabStatus) return;
-        
-        const cards = subtabStatus.querySelectorAll('.status-card');
-        if (cards.length < 2) return;
-        
-        const carismaCard = cards[1];
-        const minusBtn = carismaCard.querySelector('.btn-controle.minus');
-        const plusBtn = carismaCard.querySelector('.btn-controle.plus');
-        
-        if (minusBtn) {
-            minusBtn.addEventListener('click', () => this.ajustarCarisma(-1));
-        }
-        
-        if (plusBtn) {
-            plusBtn.addEventListener('click', () => this.ajustarCarisma(1));
-        }
+        if (valorDisplay) this.elementosCache.valorCarisma = valorDisplay;
+        if (pontosDisplay) this.elementosCache.pontosCarisma = pontosDisplay;
         
         this.atualizarDisplayCarisma();
     }
@@ -142,59 +254,42 @@ class StatusSocialManager {
         if (novoValor < 0 || novoValor > 3) return;
         
         this.carisma = novoValor;
-        
         this.atualizarDisplayCarisma();
         this.atualizarSistemaPontos();
         this.salvarLocalStorage();
     }
     
     atualizarDisplayCarisma() {
-        const valorDisplay = document.getElementById('valorCarisma');
-        const pontosDisplay = document.getElementById('pontosCarisma');
+        if (this.elementosCache.valorCarisma) {
+            this.elementosCache.valorCarisma.textContent = this.carisma;
+        }
         
-        if (valorDisplay) valorDisplay.textContent = this.carisma;
-        
-        if (pontosDisplay) {
+        if (this.elementosCache.pontosCarisma) {
             const pontos = this.carisma * 5;
-            pontosDisplay.textContent = `+${pontos} pts`;
-            pontosDisplay.className = 'pontos-badge positivo';
+            this.elementosCache.pontosCarisma.textContent = `+${pontos} pts`;
+            this.elementosCache.pontosCarisma.className = 'pontos-badge positivo';
         }
     }
     
     // ===========================================
-    // 3. REPUTAÇÃO
+    // 3. REPUTAÇÃO (REESCRITO COM CACHE)
     // ===========================================
     
-    configurarReputacao() {
-        const vantagensTab = document.getElementById('vantagens');
-        if (!vantagensTab) return;
+    configurarReputacao(subtab) {
+        // Cache de elementos
+        this.elementosCache.valorRepPositiva = subtab.querySelector('#valorRepPositiva');
+        this.elementosCache.valorRepNegativa = subtab.querySelector('#valorRepNegativa');
+        this.elementosCache.pontosRepPositiva = subtab.querySelector('#pontosRepPositiva');
+        this.elementosCache.pontosRepNegativa = subtab.querySelector('#pontosRepNegativa');
+        this.elementosCache.pontosReputacao = subtab.querySelector('#pontosReputacao');
         
-        const subtabStatus = vantagensTab.querySelector('#subtab-status');
-        if (!subtabStatus) return;
-        
-        // Botões positivos
-        subtabStatus.querySelectorAll('.btn-controle[data-tipo="positiva"]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const delta = e.target.classList.contains('minus') ? -1 : 1;
-                this.ajustarReputacao('positiva', delta);
-            });
-        });
-        
-        // Botões negativos
-        subtabStatus.querySelectorAll('.btn-controle[data-tipo="negativa"]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const delta = e.target.classList.contains('minus') ? -1 : 1;
-                this.ajustarReputacao('negativa', delta);
-            });
-        });
-        
-        // Grupos alvo
-        const grupoPosInput = document.getElementById('grupoPositivo');
-        const grupoNegInput = document.getElementById('grupoNegativo');
+        // Inputs de grupo
+        const grupoPosInput = subtab.querySelector('#grupoPositivo');
+        const grupoNegInput = subtab.querySelector('#grupoNegativo');
         
         if (grupoPosInput) {
             grupoPosInput.value = this.grupoRepPositiva;
-            grupoPosInput.addEventListener('change', (e) => {
+            this.registrarListener('change', grupoPosInput, (e) => {
                 this.grupoRepPositiva = e.target.value;
                 this.salvarLocalStorage();
             });
@@ -202,7 +297,7 @@ class StatusSocialManager {
         
         if (grupoNegInput) {
             grupoNegInput.value = this.grupoRepNegativa;
-            grupoNegInput.addEventListener('change', (e) => {
+            this.registrarListener('change', grupoNegInput, (e) => {
                 this.grupoRepNegativa = e.target.value;
                 this.salvarLocalStorage();
             });
@@ -230,506 +325,135 @@ class StatusSocialManager {
     }
     
     atualizarDisplayReputacao() {
-        const valorPos = document.getElementById('valorRepPositiva');
-        const valorNeg = document.getElementById('valorRepNegativa');
-        const pontosPos = document.getElementById('pontosRepPositiva');
-        const pontosNeg = document.getElementById('pontosRepNegativa');
-        const badgeRep = document.getElementById('pontosReputacao');
-        
-        if (valorPos) valorPos.textContent = this.reputacaoPositiva;
-        if (valorNeg) valorNeg.textContent = this.reputacaoNegativa;
+        if (this.elementosCache.valorRepPositiva) {
+            this.elementosCache.valorRepPositiva.textContent = this.reputacaoPositiva;
+        }
+        if (this.elementosCache.valorRepNegativa) {
+            this.elementosCache.valorRepNegativa.textContent = this.reputacaoNegativa;
+        }
         
         const pontosPositivos = this.reputacaoPositiva * 5;
         const pontosNegativos = this.reputacaoNegativa * -5;
         const totalReputacao = pontosPositivos + pontosNegativos;
         
-        if (pontosPos) {
-            pontosPos.textContent = pontosPositivos > 0 ? `+${pontosPositivos} pts` : '0 pts';
-            pontosPos.className = this.reputacaoPositiva > 0 ? 'pontos-item positiva' : 'pontos-item';
+        if (this.elementosCache.pontosRepPositiva) {
+            this.elementosCache.pontosRepPositiva.textContent = pontosPositivos > 0 ? `+${pontosPositivos} pts` : '0 pts';
+            this.elementosCache.pontosRepPositiva.className = this.reputacaoPositiva > 0 ? 'pontos-item positiva' : 'pontos-item';
         }
         
-        if (pontosNeg) {
-            pontosNeg.textContent = pontosNegativos < 0 ? `${pontosNegativos} pts` : '0 pts';
-            pontosNeg.className = this.reputacaoNegativa > 0 ? 'pontos-item negativa' : 'pontos-item';
+        if (this.elementosCache.pontosRepNegativa) {
+            this.elementosCache.pontosRepNegativa.textContent = pontosNegativos < 0 ? `${pontosNegativos} pts` : '0 pts';
+            this.elementosCache.pontosRepNegativa.className = this.reputacaoNegativa > 0 ? 'pontos-item negativa' : 'pontos-item';
         }
         
-        if (badgeRep) {
+        if (this.elementosCache.pontosReputacao) {
             const texto = totalReputacao >= 0 ? `+${totalReputacao} pts` : `${totalReputacao} pts`;
-            badgeRep.textContent = texto;
-            badgeRep.className = 'pontos-badge ' + (totalReputacao >= 0 ? 'positivo' : 'negativo');
+            this.elementosCache.pontosReputacao.textContent = texto;
+            this.elementosCache.pontosReputacao.className = 'pontos-badge ' + (totalReputacao >= 0 ? 'positivo' : 'negativo');
         }
     }
     
     // ===========================================
-    // 4. SISTEMA DE ALIADOS (COM MODAL)
+    // 4. SISTEMAS DE LISTA (ALIADOS, CONTATOS, ETC)
     // ===========================================
     
-    configurarSistemaAliados() {
-        // Configura botão de adicionar aliado
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-add') && 
-                e.target.closest('.btn-add').getAttribute('onclick')?.includes('aliado')) {
-                this.abrirModal('aliado');
-            }
-        });
+    criarItemLista(item, tipo) {
+        const isPositivo = ['aliado', 'contato', 'patrono'].includes(tipo);
+        const classePontos = isPositivo ? 'pontos-positivo' : 'pontos-negativo';
+        const sinalPontos = isPositivo ? '+' : '';
         
-        // Configura botão de confirmar no modal
-        const btnConfirmar = document.getElementById('btnConfirmarAliado');
-        if (btnConfirmar) {
-            btnConfirmar.addEventListener('click', () => this.adicionarAliado());
-        }
-        
-        this.atualizarDisplayAliados();
+        return `
+            <div class="item-lista ${isPositivo ? 'vantagem' : 'desvantagem'}">
+                <div class="item-info">
+                    <strong>${item.nome}</strong>
+                    ${item.descricao ? `<small>${item.descricao}</small>` : ''}
+                    <div class="item-detalhes">
+                        <small>${this.obterDetalhesItem(item, tipo)}</small>
+                    </div>
+                </div>
+                <div class="item-pontos">
+                    <span class="${classePontos}">${sinalPontos}${item.pontos} pts</span>
+                    <button class="btn-remove-item" data-id="${item.id}" data-tipo="${tipo}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
     }
     
-    adicionarAliado() {
-        const nome = document.getElementById('aliadoNome')?.value.trim();
-        if (!nome) {
-            alert('Digite um nome para o aliado!');
-            return;
+    obterDetalhesItem(item, tipo) {
+        switch(tipo) {
+            case 'aliado':
+                return `${item.poder}% | ${this.obterTextoFrequencia(item.frequencia)}`;
+            case 'contato':
+                return `NH ${item.nhEfetivo} | ${this.obterTextoFrequencia(item.frequencia)}`;
+            case 'patrono':
+                return `${item.poder} pts | ${this.obterTextoFrequencia(item.frequencia)}`;
+            case 'inimigo':
+                return `${this.obterTextoIntencao(item.intencao)} | ${this.obterTextoFrequencia(item.frequencia)}`;
+            case 'dependente':
+                return `${item.capacidade}% capacidade | ${this.obterTextoImportancia(item.importancia)}`;
+            default:
+                return '';
         }
-        
-        const poder = parseInt(document.getElementById('aliadoPoder')?.value) || 100;
-        const frequencia = parseInt(document.getElementById('aliadoFrequencia')?.value) || 9;
-        const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
-        const tamanhoGrupo = parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 1;
-        const descricao = document.getElementById('aliadoDescricao')?.value || '';
-        
-        // Cálculo simplificado dos pontos
-        let custoBase = 5; // Base para 100%
-        if (poder <= 25) custoBase = 1;
-        else if (poder <= 50) custoBase = 2;
-        else if (poder <= 75) custoBase = 3;
-        else if (poder <= 100) custoBase = 5;
-        else if (poder <= 150) custoBase = 10;
-        
-        const multFrequencia = this.obterMultiplicadorFrequencia(frequencia);
-        const pontos = custoBase * multFrequencia;
-        
-        const aliado = {
-            id: this.nextId++,
-            nome: nome,
-            poder: poder,
-            frequencia: frequencia,
-            isGrupo: isGrupo,
-            tamanhoGrupo: tamanhoGrupo,
-            pontos: pontos,
-            descricao: descricao,
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.aliados.push(aliado);
-        
-        // Fecha modal e limpa
-        this.fecharModal('aliado');
-        document.getElementById('aliadoNome').value = '';
-        document.getElementById('aliadoDescricao').value = '';
-        
-        // Atualiza
-        this.atualizarDisplayAliados();
-        this.atualizarSistemaPontos();
-        this.salvarLocalStorage();
     }
     
     // ===========================================
-    // 5. SISTEMA DE CONTATOS (COM MODAL)
+    // DISPLAYS DAS LISTAS (OTIMIZADOS)
     // ===========================================
     
-    configurarSistemaContatos() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-add') && 
-                e.target.closest('.btn-add').getAttribute('onclick')?.includes('contato')) {
-                this.abrirModal('contato');
-            }
-        });
-        
-        const btnConfirmar = document.getElementById('btnConfirmarContato');
-        if (btnConfirmar) {
-            btnConfirmar.addEventListener('click', () => this.adicionarContato());
-        }
-        
-        this.atualizarDisplayContatos();
-    }
-    
-    adicionarContato() {
-        const nome = document.getElementById('contatoNome')?.value.trim();
-        if (!nome) {
-            alert('Digite um nome para o contato!');
-            return;
-        }
-        
-        const contato = {
-            id: this.nextId++,
-            nome: nome,
-            tipo: document.getElementById('contatoTipo')?.value || 'outro',
-            pericia: document.getElementById('contatoPericia')?.value || '',
-            nhEfetivo: parseInt(document.getElementById('contatoNHEfetivo')?.value) || 15,
-            frequencia: parseInt(document.getElementById('contatoFrequencia')?.value) || 9,
-            confiabilidade: document.getElementById('contatoConfiabilidade')?.value || 'razoavelmente',
-            pontos: 4, // Valor padrão
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.contatos.push(contato);
-        
-        this.fecharModal('contato');
-        document.getElementById('contatoNome').value = '';
-        document.getElementById('contatoPericia').value = '';
-        
-        this.atualizarDisplayContatos();
-        this.atualizarSistemaPontos();
-        this.salvarLocalStorage();
-    }
-    
-    // ===========================================
-    // 6. SISTEMA DE PATRONOS (COM MODAL)
-    // ===========================================
-    
-    configurarSistemaPatronos() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-add') && 
-                e.target.closest('.btn-add').getAttribute('onclick')?.includes('patrono')) {
-                this.abrirModal('patrono');
-            }
-        });
-        
-        const btnConfirmar = document.getElementById('btnConfirmarPatrono');
-        if (btnConfirmar) {
-            btnConfirmar.addEventListener('click', () => this.adicionarPatrono());
-        }
-        
-        this.atualizarDisplayPatronos();
-    }
-    
-    adicionarPatrono() {
-        const nome = document.getElementById('patronoNome')?.value.trim();
-        if (!nome) {
-            alert('Digite um nome para o patrono!');
-            return;
-        }
-        
-        const patrono = {
-            id: this.nextId++,
-            nome: nome,
-            poder: parseInt(document.getElementById('patronoPoder')?.value) || 15,
-            frequencia: parseInt(document.getElementById('patronoFrequencia')?.value) || 9,
-            pontos: 15, // Valor padrão
-            descricao: document.getElementById('patronoDescricao')?.value || '',
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.patronos.push(patrono);
-        
-        this.fecharModal('patrono');
-        document.getElementById('patronoNome').value = '';
-        document.getElementById('patronoDescricao').value = '';
-        
-        this.atualizarDisplayPatronos();
-        this.atualizarSistemaPontos();
-        this.salvarLocalStorage();
-    }
-    
-    // ===========================================
-    // 7. SISTEMA DE INIMIGOS (COM MODAL)
-    // ===========================================
-    
-    configurarSistemaInimigos() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-add') && 
-                e.target.closest('.btn-add').getAttribute('onclick')?.includes('inimigo')) {
-                this.abrirModal('inimigo');
-            }
-        });
-        
-        const btnConfirmar = document.getElementById('btnConfirmarInimigo');
-        if (btnConfirmar) {
-            btnConfirmar.addEventListener('click', () => this.adicionarInimigo());
-        }
-        
-        this.atualizarDisplayInimigos();
-    }
-    
-    adicionarInimigo() {
-        const nome = document.getElementById('inimigoNome')?.value.trim();
-        if (!nome) {
-            alert('Digite um nome para o inimigo!');
-            return;
-        }
-        
-        const inimigo = {
-            id: this.nextId++,
-            nome: nome,
-            poder: parseInt(document.getElementById('inimigoPoder')?.value) || -10,
-            intencao: document.getElementById('inimigoIntencao')?.value || 'perseguidor',
-            frequencia: parseInt(document.getElementById('inimigoFrequencia')?.value) || 9,
-            pontos: -10, // Valor padrão
-            motivo: document.getElementById('inimigoMotivo')?.value || '',
-            descricao: document.getElementById('inimigoDescricao')?.value || '',
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.inimigos.push(inimigo);
-        
-        this.fecharModal('inimigo');
-        document.getElementById('inimigoNome').value = '';
-        document.getElementById('inimigoMotivo').value = '';
-        document.getElementById('inimigoDescricao').value = '';
-        
-        this.atualizarDisplayInimigos();
-        this.atualizarSistemaPontos();
-        this.salvarLocalStorage();
-    }
-    
-    // ===========================================
-    // 8. SISTEMA DE DEPENDENTES (COM MODAL)
-    // ===========================================
-    
-    configurarSistemaDependentes() {
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-add') && 
-                e.target.closest('.btn-add').getAttribute('onclick')?.includes('dependente')) {
-                this.abrirModal('dependente');
-            }
-        });
-        
-        const btnConfirmar = document.getElementById('btnConfirmarDependente');
-        if (btnConfirmar) {
-            btnConfirmar.addEventListener('click', () => this.adicionarDependente());
-        }
-        
-        this.atualizarDisplayDependentes();
-    }
-    
-    adicionarDependente() {
-        const nome = document.getElementById('dependenteNome')?.value.trim();
-        if (!nome) {
-            alert('Digite um nome para o dependente!');
-            return;
-        }
-        
-        const dependente = {
-            id: this.nextId++,
-            nome: nome,
-            capacidade: parseInt(document.getElementById('dependenteCapacidade')?.value) || 75,
-            importancia: document.getElementById('dependenteImportancia')?.value || 'amigo',
-            frequencia: parseInt(document.getElementById('dependenteFrequencia')?.value) || 9,
-            pontos: -2, // Valor padrão
-            relacao: document.getElementById('dependenteRelacao')?.value || '',
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.dependentes.push(dependente);
-        
-        this.fecharModal('dependente');
-        document.getElementById('dependenteNome').value = '';
-        document.getElementById('dependenteRelacao').value = '';
-        
-        this.atualizarDisplayDependentes();
-        this.atualizarSistemaPontos();
-        this.salvarLocalStorage();
-    }
-    
-    // ===========================================
-    // DISPLAYS DAS LISTAS
-    // ===========================================
-    
-    atualizarDisplayAliados() {
-        const container = document.getElementById('listaAliados');
-        const badge = document.getElementById('pontosAliados');
+    atualizarDisplayLista(containerId, badgeId, lista, tipo) {
+        const container = document.getElementById(containerId);
+        const badge = document.getElementById(badgeId);
         
         if (!container || !badge) return;
         
-        const totalPontos = this.aliados.reduce((total, aliado) => total + aliado.pontos, 0);
+        const totalPontos = lista.reduce((total, item) => total + item.pontos, 0);
+        const isPositivo = totalPontos >= 0;
         
-        badge.textContent = `+${totalPontos} pts`;
-        badge.className = 'pontos-badge positivo';
+        // Atualiza badge
+        badge.textContent = `${isPositivo ? '+' : ''}${totalPontos} pts`;
+        badge.className = `pontos-badge ${isPositivo ? 'positivo' : 'negativo'}`;
         
-        if (this.aliados.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum aliado adicionado</div>';
+        // Atualiza lista
+        if (lista.length === 0) {
+            container.innerHTML = '<div class="empty-state">Nenhum item adicionado</div>';
         } else {
-            container.innerHTML = this.aliados.map(aliado => `
-                <div class="item-lista vantagem">
-                    <div class="item-info">
-                        <strong>${aliado.nome}</strong>
-                        <small>${aliado.descricao || ''}</small>
-                        <div class="item-detalhes">
-                            <small>${aliado.poder}% | ${this.obterTextoFrequencia(aliado.frequencia)}</small>
-                        </div>
-                    </div>
-                    <div class="item-pontos">
-                        <span class="pontos-positivo">+${aliado.pontos} pts</span>
-                        <button class="btn-remove-item" data-id="${aliado.id}" data-tipo="aliado">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+            container.innerHTML = lista.map(item => this.criarItemLista(item, tipo)).join('');
         }
+    }
+    
+    atualizarDisplayAliados() {
+        this.atualizarDisplayLista('listaAliados', 'pontosAliados', this.aliados, 'aliado');
     }
     
     atualizarDisplayContatos() {
-        const container = document.getElementById('listaContatos');
-        const badge = document.getElementById('pontosContatos');
-        
-        if (!container || !badge) return;
-        
-        const totalPontos = this.contatos.reduce((total, contato) => total + contato.pontos, 0);
-        
-        badge.textContent = `+${totalPontos} pts`;
-        badge.className = 'pontos-badge positivo';
-        
-        if (this.contatos.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum contato adicionado</div>';
-        } else {
-            container.innerHTML = this.contatos.map(contato => `
-                <div class="item-lista vantagem">
-                    <div class="item-info">
-                        <strong>${contato.nome}</strong>
-                        <small>${contato.pericia || 'Sem perícia especificada'}</small>
-                        <div class="item-detalhes">
-                            <small>NH ${contato.nhEfetivo} | ${this.obterTextoFrequencia(contato.frequencia)}</small>
-                        </div>
-                    </div>
-                    <div class="item-pontos">
-                        <span class="pontos-positivo">+${contato.pontos} pts</span>
-                        <button class="btn-remove-item" data-id="${contato.id}" data-tipo="contato">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        this.atualizarDisplayLista('listaContatos', 'pontosContatos', this.contatos, 'contato');
     }
     
     atualizarDisplayPatronos() {
-        const container = document.getElementById('listaPatronos');
-        const badge = document.getElementById('pontosPatronos');
-        
-        if (!container || !badge) return;
-        
-        const totalPontos = this.patronos.reduce((total, patrono) => total + patrono.pontos, 0);
-        
-        badge.textContent = `+${totalPontos} pts`;
-        badge.className = 'pontos-badge positivo';
-        
-        if (this.patronos.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum patrono adicionado</div>';
-        } else {
-            container.innerHTML = this.patronos.map(patrono => `
-                <div class="item-lista vantagem">
-                    <div class="item-info">
-                        <strong>${patrono.nome}</strong>
-                        <small>${patrono.descricao || ''}</small>
-                        <div class="item-detalhes">
-                            <small>${patrono.poder} pts | ${this.obterTextoFrequencia(patrono.frequencia)}</small>
-                        </div>
-                    </div>
-                    <div class="item-pontos">
-                        <span class="pontos-positivo">+${patrono.pontos} pts</span>
-                        <button class="btn-remove-item" data-id="${patrono.id}" data-tipo="patrono">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        this.atualizarDisplayLista('listaPatronos', 'pontosPatronos', this.patronos, 'patrono');
     }
     
     atualizarDisplayInimigos() {
-        const container = document.getElementById('listaInimigos');
-        const badge = document.getElementById('pontosInimigos');
-        
-        if (!container || !badge) return;
-        
-        const totalPontos = this.inimigos.reduce((total, inimigo) => total + inimigo.pontos, 0);
-        
-        badge.textContent = `${totalPontos} pts`;
-        badge.className = 'pontos-badge negativo';
-        
-        if (this.inimigos.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum inimigo adicionado</div>';
-        } else {
-            container.innerHTML = this.inimigos.map(inimigo => `
-                <div class="item-lista desvantagem">
-                    <div class="item-info">
-                        <strong>${inimigo.nome}</strong>
-                        <small>${inimigo.motivo || ''}</small>
-                        <div class="item-detalhes">
-                            <small>${this.obterTextoIntencao(inimigo.intencao)} | ${this.obterTextoFrequencia(inimigo.frequencia)}</small>
-                        </div>
-                    </div>
-                    <div class="item-pontos">
-                        <span class="pontos-negativo">${inimigo.pontos} pts</span>
-                        <button class="btn-remove-item" data-id="${inimigo.id}" data-tipo="inimigo">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        this.atualizarDisplayLista('listaInimigos', 'pontosInimigos', this.inimigos, 'inimigo');
     }
     
     atualizarDisplayDependentes() {
-        const container = document.getElementById('listaDependentes');
-        const badge = document.getElementById('pontosDependentes');
-        
-        if (!container || !badge) return;
-        
-        const totalPontos = this.dependentes.reduce((total, dependente) => total + dependente.pontos, 0);
-        
-        badge.textContent = `${totalPontos} pts`;
-        badge.className = totalPontos < 0 ? 'pontos-badge negativo' : 'pontos-badge positivo';
-        
-        if (this.dependentes.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum dependente adicionado</div>';
-        } else {
-            container.innerHTML = this.dependentes.map(dependente => `
-                <div class="item-lista desvantagem" data-id="${dependente.id}">
-                    <div class="item-info">
-                        <div class="item-header">
-                            <strong class="item-nome">${dependente.nome}</strong>
-                            <span class="item-pontos-detalhe pontos-negativo">${dependente.pontos} pts</span>
-                        </div>
-                        ${dependente.relacao ? `<small class="item-relacao">${dependente.relacao}</small>` : ''}
-                        <div class="item-detalhes">
-                            <span class="badge capacidade">${dependente.capacidade}% capacidade</span>
-                            <span class="badge importancia">${this.obterTextoImportancia(dependente.importancia)}</span>
-                            <span class="badge frequencia">${this.obterTextoFrequencia(dependente.frequencia)}</span>
-                        </div>
-                        ${dependente.detalhes ? `<p class="item-descricao">${dependente.detalhes}</p>` : ''}
-                    </div>
-                    <div class="item-actions">
-                        <button class="btn-icon btn-remove-item" data-id="${dependente.id}" data-tipo="dependente" title="Remover">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        this.atualizarDisplayLista('listaDependentes', 'pontosDependentes', this.dependentes, 'dependente');
     }
     
     // ===========================================
-    // FUNÇÕES AUXILIARES
+    // FUNÇÕES AUXILIARES (MANTIDAS)
     // ===========================================
-    
-    obterMultiplicadorFrequencia(valorFrequencia) {
-        switch(valorFrequencia) {
-            case 6: return 0.5;
-            case 9: return 1;
-            case 12: return 2;
-            case 15: return 3;
-            case 18: return 4;
-            default: return 1;
-        }
-    }
     
     obterTextoFrequencia(valor) {
         const frequencias = {
-            6: 'Esporadicamente (6-)',
-            9: 'Com frequência (9-)',
-            12: 'Bastante frequência (12-)',
-            15: 'Quase o tempo todo (15-)',
-            18: 'Constantemente (18-)'
+            6: 'Esporadicamente',
+            9: 'Com frequência',
+            12: 'Bastante frequência',
+            15: 'Quase o tempo todo',
+            18: 'Constantemente'
         };
         return frequencias[valor] || 'Desconhecido';
     }
@@ -746,101 +470,142 @@ class StatusSocialManager {
     obterTextoImportancia(importancia) {
         switch(importancia) {
             case 'empregado': return 'Empregado';
-            case 'conhecido': return 'Conhecido';
             case 'amigo': return 'Amigo';
-            case 'familiar': return 'Familiar';
             case 'ser_amado': return 'Ser Amado';
             default: return importancia;
         }
     }
     
     // ===========================================
-    // SISTEMA DE MODAIS
+    // CONTROLE DE MODAIS (SIMPLIFICADO)
     // ===========================================
     
     abrirModal(tipo) {
-        const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+        const modalId = `modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+        const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'block';
         }
     }
     
     fecharModal(tipo) {
-        const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
+        const modalId = `modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+        const modal = document.getElementById(modalId);
         if (modal) {
             modal.style.display = 'none';
         }
     }
     
     configurarModais() {
-        // Fechar modais ao clicar no X
-        document.querySelectorAll('.modal-close[data-modal]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const modalId = e.target.closest('.modal-close').dataset.modal;
-                if (modalId) {
-                    this.fecharModal(modalId);
-                }
-            });
-        });
-        
-        // Fechar modais ao clicar em cancelar
-        document.querySelectorAll('.btn-secondary[data-modal]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const modalId = e.target.closest('.btn-secondary').dataset.modal;
-                if (modalId) {
-                    this.fecharModal(modalId);
-                }
-            });
-        });
-        
-        // Fechar modal ao clicar fora
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        });
-        
-        // Remover itens
+        // Fechar modais com evento delegado
         document.addEventListener('click', (e) => {
-            const btnRemover = e.target.closest('.btn-remove-item');
-            if (btnRemover) {
-                const id = parseInt(btnRemover.dataset.id);
-                const tipo = btnRemover.dataset.tipo;
-                this.removerItem(id, tipo);
+            // Fechar com X
+            if (e.target.closest('.modal-close[data-modal]')) {
+                const modalId = e.target.closest('.modal-close').dataset.modal;
+                this.fecharModal(modalId);
+            }
+            // Fechar com botão cancelar
+            if (e.target.closest('.btn-secondary[data-modal]')) {
+                const modalId = e.target.closest('.btn-secondary').dataset.modal;
+                this.fecharModal(modalId);
+            }
+            // Fechar clicando fora
+            if (e.target.classList.contains('modal')) {
+                e.target.style.display = 'none';
             }
         });
+    }
+    
+    // ===========================================
+    // GESTÃO DE ITENS (ADICIONAR/REMOVER)
+    // ===========================================
+    
+    adicionarItem(tipo, dados) {
+        const item = {
+            id: this.nextId++,
+            ...dados,
+            dataAdicao: new Date().toISOString()
+        };
+        
+        switch(tipo) {
+            case 'aliado':
+                this.aliados.push(item);
+                this.atualizarDisplayAliados();
+                break;
+            case 'contato':
+                this.contatos.push(item);
+                this.atualizarDisplayContatos();
+                break;
+            case 'patrono':
+                this.patronos.push(item);
+                this.atualizarDisplayPatronos();
+                break;
+            case 'inimigo':
+                this.inimigos.push(item);
+                this.atualizarDisplayInimigos();
+                break;
+            case 'dependente':
+                this.dependentes.push(item);
+                this.atualizarDisplayDependentes();
+                break;
+        }
+        
+        this.fecharModal(tipo);
+        this.atualizarSistemaPontos();
+        this.salvarLocalStorage();
     }
     
     removerItem(id, tipo) {
         if (!confirm('Tem certeza que deseja remover este item?')) return;
         
+        let lista;
+        let updateFunction;
+        
         switch(tipo) {
             case 'aliado':
-                this.aliados = this.aliados.filter(a => a.id !== id);
-                this.atualizarDisplayAliados();
+                lista = this.aliados;
+                updateFunction = () => this.atualizarDisplayAliados();
                 break;
             case 'contato':
-                this.contatos = this.contatos.filter(c => c.id !== id);
-                this.atualizarDisplayContatos();
+                lista = this.contatos;
+                updateFunction = () => this.atualizarDisplayContatos();
                 break;
             case 'patrono':
-                this.patronos = this.patronos.filter(p => p.id !== id);
-                this.atualizarDisplayPatronos();
+                lista = this.patronos;
+                updateFunction = () => this.atualizarDisplayPatronos();
                 break;
             case 'inimigo':
-                this.inimigos = this.inimigos.filter(i => i.id !== id);
-                this.atualizarDisplayInimigos();
+                lista = this.inimigos;
+                updateFunction = () => this.atualizarDisplayInimigos();
                 break;
             case 'dependente':
-                this.dependentes = this.dependentes.filter(d => d.id !== id);
-                this.atualizarDisplayDependentes();
+                lista = this.dependentes;
+                updateFunction = () => this.atualizarDisplayDependentes();
                 break;
+            default:
+                return;
         }
         
-        this.atualizarSistemaPontos();
-        this.salvarLocalStorage();
+        const index = lista.findIndex(item => item.id === id);
+        if (index !== -1) {
+            lista.splice(index, 1);
+            updateFunction();
+            this.atualizarSistemaPontos();
+            this.salvarLocalStorage();
+        }
+    }
+    
+    limparLista(tipo) {
+        if (!confirm(`Tem certeza que deseja limpar todos os ${tipo}?`)) return;
+        
+        switch(tipo) {
+            case 'vantagens':
+                // Implementar limpeza de vantagens do catálogo
+                break;
+            case 'desvantagens':
+                // Implementar limpeza de desvantagens do catálogo
+                break;
+        }
     }
     
     // ===========================================
@@ -863,25 +628,28 @@ class StatusSocialManager {
     // ===========================================
     
     atualizarSistemaPontos() {
-        this.pontosManager = window.obterPontosManager ? window.obterPontosManager() : null;
-        if (!this.pontosManager) return;
+        // Implementação simplificada
+        const totalVantagens = this.calcularVantagensTotais();
+        const totalDesvantagens = Math.abs(this.calcularDesvantagensTotais());
         
-        const vantagens = this.calcularVantagensTotais();
-        const desvantagens = Math.abs(this.calcularDesvantagensTotais());
-        
-        this.pontosManager.gastos.vantagens = vantagens;
-        this.pontosManager.gastos.desvantagens.outras = desvantagens;
-        
-        this.pontosManager.atualizarTudo();
-        
-        // Atualizar resumo na aba de Vantagens
+        // Atualiza resumo na aba de Vantagens
         const totalVantagensElem = document.getElementById('totalVantagensPontos');
         const totalDesvantagensElem = document.getElementById('totalDesvantagensPontos');
         const saldoElem = document.getElementById('saldoVantagens');
         
-        if (totalVantagensElem) totalVantagensElem.textContent = vantagens;
-        if (totalDesvantagensElem) totalDesvantagensElem.textContent = desvantagens;
-        if (saldoElem) saldoElem.textContent = vantagens - desvantagens;
+        if (totalVantagensElem) totalVantagensElem.textContent = totalVantagens;
+        if (totalDesvantagensElem) totalDesvantagensElem.textContent = totalDesvantagens;
+        if (saldoElem) saldoElem.textContent = totalVantagens - totalDesvantagens;
+        
+        // Chama o sistema de pontos se existir
+        if (window.obterPontosManager) {
+            const pontosManager = window.obterPontosManager();
+            if (pontosManager) {
+                pontosManager.gastos.vantagens = totalVantagens;
+                pontosManager.gastos.desvantagens.outras = totalDesvantagens;
+                pontosManager.atualizarTudo();
+            }
+        }
     }
     
     calcularVantagensTotais() {
@@ -903,6 +671,32 @@ class StatusSocialManager {
         const totalDependentes = this.dependentes.reduce((t, d) => t + d.pontos, 0);
         
         return totalStatus + totalRepNegativa + totalInimigos + totalDependentes;
+    }
+    
+    // ===========================================
+    // GESTÃO DE LISTENERS (EVITA DUPLICAÇÃO)
+    // ===========================================
+    
+    registrarListener(tipo, elemento, handler) {
+        const key = `${tipo}-${elemento.id || elemento.className}`;
+        this.listenersAtivos.set(key, { elemento, handler });
+    }
+    
+    removerListener(tipo, elemento) {
+        const key = `${tipo}-${elemento.id || elemento.className}`;
+        const listener = this.listenersAtivos.get(key);
+        if (listener) {
+            listener.elemento.removeEventListener(tipo, listener.handler);
+            this.listenersAtivos.delete(key);
+        }
+    }
+    
+    limparTodosListeners() {
+        this.listenersAtivos.forEach((listener, key) => {
+            listener.elemento.removeEventListener('click', listener.handler);
+        });
+        this.listenersAtivos.clear();
+        this.elementosCache = {};
     }
     
     // ===========================================
@@ -963,38 +757,55 @@ class StatusSocialManager {
 }
 
 // ===========================================
-// INICIALIZAÇÃO GLOBAL
+// INICIALIZAÇÃO CONTROLADA
 // ===========================================
 
 let statusSocialManagerInstance = null;
 
 function inicializarStatusSocial() {
-    if (!statusSocialManagerInstance) {
-        statusSocialManagerInstance = new StatusSocialManager();
+    if (statusSocialManagerInstance) {
+        return statusSocialManagerInstance;
     }
     
-    statusSocialManagerInstance.inicializar();
+    statusSocialManagerInstance = new StatusSocialManager();
+    
+    // Aguarda a aba estar pronta
+    const checkInterval = setInterval(() => {
+        const vantagensTab = document.getElementById('vantagens');
+        if (vantagensTab) {
+            clearInterval(checkInterval);
+            
+            // Inicializa apenas quando a aba for ativada
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.attributeName === 'class' && vantagensTab.classList.contains('active')) {
+                        statusSocialManagerInstance.inicializar();
+                    }
+                });
+            });
+            
+            observer.observe(vantagensTab, { attributes: true });
+            
+            // Inicializa imediatamente se já estiver ativa
+            if (vantagensTab.classList.contains('active')) {
+                statusSocialManagerInstance.inicializar();
+            }
+        }
+    }, 100);
+    
     return statusSocialManagerInstance;
 }
 
-// Inicializar quando a página carregar
-document.addEventListener('DOMContentLoaded', function() {
-    // Espera um pouco para garantir que o DOM esteja pronto
-    setTimeout(() => {
-        inicializarStatusSocial();
-    }, 500);
-});
+// Inicializa quando a página carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializarStatusSocial);
+} else {
+    inicializarStatusSocial();
+}
 
 // Exportar para uso global
 window.StatusSocialManager = StatusSocialManager;
 window.inicializarStatusSocial = inicializarStatusSocial;
 window.obterStatusSocialManager = function() {
     return statusSocialManagerInstance;
-};
-
-// Função global para abrir modais (mantida para compatibilidade)
-window.abrirModal = function(tipo) {
-    if (statusSocialManagerInstance) {
-        statusSocialManagerInstance.abrirModal(tipo);
-    }
 };
