@@ -1,5 +1,6 @@
 // ===========================================
 // STATUS-SOCIAL.JS - VERSÃO COMPLETA COM CÁLCULOS GURPS
+// VERSÃO CORRIGIDA - ALIADOS SEM FREQUÊNCIA, COM MULTIPLICADOR DE GRUPO
 // ===========================================
 
 class StatusSocialManager {
@@ -94,7 +95,7 @@ class StatusSocialManager {
       // DEPENDENTES: Custo base (SEMPRE -2)
       dependenteCustoBase: -2,
       
-      // Multiplicador de frequência (APARECIMENTO)
+      // Multiplicador de frequência (APARECIMENTO) - REMOVIDO DOS ALIADOS
       multiplicadorFrequencia: {
         6: 0.5,   // 6- (esporádico)
         9: 1,     // 9- (frequente)
@@ -340,7 +341,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 4. ALIADOS - CÁLCULO CORRETO
+  // 4. ALIADOS - CÁLCULO CORRETO SEM FREQUÊNCIA
   // ===========================================
   
   configurarSistemaAliados() {
@@ -362,15 +363,26 @@ class StatusSocialManager {
   
   configurarCalculoAliado() {
     // Atualizar cálculo quando campos mudarem
-    const campos = ['aliadoPoder', 'aliadoGrupo', 'aliadoTamanhoGrupo'];
+    const campos = ['aliadoPoder', 'aliadoGrupo', 'aliadoTamanhoGrupo', 
+                   'aliadoHabilidadesEspeciais', 'aliadoInvocavel'];
     
     campos.forEach(campoId => {
       const campo = document.getElementById(campoId);
       if (campo) {
         campo.addEventListener('change', () => this.calcularPontosAliado());
-        campo.addEventListener('input', () => this.calcularPontosAliado());
       }
     });
+    
+    // Mostrar/ocultar campo de tamanho do grupo
+    const grupoCheckbox = document.getElementById('aliadoGrupo');
+    const grupoSizeContainer = document.getElementById('grupoAliadoContainer');
+    
+    if (grupoCheckbox && grupoSizeContainer) {
+      grupoCheckbox.addEventListener('change', (e) => {
+        grupoSizeContainer.style.display = e.target.checked ? 'block' : 'none';
+        this.calcularPontosAliado();
+      });
+    }
     
     this.calcularPontosAliado();
   }
@@ -378,40 +390,133 @@ class StatusSocialManager {
   calcularPontosAliado() {
     const poder = parseInt(document.getElementById('aliadoPoder')?.value) || 100;
     const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
-    const tamanhoGrupo = parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 1;
+    const tamanhoGrupo = parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 2;
+    const habilidadesEspeciais = document.getElementById('aliadoHabilidadesEspeciais')?.checked || false;
+    const invocavel = document.getElementById('aliadoInvocavel')?.checked || false;
     
-    // 1. Encontrar custo base pela porcentagem de poder
+    // 1. Custo base pela porcentagem de poder
     let custoBase = 5; // Default para 100%
-    if (poder <= 25) custoBase = 1;
-    else if (poder <= 50) custoBase = 2;
-    else if (poder <= 75) custoBase = 3;
-    else if (poder <= 100) custoBase = 5;
-    else if (poder <= 150) custoBase = 10;
-    else if (poder <= 200) custoBase = 15;
+    const custos = {
+      25: 1,    // 25% = 1 ponto
+      50: 2,    // 50% = 2 pontos
+      75: 3,    // 75% = 3 pontos
+      100: 5,   // 100% = 5 pontos
+      150: 10,  // 150% = 10 pontos
+      200: 15   // 200% = 15 pontos
+    };
+    
+    custoBase = custos[poder] || 5;
     
     // 2. Aplicar multiplicador de grupo SE for grupo
     let multiplicadorGrupo = 1;
-    if (isGrupo && tamanhoGrupo > 1) {
-      if (tamanhoGrupo === 2) multiplicadorGrupo = 1.5;
-      else if (tamanhoGrupo >= 3 && tamanhoGrupo <= 5) multiplicadorGrupo = 2;
-      else if (tamanhoGrupo >= 6 && tamanhoGrupo <= 10) multiplicadorGrupo = 6;
-      else if (tamanhoGrupo >= 11 && tamanhoGrupo <= 20) multiplicadorGrupo = 8;
-      else if (tamanhoGrupo >= 21 && tamanhoGrupo <= 50) multiplicadorGrupo = 10;
-      else if (tamanhoGrupo >= 51 && tamanhoGrupo <= 100) multiplicadorGrupo = 12;
-      else if (tamanhoGrupo > 100) multiplicadorGrupo = 15;
+    let multiplicadorTexto = "×1";
+    
+    if (isGrupo) {
+      if (tamanhoGrupo === 2) {
+        multiplicadorGrupo = 1.5;
+        multiplicadorTexto = "×1.5 (2 membros)";
+      } else if (tamanhoGrupo >= 3 && tamanhoGrupo <= 5) {
+        multiplicadorGrupo = 2;
+        multiplicadorTexto = "×2 (3-5 membros)";
+      } else if (tamanhoGrupo >= 6 && tamanhoGrupo <= 10) {
+        multiplicadorGrupo = 6;
+        multiplicadorTexto = "×6 (6-10 membros)";
+      } else if (tamanhoGrupo >= 11 && tamanhoGrupo <= 20) {
+        multiplicadorGrupo = 8;
+        multiplicadorTexto = "×8 (11-20 membros)";
+      } else if (tamanhoGrupo >= 21 && tamanhoGrupo <= 50) {
+        multiplicadorGrupo = 10;
+        multiplicadorTexto = "×10 (21-50 membros)";
+      } else if (tamanhoGrupo >= 51 && tamanhoGrupo <= 100) {
+        multiplicadorGrupo = 12;
+        multiplicadorTexto = "×12 (51-100 membros)";
+      } else if (tamanhoGrupo > 100) {
+        multiplicadorGrupo = 15;
+        multiplicadorTexto = "×15 (100+ membros)";
+      }
     }
     
-    // 3. Calcular pontos totais
-    const pontos = Math.round(custoBase * multiplicadorGrupo);
+    // 3. Modificadores especiais
+    let modificadorTotal = 1;
+    let modificadorTexto = "×1";
     
-    // 4. Atualizar display no modal
-    const pontosDisplay = document.getElementById('aliadoPontosCalculados');
-    if (pontosDisplay) {
-      pontosDisplay.textContent = `${pontos} pontos`;
-      pontosDisplay.className = pontos > 0 ? 'pontos-positivo' : 'pontos-negativo';
+    if (habilidadesEspeciais) {
+      modificadorTotal *= 1.5; // +50%
     }
+    
+    if (invocavel) {
+      modificadorTotal *= 2; // +100%
+    }
+    
+    if (habilidadesEspeciais || invocavel) {
+      modificadorTexto = `×${modificadorTotal.toFixed(1)}`;
+    }
+    
+    // 4. Calcular pontos totais
+    const pontos = Math.round(custoBase * multiplicadorGrupo * modificadorTotal);
+    
+    // 5. Atualizar display no modal
+    this.atualizarPreviewAliado(custoBase, multiplicadorGrupo, multiplicadorTexto, 
+                               modificadorTotal, modificadorTexto, pontos);
     
     return pontos;
+  }
+  
+  atualizarPreviewAliado(custoBase, multiplicadorGrupo, multiplicadorTexto, 
+                        modificadorTotal, modificadorTexto, pontos) {
+    
+    // Elementos do DOM
+    const previewCustoBase = document.getElementById('previewCustoBase');
+    const previewMultiplicador = document.getElementById('previewMultiplicador');
+    const previewMultiplicadorContainer = document.getElementById('previewMultiplicadorContainer');
+    const previewModificadores = document.getElementById('previewModificadores');
+    const previewModificadoresContainer = document.getElementById('previewModificadoresContainer');
+    const previewCustoTotal = document.getElementById('previewCustoTotal');
+    const formulaExplicacao = document.getElementById('formulaExplicacao');
+    
+    // Atualizar valores
+    if (previewCustoBase) previewCustoBase.textContent = `${custoBase} pts`;
+    
+    if (previewMultiplicador) {
+      previewMultiplicador.textContent = multiplicadorTexto;
+    }
+    
+    if (previewMultiplicadorContainer) {
+      previewMultiplicadorContainer.style.display = multiplicadorGrupo !== 1 ? 'flex' : 'none';
+    }
+    
+    if (previewModificadores) {
+      previewModificadores.textContent = modificadorTexto;
+    }
+    
+    if (previewModificadoresContainer) {
+      const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
+      previewModificadoresContainer.style.display = (modificadorTotal !== 1 || isGrupo) ? 'flex' : 'none';
+    }
+    
+    if (previewCustoTotal) {
+      previewCustoTotal.textContent = `+${pontos} pts`;
+      previewCustoTotal.className = pontos >= 0 ? 'total-positivo' : 'total-negativo';
+    }
+    
+    // Atualizar fórmula explicativa
+    if (formulaExplicacao) {
+      const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
+      let formulaParts = [];
+      
+      formulaParts.push(`${custoBase}`);
+      
+      if (multiplicadorGrupo !== 1) {
+        formulaParts.push(`${multiplicadorGrupo}`);
+      }
+      
+      if (modificadorTotal !== 1) {
+        formulaParts.push(`${modificadorTotal.toFixed(1)}`);
+      }
+      
+      const formula = formulaParts.join(' × ');
+      formulaExplicacao.textContent = `Cálculo: ${formula} = ${pontos} pontos`;
+    }
   }
   
   adicionarAliado() {
@@ -423,7 +528,9 @@ class StatusSocialManager {
     
     const poder = parseInt(document.getElementById('aliadoPoder')?.value) || 100;
     const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
-    const tamanhoGrupo = parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 1;
+    const tamanhoGrupo = isGrupo ? parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 2 : 1;
+    const habilidadesEspeciais = document.getElementById('aliadoHabilidadesEspeciais')?.checked || false;
+    const invocavel = document.getElementById('aliadoInvocavel')?.checked || false;
     const descricao = document.getElementById('aliadoDescricao')?.value || '';
     
     const pontos = this.calcularPontosAliado();
@@ -434,6 +541,8 @@ class StatusSocialManager {
       poder: poder,
       isGrupo: isGrupo,
       tamanhoGrupo: tamanhoGrupo,
+      habilidadesEspeciais: habilidadesEspeciais,
+      invocavel: invocavel,
       pontos: pontos,
       descricao: descricao,
       dataAdicao: new Date().toISOString()
@@ -442,10 +551,14 @@ class StatusSocialManager {
     this.aliados.push(aliado);
     
     this.fecharModal('aliado');
+    
+    // Limpar formulário
     document.getElementById('aliadoNome').value = '';
     document.getElementById('aliadoDescricao').value = '';
     document.getElementById('aliadoGrupo').checked = false;
-    document.getElementById('aliadoTamanhoGrupo').value = '1';
+    document.getElementById('grupoAliadoContainer').style.display = 'none';
+    document.getElementById('aliadoHabilidadesEspeciais').checked = false;
+    document.getElementById('aliadoInvocavel').checked = false;
     
     this.atualizarDisplayAliados();
     this.atualizarSistemaPontos();
@@ -856,7 +969,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // DISPLAYS DAS LISTAS (MANTIDO IGUAL)
+  // DISPLAYS DAS LISTAS
   // ===========================================
   
   atualizarDisplayAliados() {
@@ -879,7 +992,12 @@ class StatusSocialManager {
             <strong>${aliado.nome}</strong>
             ${aliado.descricao ? `<small>${aliado.descricao}</small>` : ''}
             <div class="item-detalhes">
-              <small>${aliado.poder}% ${aliado.isGrupo ? `| Grupo: ${aliado.tamanhoGrupo} membros` : ''}</small>
+              <small>
+                ${aliado.poder}% de poder
+                ${aliado.isGrupo ? `| Grupo de ${aliado.tamanhoGrupo} membros` : ''}
+                ${aliado.habilidadesEspeciais ? '| Habil. Especiais' : ''}
+                ${aliado.invocavel ? '| Invocável' : ''}
+              </small>
             </div>
           </div>
           <div class="item-pontos">
@@ -1071,13 +1189,14 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // SISTEMA DE MODAIS (MANTIDO IGUAL)
+  // SISTEMA DE MODAIS
   // ===========================================
   
   abrirModal(tipo) {
     const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
     if (modal) {
       modal.style.display = 'block';
+      modal.classList.add('show');
     }
   }
   
@@ -1085,10 +1204,12 @@ class StatusSocialManager {
     const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
     if (modal) {
       modal.style.display = 'none';
+      modal.classList.remove('show');
     }
   }
   
   configurarModais() {
+    // Fechar modais com botões de fechar
     document.querySelectorAll('.modal-close[data-modal]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const modalId = e.target.closest('.modal-close').dataset.modal;
@@ -1098,6 +1219,7 @@ class StatusSocialManager {
       });
     });
     
+    // Fechar modais com botões cancelar
     document.querySelectorAll('.btn-secondary[data-modal]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const modalId = e.target.closest('.btn-secondary').dataset.modal;
@@ -1107,14 +1229,17 @@ class StatusSocialManager {
       });
     });
     
+    // Fechar modais clicando fora
     document.querySelectorAll('.modal').forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.style.display = 'none';
+          modal.classList.remove('show');
         }
       });
     });
     
+    // Remover itens das listas
     document.addEventListener('click', (e) => {
       const btnRemover = e.target.closest('.btn-remove-item');
       if (btnRemover) {
@@ -1223,7 +1348,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // LOCAL STORAGE (MANTIDO IGUAL)
+  // LOCAL STORAGE
   // ===========================================
   
   salvarLocalStorage() {
@@ -1277,10 +1402,63 @@ class StatusSocialManager {
     }
     return false;
   }
+  
+  // ===========================================
+  // FUNÇÃO DE TESTE PARA ALIADOS
+  // ===========================================
+  
+  testarCalculosAliados() {
+    console.log("=== TESTES DE CÁLCULO DE ALIADOS ===");
+    
+    const testes = [
+      // [poder, isGrupo, tamanhoGrupo, habilidadesEspeciais, invocavel, esperado]
+      [100, false, 1, false, false, 5],    // Aliado individual 100%
+      [150, false, 1, false, false, 10],   // Aliado individual 150%
+      [200, false, 1, false, false, 15],   // Aliado individual 200%
+      [100, true, 2, false, false, 8],     // Grupo 2 aliados 100% (5 × 1.5 = 7.5 → 8)
+      [100, true, 6, false, false, 30],    // Grupo 6-10 aliados 100% (5 × 6 = 30)
+      [100, true, 21, false, false, 50],   // Grupo 21-50 aliados 100% (5 × 10 = 50)
+      [150, true, 6, false, false, 60],    // Grupo 6-10 aliados 150% (10 × 6 = 60)
+      [100, false, 1, true, false, 8],     // Aliado com habilidades especiais (5 × 1.5 = 7.5 → 8)
+      [100, false, 1, false, true, 10],    // Aliado invocável (5 × 2 = 10)
+      [100, false, 1, true, true, 15],     // Aliado com ambos (5 × 1.5 × 2 = 15)
+      [100, true, 6, true, false, 45],     // Grupo 6-10 com habilidades especiais (5 × 6 × 1.5 = 45)
+    ];
+    
+    testes.forEach((teste, index) => {
+      const [poder, isGrupo, tamanhoGrupo, habilidadesEspeciais, invocavel, esperado] = teste;
+      
+      // Simular cálculo
+      const custosBase = {100:5, 150:10, 200:15};
+      let custoBase = custosBase[poder] || 5;
+      
+      let multiplicadorGrupo = 1;
+      if (isGrupo) {
+        if (tamanhoGrupo === 2) multiplicadorGrupo = 1.5;
+        else if (tamanhoGrupo >= 3 && tamanhoGrupo <= 5) multiplicadorGrupo = 2;
+        else if (tamanhoGrupo >= 6 && tamanhoGrupo <= 10) multiplicadorGrupo = 6;
+        else if (tamanhoGrupo >= 11 && tamanhoGrupo <= 20) multiplicadorGrupo = 8;
+        else if (tamanhoGrupo >= 21 && tamanhoGrupo <= 50) multiplicadorGrupo = 10;
+      }
+      
+      let modificadorTotal = 1;
+      if (habilidadesEspeciais) modificadorTotal *= 1.5;
+      if (invocavel) modificadorTotal *= 2;
+      
+      const resultado = Math.round(custoBase * multiplicadorGrupo * modificadorTotal);
+      
+      console.log(`Teste ${index + 1}:`);
+      console.log(`  Poder: ${poder}%, Grupo: ${isGrupo}, Tamanho: ${tamanhoGrupo}`);
+      console.log(`  Habilidades Especiais: ${habilidadesEspeciais}, Invocável: ${invocavel}`);
+      console.log(`  Esperado: ${esperado}, Resultado: ${resultado}`);
+      console.log(`  Status: ${resultado === esperado ? '✓ OK' : '✗ FALHOU'}`);
+      console.log('');
+    });
+  }
 }
 
 // ===========================================
-// INICIALIZAÇÃO GLOBAL (MANTIDO IGUAL)
+// INICIALIZAÇÃO GLOBAL
 // ===========================================
 
 let statusSocialManagerInstance = null;
@@ -1311,6 +1489,9 @@ window.abrirModal = function(tipo) {
     statusSocialManagerInstance.abrirModal(tipo);
   }
 };
+
+// Para executar os testes no console do navegador:
+// window.obterStatusSocialManager().testarCalculosAliados();
 
 document.addEventListener('click', function(e) {
   if (e.target.closest('.sub-tab') && e.target.closest('.sub-tab').dataset.subtab === 'status') {
