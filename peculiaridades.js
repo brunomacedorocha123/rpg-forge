@@ -1,10 +1,11 @@
-// peculiaridades.js - Lógica Completa e Funcional
+// peculiaridades.js
 class PeculiaridadesManager {
     constructor() {
-        this.peculiaridades = []; // Lista de peculiaridades normais (limite 5)
-        this.extras = []; // Lista de peculiaridades extras (sem limite)
-        this.maxPeculiaridades = 5; // Limite máximo de peculiaridades
-        this.pontosPorPeculiaridade = -1; // Pontos por peculiaridade
+        this.peculiaridades = [];
+        this.extras = [];
+        this.maxPeculiaridades = 5;
+        this.pontosPorPeculiaridade = -1;
+        this.elements = {};
         
         this.cacheElements();
         this.bindEvents();
@@ -14,85 +15,78 @@ class PeculiaridadesManager {
     
     cacheElements() {
         this.elements = {
-            peculiaridadeInput: document.getElementById('peculiaridadeInput'),
-            btnAddPeculiaridade: document.getElementById('btnAddPeculiaridade'),
-            peculiaridadesGrid: document.getElementById('peculiaridadesGrid'),
-            peculiaridadesExtras: document.getElementById('peculiaridadesExtras'),
-            peculiaridadesCount: document.getElementById('peculiaridadesCount'),
-            peculiaridadesPoints: document.getElementById('peculiaridadesPoints'),
-            pontosCounter: document.querySelector('.pontos-counter'),
+            input: document.getElementById('peculiaridadeInput'),
+            btnAdd: document.getElementById('btnAddPeculiaridade'),
+            btnExtra: document.getElementById('btnAddPeculiaridadeExtra'),
+            grid: document.getElementById('peculiaridadesGrid'),
+            extrasGrid: document.getElementById('peculiaridadesExtras'),
+            count: document.getElementById('peculiaridadesCount'),
+            points: document.getElementById('peculiaridadesPoints'),
+            pontosBadge: document.querySelector('.pontos-counter'),
             listHeader: document.querySelector('.list-header h3')
         };
     }
     
     bindEvents() {
-        // Adicionar peculiaridade com botão
-        this.elements.btnAddPeculiaridade.addEventListener('click', () => this.addPeculiaridade());
+        if (this.elements.btnAdd) {
+            this.elements.btnAdd.addEventListener('click', () => this.addPeculiaridade());
+        }
         
-        // Adicionar peculiaridade com Enter
-        this.elements.peculiaridadeInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.addPeculiaridade();
-            }
-        });
+        if (this.elements.input) {
+            this.elements.input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addPeculiaridade();
+            });
+        }
         
-        // Botão para adicionar extra (fora do limite)
-        document.getElementById('btnAddPeculiaridadeExtra')?.addEventListener('click', () => {
-            this.addPeculiaridadeExtra();
-        });
+        if (this.elements.btnExtra) {
+            this.elements.btnExtra.addEventListener('click', () => this.addPeculiaridadeExtra());
+        }
         
-        // Salvar quando a aba for fechada
         window.addEventListener('beforeunload', () => this.saveToStorage());
     }
     
     addPeculiaridade() {
-        const nome = this.elements.peculiaridadeInput.value.trim();
+        if (!this.elements.input) return;
         
+        const nome = this.elements.input.value.trim();
         if (!nome) {
-            this.showAlert('Digite um nome para a peculiaridade', 'warning');
+            alert('Digite um nome para a peculiaridade');
             return;
         }
         
         if (this.peculiaridades.length >= this.maxPeculiaridades) {
-            this.showAlert(`Limite de ${this.maxPeculiaridades} peculiaridades atingido! Adicione como "extra".`, 'error');
+            alert(`Limite de ${this.maxPeculiaridades} peculiaridades atingido!`);
             return;
         }
         
         const peculiaridade = {
-            id: Date.now() + Math.random(),
+            id: Date.now(),
             nome: nome,
             pontos: this.pontosPorPeculiaridade,
-            tipo: 'normal',
-            dataCriacao: new Date().toISOString()
+            tipo: 'normal'
         };
         
         this.peculiaridades.push(peculiaridade);
-        this.elements.peculiaridadeInput.value = '';
+        this.elements.input.value = '';
+        this.elements.input.focus();
         this.saveToStorage();
         this.render();
-        this.showAlert('Peculiaridade adicionada!', 'success');
     }
     
-    addPeculiaridadeExtra(nome) {
-        // Se nome não for fornecido, pedir ao usuário
-        if (!nome) {
-            nome = prompt('Digite o nome da peculiaridade extra:');
-            if (!nome?.trim()) return;
-        }
+    addPeculiaridadeExtra() {
+        const nome = prompt('Nome da peculiaridade extra:');
+        if (!nome || !nome.trim()) return;
         
         const peculiaridade = {
-            id: Date.now() + Math.random(),
+            id: Date.now(),
             nome: nome.trim(),
             pontos: this.pontosPorPeculiaridade,
-            tipo: 'extra',
-            dataCriacao: new Date().toISOString()
+            tipo: 'extra'
         };
         
         this.extras.push(peculiaridade);
         this.saveToStorage();
         this.render();
-        this.showAlert('Peculiaridade extra adicionada!', 'success');
-        return peculiaridade;
     }
     
     removePeculiaridade(id, tipo) {
@@ -107,17 +101,17 @@ class PeculiaridadesManager {
     }
     
     render() {
-        this.renderPeculiaridades();
+        this.renderList();
         this.renderExtras();
         this.updateStats();
-        this.updateUIState();
+        this.updateUI();
     }
     
-    renderPeculiaridades() {
-        const grid = this.elements.peculiaridadesGrid;
+    renderList() {
+        if (!this.elements.grid) return;
         
         if (this.peculiaridades.length === 0) {
-            grid.innerHTML = `
+            this.elements.grid.innerHTML = `
                 <div class="empty-message">
                     <i class="fas fa-user"></i>
                     <p>Nenhuma peculiaridade adicionada</p>
@@ -126,22 +120,19 @@ class PeculiaridadesManager {
             return;
         }
         
-        grid.innerHTML = this.peculiaridades.map(p => this.createItemHTML(p)).join('');
+        this.elements.grid.innerHTML = '';
         
-        // Adicionar eventos aos botões de remover
-        grid.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = e.currentTarget.dataset.id;
-                this.removePeculiaridade(id, 'normal');
-            });
+        this.peculiaridades.forEach(p => {
+            const item = this.createItemElement(p, 'normal');
+            this.elements.grid.appendChild(item);
         });
     }
     
     renderExtras() {
-        const grid = this.elements.peculiaridadesExtras;
+        if (!this.elements.extrasGrid) return;
         
         if (this.extras.length === 0) {
-            grid.innerHTML = `
+            this.elements.extrasGrid.innerHTML = `
                 <div class="empty-message">
                     <i class="fas fa-plus"></i>
                     <p>Adicione peculiaridades extras durante o jogo</p>
@@ -150,281 +141,119 @@ class PeculiaridadesManager {
             return;
         }
         
-        grid.innerHTML = this.extras.map(p => this.createItemHTML(p, true)).join('');
+        this.elements.extrasGrid.innerHTML = '';
         
-        // Adicionar eventos aos botões de remover
-        grid.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = e.currentTarget.dataset.id;
-                this.removePeculiaridade(id, 'extra');
-            });
+        this.extras.forEach(p => {
+            const item = this.createItemElement(p, 'extra');
+            this.elements.extrasGrid.appendChild(item);
         });
     }
     
-    createItemHTML(peculiaridade, isExtra = false) {
-        return `
-            <div class="peculiaridade-item ${isExtra ? 'extra' : ''}">
-                <span class="name">${peculiaridade.nome}</span>
-                <span class="cost">${peculiaridade.pontos} pts</span>
-                <button class="delete-btn" data-id="${peculiaridade.id}" title="Remover">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
+    createItemElement(peculiaridade, tipo) {
+        const div = document.createElement('div');
+        div.className = `peculiaridade-item ${tipo === 'extra' ? 'extra' : ''}`;
+        div.innerHTML = `
+            <span class="name">${peculiaridade.nome}</span>
+            <span class="cost">${peculiaridade.pontos} pts</span>
+            <button class="delete-btn" data-id="${peculiaridade.id}" data-tipo="${tipo}">
+                <i class="fas fa-times"></i>
+            </button>
         `;
+        
+        const deleteBtn = div.querySelector('.delete-btn');
+        deleteBtn.addEventListener('click', (e) => {
+            const id = parseFloat(e.currentTarget.dataset.id);
+            const tipo = e.currentTarget.dataset.tipo;
+            if (confirm('Remover esta peculiaridade?')) {
+                this.removePeculiaridade(id, tipo);
+            }
+        });
+        
+        return div;
     }
     
     updateStats() {
-        const totalPeculiaridades = this.peculiaridades.length;
+        const totalNormais = this.peculiaridades.length;
         const totalExtras = this.extras.length;
-        const totalPontos = (totalPeculiaridades + totalExtras) * this.pontosPorPeculiaridade;
+        const totalPontos = (totalNormais + totalExtras) * this.pontosPorPeculiaridade;
         
-        // Atualizar contadores
-        this.elements.peculiaridadesCount.textContent = totalPeculiaridades;
-        this.elements.peculiaridadesPoints.textContent = totalPontos;
-        
-        // Atualizar cabeçalho da lista
-        this.elements.listHeader.innerHTML = `
-            <i class="fas fa-list"></i> 
-            Peculiaridades (${totalPeculiaridades}/${this.maxPeculiaridades})
-        `;
-        
-        // Atualizar badge de pontos
-        this.elements.pontosCounter.textContent = `${totalPontos} pts`;
-    }
-    
-    updateUIState() {
-        const input = this.elements.peculiaridadeInput;
-        const btn = this.elements.btnAddPeculiaridade;
-        
-        // Desabilitar botão se atingiu o limite
-        if (this.peculiaridades.length >= this.maxPeculiaridades) {
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
-            btn.style.cursor = 'not-allowed';
-            input.placeholder = 'Limite atingido! Adicione como "extra"';
-        } else {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.style.cursor = 'pointer';
-            input.placeholder = 'Nome da peculiaridade...';
+        if (this.elements.count) {
+            this.elements.count.textContent = totalNormais;
         }
         
-        // Adicionar classe de warning se estiver perto do limite
-        const grid = this.elements.peculiaridadesGrid;
-        if (this.peculiaridades.length === this.maxPeculiaridades) {
-            grid.classList.add('limit-warning');
-            grid.classList.remove('limit-available');
-        } else if (this.peculiaridades.length >= this.maxPeculiaridades - 1) {
-            grid.classList.add('limit-warning');
-            grid.classList.remove('limit-available');
-        } else {
-            grid.classList.remove('limit-warning', 'limit-available');
+        if (this.elements.points) {
+            this.elements.points.textContent = totalPontos;
+        }
+        
+        if (this.elements.pontosBadge) {
+            this.elements.pontosBadge.textContent = `${totalPontos} pts`;
+        }
+        
+        if (this.elements.listHeader) {
+            this.elements.listHeader.innerHTML = `
+                <i class="fas fa-list"></i> 
+                Peculiaridades (${totalNormais}/${this.maxPeculiaridades})
+            `;
         }
     }
     
-    // Métodos de persistência
+    updateUI() {
+        if (!this.elements.input || !this.elements.btnAdd) return;
+        
+        const atLimit = this.peculiaridades.length >= this.maxPeculiaridades;
+        
+        this.elements.btnAdd.disabled = atLimit;
+        this.elements.btnAdd.style.opacity = atLimit ? '0.5' : '1';
+        this.elements.btnAdd.style.cursor = atLimit ? 'not-allowed' : 'pointer';
+        
+        if (atLimit) {
+            this.elements.input.placeholder = 'Limite atingido! Use "Extra"';
+            this.elements.grid?.classList.add('limit-warning');
+        } else {
+            this.elements.input.placeholder = 'Nome da peculiaridade...';
+            this.elements.grid?.classList.remove('limit-warning');
+        }
+    }
+    
     saveToStorage() {
         const data = {
             peculiaridades: this.peculiaridades,
-            extras: this.extras,
-            timestamp: new Date().toISOString()
+            extras: this.extras
         };
-        localStorage.setItem('peculiaridadesData', JSON.stringify(data));
+        localStorage.setItem('peculiaridades', JSON.stringify(data));
     }
     
     loadFromStorage() {
-        const saved = localStorage.getItem('peculiaridadesData');
-        if (saved) {
-            try {
-                const data = JSON.parse(saved);
+        try {
+            const data = JSON.parse(localStorage.getItem('peculiaridades'));
+            if (data) {
                 this.peculiaridades = data.peculiaridades || [];
                 this.extras = data.extras || [];
-            } catch (e) {
-                console.error('Erro ao carregar peculiaridades:', e);
             }
+        } catch (e) {
+            // Ignora erro
         }
-    }
-    
-    clearAll() {
-        if (confirm('Tem certeza que deseja remover TODAS as peculiaridades?')) {
-            this.peculiaridades = [];
-            this.extras = [];
-            this.saveToStorage();
-            this.render();
-            this.showAlert('Todas as peculiaridades foram removidas!', 'info');
-        }
-    }
-    
-    exportData() {
-        return {
-            peculiaridades: [...this.peculiaridades],
-            extras: [...this.extras],
-            totalPeculiaridades: this.peculiaridades.length,
-            totalExtras: this.extras.length,
-            totalPontos: (this.peculiaridades.length + this.extras.length) * this.pontosPorPeculiaridade
-        };
-    }
-    
-    importData(data) {
-        if (data.peculiaridades) {
-            this.peculiaridades = data.peculiaridades;
-        }
-        if (data.extras) {
-            this.extras = data.extras;
-        }
-        this.saveToStorage();
-        this.render();
-        this.showAlert('Dados importados com sucesso!', 'success');
-    }
-    
-    // Métodos utilitários
-    showAlert(message, type = 'info') {
-        // Remove alertas anteriores
-        const existingAlert = document.querySelector('.peculiaridade-alert');
-        if (existingAlert) existingAlert.remove();
-        
-        const colors = {
-            success: '#27ae60',
-            error: '#e74c3c',
-            warning: '#f39c12',
-            info: '#3498db'
-        };
-        
-        const alert = document.createElement('div');
-        alert.className = 'peculiaridade-alert';
-        alert.innerHTML = `
-            <span>${message}</span>
-            <button class="alert-close"><i class="fas fa-times"></i></button>
-        `;
-        
-        alert.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            background: ${colors[type]};
-            color: white;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 15px;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-            max-width: 400px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        `;
-        
-        const closeBtn = alert.querySelector('.alert-close');
-        closeBtn.style.cssText = `
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            padding: 5px;
-            font-size: 14px;
-        `;
-        
-        closeBtn.addEventListener('click', () => alert.remove());
-        
-        document.body.appendChild(alert);
-        
-        // Auto-remover após 3 segundos
-        setTimeout(() => {
-            if (alert.parentNode) {
-                alert.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => alert.remove(), 300);
-            }
-        }, 3000);
-    }
-    
-    // Método para adicionar peculiaridade durante teste de pânico
-    addPeculiaridadePorPanico(nome, descricao = '') {
-        const peculiaridade = this.addPeculiaridadeExtra(nome);
-        
-        if (peculiaridade && descricao) {
-            peculiaridade.descricao = descricao;
-            peculiaridade.origem = 'teste_panico';
-            peculiaridade.dataPanico = new Date().toISOString();
-        }
-        
-        return peculiaridade;
     }
 }
 
-// Inicialização global
 let peculiaridadesManager = null;
 
-// Inicializar quando a aba for carregada
 function initPeculiaridades() {
-    // Verificar se já está inicializado
     if (peculiaridadesManager) return peculiaridadesManager;
     
-    // Verificar se os elementos necessários existem
-    const container = document.getElementById('subtab-peculiaridades');
-    if (!container) {
-        console.warn('Container de peculiaridades não encontrado');
-        return null;
-    }
+    const tab = document.getElementById('subtab-peculiaridades');
+    if (!tab) return null;
     
-    // Inicializar o manager
+    if (!document.getElementById('peculiaridadeInput')) return null;
+    
     peculiaridadesManager = new PeculiaridadesManager();
-    
-    // Adicionar CSS para animações
-    if (!document.querySelector('#peculiaridades-animations')) {
-        const style = document.createElement('style');
-        style.id = 'peculiaridades-animations';
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            
-            @keyframes slideOut {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
-            
-            .peculiaridade-item {
-                transition: all 0.3s ease;
-            }
-            
-            .peculiaridade-item.removing {
-                opacity: 0;
-                transform: translateX(-20px);
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
     return peculiaridadesManager;
 }
 
-// Exportar para uso global (se necessário)
-if (typeof window !== 'undefined') {
-    window.PeculiaridadesManager = PeculiaridadesManager;
-    window.initPeculiaridades = initPeculiaridades;
-    window.peculiaridadesManager = null;
-}
-
-// Inicializar automaticamente quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', () => {
-    // Aguardar um pouco para garantir que tudo está carregado
-    setTimeout(() => {
-        if (document.getElementById('subtab-peculiaridades')) {
-            initPeculiaridades();
-        }
-    }, 100);
+    if (document.getElementById('subtab-peculiaridades')) {
+        setTimeout(initPeculiaridades, 100);
+    }
 });
+
+window.peculiaridadesManager = peculiaridadesManager;
