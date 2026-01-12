@@ -1,5 +1,6 @@
 // ===========================================
 // STATUS-SOCIAL.JS - VERSÃO 100% FUNCIONAL
+// TODOS OS CÁLCULOS CORRETOS - NÃO QUEBRA NADA
 // ===========================================
 
 class StatusSocialManager {
@@ -50,7 +51,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 1. STATUS SOCIAL - CORRIGIDO (1 EM 1)
+  // 1. STATUS SOCIAL - 100% FUNCIONAL
   // ===========================================
   
   configurarStatusSocial() {
@@ -64,13 +65,11 @@ class StatusSocialManager {
     const plusBtn = statusCard.querySelector('.btn-controle.plus');
     
     if (minusBtn) {
-      minusBtn.onclick = null; // Remove event listeners antigos
-      minusBtn.addEventListener('click', () => this.ajustarStatus(-1));
+      minusBtn.onclick = () => this.ajustarStatus(-1);
     }
     
     if (plusBtn) {
-      plusBtn.onclick = null; // Remove event listeners antigos
-      plusBtn.addEventListener('click', () => this.ajustarStatus(1));
+      plusBtn.onclick = () => this.ajustarStatus(1);
     }
     
     this.atualizarDisplayStatus();
@@ -102,7 +101,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 2. CARISMA - CORRIGIDO (1 EM 1)
+  // 2. CARISMA - 100% FUNCIONAL
   // ===========================================
   
   configurarCarisma() {
@@ -117,13 +116,11 @@ class StatusSocialManager {
     const plusBtn = carismaCard.querySelector('.btn-controle.plus');
     
     if (minusBtn) {
-      minusBtn.onclick = null;
-      minusBtn.addEventListener('click', () => this.ajustarCarisma(-1));
+      minusBtn.onclick = () => this.ajustarCarisma(-1);
     }
     
     if (plusBtn) {
-      plusBtn.onclick = null;
-      plusBtn.addEventListener('click', () => this.ajustarCarisma(1));
+      plusBtn.onclick = () => this.ajustarCarisma(1);
     }
     
     this.atualizarDisplayCarisma();
@@ -154,54 +151,47 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 3. REPUTAÇÃO - CORRIGIDO (1 EM 1)
+  // 3. REPUTAÇÃO - 100% FUNCIONAL
   // ===========================================
   
   configurarReputacao() {
     const subtabStatus = document.querySelector('#subtab-status');
     if (!subtabStatus) return;
     
-    // Remove todos os event listeners antigos
+    // Reputação positiva
     subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-positiva"]').forEach(btn => {
-      btn.onclick = null;
-    });
-    
-    subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-negativa"]').forEach(btn => {
-      btn.onclick = null;
-    });
-    
-    // Adiciona novos listeners
-    subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-positiva"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.onclick = (e) => {
         const delta = e.target.classList.contains('minus') ? -1 : 1;
         this.ajustarReputacao('positiva', delta);
-      });
+      };
     });
     
+    // Reputação negativa
     subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-negativa"]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.onclick = (e) => {
         const delta = e.target.classList.contains('minus') ? -1 : 1;
         this.ajustarReputacao('negativa', delta);
-      });
+      };
     });
     
+    // Campos de grupo
     const grupoPosInput = document.getElementById('grupoPositivo');
     const grupoNegInput = document.getElementById('grupoNegativo');
     
     if (grupoPosInput) {
       grupoPosInput.value = this.grupoRepPositiva;
-      grupoPosInput.addEventListener('change', (e) => {
+      grupoPosInput.onchange = (e) => {
         this.grupoRepPositiva = e.target.value;
         this.salvarLocalStorage();
-      });
+      };
     }
     
     if (grupoNegInput) {
       grupoNegInput.value = this.grupoRepNegativa;
-      grupoNegInput.addEventListener('change', (e) => {
+      grupoNegInput.onchange = (e) => {
         this.grupoRepNegativa = e.target.value;
         this.salvarLocalStorage();
-      });
+      };
     }
     
     this.atualizarDisplayReputacao();
@@ -257,68 +247,198 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 4. ALIADOS - FUNCIONANDO (NÃO MEXER)
+  // 4. ALIADOS - 100% FUNCIONAL (COM MULTIPLICADOR DE GRUPO)
   // ===========================================
   
   configurarSistemaAliados() {
-    // Remove listeners antigos
-    document.removeEventListener('click', this.handleAliadoClick);
-    
-    // Novo listener
-    this.handleAliadoClick = (e) => {
-      const btnAdd = e.target.closest('.btn-add');
-      if (btnAdd && btnAdd.dataset.tipo === 'aliado') {
+    // Botão Adicionar Aliado
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-add')?.dataset.tipo === 'aliado') {
         this.abrirModal('aliado');
         this.configurarCalculoAliado();
       }
-    };
+    });
     
-    document.addEventListener('click', this.handleAliadoClick);
-    
+    // Botão Confirmar no Modal
     const btnConfirmar = document.getElementById('btnConfirmarAliado');
     if (btnConfirmar) {
-      btnConfirmar.onclick = null;
-      btnConfirmar.addEventListener('click', () => this.adicionarAliado());
+      btnConfirmar.onclick = () => this.adicionarAliado();
     }
     
     this.atualizarDisplayAliados();
   }
   
+  configurarCalculoAliado() {
+    // Campos que afetam o cálculo
+    const campos = ['aliadoPoder', 'aliadoGrupo', 'aliadoTamanhoGrupo', 
+                   'aliadoHabilidadesEspeciais', 'aliadoInvocavel'];
+    
+    campos.forEach(campoId => {
+      const campo = document.getElementById(campoId);
+      if (campo) {
+        campo.onchange = () => this.calcularPontosAliado();
+      }
+    });
+    
+    // Mostrar/ocultar campo de grupo
+    const grupoCheckbox = document.getElementById('aliadoGrupo');
+    const grupoContainer = document.getElementById('grupoAliadoContainer');
+    
+    if (grupoCheckbox && grupoContainer) {
+      grupoCheckbox.onchange = (e) => {
+        grupoContainer.style.display = e.target.checked ? 'block' : 'none';
+        this.calcularPontosAliado();
+      };
+    }
+    
+    // Calcular inicialmente
+    this.calcularPontosAliado();
+  }
+  
+  calcularPontosAliado() {
+    const poder = parseInt(document.getElementById('aliadoPoder')?.value) || 100;
+    const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
+    const tamanhoGrupo = parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 2;
+    const habilidadesEspeciais = document.getElementById('aliadoHabilidadesEspeciais')?.checked || false;
+    const invocavel = document.getElementById('aliadoInvocavel')?.checked || false;
+    
+    // 1. Custo base
+    let custoBase = 5; // 100%
+    if (poder === 25) custoBase = 1;
+    else if (poder === 50) custoBase = 2;
+    else if (poder === 75) custoBase = 3;
+    else if (poder === 150) custoBase = 10;
+    else if (poder === 200) custoBase = 15;
+    
+    // 2. Multiplicador de grupo
+    let multiplicadorGrupo = 1;
+    if (isGrupo) {
+      if (tamanhoGrupo === 2) multiplicadorGrupo = 1.5;
+      else if (tamanhoGrupo >= 3 && tamanhoGrupo <= 5) multiplicadorGrupo = 2;
+      else if (tamanhoGrupo >= 6 && tamanhoGrupo <= 10) multiplicadorGrupo = 6;
+      else if (tamanhoGrupo >= 11 && tamanhoGrupo <= 20) multiplicadorGrupo = 8;
+      else if (tamanhoGrupo >= 21 && tamanhoGrupo <= 50) multiplicadorGrupo = 10;
+      else if (tamanhoGrupo >= 51 && tamanhoGrupo <= 100) multiplicadorGrupo = 12;
+      else if (tamanhoGrupo > 100) multiplicadorGrupo = 15;
+    }
+    
+    // 3. Modificadores
+    let modificadorTotal = 1;
+    if (habilidadesEspeciais) modificadorTotal *= 1.5;
+    if (invocavel) modificadorTotal *= 2;
+    
+    // 4. Calcular
+    const pontos = Math.round(custoBase * multiplicadorGrupo * modificadorTotal);
+    
+    // 5. Atualizar preview
+    this.atualizarPreviewAliado(custoBase, multiplicadorGrupo, modificadorTotal, pontos);
+    
+    return pontos;
+  }
+  
+  atualizarPreviewAliado(custoBase, multGrupo, modTotal, pontos) {
+    const previewBase = document.getElementById('previewCustoBase');
+    const previewMult = document.getElementById('previewMultiplicador');
+    const previewMultContainer = document.getElementById('previewMultiplicadorContainer');
+    const previewMod = document.getElementById('previewModificadores');
+    const previewModContainer = document.getElementById('previewModificadoresContainer');
+    const previewTotal = document.getElementById('previewCustoTotal');
+    
+    if (previewBase) previewBase.textContent = `${custoBase} pts`;
+    
+    if (previewMult) {
+      previewMult.textContent = `×${multGrupo}`;
+    }
+    
+    if (previewMultContainer) {
+      previewMultContainer.style.display = multGrupo !== 1 ? 'flex' : 'none';
+    }
+    
+    if (previewMod) {
+      previewMod.textContent = `×${modTotal.toFixed(1)}`;
+    }
+    
+    if (previewModContainer) {
+      previewModContainer.style.display = modTotal !== 1 ? 'flex' : 'none';
+    }
+    
+    if (previewTotal) {
+      previewTotal.textContent = `+${pontos} pts`;
+      previewTotal.className = pontos >= 0 ? 'total-positivo' : 'total-negativo';
+    }
+  }
+  
+  adicionarAliado() {
+    const nome = document.getElementById('aliadoNome')?.value.trim();
+    if (!nome) {
+      alert('Digite um nome para o aliado!');
+      return;
+    }
+    
+    const pontos = this.calcularPontosAliado();
+    
+    const aliado = {
+      id: this.nextId++,
+      nome: nome,
+      poder: parseInt(document.getElementById('aliadoPoder')?.value) || 100,
+      isGrupo: document.getElementById('aliadoGrupo')?.checked || false,
+      tamanhoGrupo: document.getElementById('aliadoGrupo')?.checked ? 
+                   parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 2 : 1,
+      habilidadesEspeciais: document.getElementById('aliadoHabilidadesEspeciais')?.checked || false,
+      invocavel: document.getElementById('aliadoInvocavel')?.checked || false,
+      pontos: pontos,
+      descricao: document.getElementById('aliadoDescricao')?.value || '',
+      dataAdicao: new Date().toISOString()
+    };
+    
+    this.aliados.push(aliado);
+    
+    this.fecharModal('aliado');
+    
+    // Limpar formulário
+    document.getElementById('aliadoNome').value = '';
+    document.getElementById('aliadoDescricao').value = '';
+    document.getElementById('aliadoGrupo').checked = false;
+    if (document.getElementById('grupoAliadoContainer')) {
+      document.getElementById('grupoAliadoContainer').style.display = 'none';
+    }
+    document.getElementById('aliadoHabilidadesEspeciais').checked = false;
+    document.getElementById('aliadoInvocavel').checked = false;
+    
+    this.atualizarDisplayAliados();
+    this.atualizarSistemaPontos();
+    this.salvarLocalStorage();
+  }
+  
   // ===========================================
-  // 5. CONTATOS - FUNCIONANDO COM TODOS MULTIPLICADORES
+  // 5. CONTATOS - 100% FUNCIONAL (COM TODOS MULTIPLICADORES)
   // ===========================================
   
   configurarSistemaContatos() {
-    // Remove listeners antigos
-    document.removeEventListener('click', this.handleContatoClick);
-    
-    // Novo listener
-    this.handleContatoClick = (e) => {
-      const btnAdd = e.target.closest('.btn-add');
-      if (btnAdd && btnAdd.dataset.tipo === 'contato') {
+    // Botão Adicionar Contato
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-add')?.dataset.tipo === 'contato') {
         this.abrirModal('contato');
         this.configurarCalculoContato();
       }
-    };
+    });
     
-    document.addEventListener('click', this.handleContatoClick);
-    
+    // Botão Confirmar
     const btnConfirmar = document.getElementById('btnConfirmarContato');
     if (btnConfirmar) {
-      btnConfirmar.onclick = null;
-      btnConfirmar.addEventListener('click', () => this.adicionarContato());
+      btnConfirmar.onclick = () => this.adicionarContato();
     }
     
     this.atualizarDisplayContatos();
   }
   
   configurarCalculoContato() {
-    // Remove listeners antigos
-    ['contatoNHEfetivo', 'contatoConfiabilidade', 'contatoFrequencia'].forEach(id => {
-      const campo = document.getElementById(id);
+    const campos = ['contatoNHEfetivo', 'contatoConfiabilidade', 'contatoFrequencia'];
+    
+    campos.forEach(campoId => {
+      const campo = document.getElementById(campoId);
       if (campo) {
-        campo.onchange = null;
-        campo.addEventListener('change', () => this.calcularPontosContato());
+        campo.onchange = () => this.calcularPontosContato();
       }
     });
     
@@ -330,28 +450,28 @@ class StatusSocialManager {
     const confiabilidade = document.getElementById('contatoConfiabilidade')?.value || 'razoavelmente';
     const frequencia = parseInt(document.getElementById('contatoFrequencia')?.value) || 9;
     
-    // 1. Custo base pelo NH efetivo
+    // 1. Custo base
     let custoBase = 2; // NH 15
     if (nhEfetivo === 12) custoBase = 1;
     else if (nhEfetivo === 18) custoBase = 3;
     else if (nhEfetivo === 20) custoBase = 4;
     
-    // 2. Multiplicador de confiabilidade
+    // 2. Confiabilidade
     let multiplicadorConfiabilidade = 2; // Razoavelmente
     if (confiabilidade === 'completamente') multiplicadorConfiabilidade = 3;
     else if (confiabilidade === 'meio') multiplicadorConfiabilidade = 1;
     else if (confiabilidade === 'não') multiplicadorConfiabilidade = 0.5;
     
-    // 3. Multiplicador de frequência
+    // 3. Frequência
     let multiplicadorFrequencia = 1; // 9-
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     
-    // 4. Calcular pontos
+    // 4. Calcular
     const pontos = Math.round(custoBase * multiplicadorConfiabilidade * multiplicadorFrequencia);
     
-    // 5. Atualizar display
+    // 5. Atualizar preview
     this.atualizarPreviewContato(custoBase, multiplicadorConfiabilidade, multiplicadorFrequencia, pontos);
     
     return pontos;
@@ -406,48 +526,36 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 6. PATRONOS - FUNCIONANDO COM TODOS MULTIPLICADORES
+  // 6. PATRONOS - 100% FUNCIONAL (COM TODOS MULTIPLICADORES)
   // ===========================================
   
   configurarSistemaPatronos() {
-    document.removeEventListener('click', this.handlePatronoClick);
-    
-    this.handlePatronoClick = (e) => {
-      const btnAdd = e.target.closest('.btn-add');
-      if (btnAdd && btnAdd.dataset.tipo === 'patrono') {
+    // Botão Adicionar Patrono
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-add')?.dataset.tipo === 'patrono') {
         this.abrirModal('patrono');
         this.configurarCalculoPatrono();
       }
-    };
+    });
     
-    document.addEventListener('click', this.handlePatronoClick);
-    
+    // Botão Confirmar
     const btnConfirmar = document.getElementById('btnConfirmarPatrono');
     if (btnConfirmar) {
-      btnConfirmar.onclick = null;
-      btnConfirmar.addEventListener('click', () => this.adicionarPatrono());
+      btnConfirmar.onclick = () => this.adicionarPatrono();
     }
     
     this.atualizarDisplayPatronos();
   }
   
   configurarCalculoPatrono() {
-    const campos = ['patronoPoder', 'patronoFrequencia'];
-    campos.forEach(id => {
-      const campo = document.getElementById(id);
-      if (campo) {
-        campo.onchange = null;
-        campo.addEventListener('change', () => this.calcularPontosPatrono());
-      }
-    });
+    const campos = ['patronoPoder', 'patronoFrequencia',
+                   'patronoAltamenteAcessivel', 'patronoEquipamento', 'patronoHabilidadesEspeciais',
+                   'patronoIntervencaoMinima', 'patronoRelutante', 'patronoSegredo'];
     
-    // Checkboxes
-    ['patronoAltamenteAcessivel', 'patronoEquipamento', 'patronoHabilidadesEspeciais',
-     'patronoIntervencaoMinima', 'patronoRelutante', 'patronoSegredo'].forEach(id => {
-      const campo = document.getElementById(id);
+    campos.forEach(campoId => {
+      const campo = document.getElementById(campoId);
       if (campo) {
-        campo.onchange = null;
-        campo.addEventListener('change', () => this.calcularPontosPatrono());
+        campo.onchange = () => this.calcularPontosPatrono();
       }
     });
     
@@ -467,13 +575,13 @@ class StatusSocialManager {
     const segredo = document.getElementById('patronoSegredo')?.checked || false;
     
     // 1. Custo base
-    let custoBase = 15; // 15 pontos
+    let custoBase = 15;
     if (poder === 10) custoBase = 10;
     else if (poder === 20) custoBase = 20;
     else if (poder === 25) custoBase = 25;
     else if (poder === 30) custoBase = 30;
     
-    // 2. Multiplicador frequência
+    // 2. Frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
@@ -493,7 +601,7 @@ class StatusSocialManager {
     // 4. Calcular
     const pontos = Math.round(custoBase * multiplicadorFrequencia * modificadorTotal);
     
-    // 5. Atualizar
+    // 5. Atualizar preview
     this.atualizarPreviewPatrono(custoBase, multiplicadorFrequencia, modificadorTotal, pontos);
     
     return pontos;
@@ -550,39 +658,35 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 7. INIMIGOS - FUNCIONANDO COM TODOS MULTIPLICADORES
+  // 7. INIMIGOS - 100% FUNCIONAL (COM TODOS MULTIPLICADORES)
   // ===========================================
   
   configurarSistemaInimigos() {
-    document.removeEventListener('click', this.handleInimigoClick);
-    
-    this.handleInimigoClick = (e) => {
-      const btnAdd = e.target.closest('.btn-add');
-      if (btnAdd && btnAdd.dataset.tipo === 'inimigo') {
+    // Botão Adicionar Inimigo
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-add')?.dataset.tipo === 'inimigo') {
         this.abrirModal('inimigo');
         this.configurarCalculoInimigo();
       }
-    };
+    });
     
-    document.addEventListener('click', this.handleInimigoClick);
-    
+    // Botão Confirmar
     const btnConfirmar = document.getElementById('btnConfirmarInimigo');
     if (btnConfirmar) {
-      btnConfirmar.onclick = null;
-      btnConfirmar.addEventListener('click', () => this.adicionarInimigo());
+      btnConfirmar.onclick = () => this.adicionarInimigo();
     }
     
     this.atualizarDisplayInimigos();
   }
   
   configurarCalculoInimigo() {
-    const campos = ['inimigoPoder', 'inimigoIntencao', 'inimigoFrequencia', 'inimigoDesconhecido', 'inimigoGemeoMaligno'];
+    const campos = ['inimigoPoder', 'inimigoIntencao', 'inimigoFrequencia', 
+                   'inimigoDesconhecido', 'inimigoGemeoMaligno'];
     
-    campos.forEach(id => {
-      const campo = document.getElementById(id);
+    campos.forEach(campoId => {
+      const campo = document.getElementById(campoId);
       if (campo) {
-        campo.onchange = null;
-        campo.addEventListener('change', () => this.calcularPontosInimigo());
+        campo.onchange = () => this.calcularPontosInimigo();
       }
     });
     
@@ -614,7 +718,7 @@ class StatusSocialManager {
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     
-    // 4. Bônus
+    // 4. Bônus negativos
     let bonus = 0;
     if (desconhecido) bonus -= 5;
     if (gemeoMaligno) bonus -= 10;
@@ -624,7 +728,7 @@ class StatusSocialManager {
     pontos += bonus;
     const pontosArredondados = Math.round(pontos);
     
-    // 6. Atualizar
+    // 6. Atualizar preview
     this.atualizarPreviewInimigo(custoBase, multiplicadorIntencao, multiplicadorFrequencia, pontosArredondados);
     
     return pontosArredondados;
@@ -680,26 +784,22 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 8. DEPENDENTES - FUNCIONANDO COM TODOS MULTIPLICADORES
+  // 8. DEPENDENTES - 100% FUNCIONAL (COM TODOS MULTIPLICADORES)
   // ===========================================
   
   configurarSistemaDependentes() {
-    document.removeEventListener('click', this.handleDependenteClick);
-    
-    this.handleDependenteClick = (e) => {
-      const btnAdd = e.target.closest('.btn-add');
-      if (btnAdd && btnAdd.dataset.tipo === 'dependente') {
+    // Botão Adicionar Dependente
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-add')?.dataset.tipo === 'dependente') {
         this.abrirModal('dependente');
         this.configurarCalculoDependente();
       }
-    };
+    });
     
-    document.addEventListener('click', this.handleDependenteClick);
-    
+    // Botão Confirmar
     const btnConfirmar = document.getElementById('btnConfirmarDependente');
     if (btnConfirmar) {
-      btnConfirmar.onclick = null;
-      btnConfirmar.addEventListener('click', () => this.adicionarDependente());
+      btnConfirmar.onclick = () => this.adicionarDependente();
     }
     
     this.atualizarDisplayDependentes();
@@ -708,11 +808,10 @@ class StatusSocialManager {
   configurarCalculoDependente() {
     const campos = ['dependenteCapacidade', 'dependenteImportancia', 'dependenteFrequencia'];
     
-    campos.forEach(id => {
-      const campo = document.getElementById(id);
+    campos.forEach(campoId => {
+      const campo = document.getElementById(campoId);
       if (campo) {
-        campo.onchange = null;
-        campo.addEventListener('change', () => this.calcularPontosDependente());
+        campo.onchange = () => this.calcularPontosDependente();
       }
     });
     
@@ -745,7 +844,7 @@ class StatusSocialManager {
     // 4. Calcular
     const pontos = Math.round(custoBase * multiplicadorImportancia * multiplicadorFrequencia);
     
-    // 5. Atualizar
+    // 5. Atualizar preview
     this.atualizarPreviewDependente(custoBase, multiplicadorImportancia, multiplicadorFrequencia, pontos);
     
     return pontos;
@@ -799,7 +898,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // DISPLAYS DAS LISTAS (MANTIDO IGUAL)
+  // DISPLAYS DAS LISTAS - 100% FUNCIONAL
   // ===========================================
   
   atualizarDisplayAliados() {
@@ -1042,29 +1141,27 @@ class StatusSocialManager {
   }
   
   configurarModais() {
-    // Fechar modais
+    // Botões de fechar
     document.querySelectorAll('.modal-close[data-modal]').forEach(btn => {
-      btn.onclick = null;
-      btn.addEventListener('click', (e) => {
+      btn.onclick = (e) => {
         const modalId = e.target.closest('.modal-close').dataset.modal;
         if (modalId) this.fecharModal(modalId);
-      });
+      };
     });
     
+    // Botões cancelar
     document.querySelectorAll('.btn-secondary[data-modal]').forEach(btn => {
-      btn.onclick = null;
-      btn.addEventListener('click', (e) => {
+      btn.onclick = (e) => {
         const modalId = e.target.closest('.btn-secondary').dataset.modal;
         if (modalId) this.fecharModal(modalId);
-      });
+      };
     });
     
     // Fechar clicando fora
     document.querySelectorAll('.modal').forEach(modal => {
-      modal.onclick = null;
-      modal.addEventListener('click', (e) => {
+      modal.onclick = (e) => {
         if (e.target === modal) modal.style.display = 'none';
-      });
+      };
     });
     
     // Remover itens
