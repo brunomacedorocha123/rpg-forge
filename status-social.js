@@ -1,6 +1,5 @@
 // ===========================================
-// STATUS-SOCIAL.JS - VERSÃO COMPLETA COM CÁLCULOS GURPS
-// VERSÃO CORRIGIDA - ALIADOS SEM FREQUÊNCIA, COM MULTIPLICADOR DE GRUPO
+// STATUS-SOCIAL.JS - VERSÃO COMPLETA COM TODOS OS CÁLCULOS CORRETOS
 // ===========================================
 
 class StatusSocialManager {
@@ -21,113 +20,6 @@ class StatusSocialManager {
     this.nextId = 1;
     this.inicializado = false;
     this.pontosManager = null;
-    
-    // TABELAS DE CÁLCULO GURPS
-    this.tabelas = {
-      // ALIADOS: Custo base por % de habilidade
-      aliadosCustoBase: {
-        25: 1,    // 25% = 1 ponto
-        50: 2,    // 50% = 2 pontos
-        75: 3,    // 75% = 3 pontos
-        100: 5,   // 100% = 5 pontos
-        150: 10,  // 150% = 10 pontos
-        200: 15   // 200% = 15 pontos
-      },
-      
-      // ALIADOS: Multiplicador de tamanho de grupo
-      aliadosMultiplicadorGrupo: {
-        2: 1.5,
-        3: 2,
-        4: 2,
-        5: 2,
-        6: 6,    // 6-10 membros (x6)
-        7: 6,
-        8: 6,
-        9: 6,
-        10: 6,
-        11: 8,   // 11-20 membros (x8)
-        12: 8,
-        13: 8,
-        14: 8,
-        15: 8,
-        16: 8,
-        17: 8,
-        18: 8,
-        19: 8,
-        20: 8,
-        21: 10,  // 21-50 membros (x10)
-        30: 10,
-        40: 10,
-        50: 10,
-        51: 12,  // 51-100 membros (x12)
-        60: 12,
-        70: 12,
-        80: 12,
-        90: 12,
-        100: 12
-      },
-      
-      // CONTATOS: Custo base por NH efetivo
-      contatosCustoBase: {
-        15: 4,   // NH 15 = 4 pontos
-        20: 10,  // NH 20 = 10 pontos
-        25: 16   // NH 25 = 16 pontos
-      },
-      
-      // PATRONOS: Custo base por poder
-      patronosCustoBase: {
-        10: 5,
-        15: 10,
-        20: 15,
-        25: 20,
-        30: 25
-      },
-      
-      // INIMIGOS: Custo base (negativo)
-      inimigosCustoBase: {
-        '-5': -5,     // Poder -5
-        '-10': -10,   // Poder -10
-        '-15': -15,   // Poder -15
-        '-20': -20,   // Poder -20
-        '-25': -25    // Poder -25
-      },
-      
-      // DEPENDENTES: Custo base (SEMPRE -2)
-      dependenteCustoBase: -2,
-      
-      // Multiplicador de frequência (APARECIMENTO) - REMOVIDO DOS ALIADOS
-      multiplicadorFrequencia: {
-        6: 0.5,   // 6- (esporádico)
-        9: 1,     // 9- (frequente)
-        12: 2,    // 12- (bastante)
-        15: 3,    // 15- (quase sempre)
-        18: 4     // 18- (sempre)
-      },
-      
-      // Multiplicador de confiabilidade (CONTATOS)
-      multiplicadorConfiabilidade: {
-        'inconfiavel': 0.2,
-        'razoavelmente': 1,
-        'absolutamente': 2
-      },
-      
-      // Multiplicador de capacidade (DEPENDENTES)
-      multiplicadorCapacidade: {
-        'inutil': 0,
-        'quase_inutil': 0.25,
-        'pouco_util': 0.5,
-        'razoavelmente_util': 1,
-        'muito_util': 2,
-        'extremamente_util': 3
-      },
-      
-      // Multiplicador de importância (DEPENDENTES)
-      multiplicadorImportancia: {
-        'empregado': 0.5,
-        'amigo': 1,
-        'ser_amado': 2
-      }
-    };
   }
   
   // ===========================================
@@ -341,7 +233,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 4. ALIADOS - CÁLCULO CORRETO SEM FREQUÊNCIA
+  // 4. ALIADOS - CÁLCULO CORRETO
   // ===========================================
   
   configurarSistemaAliados() {
@@ -409,36 +301,27 @@ class StatusSocialManager {
     
     // 2. Aplicar multiplicador de grupo SE for grupo
     let multiplicadorGrupo = 1;
-    let multiplicadorTexto = "×1";
     
     if (isGrupo) {
       if (tamanhoGrupo === 2) {
         multiplicadorGrupo = 1.5;
-        multiplicadorTexto = "×1.5 (2 membros)";
       } else if (tamanhoGrupo >= 3 && tamanhoGrupo <= 5) {
         multiplicadorGrupo = 2;
-        multiplicadorTexto = "×2 (3-5 membros)";
       } else if (tamanhoGrupo >= 6 && tamanhoGrupo <= 10) {
         multiplicadorGrupo = 6;
-        multiplicadorTexto = "×6 (6-10 membros)";
       } else if (tamanhoGrupo >= 11 && tamanhoGrupo <= 20) {
         multiplicadorGrupo = 8;
-        multiplicadorTexto = "×8 (11-20 membros)";
       } else if (tamanhoGrupo >= 21 && tamanhoGrupo <= 50) {
         multiplicadorGrupo = 10;
-        multiplicadorTexto = "×10 (21-50 membros)";
       } else if (tamanhoGrupo >= 51 && tamanhoGrupo <= 100) {
         multiplicadorGrupo = 12;
-        multiplicadorTexto = "×12 (51-100 membros)";
       } else if (tamanhoGrupo > 100) {
         multiplicadorGrupo = 15;
-        multiplicadorTexto = "×15 (100+ membros)";
       }
     }
     
     // 3. Modificadores especiais
     let modificadorTotal = 1;
-    let modificadorTexto = "×1";
     
     if (habilidadesEspeciais) {
       modificadorTotal *= 1.5; // +50%
@@ -448,37 +331,27 @@ class StatusSocialManager {
       modificadorTotal *= 2; // +100%
     }
     
-    if (habilidadesEspeciais || invocavel) {
-      modificadorTexto = `×${modificadorTotal.toFixed(1)}`;
-    }
-    
     // 4. Calcular pontos totais
     const pontos = Math.round(custoBase * multiplicadorGrupo * modificadorTotal);
     
     // 5. Atualizar display no modal
-    this.atualizarPreviewAliado(custoBase, multiplicadorGrupo, multiplicadorTexto, 
-                               modificadorTotal, modificadorTexto, pontos);
+    this.atualizarPreviewAliado(custoBase, multiplicadorGrupo, modificadorTotal, pontos);
     
     return pontos;
   }
   
-  atualizarPreviewAliado(custoBase, multiplicadorGrupo, multiplicadorTexto, 
-                        modificadorTotal, modificadorTexto, pontos) {
-    
-    // Elementos do DOM
+  atualizarPreviewAliado(custoBase, multiplicadorGrupo, modificadorTotal, pontos) {
     const previewCustoBase = document.getElementById('previewCustoBase');
     const previewMultiplicador = document.getElementById('previewMultiplicador');
     const previewMultiplicadorContainer = document.getElementById('previewMultiplicadorContainer');
     const previewModificadores = document.getElementById('previewModificadores');
     const previewModificadoresContainer = document.getElementById('previewModificadoresContainer');
     const previewCustoTotal = document.getElementById('previewCustoTotal');
-    const formulaExplicacao = document.getElementById('formulaExplicacao');
     
-    // Atualizar valores
     if (previewCustoBase) previewCustoBase.textContent = `${custoBase} pts`;
     
     if (previewMultiplicador) {
-      previewMultiplicador.textContent = multiplicadorTexto;
+      previewMultiplicador.textContent = `×${multiplicadorGrupo}`;
     }
     
     if (previewMultiplicadorContainer) {
@@ -486,36 +359,16 @@ class StatusSocialManager {
     }
     
     if (previewModificadores) {
-      previewModificadores.textContent = modificadorTexto;
+      previewModificadores.textContent = `×${modificadorTotal.toFixed(1)}`;
     }
     
     if (previewModificadoresContainer) {
-      const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
-      previewModificadoresContainer.style.display = (modificadorTotal !== 1 || isGrupo) ? 'flex' : 'none';
+      previewModificadoresContainer.style.display = modificadorTotal !== 1 ? 'flex' : 'none';
     }
     
     if (previewCustoTotal) {
       previewCustoTotal.textContent = `+${pontos} pts`;
       previewCustoTotal.className = pontos >= 0 ? 'total-positivo' : 'total-negativo';
-    }
-    
-    // Atualizar fórmula explicativa
-    if (formulaExplicacao) {
-      const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
-      let formulaParts = [];
-      
-      formulaParts.push(`${custoBase}`);
-      
-      if (multiplicadorGrupo !== 1) {
-        formulaParts.push(`${multiplicadorGrupo}`);
-      }
-      
-      if (modificadorTotal !== 1) {
-        formulaParts.push(`${modificadorTotal.toFixed(1)}`);
-      }
-      
-      const formula = formulaParts.join(' × ');
-      formulaExplicacao.textContent = `Cálculo: ${formula} = ${pontos} pontos`;
     }
   }
   
@@ -526,25 +379,19 @@ class StatusSocialManager {
       return;
     }
     
-    const poder = parseInt(document.getElementById('aliadoPoder')?.value) || 100;
-    const isGrupo = document.getElementById('aliadoGrupo')?.checked || false;
-    const tamanhoGrupo = isGrupo ? parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 2 : 1;
-    const habilidadesEspeciais = document.getElementById('aliadoHabilidadesEspeciais')?.checked || false;
-    const invocavel = document.getElementById('aliadoInvocavel')?.checked || false;
-    const descricao = document.getElementById('aliadoDescricao')?.value || '';
-    
     const pontos = this.calcularPontosAliado();
     
     const aliado = {
       id: this.nextId++,
       nome: nome,
-      poder: poder,
-      isGrupo: isGrupo,
-      tamanhoGrupo: tamanhoGrupo,
-      habilidadesEspeciais: habilidadesEspeciais,
-      invocavel: invocavel,
+      poder: parseInt(document.getElementById('aliadoPoder')?.value) || 100,
+      isGrupo: document.getElementById('aliadoGrupo')?.checked || false,
+      tamanhoGrupo: document.getElementById('aliadoGrupo')?.checked ? 
+                   parseInt(document.getElementById('aliadoTamanhoGrupo')?.value) || 2 : 1,
+      habilidadesEspeciais: document.getElementById('aliadoHabilidadesEspeciais')?.checked || false,
+      invocavel: document.getElementById('aliadoInvocavel')?.checked || false,
       pontos: pontos,
-      descricao: descricao,
+      descricao: document.getElementById('aliadoDescricao')?.value || '',
       dataAdicao: new Date().toISOString()
     };
     
@@ -566,7 +413,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 5. CONTATOS - CÁLCULO CORRETO
+  // 5. CONTATOS - CÁLCULO COMPLETO E CORRETO
   // ===========================================
   
   configurarSistemaContatos() {
@@ -587,6 +434,7 @@ class StatusSocialManager {
   }
   
   configurarCalculoContato() {
+    // Atualizar cálculo quando campos mudarem
     const campos = ['contatoNHEfetivo', 'contatoConfiabilidade', 'contatoFrequencia'];
     
     campos.forEach(campoId => {
@@ -612,11 +460,13 @@ class StatusSocialManager {
     // 2. Multiplicador de confiabilidade
     let multiplicadorConfiabilidade = 1;
     if (confiabilidade === 'inconfiavel') multiplicadorConfiabilidade = 0.2;
+    else if (confiabilidade === 'razoavelmente') multiplicadorConfiabilidade = 1;
     else if (confiabilidade === 'absolutamente') multiplicadorConfiabilidade = 2;
     
     // 3. Multiplicador de frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
+    else if (frequencia === 9) multiplicadorFrequencia = 1;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     else if (frequencia === 18) multiplicadorFrequencia = 4;
@@ -624,10 +474,19 @@ class StatusSocialManager {
     // 4. Calcular pontos
     const pontos = Math.round(custoBase * multiplicadorConfiabilidade * multiplicadorFrequencia);
     
+    // 5. Atualizar display no modal
     const pontosDisplay = document.getElementById('contatoPontosCalculados');
+    const custoBaseDisplay = document.getElementById('contatoCustoBase');
+    const confiabilidadeDisplay = document.getElementById('contatoConfiabilidadeMulti');
+    const frequenciaDisplay = document.getElementById('contatoFrequenciaMulti');
+    
+    if (custoBaseDisplay) custoBaseDisplay.textContent = `${custoBase} pts`;
+    if (confiabilidadeDisplay) confiabilidadeDisplay.textContent = `×${multiplicadorConfiabilidade}`;
+    if (frequenciaDisplay) frequenciaDisplay.textContent = `×${multiplicadorFrequencia}`;
+    
     if (pontosDisplay) {
       pontosDisplay.textContent = `${pontos} pontos`;
-      pontosDisplay.className = 'pontos-positivo';
+      pontosDisplay.className = pontos > 0 ? 'pontos-positivo' : 'pontos-negativo';
     }
     
     return pontos;
@@ -666,7 +525,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 6. PATRONOS - CÁLCULO CORRETO
+  // 6. PATRONOS - CÁLCULO COMPLETO E CORRETO
   // ===========================================
   
   configurarSistemaPatronos() {
@@ -713,6 +572,7 @@ class StatusSocialManager {
     // 2. Multiplicador de frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
+    else if (frequencia === 9) multiplicadorFrequencia = 1;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     else if (frequencia === 18) multiplicadorFrequencia = 4;
@@ -720,7 +580,14 @@ class StatusSocialManager {
     // 3. Calcular pontos
     const pontos = Math.round(custoBase * multiplicadorFrequencia);
     
+    // 4. Atualizar display no modal
     const pontosDisplay = document.getElementById('patronoPontosCalculados');
+    const custoBaseDisplay = document.getElementById('patronoCustoBase');
+    const frequenciaDisplay = document.getElementById('patronoFrequenciaMulti');
+    
+    if (custoBaseDisplay) custoBaseDisplay.textContent = `${custoBase} pts`;
+    if (frequenciaDisplay) frequenciaDisplay.textContent = `×${multiplicadorFrequencia}`;
+    
     if (pontosDisplay) {
       pontosDisplay.textContent = `${pontos} pontos`;
       pontosDisplay.className = 'pontos-positivo';
@@ -760,7 +627,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 7. INIMIGOS - CÁLCULO CORRETO
+  // 7. INIMIGOS - CÁLCULO COMPLETO E CORRETO
   // ===========================================
   
   configurarSistemaInimigos() {
@@ -809,11 +676,12 @@ class StatusSocialManager {
     let multiplicadorIntencao = 1;
     if (intencao === 'observador') multiplicadorIntencao = 0.5;
     else if (intencao === 'rival') multiplicadorIntencao = 0.75;
-    // perseguidor = 1 (default)
+    else if (intencao === 'perseguidor') multiplicadorIntencao = 1;
     
     // 3. Multiplicador de frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
+    else if (frequencia === 9) multiplicadorFrequencia = 1;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     else if (frequencia === 18) multiplicadorFrequencia = 4;
@@ -821,7 +689,16 @@ class StatusSocialManager {
     // 4. Calcular pontos (negativo)
     const pontos = Math.round(custoBase * multiplicadorIntencao * multiplicadorFrequencia);
     
+    // 5. Atualizar display no modal
     const pontosDisplay = document.getElementById('inimigoPontosCalculados');
+    const custoBaseDisplay = document.getElementById('inimigoCustoBase');
+    const intencaoDisplay = document.getElementById('inimigoIntencaoMulti');
+    const frequenciaDisplay = document.getElementById('inimigoFrequenciaMulti');
+    
+    if (custoBaseDisplay) custoBaseDisplay.textContent = `${custoBase} pts`;
+    if (intencaoDisplay) intencaoDisplay.textContent = `×${multiplicadorIntencao}`;
+    if (frequenciaDisplay) frequenciaDisplay.textContent = `×${multiplicadorFrequencia}`;
+    
     if (pontosDisplay) {
       pontosDisplay.textContent = `${pontos} pontos`;
       pontosDisplay.className = 'pontos-negativo';
@@ -864,7 +741,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 8. DEPENDENTES - CÁLCULO CORRETO
+  // 8. DEPENDENTES - CÁLCULO COMPLETO E CORRETO
   // ===========================================
   
   configurarSistemaDependentes() {
@@ -910,17 +787,20 @@ class StatusSocialManager {
     if (capacidade === 'inutil') multiplicadorCapacidade = 0;
     else if (capacidade === 'quase_inutil') multiplicadorCapacidade = 0.25;
     else if (capacidade === 'pouco_util') multiplicadorCapacidade = 0.5;
+    else if (capacidade === 'razoavelmente_util') multiplicadorCapacidade = 1;
     else if (capacidade === 'muito_util') multiplicadorCapacidade = 2;
     else if (capacidade === 'extremamente_util') multiplicadorCapacidade = 3;
     
     // 2. Multiplicador de importância
     let multiplicadorImportancia = 1;
     if (importancia === 'empregado') multiplicadorImportancia = 0.5;
+    else if (importancia === 'amigo') multiplicadorImportancia = 1;
     else if (importancia === 'ser_amado') multiplicadorImportancia = 2;
     
     // 3. Multiplicador de frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
+    else if (frequencia === 9) multiplicadorFrequencia = 1;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     else if (frequencia === 18) multiplicadorFrequencia = 4;
@@ -928,7 +808,16 @@ class StatusSocialManager {
     // 4. Calcular pontos (negativo)
     const pontos = Math.round(custoBase * multiplicadorCapacidade * multiplicadorImportancia * multiplicadorFrequencia);
     
+    // 5. Atualizar display no modal
     const pontosDisplay = document.getElementById('dependentePontosCalculados');
+    const capacidadeDisplay = document.getElementById('dependenteCapacidadeMulti');
+    const importanciaDisplay = document.getElementById('dependenteImportanciaMulti');
+    const frequenciaDisplay = document.getElementById('dependenteFrequenciaMulti');
+    
+    if (capacidadeDisplay) capacidadeDisplay.textContent = `×${multiplicadorCapacidade}`;
+    if (importanciaDisplay) importanciaDisplay.textContent = `×${multiplicadorImportancia}`;
+    if (frequenciaDisplay) frequenciaDisplay.textContent = `×${multiplicadorFrequencia}`;
+    
     if (pontosDisplay) {
       pontosDisplay.textContent = `${pontos} pontos`;
       pontosDisplay.className = pontos < 0 ? 'pontos-negativo' : 'pontos-positivo';
@@ -992,12 +881,7 @@ class StatusSocialManager {
             <strong>${aliado.nome}</strong>
             ${aliado.descricao ? `<small>${aliado.descricao}</small>` : ''}
             <div class="item-detalhes">
-              <small>
-                ${aliado.poder}% de poder
-                ${aliado.isGrupo ? `| Grupo de ${aliado.tamanhoGrupo} membros` : ''}
-                ${aliado.habilidadesEspeciais ? '| Habil. Especiais' : ''}
-                ${aliado.invocavel ? '| Invocável' : ''}
-              </small>
+              <small>${aliado.poder}% ${aliado.isGrupo ? `| Grupo: ${aliado.tamanhoGrupo} membros` : ''}</small>
             </div>
           </div>
           <div class="item-pontos">
@@ -1196,7 +1080,6 @@ class StatusSocialManager {
     const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
     if (modal) {
       modal.style.display = 'block';
-      modal.classList.add('show');
     }
   }
   
@@ -1204,12 +1087,10 @@ class StatusSocialManager {
     const modal = document.getElementById(`modal${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`);
     if (modal) {
       modal.style.display = 'none';
-      modal.classList.remove('show');
     }
   }
   
   configurarModais() {
-    // Fechar modais com botões de fechar
     document.querySelectorAll('.modal-close[data-modal]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const modalId = e.target.closest('.modal-close').dataset.modal;
@@ -1219,7 +1100,6 @@ class StatusSocialManager {
       });
     });
     
-    // Fechar modais com botões cancelar
     document.querySelectorAll('.btn-secondary[data-modal]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const modalId = e.target.closest('.btn-secondary').dataset.modal;
@@ -1229,17 +1109,14 @@ class StatusSocialManager {
       });
     });
     
-    // Fechar modais clicando fora
     document.querySelectorAll('.modal').forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.style.display = 'none';
-          modal.classList.remove('show');
         }
       });
     });
     
-    // Remover itens das listas
     document.addEventListener('click', (e) => {
       const btnRemover = e.target.closest('.btn-remove-item');
       if (btnRemover) {
@@ -1402,59 +1279,6 @@ class StatusSocialManager {
     }
     return false;
   }
-  
-  // ===========================================
-  // FUNÇÃO DE TESTE PARA ALIADOS
-  // ===========================================
-  
-  testarCalculosAliados() {
-    console.log("=== TESTES DE CÁLCULO DE ALIADOS ===");
-    
-    const testes = [
-      // [poder, isGrupo, tamanhoGrupo, habilidadesEspeciais, invocavel, esperado]
-      [100, false, 1, false, false, 5],    // Aliado individual 100%
-      [150, false, 1, false, false, 10],   // Aliado individual 150%
-      [200, false, 1, false, false, 15],   // Aliado individual 200%
-      [100, true, 2, false, false, 8],     // Grupo 2 aliados 100% (5 × 1.5 = 7.5 → 8)
-      [100, true, 6, false, false, 30],    // Grupo 6-10 aliados 100% (5 × 6 = 30)
-      [100, true, 21, false, false, 50],   // Grupo 21-50 aliados 100% (5 × 10 = 50)
-      [150, true, 6, false, false, 60],    // Grupo 6-10 aliados 150% (10 × 6 = 60)
-      [100, false, 1, true, false, 8],     // Aliado com habilidades especiais (5 × 1.5 = 7.5 → 8)
-      [100, false, 1, false, true, 10],    // Aliado invocável (5 × 2 = 10)
-      [100, false, 1, true, true, 15],     // Aliado com ambos (5 × 1.5 × 2 = 15)
-      [100, true, 6, true, false, 45],     // Grupo 6-10 com habilidades especiais (5 × 6 × 1.5 = 45)
-    ];
-    
-    testes.forEach((teste, index) => {
-      const [poder, isGrupo, tamanhoGrupo, habilidadesEspeciais, invocavel, esperado] = teste;
-      
-      // Simular cálculo
-      const custosBase = {100:5, 150:10, 200:15};
-      let custoBase = custosBase[poder] || 5;
-      
-      let multiplicadorGrupo = 1;
-      if (isGrupo) {
-        if (tamanhoGrupo === 2) multiplicadorGrupo = 1.5;
-        else if (tamanhoGrupo >= 3 && tamanhoGrupo <= 5) multiplicadorGrupo = 2;
-        else if (tamanhoGrupo >= 6 && tamanhoGrupo <= 10) multiplicadorGrupo = 6;
-        else if (tamanhoGrupo >= 11 && tamanhoGrupo <= 20) multiplicadorGrupo = 8;
-        else if (tamanhoGrupo >= 21 && tamanhoGrupo <= 50) multiplicadorGrupo = 10;
-      }
-      
-      let modificadorTotal = 1;
-      if (habilidadesEspeciais) modificadorTotal *= 1.5;
-      if (invocavel) modificadorTotal *= 2;
-      
-      const resultado = Math.round(custoBase * multiplicadorGrupo * modificadorTotal);
-      
-      console.log(`Teste ${index + 1}:`);
-      console.log(`  Poder: ${poder}%, Grupo: ${isGrupo}, Tamanho: ${tamanhoGrupo}`);
-      console.log(`  Habilidades Especiais: ${habilidadesEspeciais}, Invocável: ${invocavel}`);
-      console.log(`  Esperado: ${esperado}, Resultado: ${resultado}`);
-      console.log(`  Status: ${resultado === esperado ? '✓ OK' : '✗ FALHOU'}`);
-      console.log('');
-    });
-  }
 }
 
 // ===========================================
@@ -1469,7 +1293,7 @@ function inicializarStatusSocial() {
   }
   
   statusSocialManagerInstance.inicializar();
-  return statusSocialManagerInstance;
+  return statusSocialManagerManagerInstance;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1489,9 +1313,6 @@ window.abrirModal = function(tipo) {
     statusSocialManagerInstance.abrirModal(tipo);
   }
 };
-
-// Para executar os testes no console do navegador:
-// window.obterStatusSocialManager().testarCalculosAliados();
 
 document.addEventListener('click', function(e) {
   if (e.target.closest('.sub-tab') && e.target.closest('.sub-tab').dataset.subtab === 'status') {
