@@ -1,30 +1,36 @@
 /* ===========================================
   DESVANTAGENS MANAGER - VERSÃO COMPLETA
-  ESTRUTURA IDÊNTICA ÀS VANTAGENS
+  TODOS OS BOTÕES FUNCIONANDO
 =========================================== */
+
 class DesvantagensManager {
     constructor() {
         this.desvantagensAdquiridas = JSON.parse(localStorage.getItem('desvantagensAdquiridas')) || [];
-        this.catalogo = catalogoDesvantagens;
+        this.catalogo = window.catalogoDesvantagens || catalogoDesvantagens;
         this.filtroAtual = 'todas';
         this.buscaAtual = '';
         this.desvantagemEditando = null;
+        
+        console.log('DesvantagensManager inicializado com', this.catalogo.length, 'desvantagens');
         
         this.init();
     }
     
     init() {
+        this.setupEventListeners();
         this.carregarCatalogo();
         this.carregarAdquiridas();
-        this.setupEventListeners();
         this.atualizarResumo();
-        this.integrarComPontosManager();
     }
     
     carregarCatalogo() {
         const container = document.getElementById('listaCatalogoDesvantagens');
-        if (!container) return;
+        if (!container) {
+            console.error('Container do catálogo não encontrado!');
+            return;
+        }
         
+        // Aplicar filtros
         let desvantagensFiltradas = this.catalogo;
         
         if (this.filtroAtual !== 'todas') {
@@ -39,6 +45,7 @@ class DesvantagensManager {
             );
         }
         
+        // Verificar se há resultados
         if (desvantagensFiltradas.length === 0) {
             container.innerHTML = `
                 <div class="catalogo-loading">
@@ -47,10 +54,14 @@ class DesvantagensManager {
                     <small>Tente outro filtro ou termo de busca</small>
                 </div>
             `;
-            document.getElementById('contadorDesvantagens').textContent = '0';
+            
+            const contador = document.getElementById('contadorDesvantagens');
+            if (contador) contador.textContent = '0';
+            
             return;
         }
         
+        // Gerar HTML
         let html = '';
         
         desvantagensFiltradas.forEach(desvantagem => {
@@ -68,21 +79,21 @@ class DesvantagensManager {
                         </div>
                     </div>
                     
-                    <p class="vantagem-descricao">${desvantagem.descricao}</p>
+                    <p class="vantagem-descricao">${desvantagem.descricao.substring(0, 150)}${desvantagem.descricao.length > 150 ? '...' : ''}</p>
                     
                     <div class="vantagem-footer">
                         <span class="vantagem-tipo">${tipoTexto}</span>
                         
                         ${jaAdquirida ? 
                             `<div class="vantagem-adquirida-acoes">
-                                <button class="btn-editar" title="Editar configuração">
+                                <button class="btn-editar" title="Editar configuração" data-id="${desvantagem.id}">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn-excluir" title="Remover desvantagem">
+                                <button class="btn-excluir" title="Remover desvantagem" data-id="${desvantagem.id}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>` : 
-                            `<button class="btn-vantagem desvantagem btn-adicionar-desvantagem">
+                            `<button class="btn-vantagem desvantagem btn-adicionar-desvantagem" data-id="${desvantagem.id}">
                                 <i class="fas fa-plus"></i> Adicionar
                             </button>`
                         }
@@ -93,50 +104,413 @@ class DesvantagensManager {
         
         container.innerHTML = html;
         
-        // Configurar eventos para os itens do catálogo
-        container.querySelectorAll('.vantagem-item').forEach(item => {
-            const id = parseInt(item.dataset.id);
-            const desvantagem = this.catalogo.find(d => d.id === id);
-            if (!desvantagem) return;
-            
-            // Clique no item para mostrar detalhes
-            item.addEventListener('click', (e) => {
-                if (!e.target.closest('.btn-editar') && 
-                    !e.target.closest('.btn-excluir') && 
-                    !e.target.closest('.btn-adicionar-desvantagem')) {
-                    this.mostrarDetalhes(desvantagem);
+        // Configurar eventos dos botões
+        this.configurarEventosCatalogo();
+        
+        // Atualizar contador
+        const contador = document.getElementById('contadorDesvantagens');
+        if (contador) contador.textContent = desvantagensFiltradas.length;
+    }
+    
+    configurarEventosCatalogo() {
+        const container = document.getElementById('listaCatalogoDesvantagens');
+        if (!container) return;
+        
+        // Botões Adicionar
+        container.querySelectorAll('.btn-adicionar-desvantagem').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                const desvantagem = this.catalogo.find(d => d.id === id);
+                if (desvantagem) {
+                    this.abrirModalDesvantagem(desvantagem);
                 }
             });
-            
-            // Botão Adicionar
-            const btnAdicionar = item.querySelector('.btn-adicionar-desvantagem');
-            if (btnAdicionar) {
-                btnAdicionar.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.abrirModalDesvantagem(desvantagem);
-                });
-            }
-            
-            // Botão Editar
-            const btnEditar = item.querySelector('.btn-editar');
-            if (btnEditar) {
-                btnEditar.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.abrirModalDesvantagem(desvantagem, true);
-                });
-            }
-            
-            // Botão Excluir
-            const btnExcluir = item.querySelector('.btn-excluir');
-            if (btnExcluir) {
-                btnExcluir.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.removerDesvantagem(id);
-                });
-            }
         });
         
-        document.getElementById('contadorDesvantagens').textContent = desvantagensFiltradas.length;
+        // Botões Editar
+        container.querySelectorAll('.btn-editar').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                const desvantagem = this.catalogo.find(d => d.id === id);
+                if (desvantagem) {
+                    this.abrirModalDesvantagem(desvantagem, true);
+                }
+            });
+        });
+        
+        // Botões Excluir
+        container.querySelectorAll('.btn-excluir').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                this.removerDesvantagem(id);
+            });
+        });
+        
+        // Clicar no item para ver detalhes
+        container.querySelectorAll('.vantagem-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (!e.target.closest('button')) {
+                    const id = parseInt(item.dataset.id);
+                    const desvantagem = this.catalogo.find(d => d.id === id);
+                    if (desvantagem) {
+                        this.mostrarDetalhes(desvantagem);
+                    }
+                }
+            });
+        });
+    }
+    
+    abrirModalDesvantagem(desvantagem, editando = false) {
+        console.log('Abrindo modal para:', desvantagem.nome, 'editando:', editando);
+        
+        this.desvantagemEditando = editando ? this.desvantagensAdquiridas.find(d => d.id === desvantagem.id) : null;
+        
+        const modal = document.getElementById('modalDesvantagem');
+        const titulo = document.getElementById('modalTituloDesvantagem');
+        const corpo = document.getElementById('modalCorpoDesvantagem');
+        const btnAdicionar = document.getElementById('btnAdicionarDesvantagem');
+        
+        if (!modal || !titulo || !corpo || !btnAdicionar) {
+            console.error('Elementos do modal não encontrados!');
+            return;
+        }
+        
+        // Configurar título e botão
+        titulo.textContent = desvantagem.nome;
+        btnAdicionar.textContent = editando ? 'Atualizar' : 'Adicionar';
+        btnAdicionar.style.display = 'block';
+        
+        // Gerar conteúdo baseado no tipo
+        let conteudo = '';
+        
+        switch(desvantagem.tipo) {
+            case 'simples':
+                conteudo = this.criarModalSimples(desvantagem);
+                break;
+                
+            case 'opcoes':
+                conteudo = this.criarModalOpcoes(desvantagem);
+                break;
+                
+            case 'selecao_multipla':
+                conteudo = this.criarModalSelecaoMultipla(desvantagem);
+                break;
+                
+            default:
+                conteudo = this.criarModalSimples(desvantagem);
+        }
+        
+        corpo.innerHTML = conteudo;
+        
+        // Configurar eventos do modal
+        this.configurarEventosModal(desvantagem);
+        
+        // Carregar configuração existente se estiver editando
+        if (editando && this.desvantagemEditando) {
+            this.carregarConfiguracaoExistente(desvantagem);
+        }
+        
+        // Mostrar modal
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Atualizar custo inicial
+        setTimeout(() => {
+            this.atualizarCustoModal(desvantagem);
+        }, 50);
+    }
+    
+    criarModalSimples(desvantagem) {
+        return `
+            <div class="modal-descricao">
+                <p>${desvantagem.descricao}</p>
+            </div>
+            <div class="custo-total">
+                <h4>Custo Total:</h4>
+                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.custoBase} pontos</div>
+            </div>
+        `;
+    }
+    
+    criarModalOpcoes(desvantagem) {
+        let opcoesHTML = '';
+        
+        if (desvantagem.opcoes && desvantagem.opcoes.length > 0) {
+            opcoesHTML = '<div class="modal-secao"><h4><i class="fas fa-list"></i> Selecione a opção:</h4><div class="opcoes-lista">';
+            
+            desvantagem.opcoes.forEach((opcao, index) => {
+                opcoesHTML += `
+                    <label class="opcao-radio">
+                        <input type="radio" name="opcao" value="${opcao.id}" data-custo="${opcao.custo}" ${index === 0 ? 'checked' : ''}>
+                        <div class="opcao-conteudo">
+                            <span class="opcao-nome">${opcao.nome}</span>
+                            <span class="opcao-custo texto-negativo">${opcao.custo} pts</span>
+                        </div>
+                    </label>
+                `;
+            });
+            
+            opcoesHTML += '</div></div>';
+        }
+        
+        return `
+            <div class="modal-descricao">
+                <p>${desvantagem.descricao}</p>
+            </div>
+            ${opcoesHTML}
+            <div class="custo-total">
+                <h4>Custo Total:</h4>
+                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.opcoes[0].custo} pontos</div>
+            </div>
+        `;
+    }
+    
+    criarModalSelecaoMultipla(desvantagem) {
+        let opcoesHTML = '';
+        
+        if (desvantagem.opcoes && desvantagem.opcoes.length > 0) {
+            opcoesHTML = '<div class="modal-secao"><h4><i class="fas fa-list-check"></i> Selecione uma ou mais fobias:</h4><div class="selecao-multipla-lista">';
+            
+            desvantagem.opcoes.forEach((opcao) => {
+                opcoesHTML += `
+                    <label class="opcao-checkbox">
+                        <input type="checkbox" name="fobia" value="${opcao.id}" data-custo="${opcao.custo}">
+                        <div class="opcao-conteudo">
+                            <span class="opcao-nome">${opcao.nome}</span>
+                            <span class="opcao-custo texto-negativo">${opcao.custo} pts</span>
+                        </div>
+                    </label>
+                `;
+            });
+            
+            opcoesHTML += '</div><p class="info-selecao"><small>Marque todas as fobias que o personagem possui</small></p></div>';
+        }
+        
+        return `
+            <div class="modal-descricao">
+                <p>${desvantagem.descricao}</p>
+            </div>
+            ${opcoesHTML}
+            <div class="custo-total">
+                <h4>Custo Total:</h4>
+                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">0 pontos</div>
+            </div>
+        `;
+    }
+    
+    configurarEventosModal(desvantagem) {
+        const btnAdicionar = document.getElementById('btnAdicionarDesvantagem');
+        const modal = document.getElementById('modalDesvantagem');
+        
+        if (!btnAdicionar || !modal) return;
+        
+        // Configurar botão Adicionar/Atualizar
+        btnAdicionar.onclick = () => {
+            this.salvarDesvantagem(desvantagem);
+        };
+        
+        // Configurar eventos dos inputs para atualizar custo
+        const inputs = modal.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+        inputs.forEach(input => {
+            input.addEventListener('change', () => {
+                this.atualizarCustoModal(desvantagem);
+            });
+        });
+        
+        // Configurar botões de fechar
+        const btnFechar = modal.querySelector('.modal-close');
+        const btnCancelar = modal.querySelector('.fechar-modal');
+        
+        if (btnFechar) {
+            btnFechar.onclick = (e) => {
+                e.preventDefault();
+                this.fecharModal();
+            };
+        }
+        
+        if (btnCancelar) {
+            btnCancelar.onclick = (e) => {
+                e.preventDefault();
+                this.fecharModal();
+            };
+        }
+        
+        // Fechar ao clicar no fundo
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.fecharModal();
+            }
+        });
+    }
+    
+    atualizarCustoModal(desvantagem) {
+        const modal = document.getElementById('modalDesvantagem');
+        if (!modal) return;
+        
+        let custoTotal = 0;
+        
+        switch(desvantagem.tipo) {
+            case 'simples':
+                custoTotal = desvantagem.custoBase;
+                break;
+                
+            case 'opcoes':
+                const opcaoSelecionada = modal.querySelector('input[name="opcao"]:checked');
+                if (opcaoSelecionada) {
+                    custoTotal = parseInt(opcaoSelecionada.dataset.custo) || 0;
+                }
+                break;
+                
+            case 'selecao_multipla':
+                const fobiasSelecionadas = modal.querySelectorAll('input[name="fobia"]:checked');
+                fobiasSelecionadas.forEach(fobia => {
+                    custoTotal += parseInt(fobia.dataset.custo) || 0;
+                });
+                break;
+        }
+        
+        const elementoCusto = document.getElementById('custoModalTotalDesvantagem');
+        if (elementoCusto) {
+            elementoCusto.textContent = `${custoTotal} pontos`;
+        }
+    }
+    
+    carregarConfiguracaoExistente(desvantagem) {
+        if (!this.desvantagemEditando || !this.desvantagemEditando.dados) return;
+        
+        const modal = document.getElementById('modalDesvantagem');
+        if (!modal) return;
+        
+        const config = this.desvantagemEditando.dados.config;
+        
+        switch(desvantagem.tipo) {
+            case 'opcoes':
+                if (config.opcao) {
+                    const radio = modal.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
+                    if (radio) radio.checked = true;
+                }
+                break;
+                
+            case 'selecao_multipla':
+                if (config.fobiasSelecionadas) {
+                    config.fobiasSelecionadas.forEach(fobia => {
+                        const checkbox = modal.querySelector(`input[name="fobia"][value="${fobia.id}"]`);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                }
+                break;
+        }
+        
+        this.atualizarCustoModal(desvantagem);
+    }
+    
+    salvarDesvantagem(desvantagem) {
+        console.log('Salvando desvantagem:', desvantagem.nome);
+        
+        const config = this.coletarConfiguracoes(desvantagem);
+        if (!config) {
+            alert('Por favor, selecione uma opção antes de salvar.');
+            return;
+        }
+        
+        // Validar seleção para fobias
+        if (desvantagem.tipo === 'selecao_multipla' && config.fobiasSelecionadas.length === 0) {
+            alert('Por favor, selecione pelo menos uma fobia.');
+            return;
+        }
+        
+        const desvantagemAdquirida = {
+            id: desvantagem.id,
+            nome: config.nomeFinal,
+            custo: config.custoFinal,
+            dados: {
+                config: config,
+                descricao: desvantagem.descricao,
+                tipo: desvantagem.tipo
+            },
+            timestamp: Date.now()
+        };
+        
+        // Remover versão anterior se existir
+        const indexExistente = this.desvantagensAdquiridas.findIndex(d => d.id === desvantagem.id);
+        if (indexExistente !== -1) {
+            this.desvantagensAdquiridas.splice(indexExistente, 1);
+        }
+        
+        // Adicionar nova versão
+        this.desvantagensAdquiridas.push(desvantagemAdquirida);
+        
+        // Salvar e atualizar interface
+        this.salvarLocalStorage();
+        this.carregarCatalogo();
+        this.carregarAdquiridas();
+        this.atualizarResumo();
+        this.fecharModal();
+        
+        // Mostrar notificação
+        this.mostrarNotificacao(`${desvantagemAdquirida.nome} adicionada por ${desvantagemAdquirida.custo} pontos`);
+    }
+    
+    coletarConfiguracoes(desvantagem) {
+        const modal = document.getElementById('modalDesvantagem');
+        if (!modal) return null;
+        
+        let nomeFinal = desvantagem.nome;
+        let custoFinal = 0;
+        let config = { tipo: desvantagem.tipo };
+        
+        switch(desvantagem.tipo) {
+            case 'simples':
+                custoFinal = desvantagem.custoBase;
+                break;
+                
+            case 'opcoes':
+                const opcaoInput = modal.querySelector('input[name="opcao"]:checked');
+                if (!opcaoInput) {
+                    alert('Por favor, selecione uma opção.');
+                    return null;
+                }
+                
+                const opcaoId = opcaoInput.value;
+                const opcao = desvantagem.opcoes.find(o => o.id === opcaoId);
+                if (!opcao) return null;
+                
+                nomeFinal = `${desvantagem.nome} (${opcao.nome})`;
+                custoFinal = opcao.custo;
+                config.opcao = opcao;
+                break;
+                
+            case 'selecao_multipla':
+                const fobiasSelecionadas = [];
+                const fobiasInputs = modal.querySelectorAll('input[name="fobia"]:checked');
+                
+                if (fobiasInputs.length === 0) {
+                    return null;
+                }
+                
+                fobiasInputs.forEach(input => {
+                    const fobia = desvantagem.opcoes.find(f => f.id === input.value);
+                    if (fobia) {
+                        fobiasSelecionadas.push(fobia);
+                        custoFinal += fobia.custo;
+                    }
+                });
+                
+                // Formatar nome
+                if (fobiasSelecionadas.length === 1) {
+                    nomeFinal = `${desvantagem.nome} (${fobiasSelecionadas[0].nome})`;
+                } else {
+                    nomeFinal = `${desvantagem.nome} (${fobiasSelecionadas.length} fobias)`;
+                }
+                
+                config.fobiasSelecionadas = fobiasSelecionadas;
+                break;
+        }
+        
+        return { nomeFinal, custoFinal, config };
     }
     
     carregarAdquiridas() {
@@ -174,10 +548,10 @@ class DesvantagensManager {
                     
                     <div class="vantagem-footer">
                         <div class="vantagem-adquirida-acoes">
-                            <button class="btn-editar" title="Editar configuração">
+                            <button class="btn-editar" title="Editar configuração" data-id="${desvantagem.id}">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="btn-excluir" title="Remover desvantagem">
+                            <button class="btn-excluir" title="Remover desvantagem" data-id="${desvantagem.id}">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -188,560 +562,61 @@ class DesvantagensManager {
         
         container.innerHTML = html;
         
-        // Configurar eventos para desvantagens adquiridas
-        container.querySelectorAll('.vantagem-item').forEach(item => {
-            const id = parseInt(item.dataset.id);
-            const btnEditar = item.querySelector('.btn-editar');
-            const btnExcluir = item.querySelector('.btn-excluir');
-            const original = this.catalogo.find(d => d.id === id);
-            
-            if (btnEditar) {
-                btnEditar.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (original) this.abrirModalDesvantagem(original, true);
-                });
-            }
-            
-            if (btnExcluir) {
-                btnExcluir.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.removerDesvantagem(id);
-                });
-            }
-            
-            if (original) {
-                item.addEventListener('click', (e) => {
-                    if (!e.target.closest('.btn-editar') && !e.target.closest('.btn-excluir')) {
-                        this.mostrarDetalhes(original);
-                    }
-                });
-            }
-        });
+        // Configurar eventos das desvantagens adquiridas
+        this.configurarEventosAdquiridas();
         
         this.atualizarDisplayDesvantagens();
     }
     
-    atualizarDisplayDesvantagens(total = null, pontos = null) {
-        if (total === null) total = this.desvantagensAdquiridas.length;
-        if (pontos === null) pontos = this.desvantagensAdquiridas.reduce((sum, d) => sum + d.custo, 0);
+    configurarEventosAdquiridas() {
+        const container = document.getElementById('listaDesvantagensAdquiridas');
+        if (!container) return;
         
-        document.getElementById('totalDesvantagensAdquiridas').textContent = total;
-        document.getElementById('pontosDesvantagensAdquiridas').textContent = `${pontos} pts`;
-        
-        // Atualizar resumo na aba principal
-        this.atualizarResumoNaAbaPrincipal(pontos);
-        
-        // Notificar o sistema de pontos
-        this.notificarPontosDesvantagens(pontos);
-    }
-    
-    atualizarResumoNaAbaPrincipal(pontosDesvantagens) {
-        const elemento = document.getElementById('pontosDesvantagens');
-        if (elemento) elemento.textContent = Math.abs(pontosDesvantagens);
-    }
-    
-    notificarPontosDesvantagens(pontosDesvantagens) {
-        // Disparar evento para o sistema de pontos
-        const evento = new CustomEvent('desvantagensAtualizadas', {
-            detail: {
-                pontos: pontosDesvantagens,
-                tipo: 'catalogo'
-            }
-        });
-        document.dispatchEvent(evento);
-    }
-    
-    abrirModalDesvantagem(desvantagem, editando = false) {
-        this.desvantagemEditando = editando ? this.desvantagensAdquiridas.find(d => d.id === desvantagem.id) : null;
-        const titulo = document.getElementById('modalTituloDesvantagem');
-        const corpo = document.getElementById('modalCorpoDesvantagem');
-        const btnAdicionar = document.getElementById('btnAdicionarDesvantagem');
-        const modal = document.getElementById('modalDesvantagem');
-        
-        if (!modal || !titulo || !corpo || !btnAdicionar) {
-            console.error('Elementos do modal não encontrados');
-            return;
-        }
-        
-        titulo.textContent = desvantagem.nome;
-        btnAdicionar.textContent = this.desvantagemEditando ? 'Atualizar' : 'Adicionar';
-        btnAdicionar.style.display = 'block';
-        
-        switch(desvantagem.tipo) {
-            case 'simples':
-                corpo.innerHTML = this.criarModalSimples(desvantagem);
-                break;
-            case 'niveis':
-                corpo.innerHTML = this.criarModalNiveis(desvantagem);
-                break;
-            case 'opcoes':
-                corpo.innerHTML = this.criarModalOpcoes(desvantagem);
-                break;
-            case 'niveis_com_limitações':
-                corpo.innerHTML = this.criarModalNiveisLimitacoes(desvantagem);
-                break;
-            case 'opcoes_com_limitações':
-                corpo.innerHTML = this.criarModalOpcoesLimitacoes(desvantagem);
-                break;
-            default:
-                corpo.innerHTML = this.criarModalSimples(desvantagem);
-        }
-        
-        this.configurarEventosModal(desvantagem);
-        
-        if (this.desvantagemEditando) {
-            this.carregarConfiguracaoExistente(desvantagem);
-        }
-        
-        // USAR CLASSE .show PARA MOSTRAR O MODAL
-        modal.classList.add('show');
-        document.body.classList.add('modal-aberto');
-        
-        // Garantir que o primeiro radio button esteja selecionado
-        setTimeout(() => {
-            const primeiroRadio = modal.querySelector('input[type="radio"]');
-            if (primeiroRadio && !modal.querySelector('input[type="radio"]:checked')) {
-                primeiroRadio.checked = true;
-                this.atualizarCustoModal(desvantagem);
-            }
-        }, 10);
-    }
-    
-    criarModalSimples(desvantagem) {
-        return `
-            <div class="modal-descricao">
-                <p>${desvantagem.descricao}</p>
-            </div>
-            <div class="custo-total">
-                <h4>Custo Total:</h4>
-                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.custoBase} pontos</div>
-            </div>
-            <input type="hidden" id="configCustoDesvantagem" value="${desvantagem.custoBase}">
-        `;
-    }
-    
-    criarModalNiveis(desvantagem) {
-        let opcoesHTML = '<div class="modal-secao"><h4><i class="fas fa-layer-group"></i> Selecione o nível:</h4><div class="opcoes-lista">';
-        
-        for (let i = 1; i <= desvantagem.niveisMaximo; i++) {
-            const custo = desvantagem.custoBase * i;
-            opcoesHTML += `
-                <label class="opcao-radio">
-                    <input type="radio" name="nivel" value="${i}" data-custo="${custo}" ${i === 1 ? 'checked' : ''}>
-                    <div class="opcao-conteudo">
-                        <span class="opcao-nome">Nível ${i}</span>
-                        <span class="opcao-custo texto-negativo">${custo} pts</span>
-                    </div>
-                </label>
-            `;
-        }
-        
-        opcoesHTML += '</div></div>';
-        
-        return `
-            <div class="modal-descricao">
-                <p>${desvantagem.descricao}</p>
-            </div>
-            ${opcoesHTML}
-            <div class="custo-total">
-                <h4>Custo Total:</h4>
-                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.custoBase} pontos</div>
-            </div>
-        `;
-    }
-    
-    criarModalOpcoes(desvantagem) {
-        let opcoesHTML = '<div class="modal-secao"><h4><i class="fas fa-list"></i> Selecione a opção:</h4><div class="opcoes-lista">';
-        
-        desvantagem.opcoes.forEach((opcao, index) => {
-            opcoesHTML += `
-                <label class="opcao-radio">
-                    <input type="radio" name="opcao" value="${opcao.id}" data-custo="${opcao.custo}" ${index === 0 ? 'checked' : ''}>
-                    <div class="opcao-conteudo">
-                        <span class="opcao-nome">${opcao.nome}</span>
-                        <span class="opcao-custo texto-negativo">${opcao.custo} pts</span>
-                    </div>
-                </label>
-            `;
-        });
-        
-        opcoesHTML += '</div></div>';
-        
-        return `
-            <div class="modal-descricao">
-                <p>${desvantagem.descricao}</p>
-            </div>
-            ${opcoesHTML}
-            <div class="custo-total">
-                <h4>Custo Total:</h4>
-                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.opcoes[0].custo} pontos</div>
-            </div>
-        `;
-    }
-    
-    criarModalNiveisLimitacoes(desvantagem) {
-        let niveisHTML = '<div class="modal-secao"><h4><i class="fas fa-layer-group"></i> Nível de Severidade:</h4><div class="opcoes-lista">';
-        
-        for (let i = 1; i <= desvantagem.niveisMaximo; i++) {
-            const custo = desvantagem.custoBase * i;
-            niveisHTML += `
-                <label class="opcao-radio">
-                    <input type="radio" name="nivel" value="${i}" data-custo-base="${custo}" ${i === 1 ? 'checked' : ''}>
-                    <div class="opcao-conteudo">
-                        <span class="opcao-nome">Nível ${i}</span>
-                        <span class="opcao-custo texto-negativo">${custo} pts</span>
-                    </div>
-                </label>
-            `;
-        }
-        
-        niveisHTML += '</div></div>';
-        
-        let limitacoesHTML = '<div class="modal-secao"><h4><i class="fas fa-exclamation-triangle"></i> Ampliações (opcional):</h4><div class="limitacoes-lista">';
-        
-        desvantagem.limitações.forEach(limitacao => {
-            limitacoesHTML += `
-                <label class="opcao-checkbox">
-                    <input type="checkbox" name="limitacao" value="${limitacao.id}" data-custo="${limitacao.custo}">
-                    <div class="opcao-conteudo">
-                        <span class="opcao-nome">${limitacao.nome}</span>
-                        <span class="opcao-custo texto-negativo">${limitacao.custo}%</span>
-                        <small class="opcao-descricao">${limitacao.descricao}</small>
-                    </div>
-                </label>
-            `;
-        });
-        
-        limitacoesHTML += '</div><p class="info-limitacoes"><small>As ampliações aumentam o custo em percentual</small></p></div>';
-        
-        return `
-            <div class="modal-descricao">
-                <p>${desvantagem.descricao}</p>
-            </div>
-            ${niveisHTML}
-            ${limitacoesHTML}
-            <div class="custo-total">
-                <h4>Custo Total:</h4>
-                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.custoBase} pontos</div>
-            </div>
-        `;
-    }
-    
-    criarModalOpcoesLimitacoes(desvantagem) {
-        let opcoesHTML = '<div class="modal-secao"><h4><i class="fas fa-clover"></i> Tipo de Fobia:</h4><div class="opcoes-lista">';
-        
-        desvantagem.opcoes.forEach((opcao, index) => {
-            opcoesHTML += `
-                <label class="opcao-radio">
-                    <input type="radio" name="opcao" value="${opcao.id}" data-custo-base="${opcao.custo}" ${index === 0 ? 'checked' : ''}>
-                    <div class="opcao-conteudo">
-                        <span class="opcao-nome">${opcao.nome}</span>
-                        <span class="opcao-custo texto-negativo">${opcao.custo} pts</span>
-                        <small class="opcao-descricao">${opcao.descricao || ''}</small>
-                    </div>
-                </label>
-            `;
-        });
-        
-        opcoesHTML += '</div></div>';
-        
-        let limitacoesHTML = '<div class="modal-secao"><h4><i class="fas fa-exclamation-triangle"></i> Ampliações (opcional):</h4><div class="limitacoes-lista">';
-        
-        desvantagem.limitações.forEach(limitacao => {
-            limitacoesHTML += `
-                <label class="opcao-checkbox">
-                    <input type="checkbox" name="limitacao" value="${limitacao.id}" data-custo="${limitacao.custo}">
-                    <div class="opcao-conteudo">
-                        <span class="opcao-nome">${limitacao.nome}</span>
-                        <span class="opcao-custo texto-negativo">${limitacao.custo}%</span>
-                        <small class="opcao-descricao">${limitacao.descricao}</small>
-                    </div>
-                </label>
-            `;
-        });
-        
-        limitacoesHTML += '</div></div>';
-        
-        return `
-            <div class="modal-descricao">
-                <p>${desvantagem.descricao}</p>
-            </div>
-            ${opcoesHTML}
-            ${limitacoesHTML}
-            <div class="custo-total">
-                <h4>Custo Total:</h4>
-                <div class="custo-total-valor texto-negativo" id="custoModalTotalDesvantagem">${desvantagem.opcoes[0].custo} pontos</div>
-            </div>
-        `;
-    }
-    
-    configurarEventosModal(desvantagem) {
-        const btnAdicionar = document.getElementById('btnAdicionarDesvantagem');
-        if (btnAdicionar) {
-            btnAdicionar.onclick = () => this.salvarDesvantagem(desvantagem);
-        }
-        
-        // Configurar eventos para todos os inputs
-        setTimeout(() => {
-            const inputs = document.querySelectorAll('#modalDesvantagem input');
-            inputs.forEach(input => {
-                input.addEventListener('change', () => {
-                    this.atualizarCustoModal(desvantagem);
-                });
+        // Botões Editar
+        container.querySelectorAll('.btn-editar').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                const desvantagem = this.catalogo.find(d => d.id === id);
+                if (desvantagem) {
+                    this.abrirModalDesvantagem(desvantagem, true);
+                }
             });
-            
-            // Atualizar custo inicial
-            this.atualizarCustoModal(desvantagem);
-        }, 10);
+        });
+        
+        // Botões Excluir
+        container.querySelectorAll('.btn-excluir').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                this.removerDesvantagem(id);
+            });
+        });
+        
+        // Clicar no item para ver detalhes
+        container.querySelectorAll('.vantagem-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (!e.target.closest('button')) {
+                    const id = parseInt(item.dataset.id);
+                    const desvantagem = this.catalogo.find(d => d.id === id);
+                    if (desvantagem) {
+                        this.mostrarDetalhes(desvantagem);
+                    }
+                }
+            });
+        });
     }
     
-    atualizarCustoModal(desvantagem) {
-        let custoBase = desvantagem.custoBase;
-        let porcentagem = 0;
+    removerDesvantagem(id) {
+        if (!confirm('Tem certeza que deseja remover esta desvantagem?')) return;
         
-        const modal = document.getElementById('modalDesvantagem');
-        if (!modal) return;
-        
-        switch(desvantagem.tipo) {
-            case 'niveis':
-                const nivelInput = modal.querySelector('input[name="nivel"]:checked');
-                if (nivelInput) {
-                    custoBase = parseInt(nivelInput.dataset.custo) || desvantagem.custoBase;
-                }
-                break;
-                
-            case 'opcoes':
-                const opcaoInput = modal.querySelector('input[name="opcao"]:checked');
-                if (opcaoInput) {
-                    custoBase = parseInt(opcaoInput.dataset.custo) || desvantagem.custoBase;
-                }
-                break;
-                
-            case 'niveis_com_limitações':
-                const nivelSel = modal.querySelector('input[name="nivel"]:checked');
-                if (nivelSel) {
-                    custoBase = parseInt(nivelSel.dataset.custoBase) || desvantagem.custoBase;
-                }
-                
-                const limitacoes = modal.querySelectorAll('input[name="limitacao"]:checked');
-                limitacoes.forEach(lim => {
-                    porcentagem += parseInt(lim.dataset.custo) || 0;
-                });
-                break;
-                
-            case 'opcoes_com_limitações':
-                const opcaoSel = modal.querySelector('input[name="opcao"]:checked');
-                if (opcaoSel) {
-                    custoBase = parseInt(opcaoSel.dataset.custoBase) || desvantagem.custoBase;
-                }
-                
-                const limitacoesSel = modal.querySelectorAll('input[name="limitacao"]:checked');
-                limitacoesSel.forEach(lim => {
-                    porcentagem += parseInt(lim.dataset.custo) || 0;
-                });
-                break;
-        }
-        
-        let custoFinal = custoBase;
-        if (porcentagem !== 0) {
-            custoFinal = Math.round(custoBase * (1 + (porcentagem / 100)));
-        }
-        
-        const elementoCusto = document.getElementById('custoModalTotalDesvantagem');
-        if (elementoCusto) {
-            elementoCusto.textContent = `${custoFinal} pontos`;
-        }
-    }
-    
-    carregarConfiguracaoExistente(desvantagem) {
-        if (!this.desvantagemEditando) return;
-        
-        const config = this.desvantagemEditando.dados.config;
-        const modal = document.getElementById('modalDesvantagem');
-        if (!modal) return;
-        
-        switch(desvantagem.tipo) {
-            case 'niveis':
-                const radioNivel = modal.querySelector(`input[name="nivel"][value="${config.nivel}"]`);
-                if (radioNivel) radioNivel.checked = true;
-                break;
-                
-            case 'opcoes':
-                const radioOpcao = modal.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
-                if (radioOpcao) radioOpcao.checked = true;
-                break;
-                
-            case 'niveis_com_limitações':
-                const radioNivelCom = modal.querySelector(`input[name="nivel"][value="${config.nivel}"]`);
-                if (radioNivelCom) radioNivelCom.checked = true;
-                
-                if (config.limitações) {
-                    config.limitações.forEach(limitacao => {
-                        const checkbox = modal.querySelector(`input[name="limitacao"][value="${limitacao.id}"]`);
-                        if (checkbox) checkbox.checked = true;
-                    });
-                }
-                break;
-                
-            case 'opcoes_com_limitações':
-                const radioOpcaoCom = modal.querySelector(`input[name="opcao"][value="${config.opcao.id}"]`);
-                if (radioOpcaoCom) radioOpcaoCom.checked = true;
-                
-                if (config.limitações) {
-                    config.limitações.forEach(limitacao => {
-                        const checkbox = modal.querySelector(`input[name="limitacao"][value="${limitacao.id}"]`);
-                        if (checkbox) checkbox.checked = true;
-                    });
-                }
-                break;
-        }
-        
-        this.atualizarCustoModal(desvantagem);
-    }
-    
-    salvarDesvantagem(desvantagem) {
-        const config = this.coletarConfiguracoes(desvantagem);
-        
-        if (!config) {
-            alert('Por favor, selecione uma opção antes de salvar.');
-            return;
-        }
-        
-        const desvantagemAdquirida = {
-            id: desvantagem.id,
-            nome: config.nomeFinal,
-            custo: config.custoFinal,
-            dados: {
-                config: config,
-                descricao: desvantagem.descricao
-            }
-        };
-        
-        // Remover versão anterior se existir
-        const desvantagemExistenteIndex = this.desvantagensAdquiridas.findIndex(d => d.id === desvantagem.id);
-        
-        if (desvantagemExistenteIndex !== -1) {
-            // Se já existe, remover os pontos da antiga
-            this.desvantagensAdquiridas.splice(desvantagemExistenteIndex, 1);
-        }
-        
-        // Adicionar nova versão
-        this.desvantagensAdquiridas.push(desvantagemAdquirida);
-        
+        this.desvantagensAdquiridas = this.desvantagensAdquiridas.filter(d => d.id !== id);
         this.salvarLocalStorage();
         this.carregarCatalogo();
         this.carregarAdquiridas();
         this.atualizarResumo();
-        this.fecharModal();
         
-        this.mostrarNotificacao(`${desvantagemAdquirida.nome} adicionada por ${desvantagemAdquirida.custo} pontos`);
-    }
-    
-    coletarConfiguracoes(desvantagem) {
-        const modal = document.getElementById('modalDesvantagem');
-        if (!modal) return null;
-        
-        let nomeFinal = desvantagem.nome;
-        let custoFinal = desvantagem.custoBase;
-        let config = { tipo: desvantagem.tipo };
-        
-        switch(desvantagem.tipo) {
-            case 'niveis':
-                const nivelInput = modal.querySelector('input[name="nivel"]:checked');
-                if (!nivelInput) {
-                    const primeiroRadio = modal.querySelector('input[name="nivel"]');
-                    if (primeiroRadio) primeiroRadio.checked = true;
-                    return this.coletarConfiguracoes(desvantagem);
-                }
-                const nivel = parseInt(nivelInput.value);
-                nomeFinal = `${desvantagem.nome} (Nível ${nivel})`;
-                custoFinal = parseInt(nivelInput.dataset.custo) || desvantagem.custoBase;
-                config.nivel = nivel;
-                break;
-                
-            case 'opcoes':
-                const opcaoInput = modal.querySelector('input[name="opcao"]:checked');
-                if (!opcaoInput) {
-                    const primeiroRadio = modal.querySelector('input[name="opcao"]');
-                    if (primeiroRadio) primeiroRadio.checked = true;
-                    return this.coletarConfiguracoes(desvantagem);
-                }
-                const opcaoId = opcaoInput.value;
-                const opcao = desvantagem.opcoes.find(o => o.id === opcaoId);
-                if (!opcao) break;
-                nomeFinal = `${desvantagem.nome} (${opcao.nome})`;
-                custoFinal = opcao.custo;
-                config.opcao = opcao;
-                break;
-                
-            case 'niveis_com_limitações':
-                const nivelSel = modal.querySelector('input[name="nivel"]:checked');
-                if (!nivelSel) {
-                    const primeiroRadio = modal.querySelector('input[name="nivel"]');
-                    if (primeiroRadio) primeiroRadio.checked = true;
-                    return this.coletarConfiguracoes(desvantagem);
-                }
-                const nivelVal = parseInt(nivelSel.value);
-                nomeFinal = `${desvantagem.nome} (Nível ${nivelVal})`;
-                custoFinal = parseInt(nivelSel.dataset.custoBase) || desvantagem.custoBase;
-                
-                const limitacoes = [];
-                const limitacoesInputs = modal.querySelectorAll('input[name="limitacao"]:checked');
-                limitacoesInputs.forEach(input => {
-                    const limitacao = desvantagem.limitações.find(l => l.id === input.value);
-                    if (limitacao) limitacoes.push(limitacao);
-                });
-                
-                const porcentagem = limitacoes.reduce((sum, l) => sum + l.custo, 0);
-                if (porcentagem !== 0) {
-                    custoFinal = Math.round(custoFinal * (1 + (porcentagem / 100)));
-                }
-                
-                config.nivel = nivelVal;
-                config.limitações = limitacoes;
-                break;
-                
-            case 'opcoes_com_limitações':
-                const opcaoSel = modal.querySelector('input[name="opcao"]:checked');
-                if (!opcaoSel) {
-                    const primeiroRadio = modal.querySelector('input[name="opcao"]');
-                    if (primeiroRadio) primeiroRadio.checked = true;
-                    return this.coletarConfiguracoes(desvantagem);
-                }
-                const opcaoIdSel = opcaoSel.value;
-                const opcaoObj = desvantagem.opcoes.find(o => o.id === opcaoIdSel);
-                if (!opcaoObj) break;
-                nomeFinal = `${desvantagem.nome} (${opcaoObj.nome})`;
-                custoFinal = opcaoObj.custo;
-                
-                const limitacoesSel = [];
-                const limitacoesInputsSel = modal.querySelectorAll('input[name="limitacao"]:checked');
-                limitacoesInputsSel.forEach(input => {
-                    const limitacao = desvantagem.limitações.find(l => l.id === input.value);
-                    if (limitacao) limitacoesSel.push(limitacao);
-                });
-                
-                const porcentagemSel = limitacoesSel.reduce((sum, l) => sum + l.custo, 0);
-                if (porcentagemSel !== 0) {
-                    custoFinal = Math.round(custoFinal * (1 + (porcentagemSel / 100)));
-                }
-                
-                config.opcao = opcaoObj;
-                config.limitações = limitacoesSel;
-                break;
-        }
-        
-        return { nomeFinal, custoFinal, config };
-    }
-    
-    removerDesvantagem(id) {
-        if (confirm('Remover esta desvantagem?')) {
-            this.desvantagensAdquiridas = this.desvantagensAdquiridas.filter(d => d.id !== id);
-            this.salvarLocalStorage();
-            this.carregarCatalogo();
-            this.carregarAdquiridas();
-            this.atualizarResumo();
-        }
+        this.mostrarNotificacao('Desvantagem removida');
     }
     
     mostrarDetalhes(desvantagem) {
@@ -753,102 +628,108 @@ class DesvantagensManager {
         if (!modal || !titulo || !corpo || !btnAdicionar) return;
         
         titulo.textContent = `Detalhes: ${desvantagem.nome}`;
+        btnAdicionar.style.display = 'none';
         
-        let html = `
+        let detalhesHTML = `
             <div class="modal-descricao">
                 <p>${desvantagem.descricao}</p>
             </div>
             <div class="modal-secao">
                 <h4><i class="fas fa-info-circle"></i> Informações:</h4>
-                <div style="padding: 0.5rem;">
-                    <p><strong>Tipo:</strong> ${this.getTipoTexto(desvantagem.tipo)}</p>
+                <div style="padding: 1rem;">
                     <p><strong>Categoria:</strong> ${this.getCategoriaNome(desvantagem.categoria)}</p>
+                    <p><strong>Tipo:</strong> ${this.getTipoTexto(desvantagem.tipo)}</p>
                     <p><strong>Custo Base:</strong> ${this.getCustoTexto(desvantagem)}</p>
                 </div>
             </div>
         `;
         
-        corpo.innerHTML = html;
-        btnAdicionar.style.display = 'none';
+        corpo.innerHTML = detalhesHTML;
         
         // Mostrar modal
         modal.classList.add('show');
-        document.body.classList.add('modal-aberto');
+        document.body.style.overflow = 'hidden';
         
-        // Configurar botão de fechar para restaurar estado
-        const fecharBtn = modal.querySelector('.modal-close');
-        const fecharModalBtn = modal.querySelector('.fechar-modal');
+        // Configurar botão de fechar
+        const btnFechar = modal.querySelector('.modal-close');
+        const btnCancelar = modal.querySelector('.fechar-modal');
         
-        const restaurarEBtnAdicionar = () => {
+        const restaurarBotao = () => {
             btnAdicionar.style.display = 'block';
         };
         
-        if (fecharBtn) {
-            fecharBtn.onclick = () => {
-                restaurarEBtnAdicionar();
+        if (btnFechar) {
+            btnFechar.onclick = (e) => {
+                e.preventDefault();
+                restaurarBotao();
                 this.fecharModal();
             };
         }
         
-        if (fecharModalBtn) {
-            fecharModalBtn.onclick = () => {
-                restaurarEBtnAdicionar();
+        if (btnCancelar) {
+            btnCancelar.onclick = (e) => {
+                e.preventDefault();
+                restaurarBotao();
                 this.fecharModal();
             };
         }
     }
     
-    getCustoTexto(desvantagem) {
-        switch(desvantagem.tipo) {
-            case 'niveis':
-            case 'niveis_com_limitações':
-                return `${desvantagem.custoBase} pts/nível`;
-            default:
-                return `${desvantagem.custoBase} pts`;
+    fecharModal() {
+        const modal = document.getElementById('modalDesvantagem');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+        document.body.style.overflow = '';
+        this.desvantagemEditando = null;
+        
+        // Restaurar botão Adicionar
+        const btnAdicionar = document.getElementById('btnAdicionarDesvantagem');
+        if (btnAdicionar) {
+            btnAdicionar.style.display = 'block';
+            btnAdicionar.textContent = 'Adicionar';
         }
     }
     
-    getCategoriaNome(categoria) {
-        const map = {
-            'fisicas': 'Física',
-            'mentais': 'Mental',
-            'sociais': 'Social',
-            'exoticas': 'Exótica'
-        };
-        return map[categoria] || categoria;
+    atualizarDisplayDesvantagens(total = null, pontos = null) {
+        if (total === null) total = this.desvantagensAdquiridas.length;
+        if (pontos === null) pontos = this.desvantagensAdquiridas.reduce((sum, d) => sum + d.custo, 0);
+        
+        const totalElement = document.getElementById('totalDesvantagensAdquiridas');
+        const pontosElement = document.getElementById('pontosDesvantagensAdquiridas');
+        
+        if (totalElement) totalElement.textContent = total;
+        if (pontosElement) pontosElement.textContent = `${pontos} pts`;
+        
+        // Atualizar resumo geral
+        this.atualizarResumoNaAbaPrincipal(pontos);
     }
     
-    getTipoTexto(tipo) {
-        const map = {
-            'simples': 'Simples',
-            'niveis': 'Com Níveis',
-            'opcoes': 'Com Opções',
-            'niveis_com_limitações': 'Complexa',
-            'opcoes_com_limitações': 'Complexa'
-        };
-        return map[tipo] || tipo;
+    atualizarResumoNaAbaPrincipal(pontosDesvantagens) {
+        const elemento = document.getElementById('pontosDesvantagens');
+        if (elemento) elemento.textContent = Math.abs(pontosDesvantagens);
     }
     
     atualizarResumo() {
         const total = this.desvantagensAdquiridas.length;
         const pontos = this.desvantagensAdquiridas.reduce((sum, d) => sum + d.custo, 0);
-        
-        // Atualizar o resumo na aba de desvantagens
         this.atualizarDisplayDesvantagens(total, pontos);
     }
     
     mostrarNotificacao(mensagem) {
+        // Criar elemento de notificação
         const notificacao = document.createElement('div');
-        notificacao.className = 'notificacao-desvantagem fundo-negativo';
+        notificacao.className = 'notificacao-vantagem fundo-negativo';
         notificacao.innerHTML = `
             <div class="notificacao-conteudo">
-                <i class="fas fa-exclamation-triangle texto-negativo"></i>
+                <i class="fas fa-exclamation-circle"></i>
                 <span class="texto-negativo">${mensagem}</span>
             </div>
         `;
         
         document.body.appendChild(notificacao);
         
+        // Remover após 3 segundos
         setTimeout(() => {
             notificacao.classList.add('fade-out');
             setTimeout(() => {
@@ -861,21 +742,43 @@ class DesvantagensManager {
     
     setupEventListeners() {
         // Filtros
-        document.querySelectorAll('#subtab-desvantagens-catalogo .filtro-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('#subtab-desvantagens-catalogo .filtro-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.filtroAtual = btn.dataset.filtro;
-                this.carregarCatalogo();
+        const filtrosContainer = document.querySelector('#subtab-desvantagens-catalogo .catalogo-filtros');
+        if (filtrosContainer) {
+            filtrosContainer.addEventListener('click', (e) => {
+                const filtroBtn = e.target.closest('.filtro-btn');
+                if (filtroBtn) {
+                    e.preventDefault();
+                    
+                    // Remover active de todos
+                    filtrosContainer.querySelectorAll('.filtro-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    
+                    // Ativar o clicado
+                    filtroBtn.classList.add('active');
+                    this.filtroAtual = filtroBtn.dataset.filtro;
+                    this.carregarCatalogo();
+                }
             });
-        });
+        }
         
         // Busca
         const buscaInput = document.getElementById('buscarDesvantagem');
         if (buscaInput) {
+            // Usar input event para busca em tempo real
             buscaInput.addEventListener('input', (e) => {
                 this.buscaAtual = e.target.value;
-                this.carregarCatalogo();
+                clearTimeout(this.buscaTimeout);
+                this.buscaTimeout = setTimeout(() => {
+                    this.carregarCatalogo();
+                }, 300);
+            });
+            
+            // Também permitir Enter
+            buscaInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.carregarCatalogo();
+                }
             });
         }
         
@@ -883,48 +786,20 @@ class DesvantagensManager {
         const btnLimpar = document.getElementById('limparDesvantagens');
         if (btnLimpar) {
             btnLimpar.addEventListener('click', () => {
-                if (this.desvantagensAdquiridas.length === 0) return;
-                if (confirm('Remover todas as desvantagens?')) {
+                if (this.desvantagensAdquiridas.length === 0) {
+                    alert('Não há desvantagens para limpar.');
+                    return;
+                }
+                
+                if (confirm('Tem certeza que deseja remover TODAS as desvantagens adquiridas?')) {
                     this.desvantagensAdquiridas = [];
                     this.salvarLocalStorage();
                     this.carregarCatalogo();
                     this.carregarAdquiridas();
                     this.atualizarResumo();
+                    this.mostrarNotificacao('Todas as desvantagens foram removidas');
                 }
             });
-        }
-        
-        // Fechar modal
-        const modalDesvantagem = document.getElementById('modalDesvantagem');
-        if (modalDesvantagem) {
-            modalDesvantagem.querySelectorAll('.modal-close, .fechar-modal').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.fecharModal();
-                });
-            });
-            
-            // Fechar modal ao clicar no fundo
-            modalDesvantagem.addEventListener('click', (e) => {
-                if (e.target === modalDesvantagem) {
-                    this.fecharModal();
-                }
-            });
-        }
-    }
-    
-    fecharModal() {
-        const modal = document.getElementById('modalDesvantagem');
-        if (modal) {
-            modal.classList.remove('show');
-        }
-        document.body.classList.remove('modal-aberto');
-        this.desvantagemEditando = null;
-        
-        const btnAdicionar = document.getElementById('btnAdicionarDesvantagem');
-        if (btnAdicionar) {
-            btnAdicionar.style.display = 'block';
         }
     }
     
@@ -932,43 +807,86 @@ class DesvantagensManager {
         try {
             localStorage.setItem('desvantagensAdquiridas', JSON.stringify(this.desvantagensAdquiridas));
         } catch (e) {
-            console.error('Erro ao salvar no localStorage:', e);
+            console.error('Erro ao salvar desvantagens no localStorage:', e);
         }
     }
     
-    integrarComPontosManager() {
-        // Quando o sistema de pontos for inicializado, notificar sobre as desvantagens existentes
-        document.addEventListener('pontosManagerInicializado', () => {
-            const pontosDesvantagens = this.desvantagensAdquiridas.reduce((sum, d) => sum + d.custo, 0);
-            this.notificarPontosDesvantagens(pontosDesvantagens);
-        });
-        
-        // Verificar se o pontosManager já está disponível
-        if (window.obterPontosManager) {
-            const pontosManager = window.obterPontosManager();
-            if (pontosManager) {
-                const pontosDesvantagens = this.desvantagensAdquiridas.reduce((sum, d) => sum + d.custo, 0);
-                this.notificarPontosDesvantagens(pontosDesvantagens);
-            }
+    // Métodos auxiliares
+    getCustoTexto(desvantagem) {
+        switch(desvantagem.tipo) {
+            case 'opcoes':
+                return 'Variável';
+            case 'selecao_multipla':
+                return 'Variável';
+            default:
+                return `${desvantagem.custoBase} pts`;
         }
+    }
+    
+    getCategoriaNome(categoria) {
+        const categorias = {
+            'fisicas': 'Física',
+            'mentais': 'Mental',
+            'sociais': 'Social',
+            'exoticas': 'Exótica'
+        };
+        return categorias[categoria] || categoria;
+    }
+    
+    getTipoTexto(tipo) {
+        const tipos = {
+            'simples': 'Simples',
+            'opcoes': 'Com Opções',
+            'selecao_multipla': 'Seleção Múltipla'
+        };
+        return tipos[tipo] || tipo;
     }
 }
 
-// Inicializar quando o DOM estiver pronto
+// Inicialização automática
 document.addEventListener('DOMContentLoaded', () => {
-    window.desvantagensManager = new DesvantagensManager();
+    // Verificar se estamos na aba de vantagens/desvantagens
+    const vantagensTab = document.getElementById('vantagens');
+    if (vantagensTab) {
+        // Inicializar quando a aba for ativada
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class') {
+                    if (vantagensTab.classList.contains('active')) {
+                        if (!window.desvantagensManager) {
+                            window.desvantagensManager = new DesvantagensManager();
+                            console.log('DesvantagensManager inicializado automaticamente');
+                        }
+                    }
+                }
+            });
+        });
+        
+        observer.observe(vantagensTab, { attributes: true });
+        
+        // Também inicializar se já estiver ativa
+        if (vantagensTab.classList.contains('active')) {
+            setTimeout(() => {
+                if (!window.desvantagensManager) {
+                    window.desvantagensManager = new DesvantagensManager();
+                }
+            }, 100);
+        }
+    }
 });
 
-// Exportar funções para integração
-window.atualizarPontosDesvantagens = function(pontos) {
-    const elemento = document.getElementById('pontosDesvantagens');
-    if (elemento) elemento.textContent = Math.abs(pontos);
-};
-
-// Evento para quando o sistema de desvantagens é atualizado
-window.atualizarDesvantagensDoSistema = function() {
-    if (window.desvantagensManager) {
-        window.desvantagensManager.carregarAdquiridas();
-        window.desvantagensManager.atualizarResumo();
+// Inicializar também quando clicar na sub-aba de desvantagens
+document.addEventListener('click', (e) => {
+    const subTab = e.target.closest('.sub-tab');
+    if (subTab && (subTab.dataset.target === 'subtab-desvantagens-catalogo' || 
+                   subTab.textContent.includes('Desvantagens'))) {
+        setTimeout(() => {
+            if (!window.desvantagensManager) {
+                window.desvantagensManager = new DesvantagensManager();
+            }
+        }, 100);
     }
-};
+});
+
+// Exportar para uso global
+window.DesvantagensManager = DesvantagensManager;
