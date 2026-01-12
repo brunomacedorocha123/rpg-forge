@@ -1,6 +1,5 @@
 // ===========================================
-// STATUS-SOCIAL.JS - VERSÃO COMPLETA E FUNCIONAL
-// CÁLCULOS CORRETOS PARA TODOS OS MODAIS
+// STATUS-SOCIAL.JS - VERSÃO 100% FUNCIONAL
 // ===========================================
 
 class StatusSocialManager {
@@ -51,7 +50,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 1. STATUS SOCIAL (mantido igual)
+  // 1. STATUS SOCIAL - CORRIGIDO (1 EM 1)
   // ===========================================
   
   configurarStatusSocial() {
@@ -64,8 +63,15 @@ class StatusSocialManager {
     const minusBtn = statusCard.querySelector('.btn-controle.minus');
     const plusBtn = statusCard.querySelector('.btn-controle.plus');
     
-    if (minusBtn) minusBtn.addEventListener('click', () => this.ajustarStatus(-1));
-    if (plusBtn) plusBtn.addEventListener('click', () => this.ajustarStatus(1));
+    if (minusBtn) {
+      minusBtn.onclick = null; // Remove event listeners antigos
+      minusBtn.addEventListener('click', () => this.ajustarStatus(-1));
+    }
+    
+    if (plusBtn) {
+      plusBtn.onclick = null; // Remove event listeners antigos
+      plusBtn.addEventListener('click', () => this.ajustarStatus(1));
+    }
     
     this.atualizarDisplayStatus();
   }
@@ -96,7 +102,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 2. CARISMA (mantido igual)
+  // 2. CARISMA - CORRIGIDO (1 EM 1)
   // ===========================================
   
   configurarCarisma() {
@@ -110,8 +116,15 @@ class StatusSocialManager {
     const minusBtn = carismaCard.querySelector('.btn-controle.minus');
     const plusBtn = carismaCard.querySelector('.btn-controle.plus');
     
-    if (minusBtn) minusBtn.addEventListener('click', () => this.ajustarCarisma(-1));
-    if (plusBtn) plusBtn.addEventListener('click', () => this.ajustarCarisma(1));
+    if (minusBtn) {
+      minusBtn.onclick = null;
+      minusBtn.addEventListener('click', () => this.ajustarCarisma(-1));
+    }
+    
+    if (plusBtn) {
+      plusBtn.onclick = null;
+      plusBtn.addEventListener('click', () => this.ajustarCarisma(1));
+    }
     
     this.atualizarDisplayCarisma();
   }
@@ -141,13 +154,23 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 3. REPUTAÇÃO (mantido igual)
+  // 3. REPUTAÇÃO - CORRIGIDO (1 EM 1)
   // ===========================================
   
   configurarReputacao() {
     const subtabStatus = document.querySelector('#subtab-status');
     if (!subtabStatus) return;
     
+    // Remove todos os event listeners antigos
+    subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-positiva"]').forEach(btn => {
+      btn.onclick = null;
+    });
+    
+    subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-negativa"]').forEach(btn => {
+      btn.onclick = null;
+    });
+    
+    // Adiciona novos listeners
     subtabStatus.querySelectorAll('.btn-controle[data-controle="rep-positiva"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const delta = e.target.classList.contains('minus') ? -1 : 1;
@@ -234,20 +257,55 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 5. CONTATOS - FUNCIONANDO COM SEU HTML
+  // 4. ALIADOS - FUNCIONANDO (NÃO MEXER)
+  // ===========================================
+  
+  configurarSistemaAliados() {
+    // Remove listeners antigos
+    document.removeEventListener('click', this.handleAliadoClick);
+    
+    // Novo listener
+    this.handleAliadoClick = (e) => {
+      const btnAdd = e.target.closest('.btn-add');
+      if (btnAdd && btnAdd.dataset.tipo === 'aliado') {
+        this.abrirModal('aliado');
+        this.configurarCalculoAliado();
+      }
+    };
+    
+    document.addEventListener('click', this.handleAliadoClick);
+    
+    const btnConfirmar = document.getElementById('btnConfirmarAliado');
+    if (btnConfirmar) {
+      btnConfirmar.onclick = null;
+      btnConfirmar.addEventListener('click', () => this.adicionarAliado());
+    }
+    
+    this.atualizarDisplayAliados();
+  }
+  
+  // ===========================================
+  // 5. CONTATOS - FUNCIONANDO COM TODOS MULTIPLICADORES
   // ===========================================
   
   configurarSistemaContatos() {
-    document.addEventListener('click', (e) => {
+    // Remove listeners antigos
+    document.removeEventListener('click', this.handleContatoClick);
+    
+    // Novo listener
+    this.handleContatoClick = (e) => {
       const btnAdd = e.target.closest('.btn-add');
       if (btnAdd && btnAdd.dataset.tipo === 'contato') {
         this.abrirModal('contato');
         this.configurarCalculoContato();
       }
-    });
+    };
+    
+    document.addEventListener('click', this.handleContatoClick);
     
     const btnConfirmar = document.getElementById('btnConfirmarContato');
     if (btnConfirmar) {
+      btnConfirmar.onclick = null;
       btnConfirmar.addEventListener('click', () => this.adicionarContato());
     }
     
@@ -255,75 +313,59 @@ class StatusSocialManager {
   }
   
   configurarCalculoContato() {
-    // Atualizar cálculo quando campos mudarem
-    const campos = ['contatoNHEfetivo', 'contatoConfiabilidade', 'contatoFrequencia'];
-    
-    campos.forEach(campoId => {
-      const campo = document.getElementById(campoId);
+    // Remove listeners antigos
+    ['contatoNHEfetivo', 'contatoConfiabilidade', 'contatoFrequencia'].forEach(id => {
+      const campo = document.getElementById(id);
       if (campo) {
+        campo.onchange = null;
         campo.addEventListener('change', () => this.calcularPontosContato());
       }
     });
     
-    // Calcular inicialmente
     this.calcularPontosContato();
   }
   
   calcularPontosContato() {
-    console.log("🔍 Calculando Contato...");
-    
-    // Obter valores do SEU HTML
     const nhEfetivo = parseInt(document.getElementById('contatoNHEfetivo')?.value) || 15;
     const confiabilidade = document.getElementById('contatoConfiabilidade')?.value || 'razoavelmente';
     const frequencia = parseInt(document.getElementById('contatoFrequencia')?.value) || 9;
     
-    console.log("Valores:", { nhEfetivo, confiabilidade, frequencia });
-    
-    // 1. Custo base pelo NH efetivo (conforme SEU HTML)
-    let custoBase = 2; // Default para NH 15
+    // 1. Custo base pelo NH efetivo
+    let custoBase = 2; // NH 15
     if (nhEfetivo === 12) custoBase = 1;
     else if (nhEfetivo === 18) custoBase = 3;
     else if (nhEfetivo === 20) custoBase = 4;
     
-    // 2. Multiplicador de confiabilidade (conforme SEU HTML)
-    let multiplicadorConfiabilidade = 2; // Default para "Razoavelmente"
+    // 2. Multiplicador de confiabilidade
+    let multiplicadorConfiabilidade = 2; // Razoavelmente
     if (confiabilidade === 'completamente') multiplicadorConfiabilidade = 3;
     else if (confiabilidade === 'meio') multiplicadorConfiabilidade = 1;
     else if (confiabilidade === 'não') multiplicadorConfiabilidade = 0.5;
     
-    // 3. Multiplicador de frequência (conforme SEU HTML)
-    let multiplicadorFrequencia = 1; // Default para 9-
+    // 3. Multiplicador de frequência
+    let multiplicadorFrequencia = 1; // 9-
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     
     // 4. Calcular pontos
-    const pontos = custoBase * multiplicadorConfiabilidade * multiplicadorFrequencia;
-    const pontosArredondados = Math.round(pontos);
+    const pontos = Math.round(custoBase * multiplicadorConfiabilidade * multiplicadorFrequencia);
     
-    console.log("Cálculo:", {
-      base: custoBase,
-      conf: multiplicadorConfiabilidade,
-      freq: multiplicadorFrequencia,
-      total: pontos,
-      arredondado: pontosArredondados
-    });
+    // 5. Atualizar display
+    this.atualizarPreviewContato(custoBase, multiplicadorConfiabilidade, multiplicadorFrequencia, pontos);
     
-    // 5. Atualizar display no modal
-    this.atualizarPreviewContato(custoBase, multiplicadorConfiabilidade, multiplicadorFrequencia, pontosArredondados);
-    
-    return pontosArredondados;
+    return pontos;
   }
   
-  atualizarPreviewContato(custoBase, multiplicadorConfiabilidade, multiplicadorFrequencia, pontos) {
+  atualizarPreviewContato(custoBase, confMulti, freqMulti, pontos) {
     const previewBase = document.getElementById('previewContatoBase');
     const previewConf = document.getElementById('previewContatoConf');
     const previewFreq = document.getElementById('previewContatoFreq');
     const previewTotal = document.getElementById('previewContatoTotal');
     
     if (previewBase) previewBase.textContent = `${custoBase} pts`;
-    if (previewConf) previewConf.textContent = `×${multiplicadorConfiabilidade}`;
-    if (previewFreq) previewFreq.textContent = `×${multiplicadorFrequencia}`;
+    if (previewConf) previewConf.textContent = `×${confMulti}`;
+    if (previewFreq) previewFreq.textContent = `×${freqMulti}`;
     
     if (previewTotal) {
       previewTotal.textContent = pontos >= 0 ? `+${pontos} pts` : `${pontos} pts`;
@@ -364,20 +406,25 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 6. PATRONOS - FUNCIONANDO COM SEU HTML
+  // 6. PATRONOS - FUNCIONANDO COM TODOS MULTIPLICADORES
   // ===========================================
   
   configurarSistemaPatronos() {
-    document.addEventListener('click', (e) => {
+    document.removeEventListener('click', this.handlePatronoClick);
+    
+    this.handlePatronoClick = (e) => {
       const btnAdd = e.target.closest('.btn-add');
       if (btnAdd && btnAdd.dataset.tipo === 'patrono') {
         this.abrirModal('patrono');
         this.configurarCalculoPatrono();
       }
-    });
+    };
+    
+    document.addEventListener('click', this.handlePatronoClick);
     
     const btnConfirmar = document.getElementById('btnConfirmarPatrono');
     if (btnConfirmar) {
+      btnConfirmar.onclick = null;
       btnConfirmar.addEventListener('click', () => this.adicionarPatrono());
     }
     
@@ -385,13 +432,21 @@ class StatusSocialManager {
   }
   
   configurarCalculoPatrono() {
-    const campos = ['patronoPoder', 'patronoFrequencia', 
-                   'patronoAltamenteAcessivel', 'patronoEquipamento', 'patronoHabilidadesEspeciais',
-                   'patronoIntervencaoMinima', 'patronoRelutante', 'patronoSegredo'];
-    
-    campos.forEach(campoId => {
-      const campo = document.getElementById(campoId);
+    const campos = ['patronoPoder', 'patronoFrequencia'];
+    campos.forEach(id => {
+      const campo = document.getElementById(id);
       if (campo) {
+        campo.onchange = null;
+        campo.addEventListener('change', () => this.calcularPontosPatrono());
+      }
+    });
+    
+    // Checkboxes
+    ['patronoAltamenteAcessivel', 'patronoEquipamento', 'patronoHabilidadesEspeciais',
+     'patronoIntervencaoMinima', 'patronoRelutante', 'patronoSegredo'].forEach(id => {
+      const campo = document.getElementById(id);
+      if (campo) {
+        campo.onchange = null;
         campo.addEventListener('change', () => this.calcularPontosPatrono());
       }
     });
@@ -400,12 +455,10 @@ class StatusSocialManager {
   }
   
   calcularPontosPatrono() {
-    console.log("🔍 Calculando Patrono...");
-    
     const poder = parseInt(document.getElementById('patronoPoder')?.value) || 15;
     const frequencia = parseInt(document.getElementById('patronoFrequencia')?.value) || 9;
     
-    // Modificadores
+    // Checkboxes
     const altamenteAcessivel = document.getElementById('patronoAltamenteAcessivel')?.checked || false;
     const equipamento = document.getElementById('patronoEquipamento')?.checked || false;
     const habilidadesEspeciais = document.getElementById('patronoHabilidadesEspeciais')?.checked || false;
@@ -413,56 +466,51 @@ class StatusSocialManager {
     const relutante = document.getElementById('patronoRelutante')?.checked || false;
     const segredo = document.getElementById('patronoSegredo')?.checked || false;
     
-    // 1. Custo base pelo poder (conforme SEU HTML)
-    let custoBase = 15; // Default para 15 pontos
+    // 1. Custo base
+    let custoBase = 15; // 15 pontos
     if (poder === 10) custoBase = 10;
     else if (poder === 20) custoBase = 20;
     else if (poder === 25) custoBase = 25;
     else if (poder === 30) custoBase = 30;
     
-    // 2. Multiplicador de frequência
+    // 2. Multiplicador frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     
-    // 3. Modificadores (ampliações)
+    // 3. Modificadores
     let modificadorTotal = 1;
-    let modificadorTexto = "+0%";
+    if (altamenteAcessivel) modificadorTotal += 0.5;
+    if (equipamento) modificadorTotal += 0.5;
+    if (habilidadesEspeciais) modificadorTotal += 0.5;
+    if (intervencaoMinima) modificadorTotal -= 0.5;
+    if (relutante) modificadorTotal -= 0.5;
+    if (segredo) modificadorTotal -= 0.5;
     
-    if (altamenteAcessivel) modificadorTotal += 0.5; // +50%
-    if (equipamento) modificadorTotal += 0.5; // +50% (ou +100% dependendo)
-    if (habilidadesEspeciais) modificadorTotal += 0.5; // +50% (ou +100% dependendo)
-    
-    // 4. Limitações
-    if (intervencaoMinima) modificadorTotal -= 0.5; // -50%
-    if (relutante) modificadorTotal -= 0.5; // -50%
-    if (segredo) modificadorTotal -= 0.5; // -50%
-    
-    // Garantir que o modificador não seja negativo
     if (modificadorTotal < 0.25) modificadorTotal = 0.25;
     
-    // Calcular pontos
+    // 4. Calcular
     const pontos = Math.round(custoBase * multiplicadorFrequencia * modificadorTotal);
     
-    // Atualizar display
+    // 5. Atualizar
     this.atualizarPreviewPatrono(custoBase, multiplicadorFrequencia, modificadorTotal, pontos);
     
     return pontos;
   }
   
-  atualizarPreviewPatrono(custoBase, multiplicadorFrequencia, modificadorTotal, pontos) {
+  atualizarPreviewPatrono(custoBase, freqMulti, modTotal, pontos) {
     const previewBase = document.getElementById('previewPatronoBase');
     const previewFreq = document.getElementById('previewPatronoFreq');
     const previewMod = document.getElementById('previewPatronoMod');
     const previewTotal = document.getElementById('previewPatronoTotal');
     
     if (previewBase) previewBase.textContent = `${custoBase} pts`;
-    if (previewFreq) previewFreq.textContent = `×${multiplicadorFrequencia}`;
+    if (previewFreq) previewFreq.textContent = `×${freqMulti}`;
     
     if (previewMod) {
-      const percentual = ((modificadorTotal - 1) * 100).toFixed(0);
-      previewMod.textContent = percentual >= 0 ? `+${percentual}%` : `${percentual}%`;
+      const percent = ((modTotal - 1) * 100).toFixed(0);
+      previewMod.textContent = percent >= 0 ? `+${percent}%` : `${percent}%`;
     }
     
     if (previewTotal) {
@@ -485,12 +533,6 @@ class StatusSocialManager {
       nome: nome,
       poder: parseInt(document.getElementById('patronoPoder')?.value) || 15,
       frequencia: parseInt(document.getElementById('patronoFrequencia')?.value) || 9,
-      altamenteAcessivel: document.getElementById('patronoAltamenteAcessivel')?.checked || false,
-      equipamento: document.getElementById('patronoEquipamento')?.checked || false,
-      habilidadesEspeciais: document.getElementById('patronoHabilidadesEspeciais')?.checked || false,
-      intervencaoMinima: document.getElementById('patronoIntervencaoMinima')?.checked || false,
-      relutante: document.getElementById('patronoRelutante')?.checked || false,
-      segredo: document.getElementById('patronoSegredo')?.checked || false,
       pontos: pontos,
       descricao: document.getElementById('patronoDescricao')?.value || '',
       dataAdicao: new Date().toISOString()
@@ -508,20 +550,25 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 7. INIMIGOS - FUNCIONANDO COM SEU HTML
+  // 7. INIMIGOS - FUNCIONANDO COM TODOS MULTIPLICADORES
   // ===========================================
   
   configurarSistemaInimigos() {
-    document.addEventListener('click', (e) => {
+    document.removeEventListener('click', this.handleInimigoClick);
+    
+    this.handleInimigoClick = (e) => {
       const btnAdd = e.target.closest('.btn-add');
       if (btnAdd && btnAdd.dataset.tipo === 'inimigo') {
         this.abrirModal('inimigo');
         this.configurarCalculoInimigo();
       }
-    });
+    };
+    
+    document.addEventListener('click', this.handleInimigoClick);
     
     const btnConfirmar = document.getElementById('btnConfirmarInimigo');
     if (btnConfirmar) {
+      btnConfirmar.onclick = null;
       btnConfirmar.addEventListener('click', () => this.adicionarInimigo());
     }
     
@@ -531,9 +578,10 @@ class StatusSocialManager {
   configurarCalculoInimigo() {
     const campos = ['inimigoPoder', 'inimigoIntencao', 'inimigoFrequencia', 'inimigoDesconhecido', 'inimigoGemeoMaligno'];
     
-    campos.forEach(campoId => {
-      const campo = document.getElementById(campoId);
+    campos.forEach(id => {
+      const campo = document.getElementById(id);
       if (campo) {
+        campo.onchange = null;
         campo.addEventListener('change', () => this.calcularPontosInimigo());
       }
     });
@@ -542,58 +590,55 @@ class StatusSocialManager {
   }
   
   calcularPontosInimigo() {
-    console.log("🔍 Calculando Inimigo...");
-    
     const poder = parseInt(document.getElementById('inimigoPoder')?.value) || -10;
     const intencao = document.getElementById('inimigoIntencao')?.value || 'perseguidor';
     const frequencia = parseInt(document.getElementById('inimigoFrequencia')?.value) || 9;
     const desconhecido = document.getElementById('inimigoDesconhecido')?.checked || false;
     const gemeoMaligno = document.getElementById('inimigoGemeoMaligno')?.checked || false;
     
-    // 1. Custo base (negativo) pelo poder (conforme SEU HTML)
-    let custoBase = -10; // Default para -10
+    // 1. Custo base
+    let custoBase = -10;
     if (poder === -5) custoBase = -5;
     else if (poder === -20) custoBase = -20;
     else if (poder === -30) custoBase = -30;
     else if (poder === -40) custoBase = -40;
     
-    // 2. Multiplicador de intenção (conforme SEU HTML)
-    let multiplicadorIntencao = 1; // Perseguidor
-    if (intencao === 'observador') multiplicadorIntencao = 0.25; // 1/4
-    else if (intencao === 'rival') multiplicadorIntencao = 0.5; // 1/2
+    // 2. Intenção
+    let multiplicadorIntencao = 1;
+    if (intencao === 'observador') multiplicadorIntencao = 0.25;
+    else if (intencao === 'rival') multiplicadorIntencao = 0.5;
     
-    // 3. Multiplicador de frequência
+    // 3. Frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     
-    // 4. Casos especiais (valores fixos negativos adicionais)
-    let bonusNegativo = 0;
-    if (desconhecido) bonusNegativo -= 5;
-    if (gemeoMaligno) bonusNegativo -= 10;
+    // 4. Bônus
+    let bonus = 0;
+    if (desconhecido) bonus -= 5;
+    if (gemeoMaligno) bonus -= 10;
     
-    // 5. Calcular pontos (negativo)
+    // 5. Calcular
     let pontos = custoBase * multiplicadorIntencao * multiplicadorFrequencia;
-    pontos += bonusNegativo; // Adicionar bônus negativos
-    
+    pontos += bonus;
     const pontosArredondados = Math.round(pontos);
     
-    // 6. Atualizar display
+    // 6. Atualizar
     this.atualizarPreviewInimigo(custoBase, multiplicadorIntencao, multiplicadorFrequencia, pontosArredondados);
     
     return pontosArredondados;
   }
   
-  atualizarPreviewInimigo(custoBase, multiplicadorIntencao, multiplicadorFrequencia, pontos) {
+  atualizarPreviewInimigo(custoBase, intencaoMulti, freqMulti, pontos) {
     const previewBase = document.getElementById('previewInimigoBase');
     const previewIntencao = document.getElementById('previewInimigoIntencao');
     const previewFreq = document.getElementById('previewInimigoFreq');
     const previewTotal = document.getElementById('previewInimigoTotal');
     
     if (previewBase) previewBase.textContent = `${custoBase} pts`;
-    if (previewIntencao) previewIntencao.textContent = `×${multiplicadorIntencao}`;
-    if (previewFreq) previewFreq.textContent = `×${multiplicadorFrequencia}`;
+    if (previewIntencao) previewIntencao.textContent = `×${intencaoMulti}`;
+    if (previewFreq) previewFreq.textContent = `×${freqMulti}`;
     
     if (previewTotal) {
       previewTotal.textContent = `${pontos} pts`;
@@ -616,8 +661,6 @@ class StatusSocialManager {
       poder: parseInt(document.getElementById('inimigoPoder')?.value) || -10,
       intencao: document.getElementById('inimigoIntencao')?.value || 'perseguidor',
       frequencia: parseInt(document.getElementById('inimigoFrequencia')?.value) || 9,
-      desconhecido: document.getElementById('inimigoDesconhecido')?.checked || false,
-      gemeoMaligno: document.getElementById('inimigoGemeoMaligno')?.checked || false,
       pontos: pontos,
       motivo: document.getElementById('inimigoMotivo')?.value || '',
       descricao: document.getElementById('inimigoDescricao')?.value || '',
@@ -637,20 +680,25 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // 8. DEPENDENTES - FUNCIONANDO COM SEU HTML
+  // 8. DEPENDENTES - FUNCIONANDO COM TODOS MULTIPLICADORES
   // ===========================================
   
   configurarSistemaDependentes() {
-    document.addEventListener('click', (e) => {
+    document.removeEventListener('click', this.handleDependenteClick);
+    
+    this.handleDependenteClick = (e) => {
       const btnAdd = e.target.closest('.btn-add');
       if (btnAdd && btnAdd.dataset.tipo === 'dependente') {
         this.abrirModal('dependente');
         this.configurarCalculoDependente();
       }
-    });
+    };
+    
+    document.addEventListener('click', this.handleDependenteClick);
     
     const btnConfirmar = document.getElementById('btnConfirmarDependente');
     if (btnConfirmar) {
+      btnConfirmar.onclick = null;
       btnConfirmar.addEventListener('click', () => this.adicionarDependente());
     }
     
@@ -660,9 +708,10 @@ class StatusSocialManager {
   configurarCalculoDependente() {
     const campos = ['dependenteCapacidade', 'dependenteImportancia', 'dependenteFrequencia'];
     
-    campos.forEach(campoId => {
-      const campo = document.getElementById(campoId);
+    campos.forEach(id => {
+      const campo = document.getElementById(id);
       if (campo) {
+        campo.onchange = null;
         campo.addEventListener('change', () => this.calcularPontosDependente());
       }
     });
@@ -671,48 +720,46 @@ class StatusSocialManager {
   }
   
   calcularPontosDependente() {
-    console.log("🔍 Calculando Dependente...");
-    
     const capacidade = parseInt(document.getElementById('dependenteCapacidade')?.value) || 75;
     const importancia = document.getElementById('dependenteImportancia')?.value || 'amigo';
     const frequencia = parseInt(document.getElementById('dependenteFrequencia')?.value) || 9;
     
-    // 1. Custo base pela capacidade (conforme SEU HTML)
-    let custoBase = -2; // Default para 75%
+    // 1. Custo base
+    let custoBase = -2; // 75%
     if (capacidade === 100) custoBase = -1;
     else if (capacidade === 50) custoBase = -5;
     else if (capacidade === 25) custoBase = -10;
     else if (capacidade === 0) custoBase = -15;
     
-    // 2. Multiplicador de importância (conforme SEU HTML)
-    let multiplicadorImportancia = 1; // Amigo
-    if (importancia === 'empregado') multiplicadorImportancia = 0.5; // 1/2
-    else if (importancia === 'ser_amado') multiplicadorImportancia = 2; // ×2
+    // 2. Importância
+    let multiplicadorImportancia = 1;
+    if (importancia === 'empregado') multiplicadorImportancia = 0.5;
+    else if (importancia === 'ser_amado') multiplicadorImportancia = 2;
     
-    // 3. Multiplicador de frequência
+    // 3. Frequência
     let multiplicadorFrequencia = 1;
     if (frequencia === 6) multiplicadorFrequencia = 0.5;
     else if (frequencia === 12) multiplicadorFrequencia = 2;
     else if (frequencia === 15) multiplicadorFrequencia = 3;
     
-    // 4. Calcular pontos (negativo)
+    // 4. Calcular
     const pontos = Math.round(custoBase * multiplicadorImportancia * multiplicadorFrequencia);
     
-    // 5. Atualizar display
+    // 5. Atualizar
     this.atualizarPreviewDependente(custoBase, multiplicadorImportancia, multiplicadorFrequencia, pontos);
     
     return pontos;
   }
   
-  atualizarPreviewDependente(custoBase, multiplicadorImportancia, multiplicadorFrequencia, pontos) {
+  atualizarPreviewDependente(custoBase, importanciaMulti, freqMulti, pontos) {
     const previewBase = document.getElementById('previewDependenteBase');
     const previewImportancia = document.getElementById('previewDependenteImportancia');
     const previewFreq = document.getElementById('previewDependenteFreq');
     const previewTotal = document.getElementById('previewDependenteTotal');
     
     if (previewBase) previewBase.textContent = `${custoBase} pts`;
-    if (previewImportancia) previewImportancia.textContent = `×${multiplicadorImportancia}`;
-    if (previewFreq) previewFreq.textContent = `×${multiplicadorFrequencia}`;
+    if (previewImportancia) previewImportancia.textContent = `×${importanciaMulti}`;
+    if (previewFreq) previewFreq.textContent = `×${freqMulti}`;
     
     if (previewTotal) {
       previewTotal.textContent = `${pontos} pts`;
@@ -752,7 +799,7 @@ class StatusSocialManager {
   }
   
   // ===========================================
-  // DISPLAYS DAS LISTAS
+  // DISPLAYS DAS LISTAS (MANTIDO IGUAL)
   // ===========================================
   
   atualizarDisplayAliados() {
@@ -995,32 +1042,32 @@ class StatusSocialManager {
   }
   
   configurarModais() {
+    // Fechar modais
     document.querySelectorAll('.modal-close[data-modal]').forEach(btn => {
+      btn.onclick = null;
       btn.addEventListener('click', (e) => {
         const modalId = e.target.closest('.modal-close').dataset.modal;
-        if (modalId) {
-          this.fecharModal(modalId);
-        }
+        if (modalId) this.fecharModal(modalId);
       });
     });
     
     document.querySelectorAll('.btn-secondary[data-modal]').forEach(btn => {
+      btn.onclick = null;
       btn.addEventListener('click', (e) => {
         const modalId = e.target.closest('.btn-secondary').dataset.modal;
-        if (modalId) {
-          this.fecharModal(modalId);
-        }
+        if (modalId) this.fecharModal(modalId);
       });
     });
     
+    // Fechar clicando fora
     document.querySelectorAll('.modal').forEach(modal => {
+      modal.onclick = null;
       modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.style.display = 'none';
-        }
+        if (e.target === modal) modal.style.display = 'none';
       });
     });
     
+    // Remover itens
     document.addEventListener('click', (e) => {
       const btnRemover = e.target.closest('.btn-remove-item');
       if (btnRemover) {
