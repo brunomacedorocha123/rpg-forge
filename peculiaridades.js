@@ -1,7 +1,6 @@
-// peculiaridades.js - VERSÃO FUNCIONAL
+// peculiaridades.js - VERSÃO CORRETA PARA SEU HTML
 const sistemaPec = {
     normais: [],
-    extras: [],
     limite: 5,
     
     init() {
@@ -11,8 +10,8 @@ const sistemaPec = {
     },
     
     setupEventos() {
-        // Botão adicionar
-        const btnAdd = document.getElementById('pec-btn-add');
+        // Botão adicionar (ID correto: pec-adicionar-btn)
+        const btnAdd = document.getElementById('pec-adicionar-btn');
         if (btnAdd) {
             btnAdd.addEventListener('click', () => this.addNormal());
         }
@@ -25,20 +24,14 @@ const sistemaPec = {
             });
         }
         
-        // Botões de limpar
-        const btnClear = document.getElementById('pec-btn-clear');
-        if (btnClear) {
-            btnClear.addEventListener('click', () => this.clearNormais());
-        }
-        
-        const btnClearExtra = document.getElementById('pec-btn-clear-extra');
-        if (btnClearExtra) {
-            btnClearExtra.addEventListener('click', () => this.clearExtras());
-        }
-        
-        // Textarea extras (salvar automaticamente)
-        const textareaExtra = document.getElementById('pec-textarea-extra');
+        // Textarea extras
+        const textareaExtra = document.getElementById('pec-extra-text');
         if (textareaExtra) {
+            // Carregar texto salvo
+            const saved = localStorage.getItem('pec_extras_text');
+            if (saved) textareaExtra.value = saved;
+            
+            // Salvar automaticamente
             textareaExtra.addEventListener('input', () => {
                 localStorage.setItem('pec_extras_text', textareaExtra.value);
             });
@@ -64,8 +57,7 @@ const sistemaPec = {
         // Adicionar
         this.normais.push({
             id: Date.now(),
-            nome: nome,
-            pontos: -1
+            nome: nome
         });
         
         // Limpar input
@@ -83,43 +75,24 @@ const sistemaPec = {
         this.render();
     },
     
-    clearNormais() {
-        if (this.normais.length === 0) return;
-        if (!confirm(`Remover todas as ${this.normais.length} peculiaridades normais?`)) return;
-        
-        this.normais = [];
-        this.save();
-        this.render();
-    },
-    
-    clearExtras() {
-        const textarea = document.getElementById('pec-textarea-extra');
-        if (!textarea) return;
-        
-        if (textarea.value.trim() && confirm('Limpar todas as peculiaridades extras?')) {
-            textarea.value = '';
-            localStorage.removeItem('pec_extras_text');
-        }
-    },
-    
     render() {
-        // Atualizar contadores
-        const countEl = document.getElementById('pec-count');
-        const pointsEl = document.getElementById('pec-points');
+        // Atualizar contadores (IDs corretos)
+        const contador = document.getElementById('pec-contador');
+        const pontos = document.getElementById('pec-pontos');
         
-        if (countEl) countEl.textContent = `${this.normais.length}/${this.limite}`;
-        if (pointsEl) pointsEl.textContent = `${this.normais.length * -1} pontos`;
+        if (contador) contador.textContent = `${this.normais.length}/${this.limite}`;
+        if (pontos) pontos.textContent = `${this.normais.length * -1} pontos`;
         
-        // Renderizar lista normal
-        const listaNormal = document.getElementById('pec-lista-normal');
-        if (listaNormal) {
+        // Renderizar lista (ID correto: pec-lista)
+        const lista = document.getElementById('pec-lista');
+        if (lista) {
             if (this.normais.length === 0) {
-                listaNormal.innerHTML = '<div class="pec-empty">Nenhuma peculiaridade</div>';
+                lista.innerHTML = '<div class="pec-vazio">Nenhuma peculiaridade adicionada</div>';
             } else {
-                listaNormal.innerHTML = this.normais.map(pec => `
+                lista.innerHTML = this.normais.map(pec => `
                     <div class="pec-item">
-                        <span>${pec.nome}</span>
-                        <button onclick="sistemaPec.removeNormal(${pec.id})" class="pec-remove">
+                        <div class="pec-item-nome">${pec.nome}</div>
+                        <button class="pec-item-remover" onclick="sistemaPec.removeNormal(${pec.id})">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -127,15 +100,8 @@ const sistemaPec = {
             }
         }
         
-        // Carregar texto das extras
-        const textarea = document.getElementById('pec-textarea-extra');
-        if (textarea) {
-            const saved = localStorage.getItem('pec_extras_text');
-            if (saved) textarea.value = saved;
-        }
-        
         // Habilitar/desabilitar botão
-        const btnAdd = document.getElementById('pec-btn-add');
+        const btnAdd = document.getElementById('pec-adicionar-btn');
         if (btnAdd) {
             btnAdd.disabled = this.normais.length >= this.limite;
         }
@@ -154,26 +120,13 @@ const sistemaPec = {
                 this.normais = [];
             }
         }
-    },
-    
-    getData() {
-        return {
-            normais: [...this.normais],
-            totalNormais: this.normais.length,
-            pontosNormais: this.normais.length * -1
-        };
     }
 };
 
-// Inicializar quando a aba estiver carregada
+// Inicializar quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
-    // Verificar se estamos na aba de peculiaridades
-    if (document.getElementById('aba-peculiaridades') || 
-        document.getElementById('pec-input') || 
-        document.getElementById('pec-btn-add')) {
-        sistemaPec.init();
-    }
+    sistemaPec.init();
 });
 
-// Disponibilizar globalmente
+// Tornar acessível globalmente
 window.sistemaPec = sistemaPec;
