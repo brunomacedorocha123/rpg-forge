@@ -1,5 +1,6 @@
 // ===========================================
-// VANTAGENS-LOGICA.JS - VERSÃO 100% COMPLETA
+// VANTAGENS-LOGICA.JS - VERSÃO FINAL
+// TODA A SUA LÓGICA + INTEGRAÇÃO COMPLETA
 // ===========================================
 
 class VantagensLogica {
@@ -45,7 +46,6 @@ class VantagensLogica {
         };
 
         this.inicializado = false;
-        this.pontosManager = null;
     }
 
     inicializar() {
@@ -55,11 +55,15 @@ class VantagensLogica {
         this.configurarAparencia();
         this.configurarIdiomas();
         this.configurarAtributosComplementares();
-        this.configurarIntegracaoPontos();
         this.carregarLocalStorage();
         this.atualizarResumo();
         
         this.inicializado = true;
+        
+        // Atualizar pontos ao inicializar
+        setTimeout(() => {
+            this.atualizarPontosNaAbaPrincipal();
+        }, 500);
     }
 
     configurarSubTabs() {
@@ -92,7 +96,7 @@ class VantagensLogica {
             this.atualizarDisplayAparencia();
             this.salvarLocalStorage();
             this.atualizarResumo();
-            this.atualizarSistemaPontos();
+            this.atualizarPontosNaAbaPrincipal();
         });
 
         this.atualizarDisplayAparencia();
@@ -161,7 +165,7 @@ class VantagensLogica {
                 this.atualizarDescricaoAlfabetizacao();
                 this.salvarLocalStorage();
                 this.atualizarResumo();
-                this.atualizarSistemaPontos();
+                this.atualizarPontosNaAbaPrincipal();
             });
         });
 
@@ -240,7 +244,7 @@ class VantagensLogica {
         this.atualizarDisplayIdiomas();
         this.salvarLocalStorage();
         this.atualizarResumo();
-        this.atualizarSistemaPontos();
+        this.atualizarPontosNaAbaPrincipal();
         
         inputNome?.focus();
     }
@@ -250,7 +254,7 @@ class VantagensLogica {
         this.atualizarDisplayIdiomas();
         this.salvarLocalStorage();
         this.atualizarResumo();
-        this.atualizarSistemaPontos();
+        this.atualizarPontosNaAbaPrincipal();
     }
 
     idiomaJaExiste(nome) {
@@ -393,15 +397,12 @@ class VantagensLogica {
             case 'deslocamento':
                 config.pontos = novoValor * config.custoPorPonto;
                 break;
-                
             case 'pv':
                 config.pontos = novoValor * config.custoPorPonto;
                 break;
-                
             case 'pf':
                 config.pontos = novoValor * config.custoPorPonto;
                 break;
-                
             case 'velocidade':
                 config.pontos = novoValor * config.custoPorPonto;
                 break;
@@ -417,7 +418,7 @@ class VantagensLogica {
         this.atualizarAtributosComplementares();
         this.salvarLocalStorage();
         this.atualizarResumo();
-        this.atualizarSistemaPontos();
+        this.atualizarPontosNaAbaPrincipal();
     }
 
     verificarLimitesAtributo(atributo) {
@@ -461,74 +462,6 @@ class VantagensLogica {
             .reduce((total, atributo) => total + atributo.pontos, 0);
     }
 
-    configurarIntegracaoPontos() {
-        this.pontosManager = window.obterPontosManager ? window.obterPontosManager() : null;
-    }
-
-    // MÉTODO PRINCIPAL QUE INTEGRA COM O SISTEMA DE PONTOS
-    atualizarSistemaPontos() {
-        if (!this.pontosManager) {
-            this.pontosManager = window.obterPontosManager ? window.obterPontosManager() : null;
-            if (!this.pontosManager) return;
-        }
-
-        const pontosAparencia = this.getPontosAparencia();
-        const pontosIdiomas = this.calcularPontosIdiomas();
-        const pontosAtributos = this.getPontosAtributosComplementares();
-        
-        let totalVantagens = 0;
-        let totalDesvantagens = 0;
-        
-        // Calcular vantagens (custo positivo)
-        if (pontosAparencia > 0) totalVantagens += pontosAparencia;
-        if (pontosIdiomas > 0) totalVantagens += pontosIdiomas;
-        if (pontosAtributos > 0) totalVantagens += pontosAtributos;
-        
-        // Calcular desvantagens (ganho de pontos - negativo)
-        if (pontosAparencia < 0) totalDesvantagens += Math.abs(pontosAparencia);
-        if (pontosIdiomas < 0) totalDesvantagens += Math.abs(pontosIdiomas);
-        if (pontosAtributos < 0) totalDesvantagens += Math.abs(pontosAtributos);
-        
-        // Disparar evento que o pontos-manager espera
-        const eventoVantagens = new CustomEvent('vantagensAtualizadas', {
-            detail: {
-                tipo: 'subaba1',
-                aparencia: pontosAparencia,
-                idiomas: pontosIdiomas,
-                atributos_complementares: pontosAtributos,
-                totalVantagens: totalVantagens,
-                totalDesvantagens: totalDesvantagens
-            }
-        });
-        
-        document.dispatchEvent(eventoVantagens);
-        
-        // Atualizar no pontos-manager diretamente se disponível
-        if (this.pontosManager.gastos) {
-            if (pontosAparencia >= 0) {
-                this.pontosManager.gastos.vantagens.aparência = pontosAparencia;
-                this.pontosManager.gastos.desvantagens.aparência = 0;
-            } else {
-                this.pontosManager.gastos.desvantagens.aparência = Math.abs(pontosAparencia);
-                this.pontosManager.gastos.vantagens.aparência = 0;
-            }
-            
-            if (pontosIdiomas >= 0) {
-                this.pontosManager.gastos.vantagens.idiomas = pontosIdiomas;
-                this.pontosManager.gastos.desvantagens.idiomas = 0;
-            } else {
-                this.pontosManager.gastos.desvantagens.idiomas = Math.abs(pontosIdiomas);
-                this.pontosManager.gastos.vantagens.idiomas = 0;
-            }
-            
-            this.pontosManager.gastos.vantagens.atributosComplementares = Math.max(0, pontosAtributos);
-            
-            if (this.pontosManager.atualizarTudo) {
-                this.pontosManager.atualizarTudo();
-            }
-        }
-    }
-
     atualizarResumo() {
         const pontosAparencia = this.getPontosAparencia();
         const pontosIdiomas = this.calcularPontosIdiomas();
@@ -552,6 +485,53 @@ class VantagensLogica {
         if (totalVantagensElem) totalVantagensElem.textContent = totalVantagens;
         if (totalDesvantagensElem) totalDesvantagensElem.textContent = totalDesvantagens;
         if (saldoElem) saldoElem.textContent = totalVantagens - totalDesvantagens;
+    }
+
+    // ===========================================
+    // MÉTODO DE INTEGRAÇÃO COM PONTOS-MANAGER
+    // ===========================================
+
+    atualizarPontosNaAbaPrincipal() {
+        const pontosManager = window.obterPontosManager ? window.obterPontosManager() : null;
+        if (!pontosManager || !pontosManager.gastos) {
+            console.log('Aguardando pontosManager...');
+            return;
+        }
+
+        const pontosAparencia = this.getPontosAparencia();
+        const pontosIdiomas = this.calcularPontosIdiomas();
+        const pontosAtributos = this.getPontosAtributosComplementares();
+
+        // APARÊNCIA
+        if (pontosAparencia >= 0) {
+            pontosManager.gastos.vantagens.aparência = pontosAparencia;
+            pontosManager.gastos.desvantagens.aparência = 0;
+        } else {
+            pontosManager.gastos.desvantagens.aparência = Math.abs(pontosAparencia);
+            pontosManager.gastos.vantagens.aparência = 0;
+        }
+
+        // IDIOMAS
+        if (pontosIdiomas >= 0) {
+            pontosManager.gastos.vantagens.idiomas = pontosIdiomas;
+            pontosManager.gastos.desvantagens.idiomas = 0;
+        } else {
+            pontosManager.gastos.desvantagens.idiomas = Math.abs(pontosIdiomas);
+            pontosManager.gastos.vantagens.idiomas = 0;
+        }
+
+        // ATRIBUTOS COMPLEMENTARES
+        if (pontosAtributos >= 0) {
+            pontosManager.gastos.vantagens.atributosComplementares = pontosAtributos;
+        } else if (pontosAtributos < 0) {
+            pontosManager.gastos.desvantagens.outras += Math.abs(pontosAtributos);
+            pontosManager.gastos.vantagens.atributosComplementares = 0;
+        }
+
+        // ATUALIZAR DISPLAY NA ABA PRINCIPAL
+        if (pontosManager.atualizarTudo) {
+            pontosManager.atualizarTudo();
+        }
     }
 
     salvarLocalStorage() {
@@ -614,7 +594,7 @@ class VantagensLogica {
                     this.atualizarDescricaoAlfabetizacao();
                     this.atualizarAtributosComplementares();
                     this.atualizarResumo();
-                    this.atualizarSistemaPontos();
+                    this.atualizarPontosNaAbaPrincipal();
                 }, 100);
                 
                 return true;
@@ -627,44 +607,6 @@ class VantagensLogica {
 
     capitalize(str) {
         return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-
-    exportarDados() {
-        return {
-            aparencia: this.getPontosAparencia(),
-            idiomas: {
-                idiomaMaterno: this.idiomaMaterno,
-                idiomasAdicionais: this.idiomasAdicionais,
-                alfabetizacao: this.alfabetizacaoAtual,
-                pontosTotais: this.calcularPontosIdiomas()
-            },
-            atributosComplementares: {
-                valores: Object.fromEntries(
-                    Object.entries(this.atributosComplementares).map(([key, config]) => [key, config.valor])
-                ),
-                pontos: this.getPontosAtributosComplementares()
-            }
-        };
-    }
-
-    limparDados() {
-        this.idiomasAdicionais = [];
-        this.alfabetizacaoAtual = 0;
-        
-        Object.keys(this.atributosComplementares).forEach(atributo => {
-            this.atributosComplementares[atributo].valor = 0;
-            this.atributosComplementares[atributo].pontos = 0;
-        });
-        
-        const select = document.getElementById('nivelAparencia');
-        if (select) select.value = '0';
-        
-        this.salvarLocalStorage();
-        this.atualizarDisplayAparencia();
-        this.atualizarDisplayIdiomas();
-        this.atualizarAtributosComplementares();
-        this.atualizarResumo();
-        this.atualizarSistemaPontos();
     }
 }
 
@@ -683,7 +625,9 @@ function inicializarVantagensLogica() {
     return vantagensLogicaInstance;
 }
 
+// INICIALIZAR QUANDO A ABA FOR ABERTA
 document.addEventListener('DOMContentLoaded', function() {
+    // Observar quando a aba Vantagens for aberta
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
@@ -692,6 +636,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(() => {
                         if (!vantagensLogicaInstance) {
                             inicializarVantagensLogica();
+                        } else {
+                            // Forçar atualização dos pontos
+                            vantagensLogicaInstance.atualizarPontosNaAbaPrincipal();
                         }
                     }, 100);
                 }
@@ -704,6 +651,7 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(tabVantagens, { attributes: true });
     }
     
+    // Se já estiver na aba Vantagens
     if (document.getElementById('vantagens')?.classList.contains('active')) {
         setTimeout(inicializarVantagensLogica, 300);
     }
@@ -711,6 +659,3 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.VantagensLogica = VantagensLogica;
 window.inicializarVantagensLogica = inicializarVantagensLogica;
-window.obterVantagensLogica = function() {
-    return vantagensLogicaInstance;
-};
