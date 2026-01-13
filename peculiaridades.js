@@ -1,5 +1,5 @@
 /* ============================================
-   PECULIARIDADES.JS - VERSÃO 100% ISOLADA
+   PECULIARIDADES.JS - VERSÃO 100% ISOLADA E FUNCIONAL
    SÓ FUNCIONA NA ABA DE PECULIARIDADES
    NÃO INTERFERE EM OUTRAS PÁGINAS/ABAS
 ============================================ */
@@ -25,7 +25,8 @@ const sistemaPec = {
         
         // Se já foi inicializado, não faz nada
         if (this.inicializado) {
-            console.log('Peculiaridades: Já inicializado, ignorando...');
+            console.log('Peculiaridades: Já inicializado, atualizando apenas...');
+            this.render();
             return false;
         }
         
@@ -72,11 +73,6 @@ const sistemaPec = {
                     this.addNormal();
                 }
             });
-            
-            // Focar no input ao iniciar
-            setTimeout(() => {
-                input.focus();
-            }, 100);
         }
         
         // 3. Textarea de peculiaridades extras
@@ -181,11 +177,11 @@ const sistemaPec = {
             contador.textContent = `${this.normais.length}/${this.limite}`;
             // Mudar cor se estiver perto do limite
             if (this.normais.length >= this.limite) {
-                contador.style.backgroundColor = '#ef4444';
+                contador.className = 'limite-maximo';
             } else if (this.normais.length >= this.limite - 1) {
-                contador.style.backgroundColor = '#f59e0b';
+                contador.className = 'limite-proximo';
             } else {
-                contador.style.backgroundColor = '#4f46e5';
+                contador.className = 'limite-normal';
             }
         }
         
@@ -201,9 +197,7 @@ const sistemaPec = {
             if (this.normais.length === 0) {
                 lista.innerHTML = `
                     <div class="pec-vazio">
-                        <i class="fas fa-info-circle"></i>
-                        <p>Nenhuma peculiaridade adicionada</p>
-                        <small>Adicione até ${this.limite} peculiaridades (-1 ponto cada)</small>
+                        Nenhuma peculiaridade adicionada
                     </div>
                 `;
             } else {
@@ -246,21 +240,9 @@ const sistemaPec = {
         
         // Criar mensagem temporária
         const message = document.createElement('div');
+        message.className = 'pec-mensagem-flutuante';
         message.textContent = text;
-        message.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${colors[type] || colors.info};
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-            max-width: 300px;
-            font-weight: 500;
-        `;
+        message.style.background = colors[type] || colors.info;
         
         // Adicionar ao corpo
         document.body.appendChild(message);
@@ -346,7 +328,64 @@ const sistemaPec = {
 };
 
 // ============================================
-// INICIALIZAÇÃO INTELIGENTE
+// FUNÇÕES PARA CONTROLAR A ABA
+// ============================================
+
+// Função para ABRIR a aba de peculiaridades
+function abrirAbaPeculiaridades() {
+    console.log('Abrindo aba de peculiaridades...');
+    
+    const abaPec = document.getElementById('aba-peculiaridades');
+    if (!abaPec) {
+        console.error('Aba de peculiaridades não encontrada!');
+        return false;
+    }
+    
+    // 1. Mostrar a aba
+    abaPec.style.display = 'block';
+    abaPec.classList.add('active');
+    
+    // 2. Inicializar o sistema se necessário
+    if (!sistemaPec.inicializado) {
+        console.log('Inicializando sistema pela primeira vez...');
+        sistemaPec.init();
+    } else {
+        console.log('Sistema já inicializado, apenas atualizando...');
+        sistemaPec.render();
+    }
+    
+    // 3. Focar no input
+    setTimeout(() => {
+        const input = document.getElementById('pec-input');
+        if (input) {
+            input.focus();
+        }
+    }, 100);
+    
+    return true;
+}
+
+// Função para FECHAR a aba de peculiaridades
+function fecharAbaPeculiaridades() {
+    const abaPec = document.getElementById('aba-peculiaridades');
+    if (abaPec) {
+        abaPec.style.display = 'none';
+        abaPec.classList.remove('active');
+    }
+}
+
+// Função para ALTERNAR (abrir/fechar) a aba
+function toggleAbaPeculiaridades() {
+    const abaPec = document.getElementById('aba-peculiaridades');
+    if (abaPec && abaPec.style.display !== 'block') {
+        abrirAbaPeculiaridades();
+    } else {
+        fecharAbaPeculiaridades();
+    }
+}
+
+// ============================================
+// INICIALIZAÇÃO AUTOMÁTICA
 // ============================================
 
 // Adicionar estilos de animação para mensagens
@@ -362,87 +401,143 @@ if (!document.querySelector('#pec-animations')) {
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
+        .pec-mensagem-flutuante {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease;
+        }
     `;
     document.head.appendChild(style);
 }
 
-// Função para verificar se deve inicializar
+// Função para verificar e inicializar automaticamente
 function verificarEAbrirPeculiaridades() {
-    // Esperar um pouco para garantir que o DOM está pronto
-    setTimeout(() => {
-        // Verificar SEQUENCIALMENTE se deve inicializar
-        
-        // 1. Verificar se estamos na página/aba correta
-        const abaPec = document.getElementById('aba-peculiaridades');
-        if (!abaPec) {
-            console.log('Peculiaridades: Aba não encontrada, não inicializando.');
-            return;
-        }
-        
-        // 2. Verificar se está ativa (se for um sistema de tabs)
-        if (abaPec.classList && !abaPec.classList.contains('active')) {
-            console.log('Peculiaridades: Aba não está ativa, não inicializando.');
-            // Mas vamos inicializar de qualquer forma, porque pode ser uma página separada
-        }
-        
-        // 3. Verificar se os elementos principais existem
-        const elementosNecessarios = [
-            'pec-lista',
-            'pec-input',
-            'pec-adicionar-btn'
-        ];
-        
-        const todosExistem = elementosNecessarios.every(id => document.getElementById(id));
-        
-        if (!todosExistem) {
-            console.log('Peculiaridades: Elementos necessários não encontrados, não inicializando.');
-            return;
-        }
-        
-        // 4. Tudo ok, pode inicializar
-        console.log('Peculiaridades: Tudo ok, inicializando...');
+    console.log('Verificando se deve inicializar peculiaridades...');
+    
+    const abaPec = document.getElementById('aba-peculiaridades');
+    if (!abaPec) {
+        console.log('Aba de peculiaridades não encontrada no DOM.');
+        return;
+    }
+    
+    // Se a aba já está visível (pode ser que esteja em uma página separada)
+    const estaVisivel = abaPec.style.display !== 'none' || 
+                        abaPec.classList.contains('active') ||
+                        window.getComputedStyle(abaPec).display !== 'none';
+    
+    if (estaVisivel) {
+        console.log('Aba já está visível, inicializando sistema...');
         sistemaPec.init();
-        
-    }, 150); // Delay para garantir estabilidade
-}
-
-// ============================================
-// INICIALIZAÇÃO FINAL
-// ============================================
-
-// Opção 1: Se for uma página única de peculiaridades
-if (document.getElementById('aba-peculiaridades')) {
-    // Inicializar quando o DOM estiver pronto
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', verificarEAbrirPeculiaridades);
     } else {
-        // DOM já está pronto
-        verificarEAbrirPeculiaridades();
+        console.log('Aba não está visível, aguardando comando para abrir...');
+        // Não inicializa ainda, espera que seja aberta manualmente
     }
 }
 
-// Opção 2: Se for parte de um sistema de abas
-window.addEventListener('load', verificarEAbrirPeculiaridades);
+// ============================================
+// EVENT LISTENERS PARA BOTÕES EXTERNOS
+// ============================================
+
+// Esta função configura um botão externo para abrir a aba
+function configurarBotaoAbrirPeculiaridades(seletorBotao) {
+    const botao = document.querySelector(seletorBotao);
+    if (botao) {
+        console.log(`Configurando botão ${seletorBotao} para abrir peculiaridades`);
+        botao.addEventListener('click', abrirAbaPeculiaridades);
+        return true;
+    }
+    return false;
+}
+
+// ============================================
+// INICIALIZAÇÃO QUANDO O DOM ESTÁ PRONTO
+// ============================================
+
+// Aguardar o DOM estar completamente carregado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado, verificando peculiaridades...');
+    
+    // Verificar se a aba existe
+    if (document.getElementById('aba-peculiaridades')) {
+        // Inicializar verificações
+        verificarEAbrirPeculiaridades();
+        
+        // Se houver um botão com ID específico, configurá-lo
+        configurarBotaoAbrirPeculiaridades('#btn-abrir-peculiaridades');
+        configurarBotaoAbrirPeculiaridades('.btn-peculiaridades');
+        configurarBotaoAbrirPeculiaridades('[data-aba="peculiaridades"]');
+    }
+});
+
+// Também inicializar quando a página terminar de carregar
+window.addEventListener('load', function() {
+    console.log('Página completamente carregada, finalizando verificação...');
+    
+    // Pequeno delay para garantir que tudo está carregado
+    setTimeout(() => {
+        if (document.getElementById('aba-peculiaridades') && !sistemaPec.inicializado) {
+            // Se a aba estiver visível mas não inicializada, inicializar
+            const abaPec = document.getElementById('aba-peculiaridades');
+            const estaVisivel = window.getComputedStyle(abaPec).display !== 'none';
+            
+            if (estaVisivel) {
+                sistemaPec.init();
+            }
+        }
+    }, 500);
+});
 
 // ============================================
 // EXPORTAR PARA USO GLOBAL
 // ============================================
 
-// Tornar disponível globalmente
+// Tornar todas as funções disponíveis globalmente
 window.sistemaPec = sistemaPec;
-window.verificarEAbrirPeculiaridades = verificarEAbrirPeculiaridades;
+window.abrirAbaPeculiaridades = abrirAbaPeculiaridades;
+window.fecharAbaPeculiaridades = fecharAbaPeculiaridades;
+window.toggleAbaPeculiaridades = toggleAbaPeculiaridades;
+window.configurarBotaoAbrirPeculiaridades = configurarBotaoAbrirPeculiaridades;
 
-// Se você tem botões que abrem a aba de peculiaridades, adicione:
-// document.querySelector('.tab-peculiaridades').addEventListener('click', verificarEAbrirPeculiaridades);
-
-console.log('Sistema de Peculiaridades carregado com segurança');
+console.log('Sistema de Peculiaridades carregado com segurança!');
 
 // ============================================
-// MÉTODO DE EMERGÊNCIA: Forçar inicialização
+// MÉTODO DE EMERGÊNCIA
 // ============================================
 
 // Se precisar forçar a inicialização manualmente:
-window.inicializarPeculiaridades = function() {
-    console.log('Forçando inicialização de peculiaridades...');
+window.inicializarPeculiaridadesForcado = function() {
+    console.log('FORÇANDO inicialização de peculiaridades...');
+    
+    // Forçar a aba a aparecer
+    const abaPec = document.getElementById('aba-peculiaridades');
+    if (abaPec) {
+        abaPec.style.display = 'block';
+        abaPec.classList.add('active');
+    }
+    
+    // Inicializar o sistema
     return sistemaPec.init();
 };
+
+// ============================================
+// EXEMPLO DE USO:
+// ============================================
+/*
+// Para usar em outra parte do seu código:
+// 1. Criar um botão que abre a aba:
+<button onclick="abrirAbaPeculiaridades()">Abrir Peculiaridades</button>
+
+// 2. Ou configurar automaticamente:
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        configurarBotaoAbrirPeculiaridades('#meu-botao-peculiaridades');
+    });
+</script>
+*/
