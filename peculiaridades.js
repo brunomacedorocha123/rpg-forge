@@ -1,7 +1,6 @@
 /* ============================================
-   PECULIARIDADES.JS - VERSÃO 100% ISOLADA E FUNCIONAL
-   SÓ FUNCIONA NA ABA DE PECULIARIDADES
-   NÃO INTERFERE EM OUTRAS PÁGINAS/ABAS
+   PECULIARIDADES.JS - VERSÃO 100% CORRETA
+   FUNCIONA COM ID: subtab-peculiaridades
 ============================================ */
 
 const sistemaPec = {
@@ -13,19 +12,19 @@ const sistemaPec = {
     // INICIALIZAÇÃO SEGURA
     // ============================================
     init() {
-        // VERIFICAÇÃO DUPLA DE SEGURANÇA
-        const abaPec = document.getElementById('aba-peculiaridades');
+        // CORREÇÃO: Usar o ID CORRETO subtab-peculiaridades
+        const subAbaPec = document.getElementById('subtab-peculiaridades');
         const container = document.getElementById('pec-lista');
         
-        // Se não encontrou os elementos principais, NÃO inicializa
-        if (!abaPec || !container) {
+        // Se não encontrou, não inicializa
+        if (!subAbaPec || !container) {
             console.log('Peculiaridades: Elementos não encontrados, ignorando...');
             return false;
         }
         
-        // Se já foi inicializado, não faz nada
+        // Se já foi inicializado, apenas renderiza
         if (this.inicializado) {
-            console.log('Peculiaridades: Já inicializado, atualizando apenas...');
+            console.log('Peculiaridades: Já inicializado, atualizando...');
             this.render();
             return false;
         }
@@ -54,12 +53,7 @@ const sistemaPec = {
         // 1. Botão adicionar
         const btnAdd = document.getElementById('pec-adicionar-btn');
         if (btnAdd) {
-            // Remover event listeners antigos (se houver)
-            const novoBtn = btnAdd.cloneNode(true);
-            btnAdd.parentNode.replaceChild(novoBtn, btnAdd);
-            
-            // Adicionar novo listener
-            document.getElementById('pec-adicionar-btn').addEventListener('click', () => {
+            btnAdd.addEventListener('click', () => {
                 this.addNormal();
             });
         }
@@ -86,11 +80,6 @@ const sistemaPec = {
             
             // Salvar automaticamente ao digitar
             textareaExtra.addEventListener('input', () => {
-                localStorage.setItem('pec_extras_text', textareaExtra.value);
-            });
-            
-            // Salvar também quando perder o foco
-            textareaExtra.addEventListener('blur', () => {
                 localStorage.setItem('pec_extras_text', textareaExtra.value);
             });
         }
@@ -144,6 +133,9 @@ const sistemaPec = {
         // Atualizar interface
         this.save();
         this.render();
+        
+        // Atualizar pontos totais no sistema principal
+        this.atualizarPontosSistema();
     },
     
     // ============================================
@@ -163,6 +155,9 @@ const sistemaPec = {
         // Atualizar
         this.save();
         this.render();
+        
+        // Atualizar pontos totais no sistema principal
+        this.atualizarPontosSistema();
     },
     
     // ============================================
@@ -224,6 +219,31 @@ const sistemaPec = {
                 ? '<i class="fas fa-ban"></i> Limite atingido' 
                 : '<i class="fas fa-plus"></i> Adicionar (-1 ponto)';
         }
+    },
+    
+    // ============================================
+    // ATUALIZAR PONTOS NO SISTEMA PRINCIPAL
+    // ============================================
+    atualizarPontosSistema() {
+        const totalPec = this.normais.length * -1;
+        
+        // Atualizar na aba principal de pontos
+        const pontosPecElem = document.getElementById('pontosPeculiaridades');
+        if (pontosPecElem) {
+            pontosPecElem.textContent = totalPec;
+        }
+        
+        // Atualizar no resumo da aba vantagens
+        const totalDesvElem = document.getElementById('totalDesvantagensPontos');
+        if (totalDesvElem) {
+            // Recalcular totais incluindo peculiaridades
+            // (Você pode ajustar isso conforme sua lógica)
+        }
+        
+        // Disparar evento para atualizar pontos totais
+        window.dispatchEvent(new CustomEvent('peculiaridadesAtualizadas', {
+            detail: { pontos: totalPec, quantidade: this.normais.length }
+        }));
     },
     
     // ============================================
@@ -294,7 +314,7 @@ const sistemaPec = {
     },
     
     // ============================================
-    // LIMPAR DADOS (PARA DEBUG)
+    // LIMPAR DADOS
     // ============================================
     limparTudo() {
         if (confirm('Tem certeza que deseja limpar TODAS as peculiaridades?')) {
@@ -306,6 +326,7 @@ const sistemaPec = {
             if (textarea) textarea.value = '';
             
             this.render();
+            this.atualizarPontosSistema();
             this.showMessage('Todas as peculiaridades foram limpas', 'info');
         }
     },
@@ -328,67 +349,103 @@ const sistemaPec = {
 };
 
 // ============================================
-// FUNÇÕES PARA CONTROLAR A ABA
-// ============================================
-
-// Função para ABRIR a aba de peculiaridades
-function abrirAbaPeculiaridades() {
-    console.log('Abrindo aba de peculiaridades...');
-    
-    const abaPec = document.getElementById('aba-peculiaridades');
-    if (!abaPec) {
-        console.error('Aba de peculiaridades não encontrada!');
-        return false;
-    }
-    
-    // 1. Mostrar a aba
-    abaPec.style.display = 'block';
-    abaPec.classList.add('active');
-    
-    // 2. Inicializar o sistema se necessário
-    if (!sistemaPec.inicializado) {
-        console.log('Inicializando sistema pela primeira vez...');
-        sistemaPec.init();
-    } else {
-        console.log('Sistema já inicializado, apenas atualizando...');
-        sistemaPec.render();
-    }
-    
-    // 3. Focar no input
-    setTimeout(() => {
-        const input = document.getElementById('pec-input');
-        if (input) {
-            input.focus();
-        }
-    }, 100);
-    
-    return true;
-}
-
-// Função para FECHAR a aba de peculiaridades
-function fecharAbaPeculiaridades() {
-    const abaPec = document.getElementById('aba-peculiaridades');
-    if (abaPec) {
-        abaPec.style.display = 'none';
-        abaPec.classList.remove('active');
-    }
-}
-
-// Função para ALTERNAR (abrir/fechar) a aba
-function toggleAbaPeculiaridades() {
-    const abaPec = document.getElementById('aba-peculiaridades');
-    if (abaPec && abaPec.style.display !== 'block') {
-        abrirAbaPeculiaridades();
-    } else {
-        fecharAbaPeculiaridades();
-    }
-}
-
-// ============================================
 // INICIALIZAÇÃO AUTOMÁTICA
 // ============================================
 
-// Adicionar estilos de animação para mensagens
+// Inicializar quando a sub-aba for ativada
+function inicializarQuandoAtiva() {
+    // Observar quando a sub-aba de peculiaridades for ativada
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const subAba = document.getElementById('subtab-peculiaridades');
+                if (subAba && subAba.classList.contains('active')) {
+                    // A sub-aba está ativa, inicializar o sistema
+                    if (!sistemaPec.inicializado) {
+                        sistemaPec.init();
+                    } else {
+                        sistemaPec.render();
+                    }
+                }
+            }
+        });
+    });
+    
+    // Observar a sub-aba de peculiaridades
+    const subAbaPec = document.getElementById('subtab-peculiaridades');
+    if (subAbaPec) {
+        observer.observe(subAbaPec, { attributes: true });
+        
+        // Se já estiver ativa, inicializar agora
+        if (subAbaPec.classList.contains('active') && !sistemaPec.inicializado) {
+            sistemaPec.init();
+        }
+    }
+}
+
+// ============================================
+// INICIALIZAÇÃO QUANDO O DOM ESTÁ PRONTO
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado, configurando peculiaridades...');
+    
+    // Verificar se a sub-aba existe
+    if (document.getElementById('subtab-peculiaridades')) {
+        // Configurar inicialização automática
+        inicializarQuandoAtiva();
+        
+        // Adicionar evento para quando clicar no botão da sub-aba
+        const btnPeculiaridades = document.querySelector('.sub-tab[data-subtab="peculiaridades"]');
+        if (btnPeculiaridades) {
+            btnPeculiaridades.addEventListener('click', function() {
+                // Pequeno delay para garantir que a sub-aba está visível
+                setTimeout(() => {
+                    if (!sistemaPec.inicializado) {
+                        sistemaPec.init();
+                    } else {
+                        sistemaPec.render();
+                    }
+                }, 100);
+            });
+        }
+    }
+});
+
+// ============================================
+// INICIALIZAÇÃO COMPLETA DA PÁGINA
+// ============================================
+
+window.addEventListener('load', function() {
+    console.log('Página carregada, finalizando peculiaridades...');
+    
+    // Verificar novamente após tudo carregado
+    if (document.getElementById('subtab-peculiaridades') && !sistemaPec.inicializado) {
+        const subAba = document.getElementById('subtab-peculiaridades');
+        if (subAba.classList.contains('active')) {
+            sistemaPec.init();
+        }
+    }
+});
+
+// ============================================
+// EXPORTAR PARA USO GLOBAL
+// ============================================
+
+// Tornar o sistema disponível globalmente
+window.sistemaPec = sistemaPec;
+
+// Método para forçar inicialização (se necessário)
+window.inicializarPeculiaridadesForcado = function() {
+    return sistemaPec.init();
+};
+
+console.log('Sistema de Peculiaridades carregado!');
+
+// ============================================
+// ADICIONAR ESTILOS DE ANIMAÇÃO (se necessário)
+// ============================================
+
 if (!document.querySelector('#pec-animations')) {
     const style = document.createElement('style');
     style.id = 'pec-animations';
@@ -416,128 +473,3 @@ if (!document.querySelector('#pec-animations')) {
     `;
     document.head.appendChild(style);
 }
-
-// Função para verificar e inicializar automaticamente
-function verificarEAbrirPeculiaridades() {
-    console.log('Verificando se deve inicializar peculiaridades...');
-    
-    const abaPec = document.getElementById('aba-peculiaridades');
-    if (!abaPec) {
-        console.log('Aba de peculiaridades não encontrada no DOM.');
-        return;
-    }
-    
-    // Se a aba já está visível (pode ser que esteja em uma página separada)
-    const estaVisivel = abaPec.style.display !== 'none' || 
-                        abaPec.classList.contains('active') ||
-                        window.getComputedStyle(abaPec).display !== 'none';
-    
-    if (estaVisivel) {
-        console.log('Aba já está visível, inicializando sistema...');
-        sistemaPec.init();
-    } else {
-        console.log('Aba não está visível, aguardando comando para abrir...');
-        // Não inicializa ainda, espera que seja aberta manualmente
-    }
-}
-
-// ============================================
-// EVENT LISTENERS PARA BOTÕES EXTERNOS
-// ============================================
-
-// Esta função configura um botão externo para abrir a aba
-function configurarBotaoAbrirPeculiaridades(seletorBotao) {
-    const botao = document.querySelector(seletorBotao);
-    if (botao) {
-        console.log(`Configurando botão ${seletorBotao} para abrir peculiaridades`);
-        botao.addEventListener('click', abrirAbaPeculiaridades);
-        return true;
-    }
-    return false;
-}
-
-// ============================================
-// INICIALIZAÇÃO QUANDO O DOM ESTÁ PRONTO
-// ============================================
-
-// Aguardar o DOM estar completamente carregado
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM carregado, verificando peculiaridades...');
-    
-    // Verificar se a aba existe
-    if (document.getElementById('aba-peculiaridades')) {
-        // Inicializar verificações
-        verificarEAbrirPeculiaridades();
-        
-        // Se houver um botão com ID específico, configurá-lo
-        configurarBotaoAbrirPeculiaridades('#btn-abrir-peculiaridades');
-        configurarBotaoAbrirPeculiaridades('.btn-peculiaridades');
-        configurarBotaoAbrirPeculiaridades('[data-aba="peculiaridades"]');
-    }
-});
-
-// Também inicializar quando a página terminar de carregar
-window.addEventListener('load', function() {
-    console.log('Página completamente carregada, finalizando verificação...');
-    
-    // Pequeno delay para garantir que tudo está carregado
-    setTimeout(() => {
-        if (document.getElementById('aba-peculiaridades') && !sistemaPec.inicializado) {
-            // Se a aba estiver visível mas não inicializada, inicializar
-            const abaPec = document.getElementById('aba-peculiaridades');
-            const estaVisivel = window.getComputedStyle(abaPec).display !== 'none';
-            
-            if (estaVisivel) {
-                sistemaPec.init();
-            }
-        }
-    }, 500);
-});
-
-// ============================================
-// EXPORTAR PARA USO GLOBAL
-// ============================================
-
-// Tornar todas as funções disponíveis globalmente
-window.sistemaPec = sistemaPec;
-window.abrirAbaPeculiaridades = abrirAbaPeculiaridades;
-window.fecharAbaPeculiaridades = fecharAbaPeculiaridades;
-window.toggleAbaPeculiaridades = toggleAbaPeculiaridades;
-window.configurarBotaoAbrirPeculiaridades = configurarBotaoAbrirPeculiaridades;
-
-console.log('Sistema de Peculiaridades carregado com segurança!');
-
-// ============================================
-// MÉTODO DE EMERGÊNCIA
-// ============================================
-
-// Se precisar forçar a inicialização manualmente:
-window.inicializarPeculiaridadesForcado = function() {
-    console.log('FORÇANDO inicialização de peculiaridades...');
-    
-    // Forçar a aba a aparecer
-    const abaPec = document.getElementById('aba-peculiaridades');
-    if (abaPec) {
-        abaPec.style.display = 'block';
-        abaPec.classList.add('active');
-    }
-    
-    // Inicializar o sistema
-    return sistemaPec.init();
-};
-
-// ============================================
-// EXEMPLO DE USO:
-// ============================================
-/*
-// Para usar em outra parte do seu código:
-// 1. Criar um botão que abre a aba:
-<button onclick="abrirAbaPeculiaridades()">Abrir Peculiaridades</button>
-
-// 2. Ou configurar automaticamente:
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        configurarBotaoAbrirPeculiaridades('#meu-botao-peculiaridades');
-    });
-</script>
-*/
