@@ -1,49 +1,63 @@
-// peculiaridades.js - Sistema SIMPLIFICADO
+// peculiaridades.js - VERSÃO FUNCIONAL
 const sistemaPec = {
-    // Dados
-    normais: [],      // Máximo 5, cada -1 ponto
-    extras: [],       // Ilimitado, sem custo
+    normais: [],
+    extras: [],
     limite: 5,
     
-    // Inicialização
     init() {
         this.load();
         this.setupEventos();
         this.render();
     },
     
-    // Eventos
     setupEventos() {
-        // Adicionar peculiaridade normal
-        document.getElementById('pec-btn-add')?.addEventListener('click', () => this.addNormal());
+        // Botão adicionar
+        const btnAdd = document.getElementById('pec-btn-add');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => this.addNormal());
+        }
         
         // Enter no input
-        document.getElementById('pec-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.addNormal();
-        });
+        const input = document.getElementById('pec-input');
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addNormal();
+            });
+        }
         
-        // Limpar listas
-        document.getElementById('pec-btn-clear')?.addEventListener('click', () => this.clearNormais());
-        document.getElementById('pec-btn-clear-extra')?.addEventListener('click', () => this.clearExtras());
+        // Botões de limpar
+        const btnClear = document.getElementById('pec-btn-clear');
+        if (btnClear) {
+            btnClear.addEventListener('click', () => this.clearNormais());
+        }
         
-        // Salvar extras automaticamente
-        document.getElementById('pec-textarea-extra')?.addEventListener('input', (e) => {
-            localStorage.setItem('pec_extras_text', e.target.value);
-        });
+        const btnClearExtra = document.getElementById('pec-btn-clear-extra');
+        if (btnClearExtra) {
+            btnClearExtra.addEventListener('click', () => this.clearExtras());
+        }
+        
+        // Textarea extras (salvar automaticamente)
+        const textareaExtra = document.getElementById('pec-textarea-extra');
+        if (textareaExtra) {
+            textareaExtra.addEventListener('input', () => {
+                localStorage.setItem('pec_extras_text', textareaExtra.value);
+            });
+        }
     },
     
-    // Adicionar peculiaridade normal
     addNormal() {
         const input = document.getElementById('pec-input');
-        const nome = input?.value.trim();
+        if (!input) return;
+        
+        const nome = input.value.trim();
         
         if (!nome) {
-            this.showAlert('Digite uma peculiaridade', 'error');
+            alert('Digite uma peculiaridade');
             return;
         }
         
         if (this.normais.length >= this.limite) {
-            this.showAlert(`Limite de ${this.limite} peculiaridades atingido!`, 'error');
+            alert(`Limite de ${this.limite} peculiaridades atingido!`);
             return;
         }
         
@@ -55,22 +69,20 @@ const sistemaPec = {
         });
         
         // Limpar input
-        if (input) input.value = '';
+        input.value = '';
+        input.focus();
         
         // Atualizar
         this.save();
         this.render();
-        this.showAlert('Peculiaridade adicionada!', 'success');
     },
     
-    // Remover peculiaridade normal
     removeNormal(id) {
         this.normais = this.normais.filter(p => p.id !== id);
         this.save();
         this.render();
     },
     
-    // Limpar normais
     clearNormais() {
         if (this.normais.length === 0) return;
         if (!confirm(`Remover todas as ${this.normais.length} peculiaridades normais?`)) return;
@@ -78,25 +90,25 @@ const sistemaPec = {
         this.normais = [];
         this.save();
         this.render();
-        this.showAlert('Peculiaridades normais removidas', 'info');
     },
     
-    // Limpar extras
     clearExtras() {
         const textarea = document.getElementById('pec-textarea-extra');
-        if (textarea && textarea.value.trim()) {
-            if (!confirm('Limpar todas as peculiaridades extras?')) return;
+        if (!textarea) return;
+        
+        if (textarea.value.trim() && confirm('Limpar todas as peculiaridades extras?')) {
             textarea.value = '';
             localStorage.removeItem('pec_extras_text');
-            this.showAlert('Peculiaridades extras removidas', 'info');
         }
     },
     
-    // Renderizar
     render() {
         // Atualizar contadores
-        document.getElementById('pec-count')?.textContent = `${this.normais.length}/${this.limite}`;
-        document.getElementById('pec-points')?.textContent = `${this.normais.length * -1} pontos`;
+        const countEl = document.getElementById('pec-count');
+        const pointsEl = document.getElementById('pec-points');
+        
+        if (countEl) countEl.textContent = `${this.normais.length}/${this.limite}`;
+        if (pointsEl) pointsEl.textContent = `${this.normais.length * -1} pontos`;
         
         // Renderizar lista normal
         const listaNormal = document.getElementById('pec-lista-normal');
@@ -121,25 +133,29 @@ const sistemaPec = {
             const saved = localStorage.getItem('pec_extras_text');
             if (saved) textarea.value = saved;
         }
+        
+        // Habilitar/desabilitar botão
+        const btnAdd = document.getElementById('pec-btn-add');
+        if (btnAdd) {
+            btnAdd.disabled = this.normais.length >= this.limite;
+        }
     },
     
-    // Persistência
     save() {
         localStorage.setItem('pec_normais', JSON.stringify(this.normais));
     },
     
     load() {
         const saved = localStorage.getItem('pec_normais');
-        if (saved) this.normais = JSON.parse(saved);
+        if (saved) {
+            try {
+                this.normais = JSON.parse(saved);
+            } catch (e) {
+                this.normais = [];
+            }
+        }
     },
     
-    // Utilitários
-    showAlert(msg, type = 'info') {
-        console.log(`[PEC] ${type.toUpperCase()}: ${msg}`);
-        // Você pode implementar notificações visuais se quiser
-    },
-    
-    // Exportar dados para sistema principal
     getData() {
         return {
             normais: [...this.normais],
@@ -149,10 +165,12 @@ const sistemaPec = {
     }
 };
 
-// Inicializar quando a aba for carregada
+// Inicializar quando a aba estiver carregada
 document.addEventListener('DOMContentLoaded', () => {
-    const abaPec = document.getElementById('aba-peculiaridades');
-    if (abaPec) {
+    // Verificar se estamos na aba de peculiaridades
+    if (document.getElementById('aba-peculiaridades') || 
+        document.getElementById('pec-input') || 
+        document.getElementById('pec-btn-add')) {
         sistemaPec.init();
     }
 });
