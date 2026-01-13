@@ -1,6 +1,6 @@
 // ===========================================
-// VANTAGENS-LOGICA.JS - VERSÃO FINAL
-// TODA A SUA LÓGICA + INTEGRAÇÃO COMPLETA
+// VANTAGENS-LOGICA.JS - VERSÃO 100% FUNCIONAL
+// INTEGRAÇÃO COMPLETA COM PONTOS-MANAGER
 // ===========================================
 
 class VantagensLogica {
@@ -51,6 +51,8 @@ class VantagensLogica {
     inicializar() {
         if (this.inicializado) return;
         
+        console.log('🎯 Inicializando VantagensLogica...');
+        
         this.configurarSubTabs();
         this.configurarAparencia();
         this.configurarIdiomas();
@@ -60,10 +62,28 @@ class VantagensLogica {
         
         this.inicializado = true;
         
-        // Atualizar pontos ao inicializar
+        // Garantir que pontosManager exista antes de atualizar
         setTimeout(() => {
-            this.atualizarPontosNaAbaPrincipal();
-        }, 500);
+            this.forcarIntegracaoPontos();
+        }, 800);
+    }
+
+    forcarIntegracaoPontos() {
+        console.log('🔗 Forçando integração com PontosManager...');
+        this.atualizarPontosNaAbaPrincipal();
+        
+        // Tenta várias vezes se necessário
+        let tentativas = 0;
+        const tentarNovamente = () => {
+            tentativas++;
+            if (tentativas <= 5) {
+                setTimeout(() => {
+                    this.atualizarPontosNaAbaPrincipal();
+                    tentarNovamente();
+                }, 500);
+            }
+        };
+        tentarNovamente();
     }
 
     configurarSubTabs() {
@@ -96,7 +116,7 @@ class VantagensLogica {
             this.atualizarDisplayAparencia();
             this.salvarLocalStorage();
             this.atualizarResumo();
-            this.atualizarPontosNaAbaPrincipal();
+            this.atualizarPontosNaAbaPrincipal(); // ← INTEGRAÇÃO AQUI
         });
 
         this.atualizarDisplayAparencia();
@@ -159,13 +179,14 @@ class VantagensLogica {
             });
         }
 
-        document.querySelectorAll('input[name="alfabetizacao"]').forEach(radio => {
+        const radiosAlfabetizacao = document.querySelectorAll('input[name="alfabetizacao"]');
+        radiosAlfabetizacao.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 this.alfabetizacaoAtual = parseInt(e.target.value);
                 this.atualizarDescricaoAlfabetizacao();
                 this.salvarLocalStorage();
                 this.atualizarResumo();
-                this.atualizarPontosNaAbaPrincipal();
+                this.atualizarPontosNaAbaPrincipal(); // ← INTEGRAÇÃO AQUI
             });
         });
 
@@ -244,7 +265,7 @@ class VantagensLogica {
         this.atualizarDisplayIdiomas();
         this.salvarLocalStorage();
         this.atualizarResumo();
-        this.atualizarPontosNaAbaPrincipal();
+        this.atualizarPontosNaAbaPrincipal(); // ← INTEGRAÇÃO AQUI
         
         inputNome?.focus();
     }
@@ -254,7 +275,7 @@ class VantagensLogica {
         this.atualizarDisplayIdiomas();
         this.salvarLocalStorage();
         this.atualizarResumo();
-        this.atualizarPontosNaAbaPrincipal();
+        this.atualizarPontosNaAbaPrincipal(); // ← INTEGRAÇÃO AQUI
     }
 
     idiomaJaExiste(nome) {
@@ -418,7 +439,7 @@ class VantagensLogica {
         this.atualizarAtributosComplementares();
         this.salvarLocalStorage();
         this.atualizarResumo();
-        this.atualizarPontosNaAbaPrincipal();
+        this.atualizarPontosNaAbaPrincipal(); // ← INTEGRAÇÃO AQUI
     }
 
     verificarLimitesAtributo(atributo) {
@@ -488,49 +509,81 @@ class VantagensLogica {
     }
 
     // ===========================================
-    // MÉTODO DE INTEGRAÇÃO COM PONTOS-MANAGER
+    // MÉTODO DE INTEGRAÇÃO COM PONTOS-MANAGER - CORRIGIDO
     // ===========================================
 
     atualizarPontosNaAbaPrincipal() {
-        const pontosManager = window.obterPontosManager ? window.obterPontosManager() : null;
-        if (!pontosManager || !pontosManager.gastos) {
-            console.log('Aguardando pontosManager...');
+        // FORÇAR a encontrar o pontosManager
+        let pontosManager = null;
+        
+        // Tentar vários métodos para encontrar
+        if (window.obterPontosManager) {
+            pontosManager = window.obterPontosManager();
+        }
+        
+        if (!pontosManager && window.pontosManagerInstance) {
+            pontosManager = window.pontosManagerInstance;
+        }
+        
+        if (!pontosManager && window.PontosManager) {
+            pontosManager = new window.PontosManager();
+        }
+        
+        if (!pontosManager) {
+            console.warn('⚠️ PontosManager não encontrado. Tentando novamente em 500ms...');
+            setTimeout(() => this.atualizarPontosNaAbaPrincipal(), 500);
             return;
         }
+
+        console.log('✅ PontosManager encontrado! Atualizando pontos...');
 
         const pontosAparencia = this.getPontosAparencia();
         const pontosIdiomas = this.calcularPontosIdiomas();
         const pontosAtributos = this.getPontosAtributosComplementares();
 
-        // APARÊNCIA
+        // LOG PARA DEBUG
+        console.log('📊 Pontos calculados:', {
+            aparencia: pontosAparencia,
+            idiomas: pontosIdiomas,
+            atributos: pontosAtributos
+        });
+
+        // APARÊNCIA - Lógica CORRETA
         if (pontosAparencia >= 0) {
+            // É vantagem (gasta pontos)
             pontosManager.gastos.vantagens.aparência = pontosAparencia;
             pontosManager.gastos.desvantagens.aparência = 0;
         } else {
+            // É desvantagem (ganha pontos)
             pontosManager.gastos.desvantagens.aparência = Math.abs(pontosAparencia);
             pontosManager.gastos.vantagens.aparência = 0;
         }
 
-        // IDIOMAS
+        // IDIOMAS - Lógica CORRETA
         if (pontosIdiomas >= 0) {
+            // É vantagem (gasta pontos)
             pontosManager.gastos.vantagens.idiomas = pontosIdiomas;
             pontosManager.gastos.desvantagens.idiomas = 0;
         } else {
+            // É desvantagem (ganha pontos) - alfabetização negativa
             pontosManager.gastos.desvantagens.idiomas = Math.abs(pontosIdiomas);
             pontosManager.gastos.vantagens.idiomas = 0;
         }
 
-        // ATRIBUTOS COMPLEMENTARES
+        // ATRIBUTOS COMPLEMENTARES - Lógica CORRETA
         if (pontosAtributos >= 0) {
+            // É vantagem (gasta pontos)
             pontosManager.gastos.vantagens.atributosComplementares = pontosAtributos;
-        } else if (pontosAtributos < 0) {
-            pontosManager.gastos.desvantagens.outras += Math.abs(pontosAtributos);
+        } else {
+            // É desvantagem (ganha pontos)
+            pontosManager.gastos.desvantagens.outras = Math.abs(pontosAtributos);
             pontosManager.gastos.vantagens.atributosComplementares = 0;
         }
 
         // ATUALIZAR DISPLAY NA ABA PRINCIPAL
-        if (pontosManager.atualizarTudo) {
+        if (typeof pontosManager.atualizarTudo === 'function') {
             pontosManager.atualizarTudo();
+            console.log('🔄 Pontos atualizados na aba principal');
         }
     }
 
@@ -611,7 +664,7 @@ class VantagensLogica {
 }
 
 // ===========================================
-// INICIALIZAÇÃO GLOBAL
+// INICIALIZAÇÃO GLOBAL - MELHORADA
 // ===========================================
 
 let vantagensLogicaInstance = null;
@@ -625,22 +678,23 @@ function inicializarVantagensLogica() {
     return vantagensLogicaInstance;
 }
 
-// INICIALIZAR QUANDO A ABA FOR ABERTA
+// INICIALIZAR QUANDO A ABA FOR ABERTA - GARANTIDO
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM Carregado - Configurando VantagensLogica');
+    
     // Observar quando a aba Vantagens for aberta
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                 const tab = mutation.target;
                 if (tab.id === 'vantagens' && tab.classList.contains('active')) {
+                    console.log('🔓 Aba Vantagens aberta! Inicializando...');
                     setTimeout(() => {
                         if (!vantagensLogicaInstance) {
-                            inicializarVantagensLogica();
-                        } else {
-                            // Forçar atualização dos pontos
-                            vantagensLogicaInstance.atualizarPontosNaAbaPrincipal();
+                            vantagensLogicaInstance = new VantagensLogica();
                         }
-                    }, 100);
+                        vantagensLogicaInstance.inicializar();
+                    }, 300);
                 }
             }
         });
@@ -651,11 +705,43 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(tabVantagens, { attributes: true });
     }
     
-    // Se já estiver na aba Vantagens
+    // Se já estiver na aba Vantagens ao carregar
     if (document.getElementById('vantagens')?.classList.contains('active')) {
-        setTimeout(inicializarVantagensLogica, 300);
+        console.log('🎯 Já está na aba Vantagens. Inicializando imediatamente...');
+        setTimeout(() => {
+            vantagensLogicaInstance = new VantagensLogica();
+            vantagensLogicaInstance.inicializar();
+        }, 500);
     }
+    
+    // Também inicializar quando clicar nas sub-tabs
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.sub-tab')) {
+            setTimeout(() => {
+                if (vantagensLogicaInstance) {
+                    vantagensLogicaInstance.atualizarPontosNaAbaPrincipal();
+                }
+            }, 200);
+        }
+    });
 });
 
+// EXPORTAR PARA USO GLOBAL
 window.VantagensLogica = VantagensLogica;
 window.inicializarVantagensLogica = inicializarVantagensLogica;
+window.obterVantagensLogica = function() {
+    return vantagensLogicaInstance;
+};
+
+// FORÇAR INICIALIZAÇÃO APÓS CARREGAMENTO COMPLETO
+window.addEventListener('load', function() {
+    console.log('🚀 Página totalmente carregada. Verificando pontosManager...');
+    
+    // Esperar um pouco mais para garantir tudo carregou
+    setTimeout(() => {
+        if (document.getElementById('vantagens') && !vantagensLogicaInstance) {
+            console.log('⚡ Inicialização tardia da VantagensLogica');
+            inicializarVantagensLogica();
+        }
+    }, 1500);
+});
