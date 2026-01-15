@@ -1,4 +1,4 @@
-// vantagens-logica.js - VERSÃO 100% COMPLETA E FUNCIONAL
+// vantagens-logica.js - VERSÃO COMPLETA
 class VantagensLogica {
     constructor() {
         this.niveisAparencia = {
@@ -41,45 +41,34 @@ class VantagensLogica {
             deslocamento: { valor: 0, min: -4, max: 5, custoPorPonto: 5, pontos: 0 }
         };
 
-        this.inicializado = false;
-        this.pontosManager = null;
+        this.inicializar();
     }
 
     inicializar() {
-        if (this.inicializado) return;
-        
-        console.log('🔄 Inicializando VantagensLogica...');
-        
         this.configurarSubTabs();
         this.configurarAparencia();
         this.configurarIdiomas();
         this.configurarAtributosComplementares();
         this.carregarLocalStorage();
-        
-        this.encontrarPontosManager();
-        
-        this.inicializado = true;
-        
-        setTimeout(() => {
-            this.atualizarTudo();
-        }, 500);
+        this.configurarObservadores();
     }
 
-    encontrarPontosManager() {
-        // Tentar encontrar o pontosManager de várias formas
-        if (window.obterPontosManager && typeof window.obterPontosManager === 'function') {
-            this.pontosManager = window.obterPontosManager();
-        } else if (window.pontosManagerInstance) {
-            this.pontosManager = window.pontosManagerInstance;
-        } else if (window.PontosManager) {
-            this.pontosManager = new window.PontosManager();
-        }
+    configurarObservadores() {
+        // Observar mudanças na aba para garantir inicialização
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const tab = mutation.target;
+                    if (tab.id === 'vantagens' && tab.classList.contains('active')) {
+                        this.atualizarTudo();
+                    }
+                }
+            });
+        });
         
-        if (this.pontosManager) {
-            console.log('✅ PontosManager encontrado!');
-        } else {
-            console.warn('⚠️ PontosManager não encontrado. Tentando novamente...');
-            setTimeout(() => this.encontrarPontosManager(), 500);
+        const tabVantagens = document.getElementById('vantagens');
+        if (tabVantagens) {
+            observer.observe(tabVantagens, { attributes: true });
         }
     }
 
@@ -112,7 +101,7 @@ class VantagensLogica {
         select.addEventListener('change', () => {
             this.atualizarDisplayAparencia();
             this.salvarLocalStorage();
-            this.atualizarTudo();
+            this.atualizarPontosSistema();
         });
 
         this.atualizarDisplayAparencia();
@@ -172,6 +161,7 @@ class VantagensLogica {
             inputMaterno.addEventListener('change', () => {
                 this.idiomaMaterno.nome = inputMaterno.value;
                 this.salvarLocalStorage();
+                this.atualizarPontosSistema();
             });
         }
 
@@ -181,7 +171,7 @@ class VantagensLogica {
                 this.alfabetizacaoAtual = parseInt(e.target.value);
                 this.atualizarDescricaoAlfabetizacao();
                 this.salvarLocalStorage();
-                this.atualizarTudo();
+                this.atualizarPontosSistema();
             });
         });
 
@@ -259,7 +249,7 @@ class VantagensLogica {
         this.atualizarPreviewCustoIdioma();
         this.atualizarDisplayIdiomas();
         this.salvarLocalStorage();
-        this.atualizarTudo();
+        this.atualizarPontosSistema();
         
         inputNome?.focus();
     }
@@ -268,7 +258,7 @@ class VantagensLogica {
         this.idiomasAdicionais = this.idiomasAdicionais.filter(i => i.id !== id);
         this.atualizarDisplayIdiomas();
         this.salvarLocalStorage();
-        this.atualizarTudo();
+        this.atualizarPontosSistema();
     }
 
     idiomaJaExiste(nome) {
@@ -431,7 +421,7 @@ class VantagensLogica {
         this.verificarLimitesAtributo(atributo);
         this.atualizarAtributosComplementares();
         this.salvarLocalStorage();
-        this.atualizarTudo();
+        this.atualizarPontosSistema();
     }
 
     verificarLimitesAtributo(atributo) {
@@ -475,67 +465,41 @@ class VantagensLogica {
             .reduce((total, atributo) => total + atributo.pontos, 0);
     }
 
-    atualizarTudo() {
+    atualizarPontosSistema() {
         const pontosAparencia = this.getPontosAparencia();
         const pontosIdiomas = this.calcularPontosIdiomas();
         const pontosAtributos = this.getPontosAtributosComplementares();
         
-        console.log('📊 Pontos calculados:', {
-            aparencia: pontosAparencia,
-            idiomas: pontosIdiomas,
-            atributos: pontosAtributos
-        });
+        // Disparar evento para aparência
+        document.dispatchEvent(new CustomEvent('vantagensAtualizadas', {
+            detail: {
+                tipo: 'aparência',
+                pontos: pontosAparencia
+            }
+        }));
         
-        if (this.pontosManager) {
-            this.atualizarPontosNoManager(pontosAparencia, pontosIdiomas, pontosAtributos);
-        } else {
-            this.encontrarPontosManager();
-            setTimeout(() => {
-                if (this.pontosManager) {
-                    this.atualizarPontosNoManager(pontosAparencia, pontosIdiomas, pontosAtributos);
-                }
-            }, 300);
-        }
+        // Disparar evento para idiomas
+        document.dispatchEvent(new CustomEvent('vantagensAtualizadas', {
+            detail: {
+                tipo: 'idiomas',
+                pontos: pontosIdiomas
+            }
+        }));
+        
+        // Disparar evento para atributos complementares
+        document.dispatchEvent(new CustomEvent('atributosComplementaresAtualizados', {
+            detail: {
+                pontos: pontosAtributos
+            }
+        }));
     }
 
-    atualizarPontosNoManager(pontosAparencia, pontosIdiomas, pontosAtributos) {
-        if (!this.pontosManager || !this.pontosManager.gastos) {
-            console.warn('PontosManager não disponível');
-            return;
-        }
-        
-        // APARÊNCIA
-        if (pontosAparencia >= 0) {
-            this.pontosManager.gastos.vantagens.aparência = pontosAparencia;
-            this.pontosManager.gastos.desvantagens.aparência = 0;
-        } else {
-            this.pontosManager.gastos.desvantagens.aparência = Math.abs(pontosAparencia);
-            this.pontosManager.gastos.vantagens.aparência = 0;
-        }
-        
-        // IDIOMAS
-        if (pontosIdiomas >= 0) {
-            this.pontosManager.gastos.vantagens.idiomas = pontosIdiomas;
-            this.pontosManager.gastos.desvantagens.idiomas = 0;
-        } else {
-            this.pontosManager.gastos.desvantagens.idiomas = Math.abs(pontosIdiomas);
-            this.pontosManager.gastos.vantagens.idiomas = 0;
-        }
-        
-        // ATRIBUTOS COMPLEMENTARES
-        if (pontosAtributos >= 0) {
-            this.pontosManager.gastos.vantagens.atributosComplementares = pontosAtributos;
-            this.pontosManager.gastos.desvantagens.outras = Math.max(0, this.pontosManager.gastos.desvantagens.outras || 0);
-        } else {
-            this.pontosManager.gastos.desvantagens.outras = Math.abs(pontosAtributos);
-            this.pontosManager.gastos.vantagens.atributosComplementares = 0;
-        }
-        
-        // Atualizar display
-        if (typeof this.pontosManager.atualizarTudo === 'function') {
-            this.pontosManager.atualizarTudo();
-            console.log('✅ Pontos atualizados no sistema principal');
-        }
+    atualizarTudo() {
+        this.atualizarDisplayAparencia();
+        this.atualizarDisplayIdiomas();
+        this.atualizarDescricaoAlfabetizacao();
+        this.atualizarAtributosComplementares();
+        this.atualizarPontosSistema();
     }
 
     salvarLocalStorage() {
@@ -593,10 +557,7 @@ class VantagensLogica {
                 }
                 
                 setTimeout(() => {
-                    this.atualizarDisplayAparencia();
-                    this.atualizarDisplayIdiomas();
-                    this.atualizarDescricaoAlfabetizacao();
-                    this.atualizarAtributosComplementares();
+                    this.atualizarTudo();
                 }, 100);
                 
                 return true;
@@ -610,86 +571,84 @@ class VantagensLogica {
     capitalize(str) {
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
+    
+    // Método para resetar todos os dados
+    resetar() {
+        // Resetar aparência
+        const selectAparencia = document.getElementById('nivelAparencia');
+        if (selectAparencia) selectAparencia.value = "0";
+        
+        // Resetar idioma materno
+        const inputIdiomaMaterno = document.getElementById('idiomaMaternoNome');
+        if (inputIdiomaMaterno) inputIdiomaMaterno.value = "Comum";
+        this.idiomaMaterno = { nome: 'Comum', nivelFala: 6, nivelEscrita: 6, custoTotal: 0 };
+        
+        // Resetar idiomas adicionais
+        this.idiomasAdicionais = [];
+        
+        // Resetar alfabetização
+        this.alfabetizacaoAtual = 0;
+        const radioAlfabetizado = document.querySelector('input[name="alfabetizacao"][value="0"]');
+        if (radioAlfabetizado) radioAlfabetizado.checked = true;
+        
+        // Resetar atributos complementares
+        Object.keys(this.atributosComplementares).forEach(atributo => {
+            this.atributosComplementares[atributo].valor = 0;
+            this.atributosComplementares[atributo].pontos = 0;
+            
+            const input = document.getElementById(`${atributo}Mod`);
+            const pontosSpan = document.getElementById(`pontos${this.capitalize(atributo)}`);
+            
+            if (input) input.value = 0;
+            if (pontosSpan) pontosSpan.textContent = 0;
+        });
+        
+        // Limpar localStorage
+        localStorage.removeItem('gurps_vantagens');
+        
+        // Atualizar display
+        this.atualizarTudo();
+    }
 }
 
-// ===========================================
-// INICIALIZAÇÃO GLOBAL - 100% COMPLETA
-// ===========================================
-
+// Inicialização automática
 let vantagensLogicaInstance = null;
 
-function inicializarVantagensLogica() {
-    if (!vantagensLogicaInstance) {
-        vantagensLogicaInstance = new VantagensLogica();
-    }
-    
-    vantagensLogicaInstance.inicializar();
-    return vantagensLogicaInstance;
-}
-
-// INICIALIZAR QUANDO A ABA FOR ABERTA
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM Carregado - Configurando VantagensLogica');
-    
-    // Observar quando a aba Vantagens for aberta
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                const tab = mutation.target;
-                if (tab.id === 'vantagens' && tab.classList.contains('active')) {
-                    console.log('🔓 Aba Vantagens aberta! Inicializando...');
-                    setTimeout(() => {
-                        if (!vantagensLogicaInstance) {
-                            vantagensLogicaInstance = new VantagensLogica();
-                        }
-                        vantagensLogicaInstance.inicializar();
-                    }, 300);
+    if (document.getElementById('vantagens')) {
+        vantagensLogicaInstance = new VantagensLogica();
+        
+        // Verificar se a aba está ativa ao carregar
+        if (document.getElementById('vantagens').classList.contains('active')) {
+            vantagensLogicaInstance.atualizarTudo();
+        }
+        
+        // Observar mudança de abas
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const tab = mutation.target;
+                    if (tab.id === 'vantagens' && tab.classList.contains('active')) {
+                        vantagensLogicaInstance.atualizarTudo();
+                    }
                 }
-            }
+            });
         });
-    });
-    
-    const tabVantagens = document.getElementById('vantagens');
-    if (tabVantagens) {
-        observer.observe(tabVantagens, { attributes: true });
-    }
-    
-    // Se já estiver na aba Vantagens ao carregar
-    if (document.getElementById('vantagens')?.classList.contains('active')) {
-        console.log('🎯 Já está na aba Vantagens. Inicializando imediatamente...');
-        setTimeout(() => {
-            vantagensLogicaInstance = new VantagensLogica();
-            vantagensLogicaInstance.inicializar();
-        }, 500);
-    }
-    
-    // Inicializar quando clicar nas sub-tabs também
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('.sub-tab')) {
-            setTimeout(() => {
-                if (vantagensLogicaInstance) {
-                    vantagensLogicaInstance.atualizarTudo();
-                }
-            }, 200);
+        
+        const tabVantagens = document.getElementById('vantagens');
+        if (tabVantagens) {
+            observer.observe(tabVantagens, { attributes: true });
         }
-    });
+    }
 });
 
-// FORÇAR INICIALIZAÇÃO APÓS CARREGAMENTO COMPLETO
-window.addEventListener('load', function() {
-    console.log('🚀 Página totalmente carregada');
-    
-    setTimeout(() => {
-        if (document.getElementById('vantagens') && !vantagensLogicaInstance) {
-            console.log('⚡ Inicialização tardia da VantagensLogica');
-            inicializarVantagensLogica();
-        }
-    }, 1000);
-});
-
-// EXPORTAR PARA USO GLOBAL
+// Exportar para uso global
 window.VantagensLogica = VantagensLogica;
-window.inicializarVantagensLogica = inicializarVantagensLogica;
 window.obterVantagensLogica = function() {
     return vantagensLogicaInstance;
+};
+window.resetarVantagens = function() {
+    if (vantagensLogicaInstance) {
+        vantagensLogicaInstance.resetar();
+    }
 };
