@@ -1,7 +1,6 @@
-// vantagens-logica.js - VERSÃO 100% FUNCIONAL SEM QUEBRAR NADA
+// vantagens-logica.js - VERSÃO COMPLETA E FUNCIONAL
 class VantagensLogic {
     constructor() {
-        // Estado atual
         this.estado = {
             aparência: 0,
             atributosComplementares: {
@@ -16,42 +15,58 @@ class VantagensLogic {
             idiomas: []
         };
         
+        // Cache para controle de mudanças
+        this.cache = {
+            aparência: 0,
+            atributosComplementares: 0,
+            idiomas: 0
+        };
+        
         this.inicializar();
     }
     
     inicializar() {
-        this.configurarEventos();
-        this.inicializarValores();
+        // Carregar valores iniciais dos inputs
+        this.carregarValoresIniciais();
         
-        // Sincronizar com pontos-manager inicial
+        // Configurar todos os eventos
+        this.configurarEventos();
+        
+        // Sincronizar inicialmente
         setTimeout(() => {
-            this.sincronizarComPontosManager();
-        }, 1000);
+            this.sincronizarTudo();
+        }, 300);
     }
     
-    inicializarValores() {
-        // Aparência - pegar valor atual
+    carregarValoresIniciais() {
+        // Aparência
         const selectAparência = document.getElementById('nivelAparencia');
         if (selectAparência) {
             this.estado.aparência = parseInt(selectAparência.value) || 0;
-            this.atualizarDisplayAparência(this.estado.aparência);
+            this.cache.aparência = this.estado.aparência;
         }
         
-        // Atributos complementares - pegar valores atuais
-        Object.keys(this.estado.atributosComplementares).forEach(atributo => {
+        // Atributos complementares
+        const atributos = ['vontade', 'percepcao', 'pv', 'pf', 'velocidade', 'deslocamento'];
+        atributos.forEach(atributo => {
             const input = document.getElementById(`${atributo}Mod`);
             if (input) {
                 this.estado.atributosComplementares[atributo] = parseInt(input.value) || 0;
-                this.atualizarDisplayAtributo(atributo, this.estado.atributosComplementares[atributo]);
             }
         });
         
-        // Atualizar total de atributos complementares
-        this.atualizarTotalAtributosComplementares();
+        // Calcular total inicial de atributos complementares
+        this.cache.atributosComplementares = this.calcularTotalAtributosComplementares();
         
-        // Idiomas - pegar itens existentes da lista
+        // Alfabetização
+        const radioAlfabetizacao = document.querySelector('input[name="alfabetizacao"]:checked');
+        if (radioAlfabetizacao) {
+            this.estado.alfabetizacao = parseInt(radioAlfabetizacao.value) || 0;
+        }
+        
+        // Idiomas existentes na lista
         this.carregarIdiomasExistentes();
-        this.atualizarTotalIdiomas();
+        this.cache.idiomas = this.calcularTotalIdiomas();
     }
     
     carregarIdiomasExistentes() {
@@ -69,35 +84,90 @@ class VantagensLogic {
                 const nome = nomeEl.textContent.trim();
                 const pontosText = pontosEl.textContent.trim();
                 const match = pontosText.match(/([+-]?\d+)/);
-                const pontos = match ? parseInt(match[1]) : 0;
+                const total = match ? parseInt(match[1]) : 0;
                 
                 this.estado.idiomas.push({
                     nome: nome,
-                    total: pontos
+                    total: total
                 });
             }
         });
     }
     
     configurarEventos() {
-        // ================= APARÊNCIA =================
+        this.configurarAparência();
+        this.configurarAtributosComplementares();
+        this.configurarAlfabetizacao();
+        this.configurarSistemaIdiomas();
+        
+        // Monitorar periodicamente para garantir sincronização
+        setInterval(() => {
+            this.verificarMudanças();
+        }, 1000);
+    }
+    
+    configurarAparência() {
         const selectAparência = document.getElementById('nivelAparencia');
-        if (selectAparência) {
-            selectAparência.addEventListener('change', (e) => {
-                const pontos = parseInt(e.target.value) || 0;
-                this.estado.aparência = pontos;
-                this.atualizarDisplayAparência(pontos);
-                
-                // Disparar evento CORRETO para pontos-manager
-                this.dispararEventoAparência(pontos);
-            });
+        if (!selectAparência) return;
+        
+        selectAparência.addEventListener('change', (e) => {
+            const pontos = parseInt(e.target.value) || 0;
+            this.estado.aparência = pontos;
+            this.atualizarDisplayAparência(pontos);
+            this.processarAparência(pontos);
+        });
+        
+        // Atualizar display inicial
+        this.atualizarDisplayAparência(this.estado.aparência);
+    }
+    
+    atualizarDisplayAparência(pontos) {
+        // Atualizar badge
+        const badge = document.getElementById('pontosAparencia');
+        if (badge) {
+            badge.textContent = `${pontos >= 0 ? '+' : ''}${pontos} pts`;
+            badge.className = 'pontos-badge ' + (pontos >= 0 ? 'positivo' : 'negativo');
         }
         
-        // ================= ATRIBUTOS COMPLEMENTARES =================
-        this.configurarAtributosComplementares();
+        // Atualizar descrição
+        const display = document.getElementById('displayAparencia');
+        if (display) {
+            const descricao = this.getDescricaoAparência(pontos);
+            display.innerHTML = `
+                <div><strong style="color: ${pontos >= 0 ? '#27ae60' : '#e74c3c'}">${descricao.nome}</strong></div>
+                <div style="font-size: 0.9em; color: var(--text-light); opacity: 0.8; margin-top: 5px;">
+                    ${descricao.descricao}
+                </div>
+            `;
+        }
+    }
+    
+    getDescricaoAparência(pontos) {
+        const map = {
+            '-24': { nome: 'Horrendo', descricao: 'Aparência terrível, causa -4 nas Reações' },
+            '-20': { nome: 'Monstruoso', descricao: 'Aparência monstruosa, causa -3 nas Reações' },
+            '-16': { nome: 'Hediondo', descricao: 'Muito feio, causa -2 nas Reações' },
+            '-8': { nome: 'Feio', descricao: 'Feio, causa -1 nas Reações' },
+            '-4': { nome: 'Sem Atrativos', descricao: 'Sem atrativos, não causa modificadores' },
+            '0': { nome: 'Comum', descricao: 'Aparência normal, não causa modificadores' },
+            '4': { nome: 'Atraente', descricao: 'Bonito, causa +1 nas Reações' },
+            '12': { nome: 'Elegante', descricao: 'Muito bonito, causa +2 nas Reações' },
+            '16': { nome: 'Muito Elegante', descricao: 'Extremamente bonito, causa +3 nas Reações' },
+            '20': { nome: 'Lindo', descricao: 'Beleza excepcional, causa +4 nas Reações' }
+        };
         
-        // ================= IDIOMAS =================
-        this.configurarIdiomas();
+        return map[pontos.toString()] || { nome: 'Desconhecido', descricao: 'Valor não reconhecido' };
+    }
+    
+    processarAparência(pontos) {
+        // Se mudou, processar
+        if (pontos !== this.cache.aparência) {
+            const diferenca = pontos - this.cache.aparência;
+            this.cache.aparência = pontos;
+            
+            // Enviar para sistema de pontos
+            this.enviarParaSistemaPontos('aparência', pontos, diferenca);
+        }
     }
     
     configurarAtributosComplementares() {
@@ -109,30 +179,34 @@ class VantagensLogic {
             const input = document.getElementById(`${atributo}Mod`);
             
             if (btnMais && btnMenos && input) {
-                // Evento de aumentar
+                // Aumentar
                 btnMais.addEventListener('click', () => {
-                    this.alterarAtributoComplementar(atributo, 1);
+                    this.ajustarAtributo(atributo, 1);
                 });
                 
-                // Evento de diminuir
+                // Diminuir
                 btnMenos.addEventListener('click', () => {
-                    this.alterarAtributoComplementar(atributo, -1);
+                    this.ajustarAtributo(atributo, -1);
                 });
                 
-                // Evento de input manual
-                if (!input.readOnly) {
-                    input.addEventListener('change', (e) => {
-                        const novoValor = parseInt(e.target.value) || 0;
-                        this.estado.atributosComplementares[atributo] = novoValor;
-                        this.atualizarDisplayAtributo(atributo, novoValor);
-                        this.atualizarTotalAtributosComplementares();
-                    });
-                }
+                // Mudança manual
+                input.addEventListener('change', () => {
+                    const valor = parseInt(input.value) || 0;
+                    this.estado.atributosComplementares[atributo] = valor;
+                    this.atualizarDisplayAtributo(atributo, valor);
+                    this.processarAtributosComplementares();
+                });
+                
+                // Atualizar display inicial
+                this.atualizarDisplayAtributo(atributo, this.estado.atributosComplementares[atributo]);
             }
         });
+        
+        // Atualizar total inicial
+        this.atualizarTotalAtributosComplementares();
     }
     
-    alterarAtributoComplementar(atributo, direcao) {
+    ajustarAtributo(atributo, direcao) {
         const limites = {
             vontade: { min: -4, max: 5 },
             percepcao: { min: -4, max: 5 },
@@ -156,19 +230,22 @@ class VantagensLogic {
         }
         
         this.atualizarDisplayAtributo(atributo, novoValor);
-        this.atualizarTotalAtributosComplementares();
+        this.processarAtributosComplementares();
     }
     
     atualizarDisplayAtributo(atributo, valor) {
+        // Calcular pontos deste atributo
         const pontos = this.calcularPontosAtributo(atributo, valor);
-        const pontosEl = document.getElementById(`pontos${this.capitalize(atributo)}`);
         
+        // Atualizar display de pontos
+        const pontosEl = document.getElementById(`pontos${this.capitalize(atributo)}`);
         if (pontosEl) {
             pontosEl.textContent = `${pontos} pts`;
             pontosEl.style.color = pontos > 0 ? '#27ae60' : 
                                    pontos < 0 ? '#e74c3c' : '#7f8c8d';
         }
         
+        // Atualizar cor do input
         const input = document.getElementById(`${atributo}Mod`);
         if (input) {
             input.style.color = valor > 0 ? '#27ae60' : 
@@ -179,152 +256,193 @@ class VantagensLogic {
     
     calcularPontosAtributo(atributo, nivel) {
         const custos = {
-            vontade: 5,
-            percepcao: 5,
-            pv: 2,
-            pf: 3,
-            velocidade: 20,
-            deslocamento: 5
+            vontade: 5,      // 5 pontos por nível
+            percepcao: 5,    // 5 pontos por nível
+            pv: 2,          // 2 pontos por nível
+            pf: 3,          // 3 pontos por nível
+            velocidade: 20,  // 20 pontos por nível (cada nível = +0.25 velocidade)
+            deslocamento: 5  // 5 pontos por nível
         };
         
         const custoPorNivel = custos[atributo] || 5;
         return nivel * custoPorNivel;
     }
     
-    atualizarTotalAtributosComplementares() {
-        let totalPontos = 0;
+    calcularTotalAtributosComplementares() {
+        let total = 0;
         
         Object.entries(this.estado.atributosComplementares).forEach(([atributo, nivel]) => {
-            totalPontos += this.calcularPontosAtributo(atributo, nivel);
+            total += this.calcularPontosAtributo(atributo, nivel);
         });
         
-        const badgeTotal = document.getElementById('pontosAtributosComplementares');
-        if (badgeTotal) {
-            badgeTotal.textContent = `${totalPontos >= 0 ? '+' : ''}${totalPontos} pts`;
-            badgeTotal.className = 'pontos-badge ' + (totalPontos >= 0 ? 'positivo' : 'negativo');
-        }
-        
-        // Disparar evento para pontos-manager
-        this.dispararEventoAtributosComplementares(totalPontos);
+        return total;
     }
     
-    configurarIdiomas() {
-        const btnAdicionarIdioma = document.getElementById('btnAdicionarIdioma');
-        const nomeInput = document.getElementById('novoIdiomaNome');
-        const falaSelect = document.getElementById('novoIdiomaFala');
-        const escritaSelect = document.getElementById('novoIdiomaEscrita');
-        const previewCusto = document.getElementById('custoIdiomaPreview');
+    atualizarTotalAtributosComplementares() {
+        const total = this.calcularTotalAtributosComplementares();
         
-        if (!btnAdicionarIdioma || !nomeInput || !falaSelect || !escritaSelect || !previewCusto) return;
+        // Atualizar badge
+        const badge = document.getElementById('pontosAtributosComplementares');
+        if (badge) {
+            badge.textContent = `${total >= 0 ? '+' : ''}${total} pts`;
+            badge.className = 'pontos-badge ' + (total >= 0 ? 'positivo' : 'negativo');
+        }
+    }
+    
+    processarAtributosComplementares() {
+        const totalAtual = this.calcularTotalAtributosComplementares();
         
-        // Atualizar preview
-        const atualizarPreview = () => {
-            const nome = nomeInput.value.trim();
-            const fala = parseInt(falaSelect.value) || 0;
-            const escrita = parseInt(escritaSelect.value) || 0;
-            const total = fala + escrita;
+        if (totalAtual !== this.cache.atributosComplementares) {
+            const diferenca = totalAtual - this.cache.atributosComplementares;
+            this.cache.atributosComplementares = totalAtual;
             
-            if (nome) {
-                previewCusto.innerHTML = `Custo: <strong>${total >= 0 ? '+' : ''}${total} pts</strong>`;
-                btnAdicionarIdioma.disabled = false;
-                btnAdicionarIdioma.style.opacity = '1';
-            } else {
-                previewCusto.innerHTML = `Custo: <strong>+0 pts</strong>`;
-                btnAdicionarIdioma.disabled = true;
-                btnAdicionarIdioma.style.opacity = '0.5';
-            }
-        };
-        
-        nomeInput.addEventListener('input', atualizarPreview);
-        falaSelect.addEventListener('change', atualizarPreview);
-        escritaSelect.addEventListener('change', atualizarPreview);
-        
-        // Botão de adicionar
-        btnAdicionarIdioma.addEventListener('click', () => {
-            this.adicionarIdioma();
-        });
-        
-        nomeInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && nomeInput.value.trim()) {
-                this.adicionarIdioma();
-            }
-        });
-        
-        // Configurar alfabetização
-        this.configurarAlfabetizacao();
-        
-        atualizarPreview();
+            // Atualizar display do total
+            this.atualizarTotalAtributosComplementares();
+            
+            // Enviar para sistema de pontos
+            this.enviarParaSistemaPontos('atributosComplementares', totalAtual, diferenca);
+        }
     }
     
     configurarAlfabetizacao() {
         const radios = document.querySelectorAll('input[name="alfabetizacao"]');
-        if (radios.length === 0) return;
         
         radios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 if (e.target.checked) {
-                    const pontos = parseInt(e.target.value);
+                    const pontos = parseInt(e.target.value) || 0;
                     this.estado.alfabetizacao = pontos;
                     this.atualizarDisplayAlfabetizacao(pontos);
-                    this.atualizarTotalIdiomas();
+                    this.processarIdiomas();
                 }
             });
         });
+        
+        // Atualizar display inicial
+        this.atualizarDisplayAlfabetizacao(this.estado.alfabetizacao);
     }
     
-    adicionarIdioma() {
+    atualizarDisplayAlfabetizacao(pontos) {
+        const descEl = document.getElementById('descAlfabetizacao');
+        if (!descEl) return;
+        
+        const descricoes = {
+            '0': 'Consegue ler e escrever normalmente',
+            '-2': 'Lê com dificuldade, escreve muito pouco',
+            '-3': 'Não sabe ler nem escrever'
+        };
+        
+        descEl.textContent = descricoes[pontos.toString()] || 'Desconhecido';
+        descEl.style.color = pontos < 0 ? '#e74c3c' : '#27ae60';
+    }
+    
+    configurarSistemaIdiomas() {
+        const btnAdicionarIdioma = document.getElementById('btnAdicionarIdioma');
+        const nomeInput = document.getElementById('novoIdiomaNome');
+        const falaSelect = document.getElementById('novoIdiomaFala');
+        const escritaSelect = document.getElementById('novoIdiomaEscrita');
+        
+        if (btnAdicionarIdioma && nomeInput && falaSelect && escritaSelect) {
+            // Botão de adicionar
+            btnAdicionarIdioma.addEventListener('click', () => {
+                this.adicionarNovoIdioma();
+            });
+            
+            // Tecla Enter no input
+            nomeInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.adicionarNovoIdioma();
+                }
+            });
+            
+            // Atualizar preview
+            const atualizarPreview = () => {
+                const nome = nomeInput.value.trim();
+                const fala = parseInt(falaSelect.value) || 0;
+                const escrita = parseInt(escritaSelect.value) || 0;
+                const total = fala + escrita;
+                
+                const preview = document.getElementById('custoIdiomaPreview');
+                if (preview) {
+                    preview.innerHTML = `Custo: <strong>${total >= 0 ? '+' : ''}${total} pts</strong>`;
+                }
+                
+                btnAdicionarIdioma.disabled = !nome;
+            };
+            
+            nomeInput.addEventListener('input', atualizarPreview);
+            falaSelect.addEventListener('change', atualizarPreview);
+            escritaSelect.addEventListener('change', atualizarPreview);
+            
+            atualizarPreview();
+        }
+        
+        // Configurar botões de remover (delegation)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-remover-idioma')) {
+                const btn = e.target.closest('.btn-remover-idioma');
+                const index = parseInt(btn.dataset.index);
+                if (!isNaN(index)) {
+                    this.removerIdioma(index);
+                }
+            }
+        });
+    }
+    
+    adicionarNovoIdioma() {
         const nomeInput = document.getElementById('novoIdiomaNome');
         const falaSelect = document.getElementById('novoIdiomaFala');
         const escritaSelect = document.getElementById('novoIdiomaEscrita');
         
         const nome = nomeInput.value.trim();
+        if (!nome) return;
+        
         const fala = parseInt(falaSelect.value) || 0;
         const escrita = parseInt(escritaSelect.value) || 0;
         const total = fala + escrita;
         
-        if (!nome) {
-            alert('Digite o nome do idioma!');
-            nomeInput.focus();
-            return;
-        }
-        
+        // Verificar se já existe
         if (this.estado.idiomas.some(i => i.nome.toLowerCase() === nome.toLowerCase())) {
             alert('Este idioma já foi adicionado!');
             return;
         }
         
-        const idioma = {
+        // Adicionar ao estado
+        this.estado.idiomas.push({
             nome: nome,
             fala: fala,
             escrita: escrita,
             total: total
-        };
+        });
         
-        this.estado.idiomas.push(idioma);
-        this.atualizarListaIdiomas();
-        this.atualizarTotalIdiomas();
+        // Adicionar à lista visual
+        this.atualizarListaIdiomasVisual();
         
+        // Limpar formulário
         nomeInput.value = '';
-        falaSelect.value = '6';
-        escritaSelect.value = '0';
+        falaSelect.value = '6'; // Reset para Nativo
+        escritaSelect.value = '0'; // Reset para Não escreve
         nomeInput.focus();
+        
+        // Processar mudanças
+        this.processarIdiomas();
     }
     
-    atualizarListaIdiomas() {
+    atualizarListaIdiomasVisual() {
         const listaContainer = document.getElementById('listaIdiomasAdicionais');
         if (!listaContainer) return;
         
-        // Limpar container
+        // Limpar lista atual
         listaContainer.innerHTML = '';
         
-        // Adicionar todos os itens
+        // Adicionar todos os idiomas
         this.estado.idiomas.forEach((idioma, index) => {
             const item = document.createElement('div');
             item.className = 'idioma-item';
             item.id = `idioma-${index}`;
             
-            const descricaoFala = this.getDescricaoNivel(idioma.fala, 'fala');
-            const descricaoEscrita = this.getDescricaoNivel(idioma.escrita, 'escrita');
+            const descricaoFala = this.getDescricaoNivelIdioma(idioma.fala, 'fala');
+            const descricaoEscrita = this.getDescricaoNivelIdioma(idioma.escrita, 'escrita');
             
             item.innerHTML = `
                 <div class="idioma-info">
@@ -342,120 +460,19 @@ class VantagensLogic {
             listaContainer.appendChild(item);
         });
         
-        // Se não houver itens, mostrar mensagem
+        // Se não houver idiomas, mostrar mensagem
         if (this.estado.idiomas.length === 0) {
             listaContainer.innerHTML = '<div class="empty-state">Nenhum idioma adicional adicionado</div>';
         }
         
-        // Configurar botões de remover
-        listaContainer.querySelectorAll('.btn-remover-idioma').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const index = parseInt(e.currentTarget.dataset.index);
-                this.removerIdioma(index);
-            });
-        });
-    }
-    
-    atualizarTotalIdiomas() {
-        let totalPontos = 0;
-        
-        // Somar pontos dos idiomas
-        this.estado.idiomas.forEach(idioma => {
-            totalPontos += idioma.total;
-        });
-        
-        // Adicionar alfabetização
-        totalPontos += this.estado.alfabetizacao;
-        
-        const badgeIdiomas = document.getElementById('pontosIdiomas');
-        if (badgeIdiomas) {
-            badgeIdiomas.textContent = `${totalPontos >= 0 ? '+' : ''}${totalPontos} pts`;
-            badgeIdiomas.className = 'pontos-badge ' + (totalPontos >= 0 ? 'positivo' : 'negativo');
-        }
-        
+        // Atualizar contador
         const contador = document.getElementById('totalIdiomas');
         if (contador) {
             contador.textContent = this.estado.idiomas.length;
         }
-        
-        // Disparar evento para pontos-manager
-        this.dispararEventoIdiomas(totalPontos);
     }
     
-    // ================= EVENTOS PARA PONTOS-MANAGER =================
-    
-    dispararEventoAparência(pontos) {
-        // Aparência pode ser vantagem ou desvantagem
-        const evento = pontos >= 0 ? 'vantagemAdicionada' : 'desvantagemAdicionada';
-        document.dispatchEvent(new CustomEvent(evento, {
-            detail: {
-                tipo: 'aparência',
-                pontos: Math.abs(pontos),
-                origem: 'vantagens-logica'
-            }
-        }));
-    }
-    
-    dispararEventoAtributosComplementares(totalPontos) {
-        if (totalPontos > 0) {
-            // É vantagem
-            document.dispatchEvent(new CustomEvent('vantagemAdicionada', {
-                detail: {
-                    tipo: 'atributosComplementares',
-                    pontos: totalPontos,
-                    origem: 'vantagens-logica'
-                }
-            }));
-        } else if (totalPontos < 0) {
-            // É desvantagem
-            document.dispatchEvent(new CustomEvent('desvantagemAdicionada', {
-                detail: {
-                    tipo: 'atributosComplementares',
-                    pontos: Math.abs(totalPontos),
-                    origem: 'vantagens-logica'
-                }
-            }));
-        }
-    }
-    
-    dispararEventoIdiomas(totalPontos) {
-        if (totalPontos > 0) {
-            // Vantagem (idiomas avançados)
-            document.dispatchEvent(new CustomEvent('vantagemAdicionada', {
-                detail: {
-                    tipo: 'idiomas',
-                    pontos: totalPontos,
-                    origem: 'vantagens-logica'
-                }
-            }));
-        } else if (totalPontos < 0) {
-            // Desvantagem (analfabetismo ou idiomas ruins)
-            document.dispatchEvent(new CustomEvent('desvantagemAdicionada', {
-                detail: {
-                    tipo: 'idiomas',
-                    pontos: Math.abs(totalPontos),
-                    origem: 'vantagens-logica'
-                }
-            }));
-        }
-    }
-    
-    sincronizarComPontosManager() {
-        // Sincronizar todos os valores atuais
-        this.dispararEventoAparência(this.estado.aparência);
-        
-        const totalAtributos = Object.entries(this.estado.atributosComplementares)
-            .reduce((total, [atributo, nivel]) => total + this.calcularPontosAtributo(atributo, nivel), 0);
-        this.dispararEventoAtributosComplementares(totalAtributos);
-        
-        let totalIdiomas = this.estado.idiomas.reduce((sum, i) => sum + i.total, 0);
-        totalIdiomas += this.estado.alfabetizacao;
-        this.dispararEventoIdiomas(totalIdiomas);
-    }
-    
-    // ================= UTILITÁRIOS =================
-    
-    getDescricaoNivel(pontos, tipo) {
+    getDescricaoNivelIdioma(pontos, tipo) {
         const mapFala = {
             0: 'Não fala',
             2: 'Rudimentar',
@@ -473,62 +490,121 @@ class VantagensLogic {
         return tipo === 'fala' ? (mapFala[pontos] || 'Desconhecido') : (mapEscrita[pontos] || 'Desconhecido');
     }
     
-    atualizarDisplayAparência(pontos) {
-        const badge = document.getElementById('pontosAparencia');
-        if (badge) {
-            badge.textContent = `${pontos >= 0 ? '+' : ''}${pontos} pts`;
-            badge.className = 'pontos-badge ' + (pontos >= 0 ? 'positivo' : 'negativo');
-        }
-        
-        const display = document.getElementById('displayAparencia');
-        if (display) {
-            const descricao = this.getDescricaoAparência(pontos);
-            display.innerHTML = `
-                <div><strong>${descricao.nome}</strong></div>
-                <div style="font-size: 0.9em; color: var(--text-light); opacity: 0.8; margin-top: 5px;">
-                    ${descricao.descricao}
-                </div>
-            `;
-        }
-    }
-    
-    getDescricaoAparência(pontos) {
-        const map = {
-            '-24': { nome: 'Horrendo', descricao: 'Aparência terrível' },
-            '-20': { nome: 'Monstruoso', descricao: 'Aparência monstruosa' },
-            '-16': { nome: 'Hediondo', descricao: 'Muito feio' },
-            '-8': { nome: 'Feio', descricao: 'Feio' },
-            '-4': { nome: 'Sem Atrativos', descricao: 'Sem atrativos' },
-            '0': { nome: 'Comum', descricao: 'Aparência normal' },
-            '4': { nome: 'Atraente', descricao: 'Bonito' },
-            '12': { nome: 'Elegante', descricao: 'Muito bonito' },
-            '16': { nome: 'Muito Elegante', descricao: 'Extremamente bonito' },
-            '20': { nome: 'Lindo', descricao: 'Beleza excepcional' }
-        };
-        
-        return map[pontos.toString()] || { nome: 'Desconhecido', descricao: 'Valor não reconhecido' };
-    }
-    
-    atualizarDisplayAlfabetizacao(pontos) {
-        const descEl = document.getElementById('descAlfabetizacao');
-        if (!descEl) return;
-        
-        const descricoes = {
-            '0': 'Consegue ler e escrever normalmente',
-            '-2': 'Lê com dificuldade, escreve muito pouco',
-            '-3': 'Não sabe ler nem escrever'
-        };
-        
-        descEl.textContent = descricoes[pontos.toString()] || 'Desconhecido';
-        descEl.style.color = pontos < 0 ? '#e74c3c' : '#27ae60';
-    }
-    
     removerIdioma(index) {
         if (index < 0 || index >= this.estado.idiomas.length) return;
         
+        // Remover do estado
         this.estado.idiomas.splice(index, 1);
-        this.atualizarListaIdiomas();
-        this.atualizarTotalIdiomas();
+        
+        // Atualizar visual
+        this.atualizarListaIdiomasVisual();
+        
+        // Processar mudanças
+        this.processarIdiomas();
+    }
+    
+    calcularTotalIdiomas() {
+        let total = 0;
+        
+        // Somar pontos dos idiomas
+        this.estado.idiomas.forEach(idioma => {
+            total += idioma.total;
+        });
+        
+        // Adicionar alfabetização
+        total += this.estado.alfabetizacao;
+        
+        return total;
+    }
+    
+    atualizarTotalIdiomasDisplay() {
+        const total = this.calcularTotalIdiomas();
+        
+        // Atualizar badge
+        const badge = document.getElementById('pontosIdiomas');
+        if (badge) {
+            badge.textContent = `${total >= 0 ? '+' : ''}${total} pts`;
+            badge.className = 'pontos-badge ' + (total >= 0 ? 'positivo' : 'negativo');
+        }
+    }
+    
+    processarIdiomas() {
+        const totalAtual = this.calcularTotalIdiomas();
+        
+        if (totalAtual !== this.cache.idiomas) {
+            const diferenca = totalAtual - this.cache.idiomas;
+            this.cache.idiomas = totalAtual;
+            
+            // Atualizar display
+            this.atualizarTotalIdiomasDisplay();
+            
+            // Enviar para sistema de pontos
+            this.enviarParaSistemaPontos('idiomas', totalAtual, diferenca);
+        }
+    }
+    
+    enviarParaSistemaPontos(tipo, valorTotal, diferenca) {
+        // Criar evento padrão que o pontos-manager vai entender
+        const evento = new CustomEvent('vantagensLogicAtualizada', {
+            detail: {
+                tipo: tipo,
+                valorTotal: valorTotal,
+                diferenca: diferenca,
+                timestamp: Date.now()
+            }
+        });
+        
+        document.dispatchEvent(evento);
+        
+        // Também enviar eventos específicos para facilitar
+        if (valorTotal > 0) {
+            document.dispatchEvent(new CustomEvent('vantagemAdicionadaVantagensLogic', {
+                detail: {
+                    tipo: tipo,
+                    pontos: valorTotal,
+                    origem: 'vantagens-logica'
+                }
+            }));
+        } else if (valorTotal < 0) {
+            document.dispatchEvent(new CustomEvent('desvantagemAdicionadaVantagensLogic', {
+                detail: {
+                    tipo: tipo,
+                    pontos: Math.abs(valorTotal),
+                    origem: 'vantagens-logica'
+                }
+            }));
+        }
+    }
+    
+    verificarMudanças() {
+        // Verificar aparência
+        const selectAparência = document.getElementById('nivelAparencia');
+        if (selectAparência) {
+            const novaAparência = parseInt(selectAparência.value) || 0;
+            if (novaAparência !== this.cache.aparência) {
+                this.estado.aparência = novaAparência;
+                this.processarAparência(novaAparência);
+            }
+        }
+        
+        // Verificar atributos complementares
+        const totalAtributosAtual = this.calcularTotalAtributosComplementares();
+        if (totalAtributosAtual !== this.cache.atributosComplementares) {
+            this.processarAtributosComplementares();
+        }
+        
+        // Verificar idiomas
+        const totalIdiomasAtual = this.calcularTotalIdiomas();
+        if (totalIdiomasAtual !== this.cache.idiomas) {
+            this.processarIdiomas();
+        }
+    }
+    
+    sincronizarTudo() {
+        // Processar tudo uma vez para sincronizar
+        this.processarAparência(this.estado.aparência);
+        this.processarAtributosComplementares();
+        this.processarIdiomas();
     }
     
     capitalize(str) {
@@ -536,10 +612,18 @@ class VantagensLogic {
     }
     
     obterResumo() {
-        return { ...this.estado };
+        return {
+            aparência: this.estado.aparência,
+            atributosComplementares: { ...this.estado.atributosComplementares },
+            totalAtributosComplementares: this.calcularTotalAtributosComplementares(),
+            alfabetizacao: this.estado.alfabetizacao,
+            idiomas: [...this.estado.idiomas],
+            totalIdiomas: this.calcularTotalIdiomas()
+        };
     }
     
     resetar() {
+        // Resetar estado
         this.estado = {
             aparência: 0,
             atributosComplementares: {
@@ -554,7 +638,16 @@ class VantagensLogic {
             idiomas: []
         };
         
-        this.inicializarValores();
+        // Resetar cache
+        this.cache = {
+            aparência: 0,
+            atributosComplementares: 0,
+            idiomas: 0
+        };
+        
+        // Recarregar
+        this.carregarValoresIniciais();
+        this.sincronizarTudo();
     }
 }
 
@@ -568,21 +661,32 @@ function inicializarVantagensLogic() {
     return vantagensLogicInstance;
 }
 
-// Inicializar quando a aba for ativada
+// Inicializar quando a aba vantagens for ativada
 document.addEventListener('DOMContentLoaded', function() {
-    const tabVantagens = document.querySelector('.tab[data-tab="vantagens"]');
-    if (tabVantagens) {
-        tabVantagens.addEventListener('click', () => {
+    // Observar cliques nas tabs
+    document.addEventListener('click', function(e) {
+        const tab = e.target.closest('.tab');
+        if (tab && tab.dataset.tab === 'vantagens') {
+            setTimeout(() => {
+                inicializarVantagensLogic();
+            }, 300);
+        }
+    });
+    
+    // Observar mudanças de sub-tabs dentro de vantagens
+    document.addEventListener('click', function(e) {
+        const subTab = e.target.closest('.sub-tab');
+        if (subTab && subTab.dataset.subtab === 'aparencia') {
             setTimeout(() => {
                 if (!vantagensLogicInstance) {
                     inicializarVantagensLogic();
                 }
-            }, 300);
-        });
-    }
+            }, 200);
+        }
+    });
     
-    // Se já estiver na aba de vantagens
-    if (document.getElementById('vantagens')?.classList.contains('active')) {
+    // Se já estiver na aba vantagens ao carregar
+    if (document.querySelector('.tab[data-tab="vantagens"].active')) {
         setTimeout(() => {
             inicializarVantagensLogic();
         }, 500);
