@@ -1,660 +1,728 @@
-// vantagens-logica.js - SISTEMA COMPLETO DE VANTAGENS
-class VantagensLogica {
+// vantagens-logica.js - PRIMEIRA SUBABA (Aparência & Complementares)
+class VantagensLogic {
     constructor() {
-        this.niveisAparencia = {
-            "-24": { nome: "Horrendo", reacao: -6, descricao: "Indescritivelmente monstruoso", icone: "fas fa-frown", cor: "#e74c3c" },
-            "-20": { nome: "Monstruoso", reacao: -5, descricao: "Horrível e obviamente anormal", icone: "fas fa-ghost", cor: "#e74c3c" },
-            "-16": { nome: "Hediondo", reacao: -4, descricao: "Característica repugnante", icone: "fas fa-meh-rolling-eyes", cor: "#e74c3c" },
-            "-8": { nome: "Feio", reacao: -2, descricao: "Cabelo seboso, dentes tortos", icone: "fas fa-meh", cor: "#e74c3c" },
-            "-4": { nome: "Sem Atrativos", reacao: -1, descricao: "Algo antipático", icone: "fas fa-meh-blank", cor: "#e74c3c" },
-            "0": { nome: "Comum", reacao: 0, descricao: "Aparência padrão", icone: "fas fa-user", cor: "#95a5a6" },
-            "4": { nome: "Atraente", reacao: 1, descricao: "Boa aparência", icone: "fas fa-smile", cor: "#27ae60" },
-            "12": { nome: "Elegante", reacao: { mesmoSexo: 2, outroSexo: 4 }, descricao: "Poderia entrar em concursos", icone: "fas fa-grin-stars", cor: "#27ae60" },
-            "16": { nome: "Muito Elegante", reacao: { mesmoSexo: 2, outroSexo: 6 }, descricao: "Poderia vencer concursos", icone: "fas fa-crown", cor: "#27ae60" },
-            "20": { nome: "Lindo", reacao: { mesmoSexo: 2, outroSexo: 8 }, descricao: "Espécime ideal", icone: "fas fa-star", cor: "#27ae60" }
-        };
-
-        this.idiomaMaterno = { nome: 'Comum', nivelFala: 6, nivelEscrita: 6, custoTotal: 0 };
-        this.idiomasAdicionais = [];
-        this.alfabetizacaoAtual = 0;
+        console.log('🌟 VantagensLogic: Inicializando...');
         
-        this.niveisFala = [
-            { valor: 0, nome: 'Nenhum', custo: 0 },
-            { valor: 2, nome: 'Rudimentar', custo: 2 },
-            { valor: 4, nome: 'Sotaque', custo: 4 },
-            { valor: 6, nome: 'Nativo', custo: 6 }
-        ];
-        
-        this.niveisEscrita = [
-            { valor: 0, nome: 'Nenhum', custo: 0 },
-            { valor: 2, nome: 'Rudimentar', custo: 1 },
-            { valor: 4, nome: 'Sotaque', custo: 2 },
-            { valor: 6, nome: 'Nativo', custo: 3 }
-        ];
-
-        this.atributosComplementares = {
-            vontade: { valor: 0, min: -4, max: 5, custoPorPonto: 5, pontos: 0 },
-            percepcao: { valor: 0, min: -4, max: 5, custoPorPonto: 5, pontos: 0 },
-            pv: { valor: 0, min: -2, max: 2, custoPorPonto: 2, pontos: 0 },
-            pf: { valor: 0, min: -3, max: 3, custoPorPonto: 3, pontos: 0 },
-            velocidade: { valor: 0, min: -4, max: 5, custoPorPonto: 5, pontos: 0 },
-            deslocamento: { valor: 0, min: -4, max: 5, custoPorPonto: 5, pontos: 0 }
-        };
-
+        // Referência ao PontosManager
         this.pontosManager = null;
-        this.inicializado = false;
+        
+        // Estado atual
+        this.estado = {
+            aparência: 0,
+            atributosComplementares: {
+                vontade: 0,
+                percepcao: 0,
+                pv: 0,
+                pf: 0,
+                velocidade: 0,
+                deslocamento: 0
+            },
+            alfabetizacao: 0,
+            idiomas: []
+        };
         
         this.inicializar();
     }
-
-    inicializar() {
-        if (this.inicializado) return;
+    
+    async inicializar() {
+        // Aguardar PontosManager
+        await this.aguardarPontosManager();
         
-        this.configurarSubTabs();
-        this.configurarAparencia();
-        this.configurarIdiomas();
-        this.configurarAtributosComplementares();
-        this.configurarObservadorDeAbas();
-        this.carregarLocalStorage();
-        this.conectarPontosManager();
+        // Configurar eventos
+        this.configurarEventos();
         
-        this.inicializado = true;
+        // Inicializar valores
+        this.inicializarValores();
         
-        setTimeout(() => {
-            this.atualizarTudo();
-        }, 800);
+        console.log('✅ VantagensLogic: Inicializado com sucesso!');
     }
-
-    configurarObservadorDeAbas() {
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    const tab = mutation.target;
-                    if (tab.id === 'vantagens' && tab.classList.contains('active')) {
-                        setTimeout(() => {
-                            if (!this.pontosManager) {
-                                this.conectarPontosManager();
-                            }
-                            this.atualizarTudo();
-                        }, 300);
-                    }
+    
+    aguardarPontosManager() {
+        return new Promise((resolve) => {
+            const verificar = () => {
+                this.pontosManager = window.getPontosManager();
+                if (this.pontosManager) {
+                    console.log('🔗 PontosManager conectado!');
+                    resolve();
+                } else {
+                    console.log('⏳ Aguardando PontosManager...');
+                    setTimeout(verificar, 200);
                 }
-            });
+            };
+            verificar();
         });
-        
-        const tabVantagens = document.getElementById('vantagens');
-        if (tabVantagens) {
-            observer.observe(tabVantagens, { attributes: true });
-        }
     }
-
-    conectarPontosManager() {
-        if (window.obterPontosManager && typeof window.obterPontosManager === 'function') {
-            this.pontosManager = window.obterPontosManager();
-        } else if (window.pontosManagerInstance) {
-            this.pontosManager = window.pontosManagerInstance;
+    
+    inicializarValores() {
+        // Aparência - garantir que comece em 0 (Comum)
+        const selectAparência = document.getElementById('nivelAparencia');
+        if (selectAparência) {
+            selectAparência.value = '0'; // Forçar valor inicial
+            this.estado.aparência = 0;
+            this.atualizarDisplayAparência(0);
         }
         
-        if (this.pontosManager) {
-            console.log('✅ PontosManager conectado ao sistema de vantagens');
-        } else {
-            console.warn('⚠️ Tentando conectar com PontosManager...');
-            setTimeout(() => this.conectarPontosManager(), 1000);
-        }
-    }
-
-    configurarSubTabs() {
-        const subtabs = document.querySelectorAll('.sub-tab');
-        if (!subtabs.length) return;
-
-        subtabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.sub-content').forEach(c => c.classList.remove('active'));
-                
-                tab.classList.add('active');
-                const subtabId = tab.dataset.subtab;
-                document.getElementById(`subtab-${subtabId}`).classList.add('active');
-                
-                localStorage.setItem('vantagens_subtab_ativa', subtabId);
-            });
-        });
-
-        const subtabAtiva = localStorage.getItem('vantagens_subtab_ativa') || 'aparencia';
-        const tabAtiva = document.querySelector(`.sub-tab[data-subtab="${subtabAtiva}"]`);
-        if (tabAtiva) tabAtiva.click();
-    }
-
-    configurarAparencia() {
-        const select = document.getElementById('nivelAparencia');
-        if (!select) return;
-
-        select.addEventListener('change', () => {
-            this.atualizarDisplayAparencia();
-            this.salvarLocalStorage();
-            this.enviarPontosParaManager();
-        });
-
-        this.atualizarDisplayAparencia();
-    }
-
-    atualizarDisplayAparencia() {
-        const select = document.getElementById('nivelAparencia');
-        const display = document.getElementById('displayAparencia');
-        const badge = document.getElementById('pontosAparencia');
-        
-        if (!select || !display || !badge) return;
-
-        const valor = select.value;
-        const nivel = this.niveisAparencia[valor];
-        
-        if (nivel) {
-            let textoReacao = '';
-            if (typeof nivel.reacao === 'object') {
-                textoReacao = `Reação: +${nivel.reacao.outroSexo} (outro sexo), +${nivel.reacao.mesmoSexo} (mesmo sexo)`;
-            } else {
-                textoReacao = `Reação: ${nivel.reacao >= 0 ? '+' : ''}${nivel.reacao}`;
+        // Atributos complementares - garantir zeros
+        Object.keys(this.estado.atributosComplementares).forEach(atributo => {
+            const input = document.getElementById(`${atributo}Mod`);
+            if (input) {
+                input.value = '0';
+                this.estado.atributosComplementares[atributo] = 0;
+                this.atualizarDisplayAtributo(atributo, 0);
             }
-            
-            display.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <i class="${nivel.icone}" style="color: ${nivel.cor}; font-size: 1.5rem;"></i>
-                    <strong style="color: var(--text-gold);">${nivel.nome}</strong>
-                </div>
-                <div style="font-size: 0.9em; color: var(--text-light); opacity: 0.8;">
-                    <div>${textoReacao}</div>
-                    <div style="margin-top: 4px;">${nivel.descricao}</div>
-                </div>
-            `;
-
-            const pontos = parseInt(valor);
-            const pontosTexto = pontos >= 0 ? `+${pontos} pts` : `${pontos} pts`;
-            badge.textContent = pontosTexto;
-            badge.className = 'pontos-badge';
-            
-            if (pontos > 0) {
-                badge.classList.add('positivo');
-            } else if (pontos < 0) {
-                badge.classList.add('negativo');
-            }
-        }
-    }
-
-    getPontosAparencia() {
-        const select = document.getElementById('nivelAparencia');
-        return select ? parseInt(select.value) || 0 : 0;
-    }
-
-    configurarIdiomas() {
-        const inputMaterno = document.getElementById('idiomaMaternoNome');
-        if (inputMaterno) {
-            inputMaterno.value = this.idiomaMaterno.nome;
-            inputMaterno.addEventListener('change', () => {
-                this.idiomaMaterno.nome = inputMaterno.value;
-                this.salvarLocalStorage();
-                this.enviarPontosParaManager();
-            });
-        }
-
+        });
+        
+        // Alfabetização - garantir alfabetizado (0 pontos)
         const radiosAlfabetizacao = document.querySelectorAll('input[name="alfabetizacao"]');
-        radiosAlfabetizacao.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                this.alfabetizacaoAtual = parseInt(e.target.value);
-                this.atualizarDescricaoAlfabetizacao();
-                this.salvarLocalStorage();
-                this.enviarPontosParaManager();
-            });
-        });
-
-        const btnAdicionar = document.getElementById('btnAdicionarIdioma');
-        if (btnAdicionar) {
-            btnAdicionar.addEventListener('click', () => this.adicionarIdioma());
+        if (radiosAlfabetizacao.length > 0) {
+            radiosAlfabetizacao[0].checked = true; // Primeiro = alfabetizado
+            this.estado.alfabetizacao = 0;
         }
-
-        const selectFala = document.getElementById('novoIdiomaFala');
-        const selectEscrita = document.getElementById('novoIdiomaEscrita');
-        
-        if (selectFala && selectEscrita) {
-            selectFala.addEventListener('change', () => this.atualizarPreviewCustoIdioma());
-            selectEscrita.addEventListener('change', () => this.atualizarPreviewCustoIdioma());
-        }
-
-        const inputNovoIdioma = document.getElementById('novoIdiomaNome');
-        if (inputNovoIdioma) {
-            inputNovoIdioma.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.adicionarIdioma();
-            });
-        }
-
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-remove-idioma')) {
-                const button = e.target.closest('.btn-remove-idioma');
-                const idiomaId = parseInt(button.dataset.id);
-                this.removerIdioma(idiomaId);
-            }
-        });
-
-        this.atualizarPreviewCustoIdioma();
-        this.atualizarDisplayIdiomas();
-        this.atualizarDescricaoAlfabetizacao();
     }
-
-    adicionarIdioma() {
-        const inputNome = document.getElementById('novoIdiomaNome');
-        const nome = inputNome ? inputNome.value.trim() : '';
+    
+    configurarEventos() {
+        console.log('🔧 VantagensLogic: Configurando eventos...');
         
-        if (!nome) {
-            alert('Por favor, digite um nome para o idioma!');
-            inputNome?.focus();
+        // ================= APARÊNCIA =================
+        this.configurarAparência();
+        
+        // ================= ATRIBUTOS COMPLEMENTARES =================
+        this.configurarAtributosComplementares();
+        
+        // ================= ALFABETIZAÇÃO =================
+        this.configurarAlfabetizacao();
+        
+        // ================= IDIOMAS =================
+        this.configurarIdiomas();
+    }
+    
+    // ================= CONFIGURAÇÃO DE APARÊNCIA =================
+    configurarAparência() {
+        const selectAparência = document.getElementById('nivelAparencia');
+        if (!selectAparência) {
+            console.warn('❌ Select de aparência não encontrado');
             return;
         }
-
-        if (this.idiomaJaExiste(nome)) {
-            alert('Este idioma já foi adicionado!');
-            return;
-        }
-
-        const selectFala = document.getElementById('novoIdiomaFala');
-        const selectEscrita = document.getElementById('novoIdiomaEscrita');
         
-        const nivelFala = selectFala ? parseInt(selectFala.value) : 2;
-        const nivelEscrita = selectEscrita ? parseInt(selectEscrita.value) : 0;
-        
-        const custoTotal = this.calcularCustoIdioma(nivelFala, nivelEscrita);
-        
-        const novoIdioma = {
-            id: Date.now(),
-            nome: nome,
-            nivelFala: nivelFala,
-            nivelEscrita: nivelEscrita,
-            custoTotal: custoTotal,
-            dataAdicao: new Date().toISOString()
-        };
-        
-        this.idiomasAdicionais.push(novoIdioma);
-        
-        if (inputNome) inputNome.value = '';
-        if (selectFala) selectFala.value = '2';
-        if (selectEscrita) selectEscrita.value = '0';
-        
-        this.atualizarPreviewCustoIdioma();
-        this.atualizarDisplayIdiomas();
-        this.salvarLocalStorage();
-        this.enviarPontosParaManager();
-        
-        inputNome?.focus();
-    }
-
-    removerIdioma(id) {
-        this.idiomasAdicionais = this.idiomasAdicionais.filter(i => i.id !== id);
-        this.atualizarDisplayIdiomas();
-        this.salvarLocalStorage();
-        this.enviarPontosParaManager();
-    }
-
-    idiomaJaExiste(nome) {
-        return this.idiomasAdicionais.some(idioma => 
-            idioma.nome.toLowerCase() === nome.toLowerCase()
-        );
-    }
-
-    calcularCustoIdioma(nivelFala, nivelEscrita) {
-        const nivelFalaObj = this.niveisFala.find(n => n.valor === nivelFala);
-        const nivelEscritaObj = this.niveisEscrita.find(n => n.valor === nivelEscrita);
-        
-        return (nivelFalaObj?.custo || 0) + (nivelEscritaObj?.custo || 0);
-    }
-
-    atualizarPreviewCustoIdioma() {
-        const selectFala = document.getElementById('novoIdiomaFala');
-        const selectEscrita = document.getElementById('novoIdiomaEscrita');
-        const preview = document.getElementById('custoIdiomaPreview');
-        
-        if (selectFala && selectEscrita && preview) {
-            const nivelFala = parseInt(selectFala.value);
-            const nivelEscrita = parseInt(selectEscrita.value);
-            const custo = this.calcularCustoIdioma(nivelFala, nivelEscrita);
+        selectAparência.addEventListener('change', (e) => {
+            const pontos = parseInt(e.target.value);
+            console.log(`👤 Aparência alterada: ${pontos} pontos`);
             
-            preview.textContent = `${custo >= 0 ? '+' : ''}${custo} pts`;
-        }
-    }
-
-    atualizarDisplayIdiomas() {
-        const container = document.getElementById('listaIdiomasAdicionais');
-        const totalElement = document.getElementById('totalIdiomas');
-        const badge = document.getElementById('pontosIdiomas');
+            // Atualizar estado
+            this.estado.aparência = pontos;
+            
+            // Atualizar display
+            this.atualizarDisplayAparência(pontos);
+            
+            // Disparar evento para PontosManager
+            this.dispararEventoAparência(pontos);
+        });
         
-        if (!container || !totalElement || !badge) return;
-
-        totalElement.textContent = this.idiomasAdicionais.length;
-
-        if (this.idiomasAdicionais.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum idioma adicional adicionado</div>';
-        } else {
-            container.innerHTML = this.idiomasAdicionais.map(idioma => {
-                const nivelFala = this.obterTextoNivelIdioma(idioma.nivelFala, 'fala');
-                const nivelEscrita = this.obterTextoNivelIdioma(idioma.nivelEscrita, 'escrita');
-                
-                return `
-                    <div class="idioma-item">
-                        <div class="idioma-info">
-                            <strong>${idioma.nome}</strong>
-                            <div class="idioma-niveis">
-                                <small><i class="fas fa-comment"></i> ${nivelFala} | <i class="fas fa-pen"></i> ${nivelEscrita}</small>
-                            </div>
-                        </div>
-                        <div class="idioma-actions">
-                            <span class="idioma-custo">+${idioma.custoTotal}</span>
-                            <button class="btn-remove-idioma" data-id="${idioma.id}" title="Remover idioma">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+        // Forçar evento inicial
+        setTimeout(() => {
+            const pontosInicial = parseInt(selectAparência.value) || 0;
+            this.dispararEventoAparência(pontosInicial);
+        }, 100);
+    }
+    
+    atualizarDisplayAparência(pontos) {
+        // Atualizar badge
+        const badge = document.getElementById('pontosAparencia');
+        if (badge) {
+            badge.textContent = `${pontos >= 0 ? '+' : ''}${pontos} pts`;
+            badge.className = 'pontos-badge ' + (pontos >= 0 ? 'positivo' : 'negativo');
         }
-
-        const pontos = this.calcularPontosIdiomas();
-        const textoPontos = pontos >= 0 ? `+${pontos} pts` : `${pontos} pts`;
-        badge.textContent = textoPontos;
-        badge.className = 'pontos-badge';
         
-        if (pontos > 0) {
-            badge.classList.add('positivo');
-        } else if (pontos < 0) {
-            badge.classList.add('negativo');
-        }
+        // Atualizar descrição
+        const display = document.getElementById('displayAparência');
+        if (!display) return;
+        
+        const descricao = this.getDescricaoAparência(pontos);
+        display.innerHTML = `
+            <div><strong>${descricao.nome}</strong></div>
+            <div style="font-size: 0.9em; color: var(--text-light); opacity: 0.8; margin-top: 5px;">
+                ${descricao.descricao}
+            </div>
+        `;
     }
-
-    calcularPontosIdiomas() {
-        const pontosIdiomas = this.idiomasAdicionais.reduce((total, idioma) => total + idioma.custoTotal, 0);
-        return pontosIdiomas + this.alfabetizacaoAtual;
-    }
-
-    obterTextoNivelIdioma(nivel, tipo) {
-        const niveis = tipo === 'fala' ? this.niveisFala : this.niveisEscrita;
-        const nivelObj = niveis.find(n => n.valor === nivel);
-        return nivelObj ? nivelObj.nome : 'Desconhecido';
-    }
-
-    atualizarDescricaoAlfabetizacao() {
-        const descElement = document.getElementById('descAlfabetizacao');
-        if (!descElement) return;
-
-        const descricoes = {
-            0: "Consegue ler e escrever normalmente",
-            "-2": "Só consegue ler e escrever palavras simples",
-            "-3": "Não consegue ler nem escrever"
+    
+    getDescricaoAparência(pontos) {
+        const map = {
+            '-24': { nome: 'Horrendo', descricao: 'Aparência terrível, causa -4 nas Reações' },
+            '-20': { nome: 'Monstruoso', descricao: 'Aparência monstruosa, causa -3 nas Reações' },
+            '-16': { nome: 'Hediondo', descricao: 'Muito feio, causa -2 nas Reações' },
+            '-8': { nome: 'Feio', descricao: 'Feio, causa -1 nas Reações' },
+            '-4': { nome: 'Sem Atrativos', descricao: 'Sem atrativos, causa -0 nas Reações' },
+            '0': { nome: 'Comum', descricao: 'Aparência normal, não causa modificadores' },
+            '4': { nome: 'Atraente', descricao: 'Bonito, causa +1 nas Reações' },
+            '12': { nome: 'Elegante', descricao: 'Muito bonito, causa +2 nas Reações' },
+            '16': { nome: 'Muito Elegante', descricao: 'Extremamente bonito, causa +3 nas Reações' },
+            '20': { nome: 'Lindo', descricao: 'Beleza excepcional, causa +4 nas Reações' }
         };
-
-        descElement.textContent = descricoes[this.alfabetizacaoAtual] || '';
         
-        const radio = document.querySelector(`input[name="alfabetizacao"][value="${this.alfabetizacaoAtual}"]`);
-        if (radio) radio.checked = true;
+        return map[pontos.toString()] || { nome: 'Desconhecido', descricao: 'Valor não reconhecido' };
     }
-
+    
+    dispararEventoAparência(pontos) {
+        const evento = new CustomEvent('aparênciaAtualizada', {
+            detail: { pontos }
+        });
+        document.dispatchEvent(evento);
+        console.log(`📡 Evento disparado: aparênciaAtualizada (${pontos} pts)`);
+    }
+    
+    // ================= CONFIGURAÇÃO ATRIBUTOS COMPLEMENTARES =================
     configurarAtributosComplementares() {
         const atributos = ['vontade', 'percepcao', 'pv', 'pf', 'velocidade', 'deslocamento'];
         
         atributos.forEach(atributo => {
-            const minusBtn = document.querySelector(`.btn-atributo.minus[data-atributo="${atributo}"]`);
-            const plusBtn = document.querySelector(`.btn-atributo.plus[data-atributo="${atributo}"]`);
+            const btnMais = document.querySelector(`.btn-atributo.plus[data-atributo="${atributo}"]`);
+            const btnMenos = document.querySelector(`.btn-atributo.minus[data-atributo="${atributo}"]`);
             const input = document.getElementById(`${atributo}Mod`);
-            const pontosSpan = document.getElementById(`pontos${this.capitalize(atributo)}`);
             
-            if (minusBtn && plusBtn && input && pontosSpan) {
-                minusBtn.addEventListener('click', () => this.ajustarAtributo(atributo, -1));
-                plusBtn.addEventListener('click', () => this.ajustarAtributo(atributo, 1));
-                
-                input.value = this.atributosComplementares[atributo].valor;
-                pontosSpan.textContent = this.atributosComplementares[atributo].pontos;
-                
-                this.verificarLimitesAtributo(atributo);
+            if (!btnMais || !btnMenos || !input) {
+                console.warn(`❌ Controles do atributo ${atributo} não encontrados`);
+                return;
+            }
+            
+            // Evento de aumentar
+            btnMais.addEventListener('click', () => {
+                this.alterarAtributoComplementar(atributo, 1);
+            });
+            
+            // Evento de diminuir
+            btnMenos.addEventListener('click', () => {
+                this.alterarAtributoComplementar(atributo, -1);
+            });
+            
+            // Evento de input manual (se permitido)
+            if (!input.readOnly) {
+                input.addEventListener('change', (e) => {
+                    const novoValor = parseInt(e.target.value) || 0;
+                    this.estado.atributosComplementares[atributo] = novoValor;
+                    this.atualizarDisplayAtributo(atributo, novoValor);
+                });
             }
         });
-        
-        this.atualizarAtributosComplementares();
     }
-
-    ajustarAtributo(atributo, delta) {
-        const config = this.atributosComplementares[atributo];
-        const novoValor = config.valor + delta;
+    
+    alterarAtributoComplementar(atributo, direcao) {
+        // Limites por atributo
+        const limites = {
+            vontade: { min: -4, max: 5 },
+            percepcao: { min: -4, max: 5 },
+            pv: { min: -2, max: 2 },
+            pf: { min: -3, max: 3 },
+            velocidade: { min: -5, max: 5 },
+            deslocamento: { min: -5, max: 5 }
+        };
         
-        if (novoValor < config.min || novoValor > config.max) {
+        const limite = limites[atributo] || { min: -5, max: 5 };
+        const valorAtual = this.estado.atributosComplementares[atributo];
+        const novoValor = Math.max(limite.min, Math.min(limite.max, valorAtual + direcao));
+        
+        // Se não mudou, sai
+        if (novoValor === valorAtual) return;
+        
+        // Atualizar estado
+        this.estado.atributosComplementares[atributo] = novoValor;
+        
+        // Atualizar input
+        const input = document.getElementById(`${atributo}Mod`);
+        if (input) {
+            input.value = novoValor;
+        }
+        
+        // Atualizar display
+        this.atualizarDisplayAtributo(atributo, novoValor);
+        
+        // Disparar evento para cálculo total
+        this.dispararEventoAtributosComplementares();
+        
+        console.log(`📊 ${atributo} alterado: ${valorAtual} → ${novoValor}`);
+    }
+    
+    atualizarDisplayAtributo(atributo, valor) {
+        // Calcular pontos
+        const pontos = this.calcularPontosAtributo(atributo, valor);
+        
+        // Atualizar display de pontos
+        const pontosEl = document.getElementById(`pontos${this.capitalize(atributo)}`);
+        if (pontosEl) {
+            pontosEl.textContent = `${pontos} pts`;
+            pontosEl.style.color = pontos > 0 ? '#27ae60' : 
+                                   pontos < 0 ? '#e74c3c' : '#7f8c8d';
+        }
+        
+        // Atualizar cor do input
+        const input = document.getElementById(`${atributo}Mod`);
+        if (input) {
+            input.style.color = valor > 0 ? '#27ae60' : 
+                               valor < 0 ? '#e74c3c' : '#7f8c8d';
+            input.style.fontWeight = valor !== 0 ? 'bold' : 'normal';
+        }
+    }
+    
+    calcularPontosAtributo(atributo, nivel) {
+        // Custo por nível varia por atributo
+        const custos = {
+            vontade: 5,       // 5 pts por nível
+            percepcao: 5,     // 5 pts por nível
+            pv: 2,           // 2 pts por nível
+            pf: 3,           // 3 pts por nível
+            velocidade: 5,    // 5 pts por 0.25 de velocidade (cada nível = 0.25)
+            deslocamento: 5   // 5 pts por nível
+        };
+        
+        const custoPorNivel = custos[atributo] || 5;
+        return nivel * custoPorNivel;
+    }
+    
+    dispararEventoAtributosComplementares() {
+        // Calcular total de pontos em atributos complementares
+        let totalPontos = 0;
+        
+        Object.entries(this.estado.atributosComplementares).forEach(([atributo, nivel]) => {
+            totalPontos += this.calcularPontosAtributo(atributo, nivel);
+        });
+        
+        console.log(`🧮 Total atributos complementares: ${totalPontos} pts`);
+        
+        // Atualizar badge geral
+        const badgeTotal = document.getElementById('pontosAtributosComplementares');
+        if (badgeTotal) {
+            badgeTotal.textContent = `${totalPontos >= 0 ? '+' : ''}${totalPontos} pts`;
+            badgeTotal.className = 'pontos-badge ' + (totalPontos >= 0 ? 'positivo' : 'negativo');
+        }
+        
+        // Disparar evento para PontosManager
+        if (this.pontosManager && totalPontos > 0) {
+            this.pontosManager.adicionarVantagem(totalPontos, 'atributosComplementares');
+        }
+    }
+    
+    // ================= CONFIGURAÇÃO ALFABETIZAÇÃO =================
+    configurarAlfabetizacao() {
+        const radios = document.querySelectorAll('input[name="alfabetizacao"]');
+        if (radios.length === 0) return;
+        
+        radios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    const pontos = parseInt(e.target.value);
+                    console.log(`📚 Alfabetização alterada: ${pontos} pontos`);
+                    
+                    this.estado.alfabetizacao = pontos;
+                    this.atualizarDisplayAlfabetizacao(pontos);
+                    this.dispararEventoAlfabetizacao(pontos);
+                }
+            });
+        });
+    }
+    
+    atualizarDisplayAlfabetizacao(pontos) {
+        const descEl = document.getElementById('descAlfabetizacao');
+        if (!descEl) return;
+        
+        const descricoes = {
+            '0': 'Consegue ler e escrever normalmente',
+            '-2': 'Lê com dificuldade, escreve muito pouco',
+            '-3': 'Não sabe ler nem escrever'
+        };
+        
+        descEl.textContent = descricoes[pontos.toString()] || 'Desconhecido';
+        descEl.style.color = pontos < 0 ? '#e74c3c' : '#27ae60';
+    }
+    
+    dispararEventoAlfabetizacao(pontos) {
+        // Alfabetização é uma DESVANTAGEM (pontos negativos)
+        if (pontos < 0) {
+            const evento = new CustomEvent('desvantagemAdicionada', {
+                detail: {
+                    tipo: 'alfabetizacao',
+                    pontos: pontos,
+                    descricao: pontos === -2 ? 'Semianalfabeto' : 'Analfabeto'
+                }
+            });
+            document.dispatchEvent(evento);
+            console.log(`📡 Evento: desvantagemAdicionada (alfabetizacao: ${pontos} pts)`);
+        }
+    }
+    
+    // ================= CONFIGURAÇÃO IDIOMAS =================
+    configurarIdiomas() {
+        const btnAdicionarIdioma = document.getElementById('btnAdicionarIdioma');
+        const nomeInput = document.getElementById('novoIdiomaNome');
+        const falaSelect = document.getElementById('novoIdiomaFala');
+        const escritaSelect = document.getElementById('novoIdiomaEscrita');
+        const previewCusto = document.getElementById('custoIdiomaPreview');
+        
+        if (!btnAdicionarIdioma || !nomeInput || !falaSelect || !escritaSelect || !previewCusto) {
+            console.warn('❌ Elementos de idiomas não encontrados');
             return;
         }
         
-        config.valor = novoValor;
-        
-        switch(atributo) {
-            case 'vontade':
-            case 'percepcao':
-            case 'deslocamento':
-                config.pontos = novoValor * config.custoPorPonto;
-                break;
-            case 'pv':
-                config.pontos = novoValor * config.custoPorPonto;
-                break;
-            case 'pf':
-                config.pontos = novoValor * config.custoPorPonto;
-                break;
-            case 'velocidade':
-                config.pontos = novoValor * config.custoPorPonto;
-                break;
-        }
-        
-        const input = document.getElementById(`${atributo}Mod`);
-        const pontosSpan = document.getElementById(`pontos${this.capitalize(atributo)}`);
-        
-        if (input) input.value = novoValor;
-        if (pontosSpan) pontosSpan.textContent = config.pontos;
-        
-        this.verificarLimitesAtributo(atributo);
-        this.atualizarAtributosComplementares();
-        this.salvarLocalStorage();
-        this.enviarPontosParaManager();
-    }
-
-    verificarLimitesAtributo(atributo) {
-        const config = this.atributosComplementares[atributo];
-        const minusBtn = document.querySelector(`.btn-atributo.minus[data-atributo="${atributo}"]`);
-        const plusBtn = document.querySelector(`.btn-atributo.plus[data-atributo="${atributo}"]`);
-        
-        if (minusBtn) {
-            minusBtn.disabled = config.valor <= config.min;
-        }
-        
-        if (plusBtn) {
-            plusBtn.disabled = config.valor >= config.max;
-        }
-    }
-
-    atualizarAtributosComplementares() {
-        const totalPontos = Object.values(this.atributosComplementares)
-            .reduce((total, atributo) => total + atributo.pontos, 0);
-        
-        const badge = document.getElementById('pontosAtributosComplementares');
-        if (badge) {
-            const textoPontos = totalPontos >= 0 ? `+${totalPontos} pts` : `${totalPontos} pts`;
-            badge.textContent = textoPontos;
-            badge.className = 'pontos-badge';
+        // Atualizar preview quando algo mudar
+        const atualizarPreview = () => {
+            const nome = nomeInput.value.trim();
+            const fala = parseInt(falaSelect.value) || 0;
+            const escrita = parseInt(escritaSelect.value) || 0;
+            const total = fala + escrita;
             
-            if (totalPontos > 0) {
-                badge.classList.add('positivo');
-            } else if (totalPontos < 0) {
-                badge.classList.add('negativo');
+            if (nome) {
+                previewCusto.innerHTML = `Custo: <strong>${total >= 0 ? '+' : ''}${total} pts</strong>`;
+                btnAdicionarIdioma.disabled = false;
+                btnAdicionarIdioma.style.opacity = '1';
+            } else {
+                previewCusto.innerHTML = `Custo: <strong>+0 pts</strong>`;
+                btnAdicionarIdioma.disabled = true;
+                btnAdicionarIdioma.style.opacity = '0.5';
             }
+        };
+        
+        nomeInput.addEventListener('input', atualizarPreview);
+        falaSelect.addEventListener('change', atualizarPreview);
+        escritaSelect.addEventListener('change', atualizarPreview);
+        
+        // Botão de adicionar
+        btnAdicionarIdioma.addEventListener('click', () => {
+            this.adicionarIdioma();
+        });
+        
+        // Permitir adicionar com Enter no nome
+        nomeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && nomeInput.value.trim()) {
+                this.adicionarIdioma();
+            }
+        });
+        
+        // Atualizar preview inicial
+        atualizarPreview();
+    }
+    
+    adicionarIdioma() {
+        const nomeInput = document.getElementById('novoIdiomaNome');
+        const falaSelect = document.getElementById('novoIdiomaFala');
+        const escritaSelect = document.getElementById('novoIdiomaEscrita');
+        
+        const nome = nomeInput.value.trim();
+        const fala = parseInt(falaSelect.value) || 0;
+        const escrita = parseInt(escritaSelect.value) || 0;
+        const total = fala + escrita;
+        
+        if (!nome) {
+            alert('Digite o nome do idioma!');
+            nomeInput.focus();
+            return;
         }
         
-        Object.keys(this.atributosComplementares).forEach(atributo => {
-            this.verificarLimitesAtributo(atributo);
-        });
-    }
-
-    getPontosAtributosComplementares() {
-        return Object.values(this.atributosComplementares)
-            .reduce((total, atributo) => total + atributo.pontos, 0);
-    }
-
-    enviarPontosParaManager() {
-        const pontosAparencia = this.getPontosAparencia();
-        const pontosIdiomas = this.calcularPontosIdiomas();
-        const pontosAtributos = this.getPontosAtributosComplementares();
+        // Verificar se já existe
+        if (this.estado.idiomas.some(i => i.nome.toLowerCase() === nome.toLowerCase())) {
+            alert('Este idioma já foi adicionado!');
+            return;
+        }
         
-        // Disparar evento para aparência
-        const eventoAparencia = new CustomEvent('vantagensAtualizadas', {
-            detail: {
-                tipo: 'aparência',
-                pontos: pontosAparencia
-            }
-        });
-        document.dispatchEvent(eventoAparencia);
+        // Adicionar ao estado
+        const idioma = {
+            nome: nome,
+            fala: fala,
+            escrita: escrita,
+            total: total
+        };
         
-        // Disparar evento para idiomas
-        const eventoIdiomas = new CustomEvent('vantagensAtualizadas', {
-            detail: {
-                tipo: 'idiomas',
-                pontos: pontosIdiomas
-            }
-        });
-        document.dispatchEvent(eventoIdiomas);
+        this.estado.idiomas.push(idioma);
         
-        // Disparar evento para atributos complementares
-        const eventoAtributos = new CustomEvent('atributosComplementaresAtualizados', {
-            detail: {
-                pontos: pontosAtributos
-            }
-        });
-        document.dispatchEvent(eventoAtributos);
-    }
-
-    atualizarTudo() {
-        this.atualizarDisplayAparencia();
-        this.atualizarDisplayIdiomas();
-        this.atualizarDescricaoAlfabetizacao();
-        this.atualizarAtributosComplementares();
-        this.enviarPontosParaManager();
-    }
-
-    salvarLocalStorage() {
-        try {
-            const dados = {
-                aparencia: this.getPontosAparencia(),
-                idiomaMaterno: this.idiomaMaterno,
-                idiomasAdicionais: this.idiomasAdicionais,
-                alfabetizacao: this.alfabetizacaoAtual,
-                atributosComplementares: this.atributosComplementares,
-                timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('gurps_vantagens', JSON.stringify(dados));
-        } catch (error) {
-            console.warn('Não foi possível salvar vantagens:', error);
+        // Atualizar UI
+        this.atualizarListaIdiomas();
+        
+        // Atualizar total
+        this.atualizarTotalIdiomas();
+        
+        // Limpar formulário
+        nomeInput.value = '';
+        falaSelect.value = '6'; // Reset para Nativo
+        escritaSelect.value = '0'; // Reset para Não escreve
+        
+        // Focar no input
+        nomeInput.focus();
+        
+        console.log(`🗣️ Idioma adicionado: ${nome} (${total} pts)`);
+        
+        // Disparar evento se for desvantagem (custo negativo)
+        if (total < 0) {
+            this.dispararEventoIdiomas();
         }
     }
-
-    carregarLocalStorage() {
-        try {
-            const dadosSalvos = localStorage.getItem('gurps_vantagens');
-            if (dadosSalvos) {
-                const dados = JSON.parse(dadosSalvos);
-                
-                if (dados.aparencia !== undefined) {
-                    const select = document.getElementById('nivelAparencia');
-                    if (select) select.value = dados.aparencia;
-                }
-                
-                if (dados.idiomaMaterno) {
-                    this.idiomaMaterno = dados.idiomaMaterno;
-                    const input = document.getElementById('idiomaMaternoNome');
-                    if (input) input.value = this.idiomaMaterno.nome;
-                }
-                
-                if (dados.idiomasAdicionais) {
-                    this.idiomasAdicionais = dados.idiomasAdicionais;
-                }
-                
-                if (dados.alfabetizacao !== undefined) {
-                    this.alfabetizacaoAtual = dados.alfabetizacao;
-                }
-                
-                if (dados.atributosComplementares) {
-                    this.atributosComplementares = dados.atributosComplementares;
-                    
-                    Object.keys(this.atributosComplementares).forEach(atributo => {
-                        const input = document.getElementById(`${atributo}Mod`);
-                        const pontosSpan = document.getElementById(`pontos${this.capitalize(atributo)}`);
-                        const config = this.atributosComplementares[atributo];
-                        
-                        if (input) input.value = config.valor;
-                        if (pontosSpan) pontosSpan.textContent = config.pontos;
-                    });
-                }
-                
-                setTimeout(() => {
-                    this.atualizarTudo();
-                }, 100);
-                
-                return true;
-            }
-        } catch (error) {
-            console.warn('Não foi possível carregar vantagens:', error);
+    
+    atualizarListaIdiomas() {
+        const listaContainer = document.getElementById('listaIdiomasAdicionais');
+        if (!listaContainer) return;
+        
+        // Limpar estado vazio se existir
+        const emptyState = listaContainer.querySelector('.empty-state');
+        if (emptyState) {
+            emptyState.remove();
         }
-        return false;
+        
+        // Adicionar novos itens
+        this.estado.idiomas.forEach((idioma, index) => {
+            // Verificar se já existe
+            const idItem = `idioma-${index}`;
+            if (document.getElementById(idItem)) return;
+            
+            const item = document.createElement('div');
+            item.className = 'idioma-item';
+            item.id = idItem;
+            
+            const descricaoFala = this.getDescricaoNivel(idioma.fala, 'fala');
+            const descricaoEscrita = this.getDescricaoNivel(idioma.escrita, 'escrita');
+            
+            item.innerHTML = `
+                <div class="idioma-info">
+                    <strong>${idioma.nome}</strong>
+                    <small>${descricaoFala} | ${descricaoEscrita}</small>
+                </div>
+                <div class="idioma-pontos ${idioma.total < 0 ? 'negativo' : 'positivo'}">
+                    ${idioma.total >= 0 ? '+' : ''}${idioma.total} pts
+                </div>
+                <button class="btn-remover-idioma" data-index="${index}">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            listaContainer.appendChild(item);
+        });
+        
+        // Adicionar event listeners aos botões de remover
+        listaContainer.querySelectorAll('.btn-remover-idioma').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const index = parseInt(e.target.closest('.btn-remover-idioma').dataset.index);
+                this.removerIdioma(index);
+            });
+        });
     }
-
+    
+    getDescricaoNivel(pontos, tipo) {
+        const mapFala = {
+            0: 'Não fala',
+            2: 'Rudimentar',
+            4: 'Sotaque',
+            6: 'Nativo'
+        };
+        
+        const mapEscrita = {
+            0: 'Não escreve',
+            1: 'Rudimentar',
+            2: 'Sotaque',
+            3: 'Nativo'
+        };
+        
+        if (tipo === 'fala') {
+            return mapFala[pontos] || 'Desconhecido';
+        } else {
+            return mapEscrita[pontos] || 'Desconhecido';
+        }
+    }
+    
+    atualizarTotalIdiomas() {
+        // Calcular total de pontos em idiomas
+        let totalPontos = 0;
+        this.estado.idiomas.forEach(idioma => {
+            totalPontos += idioma.total;
+        });
+        
+        // Adicionar alfabetização se for negativa
+        totalPontos += this.estado.alfabetizacao;
+        
+        // Atualizar badge
+        const badgeIdiomas = document.getElementById('pontosIdiomas');
+        if (badgeIdiomas) {
+            badgeIdiomas.textContent = `${totalPontos >= 0 ? '+' : ''}${totalPontos} pts`;
+            badgeIdiomas.className = 'pontos-badge ' + (totalPontos >= 0 ? 'positivo' : 'negativo');
+        }
+        
+        // Atualizar contador
+        const contador = document.getElementById('totalIdiomas');
+        if (contador) {
+            contador.textContent = this.estado.idiomas.length;
+        }
+        
+        // Disparar evento se for desvantagem (total negativo)
+        if (totalPontos < 0) {
+            this.dispararEventoIdiomas();
+        }
+    }
+    
+    dispararEventoIdiomas() {
+        // Calcular total negativo (desvantagem)
+        let totalNegativo = 0;
+        
+        // Idiomas com custo negativo
+        this.estado.idiomas.forEach(idioma => {
+            if (idioma.total < 0) {
+                totalNegativo += Math.abs(idioma.total);
+            }
+        });
+        
+        // Alfabetização (sempre negativa se não for 0)
+        if (this.estado.alfabetizacao < 0) {
+            totalNegativo += Math.abs(this.estado.alfabetizacao);
+        }
+        
+        if (totalNegativo > 0) {
+            const evento = new CustomEvent('idiomasAtualizados', {
+                detail: { pontos: -totalNegativo }
+            });
+            document.dispatchEvent(evento);
+            console.log(`📡 Evento: idiomasAtualizados (${-totalNegativo} pts)`);
+        }
+    }
+    
+    removerIdioma(index) {
+        if (index < 0 || index >= this.estado.idiomas.length) return;
+        
+        const idiomaRemovido = this.estado.idiomas[index];
+        console.log(`🗑️ Removendo idioma: ${idiomaRemovido.nome}`);
+        
+        // Remover do estado
+        this.estado.idiomas.splice(index, 1);
+        
+        // Remover da UI
+        const item = document.getElementById(`idioma-${index}`);
+        if (item) {
+            item.remove();
+        }
+        
+        // Renumerar itens restantes
+        this.renumerarItensIdiomas();
+        
+        // Atualizar totais
+        this.atualizarTotalIdiomas();
+        
+        // Se tinha custo negativo, atualizar evento
+        if (idiomaRemovido.total < 0) {
+            this.dispararEventoIdiomas();
+        }
+    }
+    
+    renumerarItensIdiomas() {
+        const listaContainer = document.getElementById('listaIdiomasAdicionais');
+        if (!listaContainer) return;
+        
+        // Remover todos os itens
+        const itens = listaContainer.querySelectorAll('.idioma-item');
+        itens.forEach(item => item.remove());
+        
+        // Recriar lista com novos índices
+        this.atualizarListaIdiomas();
+    }
+    
+    // ================= UTILITÁRIOS =================
     capitalize(str) {
         return str.charAt(0).toUpperCase() + str.slice(1);
     }
     
+    // ================= MÉTODOS PÚBLICOS =================
+    obterResumo() {
+        return {
+            aparência: this.estado.aparência,
+            atributosComplementares: { ...this.estado.atributosComplementares },
+            alfabetizacao: this.estado.alfabetizacao,
+            idiomas: [...this.estado.idiomas],
+            totalIdiomas: this.estado.idiomas.length
+        };
+    }
+    
     resetar() {
-        const selectAparencia = document.getElementById('nivelAparencia');
-        if (selectAparencia) selectAparencia.value = "0";
+        console.log('🔄 VantagensLogic: Resetando...');
         
-        const inputIdiomaMaterno = document.getElementById('idiomaMaternoNome');
-        if (inputIdiomaMaterno) inputIdiomaMaterno.value = "Comum";
-        this.idiomaMaterno = { nome: 'Comum', nivelFala: 6, nivelEscrita: 6, custoTotal: 0 };
+        this.estado = {
+            aparência: 0,
+            atributosComplementares: {
+                vontade: 0,
+                percepcao: 0,
+                pv: 0,
+                pf: 0,
+                velocidade: 0,
+                deslocamento: 0
+            },
+            alfabetizacao: 0,
+            idiomas: []
+        };
         
-        this.idiomasAdicionais = [];
+        // Resetar UI
+        this.inicializarValores();
         
-        this.alfabetizacaoAtual = 0;
-        const radioAlfabetizado = document.querySelector('input[name="alfabetizacao"][value="0"]');
-        if (radioAlfabetizado) radioAlfabetizado.checked = true;
+        // Limpar lista de idiomas
+        const listaContainer = document.getElementById('listaIdiomasAdicionais');
+        if (listaContainer) {
+            listaContainer.innerHTML = '<div class="empty-state">Nenhum idioma adicional adicionado</div>';
+        }
         
-        Object.keys(this.atributosComplementares).forEach(atributo => {
-            this.atributosComplementares[atributo].valor = 0;
-            this.atributosComplementares[atributo].pontos = 0;
-            
-            const input = document.getElementById(`${atributo}Mod`);
-            const pontosSpan = document.getElementById(`pontos${this.capitalize(atributo)}`);
-            
-            if (input) input.value = 0;
-            if (pontosSpan) pontosSpan.textContent = 0;
-        });
+        // Resetar totais
+        this.atualizarTotalIdiomas();
         
-        localStorage.removeItem('gurps_vantagens');
+        // Disparar eventos de reset
+        this.dispararEventoAparência(0);
+        this.dispararEventoAtributosComplementares();
+        this.dispararEventoAlfabetizacao(0);
+        this.dispararEventoIdiomas();
         
-        this.atualizarTudo();
+        console.log('✅ VantagensLogic: Resetado com sucesso!');
     }
 }
 
-let vantagensLogicaInstance = null;
+// Inicialização
+let vantagensLogicInstance = null;
 
+function inicializarVantagensLogic() {
+    if (!vantagensLogicInstance) {
+        vantagensLogicInstance = new VantagensLogic();
+    }
+    return vantagensLogicInstance;
+}
+
+// Inicializar quando a aba de vantagens for ativada
 document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('vantagens')) {
-        vantagensLogicaInstance = new VantagensLogica();
-        
-        if (document.getElementById('vantagens').classList.contains('active')) {
-            vantagensLogicaInstance.atualizarTudo();
-        }
+    // Observar quando a aba de vantagens for clicada
+    const tabVantagens = document.querySelector('.tab[data-tab="vantagens"]');
+    if (tabVantagens) {
+        tabVantagens.addEventListener('click', () => {
+            setTimeout(() => {
+                if (!vantagensLogicInstance) {
+                    inicializarVantagensLogic();
+                }
+            }, 300);
+        });
+    }
+    
+    // Também inicializar se já estiver na aba de vantagens
+    const tabAtiva = document.querySelector('.tab.active[data-tab="vantagens"]');
+    if (tabAtiva) {
+        setTimeout(() => {
+            inicializarVantagensLogic();
+        }, 500);
     }
 });
 
-window.VantagensLogica = VantagensLogica;
-window.obterVantagensLogica = function() {
-    return vantagensLogicaInstance;
-};
-window.resetarVantagens = function() {
-    if (vantagensLogicaInstance) {
-        vantagensLogicaInstance.resetar();
+// Exportar para uso global
+window.VantagensLogic = VantagensLogic;
+window.inicializarVantagensLogic = inicializarVantagensLogic;
+window.getVantagensLogic = () => vantagensLogicInstance;
+window.resetarVantagensLogic = () => {
+    if (vantagensLogicInstance) {
+        vantagensLogicInstance.resetar();
     }
+};
+
+// Debug
+window.debugVantagens = () => {
+    console.log('=== DEBUG VANTAGENS ===');
+    if (vantagensLogicInstance) {
+        console.log('Instância:', vantagensLogicInstance);
+        console.log('Estado:', vantagensLogicInstance.obterResumo());
+    } else {
+        console.log('VantagensLogic não inicializado');
+    }
+    console.log('======================');
 };
