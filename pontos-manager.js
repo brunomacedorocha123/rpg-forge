@@ -1,25 +1,23 @@
-// pontos-manager.js - SISTEMA 100% FUNCIONAL
+// pontos-manager.js - SISTEMA OTIMIZADO (sem logs)
 class PontosManager {
     constructor() {
-        console.log('🎯 PontosManager: Inicializando sistema...');
-        
-        // VALORES INICIAIS CORRETOS
+        // VALORES INICIAIS
         this.pontosIniciais = 150;
         this.pontosGanhosCampanha = 0;
         
-        // GASTOS INICIAIS EM ZERO
+        // GASTOS INICIAIS
         this.gastos = {
-            atributos: 0,       // + ou - dependendo dos atributos
-            vantagens: 0,       // SOMENTE vantagens do catálogo
-            desvantagens: 0,    // SOMENTE desvantagens do catálogo
-            peculiaridades: 0,  // SEMPRE negativo (ou zero)
+            atributos: 0,
+            vantagens: 0,
+            desvantagens: 0,
+            peculiaridades: 0,
             pericias: 0,
             tecnicas: 0,
             magia: 0,
             equipamentos: 0
         };
         
-        // RASTREAMENTO DETALHADO (para debug e UI)
+        // DETALHAMENTO PARA UI
         this.detalhado = {
             vantagens: {
                 aparência: 0,
@@ -58,19 +56,11 @@ class PontosManager {
     }
     
     inicializar() {
-        console.log('🎯 PontosManager: Configurando...');
-        
-        // 1. Configurar inputs da aba principal
         this.configurarInputsPrincipais();
-        
-        // 2. Configurar ouvintes de eventos
         this.configurarEventListeners();
         
-        // 3. Forçar atualização inicial CORRETA
         setTimeout(() => {
             this.atualizarTudo();
-            console.log('🎯 PontosManager: Inicialização completa!');
-            console.log('🎯 Valores iniciais:', this.obterResumo());
         }, 300);
     }
     
@@ -117,50 +107,43 @@ class PontosManager {
     }
     
     configurarEventListeners() {
-        console.log('🎯 PontosManager: Configurando listeners...');
-        
-        // ============== ATRIBUTOS BÁSICOS ==============
+        // Atributos básicos
         document.addEventListener('atributosAtualizados', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('📊 Atributos atualizados:', e.detail.pontos);
                 this.gastos.atributos = e.detail.pontos;
                 this.atualizarTudo();
             }
         });
         
-        // ============== VANTAGENS DO CATÁLOGO ==============
+        // Vantagens do catálogo
         document.addEventListener('vantagensCatalogoAtualizadas', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('⭐ Vantagens catálogo:', e.detail.pontos);
                 this.gastos.vantagens = e.detail.pontos;
                 this.detalhado.vantagens.catálogo = e.detail.pontos;
                 this.atualizarTudo();
             }
         });
         
-        // ============== DESVANTAGENS DO CATÁLOGO ==============
+        // Desvantagens do catálogo
         document.addEventListener('desvantagensCatalogoAtualizadas', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('⚠️ Desvantagens catálogo:', e.detail.pontos);
                 this.gastos.desvantagens = Math.abs(e.detail.pontos);
                 this.detalhado.desvantagens.catálogo = Math.abs(e.detail.pontos);
                 this.atualizarTudo();
             }
         });
         
-        // ============== PECULIARIDADES ==============
+        // Peculiaridades
         document.addEventListener('peculiaridadesAtualizadas', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('🎭 Peculiaridades:', e.detail.pontos);
                 this.gastos.peculiaridades = Math.abs(e.detail.pontos);
                 this.atualizarTudo();
             }
         });
         
-        // ============== APARÊNCIA ==============
+        // Aparência
         document.addEventListener('aparênciaAtualizada', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('👤 Aparência:', e.detail.pontos);
                 const pontos = e.detail.pontos;
                 if (pontos >= 0) {
                     this.detalhado.vantagens.aparência = pontos;
@@ -173,19 +156,17 @@ class PontosManager {
             }
         });
         
-        // ============== CARACTERÍSTICAS FÍSICAS ==============
+        // Características físicas
         document.addEventListener('caracteristicasFisicasAtualizadas', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('💪 Características físicas:', e.detail.pontos);
                 this.detalhado.desvantagens.característicasFísicas = Math.abs(e.detail.pontos);
                 this.calcularTotaisDetalhados();
             }
         });
         
-        // ============== RIQUEZA ==============
+        // Riqueza
         document.addEventListener('riquezaAtualizada', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('💰 Riqueza:', e.detail.pontos);
                 const pontos = e.detail.pontos;
                 if (pontos >= 0) {
                     this.detalhado.vantagens.outras = pontos;
@@ -198,10 +179,9 @@ class PontosManager {
             }
         });
         
-        // ============== STATUS SOCIAL ==============
+        // Status social
         document.addEventListener('statusSocialAtualizado', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('👑 Status social:', e.detail.pontos);
                 const pontos = e.detail.pontos;
                 if (pontos >= 0) {
                     this.detalhado.vantagens.statusSocial = pontos;
@@ -214,10 +194,9 @@ class PontosManager {
             }
         });
         
-        // ============== IDIOMAS ==============
+        // Idiomas
         document.addEventListener('idiomasAtualizados', (e) => {
             if (e.detail?.pontos !== undefined) {
-                console.log('🗣️ Idiomas:', e.detail.pontos);
                 this.detalhado.desvantagens.idiomas = Math.abs(e.detail.pontos);
                 this.calcularTotaisDetalhados();
             }
@@ -225,50 +204,43 @@ class PontosManager {
     }
     
     calcularTotaisDetalhados() {
-        // Calcular vantagens totais (exceto catálogo)
         let vantagensTotal = 0;
         Object.values(this.detalhado.vantagens).forEach(valor => {
             vantagensTotal += Math.max(0, valor);
         });
         
-        // Calcular desvantagens totais (exceto catálogo)
         let desvantagensTotal = 0;
         Object.values(this.detalhado.desvantagens).forEach(valor => {
             desvantagensTotal += Math.abs(valor);
         });
-        
-        console.log('🧮 Totais detalhados:', { vantagensTotal, desvantagensTotal });
-        
-        // NÃO atualiza this.gastos.vantagens/desvantagens aqui
-        // Esses são só para vantagens/desvantagens do CATÁLOGO
     }
     
     calcularPontosDisponiveis() {
         const totalBase = this.pontosIniciais + this.pontosGanhosCampanha;
         
-        // GASTOS com vantagens (valores positivos que CUSTAM pontos)
+        // GASTOS (custam pontos)
         let totalGastos = 0;
-        totalGastos += Math.max(0, this.gastos.atributos);  // Atributos positivos
-        totalGastos += this.gastos.vantagens;               // Vantagens catálogo
+        totalGastos += Math.max(0, this.gastos.atributos);
+        totalGastos += this.gastos.vantagens;
         totalGastos += this.gastos.pericias;
         totalGastos += this.gastos.tecnicas;
         totalGastos += this.gastos.magia;
         totalGastos += this.gastos.equipamentos;
         
-        // Calcular vantagens de outras fontes (aparência, status, etc)
+        // Vantagens de outras fontes
         let vantagensOutras = 0;
         Object.values(this.detalhado.vantagens).forEach(valor => {
             vantagensOutras += Math.max(0, valor);
         });
         totalGastos += vantagensOutras;
         
-        // PONTOS GANHOS com desvantagens (valores negativos que DÃO pontos)
+        // PONTOS GANHOS (dão pontos)
         let totalGanhos = 0;
-        totalGanhos += Math.abs(Math.min(0, this.gastos.atributos));  // Atributos negativos
-        totalGanhos += this.gastos.desvantagens;                     // Desvantagens catálogo
-        totalGanhos += this.gastos.peculiaridades;                   // Peculiaridades
+        totalGanhos += Math.abs(Math.min(0, this.gastos.atributos));
+        totalGanhos += this.gastos.desvantagens;
+        totalGanhos += this.gastos.peculiaridades;
         
-        // Calcular desvantagens de outras fontes
+        // Desvantagens de outras fontes
         let desvantagensOutras = 0;
         Object.values(this.detalhado.desvantagens).forEach(valor => {
             desvantagensOutras += Math.abs(valor);
@@ -290,15 +262,13 @@ class PontosManager {
     atualizarTudo() {
         const calculo = this.calcularPontosDisponiveis();
         
-        console.log('📈 Atualizando displays com:', calculo);
-        
-        // 1. Atualizar cards principais
+        // Atualizar cards principais
         this.atualizarCard('atributos', this.gastos.atributos);
         this.atualizarCard('vantagens', this.gastos.vantagens);
         this.atualizarCard('desvantagens', this.gastos.desvantagens);
         this.atualizarCard('peculiaridades', this.gastos.peculiaridades);
         
-        // 2. Atualizar pontos disponíveis
+        // Atualizar pontos disponíveis
         const dispEl = document.getElementById('pontosDisponiveis');
         if (dispEl) {
             dispEl.textContent = calculo.disponiveis;
@@ -313,27 +283,20 @@ class PontosManager {
             }
         }
         
-        // 3. Atualizar total gasto
+        // Atualizar total gasto
         const gastosEl = document.getElementById('pontosGastos');
         if (gastosEl) {
             gastosEl.textContent = calculo.gastos;
         }
         
-        // 4. Atualizar limites
+        // Atualizar limites e percentuais
         this.atualizarLimites();
-        
-        // 5. Atualizar percentuais
         this.atualizarPercentuais(calculo.total);
-        
-        console.log('✅ Pontos atualizados!');
     }
     
     atualizarCard(tipo, valor) {
         const elemento = document.getElementById(`pontos${this.capitalize(tipo)}`);
-        if (!elemento) {
-            console.warn(`❌ Card não encontrado: pontos${this.capitalize(tipo)}`);
-            return;
-        }
+        if (!elemento) return;
         
         // Formatar valor
         if (tipo === 'atributos') {
@@ -495,8 +458,6 @@ class PontosManager {
     }
     
     resetarTudo() {
-        console.log('🔄 Resetando todos os pontos...');
-        
         // Resetar gastos
         this.gastos = {
             atributos: 0,
@@ -539,7 +500,6 @@ class PontosManager {
         };
         
         this.atualizarTudo();
-        console.log('✅ Pontos resetados com sucesso!');
     }
 }
 
@@ -550,17 +510,6 @@ let pontosManagerInstance = null;
 function inicializarSistemaPontos() {
     if (!pontosManagerInstance) {
         pontosManagerInstance = new PontosManager();
-        console.log('🚀 Sistema de pontos inicializado!');
-        
-        // Expor no console para debug
-        window.debugPontos = () => {
-            console.log('=== DEBUG PONTOS ===');
-            console.log('Instância:', pontosManagerInstance);
-            console.log('Resumo:', pontosManagerInstance.obterResumo());
-            console.log('Gastos:', pontosManagerInstance.gastos);
-            console.log('Detalhado:', pontosManagerInstance.detalhado);
-            console.log('===================');
-        };
     }
     return pontosManagerInstance;
 }
