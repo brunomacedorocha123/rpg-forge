@@ -192,7 +192,6 @@
             font-size: 1rem;
         }
 
-        /* Loading spinner */
         .spinner {
             display: none;
             width: 20px;
@@ -215,7 +214,6 @@
             display: none;
         }
 
-        /* Mensagem de erro */
         .error-message {
             background: rgba(255,68,68,0.2);
             border: 1px solid rgba(255,68,68,0.3);
@@ -237,7 +235,6 @@
             display: flex;
         }
 
-        /* Login rápido com IDs */
         .quick-login {
             margin: 30px 0 20px;
             text-align: center;
@@ -346,7 +343,6 @@
             color: #ffd700;
         }
 
-        /* Dica de demonstração */
         .demo-hint {
             background: rgba(255,215,0,0.1);
             border: 1px dashed #ffd700;
@@ -379,13 +375,11 @@
             <p>Entre para continuar sua aventura</p>
         </div>
 
-        <!-- Mensagem de erro -->
         <div class="error-message" id="errorMessage">
             <i class="fas fa-exclamation-circle"></i>
             <span id="errorText">E-mail ou senha incorretos</span>
         </div>
 
-        <!-- Formulário principal de login -->
         <form id="formLogin">
             <div class="form-group">
                 <label><i class="fas fa-envelope"></i> E-mail</label>
@@ -417,7 +411,6 @@
             </button>
         </form>
 
-        <!-- Login rápido com IDs -->
         <div class="quick-login">
             <span>OU ENTRE COM SEU ID</span>
         </div>
@@ -436,7 +429,6 @@
             </button>
         </div>
 
-        <!-- Dica de demonstração -->
         <div class="demo-hint">
             <i class="fas fa-info-circle"></i>
             <strong>Dica:</strong> Use qualquer e-mail/senha para teste ou entre com ID 
@@ -469,7 +461,6 @@
             updateDoc
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
             authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -479,12 +470,11 @@
             appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
         };
 
-        // Inicializar Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // ========== ELEMENTOS DO DOM ==========
+        // ========== ELEMENTOS ==========
         
         const formLogin = document.getElementById('formLogin');
         const emailInput = document.getElementById('email');
@@ -501,25 +491,20 @@
         const btnIdGm = document.getElementById('btnIdGm');
         const esqueciSenha = document.getElementById('esqueciSenha');
 
-        // ========== FUNÇÕES ÚTEIS ==========
+        // ========== FUNÇÕES ==========
         
-        // Mostrar/Esconder erro
         function showError(message) {
             errorText.textContent = message;
             errorMessage.classList.add('show');
-            
-            // Esconder após 5 segundos
             setTimeout(() => {
                 errorMessage.classList.remove('show');
             }, 5000);
         }
 
-        // Limpar erro
         function clearError() {
             errorMessage.classList.remove('show');
         }
 
-        // Toggle loading
         function setLoading(isLoading) {
             if (isLoading) {
                 btnLogin.classList.add('loading');
@@ -530,7 +515,6 @@
             }
         }
 
-        // Buscar usuário por ID
         async function buscarUsuarioPorId(id, tipo) {
             const campo = tipo === 'pc' ? 'id_pc' : 'id_gm';
             const q = query(collection(db, "usuarios"), where(campo, "==", id));
@@ -546,31 +530,26 @@
             };
         }
 
-        // Login com email/senha
         async function fazerLogin(email, senha, lembrar) {
             try {
                 clearError();
                 setLoading(true);
                 
-                // Configurar persistência
                 await setPersistence(auth, lembrar ? browserLocalPersistence : browserSessionPersistence);
                 
-                // Fazer login
                 const userCredential = await signInWithEmailAndPassword(auth, email, senha);
                 
-                // Atualizar último acesso
                 await updateDoc(doc(db, "usuarios", userCredential.user.uid), {
                     ultimo_acesso: new Date().toISOString()
                 });
                 
-                // Redirecionar para escolha
+                // REDIRECIONA PARA ESCOLHER TIPO
                 window.location.href = 'escolher-tipo.html';
                 
             } catch (error) {
                 console.error('Erro no login:', error);
                 setLoading(false);
                 
-                // Mensagens amigáveis
                 switch (error.code) {
                     case 'auth/invalid-email':
                         showError('E-mail inválido');
@@ -593,7 +572,6 @@
             }
         }
 
-        // Login com ID
         async function fazerLoginComId(id, tipo) {
             if (!id || id.length !== 8 || !/^\d+$/.test(id)) {
                 showError(`ID ${tipo === 'pc' ? 'de jogador' : 'de mestre'} deve ter 8 dígitos numéricos`);
@@ -604,7 +582,6 @@
                 clearError();
                 setLoading(true);
                 
-                // Buscar usuário pelo ID
                 const usuario = await buscarUsuarioPorId(id, tipo);
                 
                 if (!usuario) {
@@ -613,15 +590,11 @@
                     return;
                 }
                 
-                // Como não temos a senha, vamos redirecionar para uma página especial
-                // ou solicitar senha (dependendo da implementação)
-                // Por enquanto, vamos salvar o ID no sessionStorage e redirecionar
                 sessionStorage.setItem('login_temp_id', id);
                 sessionStorage.setItem('login_temp_tipo', tipo);
                 sessionStorage.setItem('login_temp_uid', usuario.uid);
                 
-                // Redirecionar para página de verificação (vamos criar depois)
-                // Por enquanto, redireciona direto
+                // REDIRECIONA PARA ESCOLHER TIPO
                 window.location.href = 'escolher-tipo.html';
                 
             } catch (error) {
@@ -633,7 +606,6 @@
 
         // ========== EVENT LISTENERS ==========
         
-        // Toggle mostrar senha
         toggleSenha.addEventListener('click', () => {
             const type = senhaInput.getAttribute('type') === 'password' ? 'text' : 'password';
             senhaInput.setAttribute('type', type);
@@ -641,7 +613,6 @@
             toggleSenha.classList.toggle('fa-eye-slash');
         });
 
-        // Login com email/senha
         formLogin.addEventListener('submit', (e) => {
             e.preventDefault();
             
@@ -657,19 +628,16 @@
             fazerLogin(email, senha, lembrar);
         });
 
-        // Login com ID de PC
         btnIdPc.addEventListener('click', () => {
             const id = idPcInput.value.trim();
             fazerLoginComId(id, 'pc');
         });
 
-        // Login com ID de GM
         btnIdGm.addEventListener('click', () => {
             const id = idGmInput.value.trim();
             fazerLoginComId(id, 'gm');
         });
 
-        // Enter nos inputs de ID
         idPcInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const id = idPcInput.value.trim();
@@ -684,7 +652,6 @@
             }
         });
 
-        // Esqueci a senha
         esqueciSenha.addEventListener('click', async (e) => {
             e.preventDefault();
             
@@ -709,25 +676,21 @@
             }
         });
 
-        // Limitar inputs de ID a números
         [idPcInput, idGmInput].forEach(input => {
             input.addEventListener('input', () => {
                 input.value = input.value.replace(/[^0-9]/g, '').slice(0, 8);
             });
         });
 
-        // Limpar erro ao digitar
         [emailInput, senhaInput, idPcInput, idGmInput].forEach(input => {
             input.addEventListener('input', clearError);
         });
 
-        // Verificar se já está logado
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                // Se já estiver logado, vai direto para escolha
-                window.location.href = 'escolher-tipo.html';
-            }
-        });
+        // ========== VERIFICAÇÃO DE LOGIN CORRIGIDA ==========
+        // NÃO FAZ NADA! Só redireciona quando o usuário clicar em entrar
+        // Isso elimina o loop automático
+        
+        console.log('Login page carregada - aguardando ação do usuário');
     </script>
 </body>
 </html>
