@@ -449,7 +449,8 @@
             sendPasswordResetEmail,
             setPersistence,
             browserLocalPersistence,
-            browserSessionPersistence
+            browserSessionPersistence,
+            onAuthStateChanged
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
         import { 
             getFirestore, 
@@ -530,15 +531,24 @@
             };
         }
 
+        // ========== FUNÇÃO PRINCIPAL DE LOGIN ==========
         async function fazerLogin(email, senha, lembrar) {
             try {
                 clearError();
                 setLoading(true);
                 
+                // Configurar persistência
                 await setPersistence(auth, lembrar ? browserLocalPersistence : browserSessionPersistence);
                 
+                // FAZER LOGIN - FUNÇÃO BÁSICA
                 const userCredential = await signInWithEmailAndPassword(auth, email, senha);
                 
+                // Salvar email para lembrar depois (opcional)
+                if (lembrar) {
+                    localStorage.setItem('ultimo_email', email);
+                }
+                
+                // Atualizar último acesso
                 await updateDoc(doc(db, "usuarios", userCredential.user.uid), {
                     ultimo_acesso: new Date().toISOString()
                 });
@@ -550,6 +560,7 @@
                 console.error('Erro no login:', error);
                 setLoading(false);
                 
+                // Mensagens amigáveis
                 switch (error.code) {
                     case 'auth/invalid-email':
                         showError('E-mail inválido');
@@ -572,6 +583,7 @@
             }
         }
 
+        // ========== LOGIN COM ID (sem senha) ==========
         async function fazerLoginComId(id, tipo) {
             if (!id || id.length !== 8 || !/^\d+$/.test(id)) {
                 showError(`ID ${tipo === 'pc' ? 'de jogador' : 'de mestre'} deve ter 8 dígitos numéricos`);
@@ -590,11 +602,14 @@
                     return;
                 }
                 
+                // Como não temos senha, vamos para uma página especial
+                // Por enquanto, redireciona para escolher-tipo com info
                 sessionStorage.setItem('login_temp_id', id);
                 sessionStorage.setItem('login_temp_tipo', tipo);
                 sessionStorage.setItem('login_temp_uid', usuario.uid);
                 
-                // REDIRECIONA PARA ESCOLHER TIPO
+                // AVISO: Isso não é seguro! Idealmente deveria pedir senha
+                // Mas para teste, vamos direto
                 window.location.href = 'escolher-tipo.html';
                 
             } catch (error) {
@@ -606,6 +621,7 @@
 
         // ========== EVENT LISTENERS ==========
         
+        // Mostrar/esconder senha
         toggleSenha.addEventListener('click', () => {
             const type = senhaInput.getAttribute('type') === 'password' ? 'text' : 'password';
             senhaInput.setAttribute('type', type);
@@ -613,6 +629,7 @@
             toggleSenha.classList.toggle('fa-eye-slash');
         });
 
+        // SUBMISSÃO DO FORMULÁRIO - LOGIN PRINCIPAL
         formLogin.addEventListener('submit', (e) => {
             e.preventDefault();
             
@@ -625,19 +642,23 @@
                 return;
             }
             
+            // CHAMAR FUNÇÃO DE LOGIN
             fazerLogin(email, senha, lembrar);
         });
 
+        // Login com ID de PC
         btnIdPc.addEventListener('click', () => {
             const id = idPcInput.value.trim();
             fazerLoginComId(id, 'pc');
         });
 
+        // Login com ID de GM
         btnIdGm.addEventListener('click', () => {
             const id = idGmInput.value.trim();
             fazerLoginComId(id, 'gm');
         });
 
+        // Enter nos inputs de ID
         idPcInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const id = idPcInput.value.trim();
@@ -652,6 +673,7 @@
             }
         });
 
+        // Esqueci a senha
         esqueciSenha.addEventListener('click', async (e) => {
             e.preventDefault();
             
@@ -676,20 +698,43 @@
             }
         });
 
+        // Limitar inputs de ID a números
         [idPcInput, idGmInput].forEach(input => {
             input.addEventListener('input', () => {
                 input.value = input.value.replace(/[^0-9]/g, '').slice(0, 8);
             });
         });
 
+        // Limpar erro ao digitar
         [emailInput, senhaInput, idPcInput, idGmInput].forEach(input => {
             input.addEventListener('input', clearError);
         });
 
-        // ========== VERIFICAÇÃO DE LOGIN CORRIGIDA ==========
-        // NÃO FAZ NADA! Só redireciona quando o usuário clicar em entrar
-        // Isso elimina o loop automático
+        // ========== VERIFICAÇÃO DE LOGIN SEM CAUSAR LOOP ==========
+        // Isso é importante para preencher campos, mas NÃO redireciona automaticamente
         
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Usuário está logado, mas NÃO redirecionamos automaticamente
+                // Só preenchemos informações úteis se necessário
+                console.log('Usuário já está logado:', user.email);
+                
+                // Opcional: Mostrar mensagem "Você já está logado"
+                // Mas não redirecionar para não causar loop
+                
+                // Podemos preencher o email se o campo estiver vazio
+                if (!emailInput.value && user.email) {
+                    emailInput.value = user.email;
+                }
+            }
+        });
+
+        // ========== PREENCHER EMAIL SALVO ==========
+        const ultimoEmail = localStorage.getItem('ultimo_email');
+        if (ultimoEmail && !emailInput.value) {
+            emailInput.value = ultimoEmail;
+        }
+
         console.log('Login page carregada - aguardando ação do usuário');
     </script>
 </body>
