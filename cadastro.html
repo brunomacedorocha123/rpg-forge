@@ -212,7 +212,7 @@
             display: block;
         }
 
-        /* IDs gerados (invisível para o usuário) */
+        /* IDs gerados */
         .ids-gerados {
             background: rgba(0,0,0,0.3);
             border-radius: 10px;
@@ -323,9 +323,78 @@
         .btn-cadastrar.loading .btn-text {
             display: none;
         }
+
+        /* Toast de sucesso */
+        .toast-sucesso {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #00cc00, #00aa00);
+            color: #fff;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,255,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 2000;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-sucesso.show {
+            display: flex;
+        }
+
+        .toast-sucesso i {
+            font-size: 1.5rem;
+        }
+
+        /* Botão de login rápido */
+        .ir-para-login {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .btn-ir-login {
+            background: transparent;
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            padding: 10px 30px;
+            border-radius: 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-ir-login:hover {
+            background: #ffd700;
+            color: #0a0a1a;
+        }
     </style>
 </head>
 <body>
+    <!-- Toast de sucesso -->
+    <div class="toast-sucesso" id="toastSucesso">
+        <i class="fas fa-check-circle"></i>
+        <div>
+            <strong>Cadastro realizado com sucesso!</strong><br>
+            <small>Agora faça login com seus dados</small>
+        </div>
+    </div>
+
     <div class="cadastro-container">
         <a href="index.html" class="voltar">
             <i class="fas fa-arrow-left"></i> Voltar
@@ -417,7 +486,7 @@
                 <div id="confirmFeedback" class="feedback-message"></div>
             </div>
 
-            <!-- IDs Gerados (mostrado apenas para informação) -->
+            <!-- IDs Gerados -->
             <div class="ids-gerados">
                 <h3><i class="fas fa-id-card"></i> Seus IDs únicos (gerados automaticamente)</h3>
                 <div class="id-item">
@@ -443,11 +512,18 @@
                 Já tem uma conta? <a href="login.html">Fazer Login</a>
             </div>
         </form>
+        
+        <!-- Botão extra para ir ao login (aparece após sucesso) -->
+        <div class="ir-para-login" id="irParaLogin" style="display: none;">
+            <a href="login.html" class="btn-ir-login">
+                <i class="fas fa-sign-in-alt"></i> Ir para o Login
+            </a>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
         // Configuração do Firebase
@@ -465,35 +541,30 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // ========== FUNÇÕES ÚTEIS ==========
+        // ========== FUNÇÕES ==========
         
-        // Gerar ID de 8 dígitos
         function gerarId8Digitos() {
             return Math.floor(10000000 + Math.random() * 90000000).toString();
         }
 
-        // Verificar se nickname já existe
         async function nicknameExiste(nickname) {
             const q = query(collection(db, "usuarios"), where("nickname", "==", nickname));
             const querySnapshot = await getDocs(q);
             return !querySnapshot.empty;
         }
 
-        // Verificar se email já existe
         async function emailExiste(email) {
             const q = query(collection(db, "usuarios"), where("email", "==", email));
             const querySnapshot = await getDocs(q);
             return !querySnapshot.empty;
         }
 
-        // Verificar se ID já existe
         async function idExiste(id, tipo) {
             const q = query(collection(db, "usuarios"), where(tipo, "==", id));
             const querySnapshot = await getDocs(q);
             return !querySnapshot.empty;
         }
 
-        // Gerar ID único que não existe no banco
         async function gerarIdUnico(tipo) {
             let id;
             let existe;
@@ -504,7 +575,20 @@
             return id;
         }
 
-        // ========== VALIDAÇÕES EM TEMPO REAL ==========
+        function mostrarToastSucesso() {
+            const toast = document.getElementById('toastSucesso');
+            const irParaLogin = document.getElementById('irParaLogin');
+            
+            toast.classList.add('show');
+            irParaLogin.style.display = 'block';
+            
+            // Esconder toast após 5 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 5000);
+        }
+
+        // ========== ELEMENTOS ==========
         
         const nomeInput = document.getElementById('nomeCompleto');
         const nicknameInput = document.getElementById('nickname');
@@ -525,7 +609,6 @@
         
         const btnCadastrar = document.getElementById('btnCadastrar');
 
-        // Força da senha
         const strengthSegments = [
             document.getElementById('strength1'),
             document.getElementById('strength2'),
@@ -540,7 +623,8 @@
         const reqLower = document.getElementById('reqLower');
         const reqNumber = document.getElementById('reqNumber');
 
-        // Validar nickname em tempo real
+        // ========== VALIDAÇÕES ==========
+        
         let nicknameTimeout;
         nicknameInput.addEventListener('input', async () => {
             clearTimeout(nicknameTimeout);
@@ -571,7 +655,6 @@
             }, 500);
         });
 
-        // Validar email em tempo real
         let emailTimeout;
         emailInput.addEventListener('input', async () => {
             clearTimeout(emailTimeout);
@@ -603,7 +686,6 @@
             }, 500);
         });
 
-        // Validar força da senha
         function verificarForcaSenha() {
             const senha = senhaInput.value;
             
@@ -612,7 +694,6 @@
             const temLower = /[a-z]/.test(senha);
             const temNumber = /[0-9]/.test(senha);
             
-            // Atualizar requisitos
             reqLength.innerHTML = `<i class="fas fa-${temLength ? 'check-circle' : 'times-circle'}"></i> Mínimo 8 caracteres`;
             reqUpper.innerHTML = `<i class="fas fa-${temUpper ? 'check-circle' : 'times-circle'}"></i> Pelo menos 1 letra maiúscula`;
             reqLower.innerHTML = `<i class="fas fa-${temLower ? 'check-circle' : 'times-circle'}"></i> Pelo menos 1 letra minúscula`;
@@ -623,14 +704,12 @@
             reqLower.className = temLower ? 'requirement met' : 'requirement';
             reqNumber.className = temNumber ? 'requirement met' : 'requirement';
             
-            // Calcular força
             let forca = 0;
             if (temLength) forca++;
             if (temUpper) forca++;
             if (temLower) forca++;
             if (temNumber) forca++;
             
-            // Resetar barras
             strengthSegments.forEach(s => s.classList.remove('active'));
             
             if (senha.length === 0) {
@@ -638,14 +717,12 @@
                 return 0;
             }
             
-            // Ativar barras baseado na força
             if (forca >= 1) strengthSegments[0].classList.add('active');
             if (forca >= 2) strengthSegments[1].classList.add('active');
             if (forca >= 3) strengthSegments[2].classList.add('active');
             if (forca >= 4) strengthSegments[3].classList.add('active');
             if (forca === 4 && senha.length > 10) strengthSegments[4].classList.add('active');
             
-            // Texto da força
             if (forca === 0) strengthText.textContent = 'Muito fraca';
             else if (forca === 1) strengthText.textContent = 'Fraca';
             else if (forca === 2) strengthText.textContent = 'Média';
@@ -663,7 +740,6 @@
             validarConfirmacaoSenha();
         });
 
-        // Validar confirmação de senha
         function validarConfirmacaoSenha() {
             const senha = senhaInput.value;
             const confirmar = confirmarInput.value;
@@ -690,10 +766,9 @@
 
         confirmarInput.addEventListener('input', validarConfirmacaoSenha);
 
-        // Gerar IDs assim que a página carrega
+        // Gerar IDs
         window.addEventListener('load', async () => {
             try {
-                // Gerar IDs únicos
                 const idPc = await gerarIdUnico('id_pc');
                 const idGm = await gerarIdUnico('id_gm');
                 
@@ -704,38 +779,34 @@
             }
         });
 
-        // ========== SUBMISSÃO DO FORMULÁRIO ==========
+        // ========== SUBMISSÃO ==========
         
         document.getElementById('formCadastro').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Validações finais
             const nome = nomeInput.value.trim();
             const nickname = nicknameInput.value.trim();
             const email = emailInput.value.trim();
             const senha = senhaInput.value;
             const confirmar = confirmarInput.value;
             
-            // Verificar se todos os campos estão preenchidos
+            // Validações
             if (!nome || !nickname || !email || !senha || !confirmar) {
                 alert('Preencha todos os campos!');
                 return;
             }
             
-            // Verificar se nickname tem pelo menos 3 caracteres
             if (nickname.length < 3) {
                 alert('Nickname deve ter pelo menos 3 caracteres!');
                 return;
             }
             
-            // Verificar email válido
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
                 alert('E-mail inválido!');
                 return;
             }
             
-            // Verificar requisitos da senha
             const temLength = senha.length >= 8;
             const temUpper = /[A-Z]/.test(senha);
             const temLower = /[a-z]/.test(senha);
@@ -746,20 +817,17 @@
                 return;
             }
             
-            // Verificar se senhas coincidem
             if (senha !== confirmar) {
                 alert('As senhas não coincidem!');
                 return;
             }
             
-            // Verificar se nickname já existe (última checagem)
             const nicknameExisteCheck = await nicknameExiste(nickname);
             if (nicknameExisteCheck) {
                 alert('Este nickname já está em uso!');
                 return;
             }
             
-            // Verificar se email já existe (última checagem)
             const emailExisteCheck = await emailExiste(email);
             if (emailExisteCheck) {
                 alert('Este e-mail já está cadastrado!');
@@ -791,17 +859,31 @@
                     ultimo_acesso: new Date().toISOString()
                 });
                 
-                // 4. Redirecionar para página de escolha
-                window.location.href = 'escolher-tipo.html';
+                // 4. IMPORTANTE: FAZER LOGOUT para não ficar logado automaticamente
+                await signOut(auth);
+                
+                // 5. Desativar loading
+                btnCadastrar.classList.remove('loading');
+                btnCadastrar.disabled = false;
+                
+                // 6. Mostrar mensagem de sucesso e botão para login
+                mostrarToastSucesso();
+                
+                // 7. Limpar formulário (opcional)
+                document.getElementById('formCadastro').reset();
+                
+                // 8. Gerar novos IDs para um próximo cadastro
+                const novoIdPc = await gerarIdUnico('id_pc');
+                const novoIdGm = await gerarIdUnico('id_gm');
+                idPcDisplay.textContent = novoIdPc;
+                idGmDisplay.textContent = novoIdGm;
                 
             } catch (error) {
                 console.error('Erro no cadastro:', error);
                 
-                // Desativar loading
                 btnCadastrar.classList.remove('loading');
                 btnCadastrar.disabled = false;
                 
-                // Mostrar erro amigável
                 let mensagem = 'Erro ao cadastrar. ';
                 switch (error.code) {
                     case 'auth/email-already-in-use':
