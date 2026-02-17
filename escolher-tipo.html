@@ -492,139 +492,148 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signOut,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc,
-            getDoc
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { 
+        getAuth, 
+        signOut,
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { 
+        getFirestore, 
+        doc,
+        getDoc
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        // Configuração do Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-        };
+    // Configuração do Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+        authDomain: "rpgforce-e3227.firebaseapp.com",
+        projectId: "rpgforce-e3227",
+        storageBucket: "rpgforce-e3227.firebasestorage.app",
+        messagingSenderId: "984517342332",
+        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    };
 
-        // Inicializar Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        // ========== ELEMENTOS DO DOM ==========
+    // ========== ELEMENTOS DO DOM ==========
+    
+    const userName = document.getElementById('userName');
+    const idPcDisplay = document.getElementById('idPc');
+    const idGmDisplay = document.getElementById('idGm');
+    const btnPc = document.getElementById('btnPc');
+    const btnGm = document.getElementById('btnGm');
+    const cardPc = document.getElementById('cardPc');
+    const cardGm = document.getElementById('cardGm');
+    const btnLogout = document.getElementById('btnLogout');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    // ========== FUNÇÕES ==========
+    
+    function showLoading() {
+        if (loadingOverlay) loadingOverlay.classList.add('active');
+    }
+
+    function hideLoading() {
+        if (loadingOverlay) loadingOverlay.classList.remove('active');
+    }
+
+    // Carregar dados do usuário
+    async function carregarDadosUsuario(user) {
+        if (!user) return;
         
-        const userName = document.getElementById('userName');
-        const idPcDisplay = document.getElementById('idPc');
-        const idGmDisplay = document.getElementById('idGm');
-        const btnPc = document.getElementById('btnPc');
-        const btnGm = document.getElementById('btnGm');
-        const cardPc = document.getElementById('cardPc');
-        const cardGm = document.getElementById('cardGm');
-        const btnLogout = document.getElementById('btnLogout');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-
-        // ========== FUNÇÕES ==========
-        
-        function showLoading() {
-            loadingOverlay.classList.add('active');
-        }
-
-        function hideLoading() {
-            loadingOverlay.classList.remove('active');
-        }
-
-        // Carregar dados do usuário
-        async function carregarDadosUsuario(user) {
-            try {
-                const docRef = doc(db, "usuarios", user.uid);
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    
-                    // Atualizar informações na tela
-                    userName.textContent = data.nome_completo || data.nickname || 'Aventureiro';
-                    idPcDisplay.textContent = data.id_pc || '--------';
-                    idGmDisplay.textContent = data.id_gm || '--------';
-                    
-                    // Salvar no sessionStorage para uso nas dashboards
-                    sessionStorage.setItem('userData', JSON.stringify({
-                        uid: user.uid,
-                        nome: data.nome_completo,
-                        nickname: data.nickname,
-                        id_pc: data.id_pc,
-                        id_gm: data.id_gm,
-                        email: data.email
-                    }));
-                    
-                    return data;
-                } else {
-                    console.log("Usuário não encontrado no Firestore");
-                    return null;
-                }
-            } catch (error) {
-                console.error("Erro ao carregar dados:", error);
-                return null;
-            }
-        }
-
-        // Verificar se usuário está logado
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                // Usuário está logado
-                await carregarDadosUsuario(user);
-            } else {
-                // Não está logado, redirecionar para login
-                window.location.href = 'login.html';
-            }
-        });
-
-        // ========== EVENT LISTENERS ==========
-        
-        // Escolher PC (Jogador)
-        btnPc.addEventListener('click', () => {
+        try {
             showLoading();
             
-            // Salvar escolha
-            sessionStorage.setItem('tipo_escolhido', 'pc');
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
             
-            // Redirecionar para dashboard do jogador
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                
+                // Atualizar informações na tela
+                if (userName) userName.textContent = data.nome_completo || data.nickname || 'Aventureiro';
+                if (idPcDisplay) idPcDisplay.textContent = data.id_pc || '--------';
+                if (idGmDisplay) idGmDisplay.textContent = data.id_gm || '--------';
+                
+                // Salvar no sessionStorage para uso nas dashboards
+                sessionStorage.setItem('userData', JSON.stringify({
+                    uid: user.uid,
+                    nome: data.nome_completo,
+                    nickname: data.nickname,
+                    id_pc: data.id_pc,
+                    id_gm: data.id_gm,
+                    email: data.email
+                }));
+                
+                return data;
+            } else {
+                console.log("Usuário não encontrado no Firestore");
+                return null;
+            }
+        } catch (error) {
+            console.error("Erro ao carregar dados:", error);
+            return null;
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // ========== VERIFICAÇÃO DE LOGIN ==========
+    // ÚNICA FONTE DA VERDADE - isso substitui o window.load
+    
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            // Usuário está logado - carrega os dados
+            await carregarDadosUsuario(user);
+        } else {
+            // Não está logado - redireciona para login
+            window.location.href = 'login.html';
+        }
+    });
+
+    // ========== EVENT LISTENERS ==========
+    
+    // Escolher PC (Jogador)
+    if (btnPc) {
+        btnPc.addEventListener('click', () => {
+            showLoading();
+            sessionStorage.setItem('tipo_escolhido', 'pc');
             setTimeout(() => {
                 window.location.href = 'dashboard-pc.html';
             }, 1000);
         });
+    }
 
-        // Escolher GM (Mestre)
+    // Escolher GM (Mestre)
+    if (btnGm) {
         btnGm.addEventListener('click', () => {
             showLoading();
-            
-            // Salvar escolha
             sessionStorage.setItem('tipo_escolhido', 'gm');
-            
-            // Redirecionar para dashboard do mestre
             setTimeout(() => {
                 window.location.href = 'dashboard-gm.html';
             }, 1000);
         });
+    }
 
-        // Clique nos cards também funciona
+    // Clique nos cards também funciona
+    if (cardPc) {
         cardPc.addEventListener('click', () => {
-            btnPc.click();
+            if (btnPc) btnPc.click();
         });
+    }
 
+    if (cardGm) {
         cardGm.addEventListener('click', () => {
-            btnGm.click();
+            if (btnGm) btnGm.click();
         });
+    }
 
-        // Sair da conta
+    // Sair da conta
+    if (btnLogout) {
         btnLogout.addEventListener('click', async () => {
             try {
                 showLoading();
@@ -637,14 +646,7 @@
                 alert('Erro ao sair da conta. Tente novamente.');
             }
         });
-
-        // Prevenir que usuários sem dados acessem
-        window.addEventListener('load', () => {
-            // Se não tiver usuário logado, redireciona
-            if (!auth.currentUser) {
-                window.location.href = 'login.html';
-            }
-        });
-    </script>
+    }
+</script>
 </body>
 </html>
