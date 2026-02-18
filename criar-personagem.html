@@ -1494,12 +1494,12 @@
             17: "3d-1", 18: "3d", 19: "3d+1", 20: "3d+2"
         };
 
-        // Atributos - CORRIGIDO: Mana = Fadiga (8) + Força de Vontade (IQ)
+        // Atributos - HT CORRIGIDO: cada bolinha = +6 na vida
         const atributos = {
-            st: { valor: 9, bolinhas: 0, base: 9 },
-            dx: { valor: 5, bolinhas: 0, base: 5 },
-            iq: { valor: 5, bolinhas: 0, base: 5 },
-            ht: { valor: 48, bolinhas: 0, base: 48 }
+            st: { valor: 9, bolinhas: 0, base: 9 },      // ST: 1 bolinha = +1
+            dx: { valor: 5, bolinhas: 0, base: 5 },      // DX: 1 bolinha = +1
+            iq: { valor: 5, bolinhas: 0, base: 5 },      // IQ: 1 bolinha = +1
+            ht: { valor: 48, bolinhas: 0, base: 48 }     // HT: 1 bolinha = +6 na vida
         };
 
         // Funções auxiliares
@@ -1521,7 +1521,7 @@
             }
         }
 
-        // Funções dos atributos
+        // Funções dos atributos - CORRIGIDO: HT com multiplicador 6
         function calcularDerivados() {
             const st = atributos.st.valor;
             const dano = tabelaDano[st] || "1d-1";
@@ -1532,10 +1532,12 @@
             const iq = atributos.iq.valor;
             const vontade = iq;
             
-            const ht = atributos.ht.valor;
+            // HT: vida = base 48 + (bolinhas * 6)
+            const vida = atributos.ht.base + (atributos.ht.bolinhas * 6);
+            atributos.ht.valor = vida; // Atualiza o valor
             const fadiga = 8 + atributos.ht.bolinhas;
             
-            // CORREÇÃO DA MANA: Fadiga (8 + bônus) + Força de Vontade (IQ)
+            // Mana = Fadiga + Força de Vontade (IQ)
             const mana = fadiga + vontade;
 
             // Atualiza elementos
@@ -1549,13 +1551,16 @@
             if (iqVontade) iqVontade.textContent = `Vontade ${vontade}`;
             
             const htVida = document.getElementById('htVida');
-            if (htVida) htVida.textContent = `Vida ${ht}`;
+            if (htVida) htVida.textContent = `Vida ${vida}`;
             
             const htFadiga = document.getElementById('htFadiga');
             if (htFadiga) htFadiga.textContent = `Fadiga ${fadiga}`;
             
+            const htValor = document.getElementById('htValor');
+            if (htValor) htValor.textContent = vida;
+            
             const statusVida = document.getElementById('statusVida');
-            if (statusVida) statusVida.textContent = ht;
+            if (statusVida) statusVida.textContent = vida;
             
             const statusFadiga = document.getElementById('statusFadiga');
             if (statusFadiga) statusFadiga.textContent = fadiga;
@@ -1570,7 +1575,7 @@
             if (statusEsquiva) statusEsquiva.textContent = esquiva;
             
             const statusDeslocamento = document.getElementById('statusDeslocamento');
-            if (statusDeslocamento) statusDeslocamento.textContent = (ht / 10).toFixed(1);
+            if (statusDeslocamento) statusDeslocamento.textContent = (vida / 10).toFixed(1);
         }
 
         function criarBolinhas(atributoId, totalBolinhas = 15) {
@@ -1591,11 +1596,20 @@
                     
                     if (!clicada && pontosRestantes > 0) {
                         atributo.bolinhas++;
-                        atributo.valor = atributo.base + atributo.bolinhas;
+                        // HT tem multiplicador 6, outros atributos são +1
+                        if (atributoId === 'ht') {
+                            atributo.valor = atributo.base + (atributo.bolinhas * 6);
+                        } else {
+                            atributo.valor = atributo.base + atributo.bolinhas;
+                        }
                         pontosRestantes--;
                     } else if (clicada) {
                         atributo.bolinhas--;
-                        atributo.valor = atributo.base + atributo.bolinhas;
+                        if (atributoId === 'ht') {
+                            atributo.valor = atributo.base + (atributo.bolinhas * 6);
+                        } else {
+                            atributo.valor = atributo.base + atributo.bolinhas;
+                        }
                         pontosRestantes++;
                     }
                     
@@ -1634,9 +1648,7 @@
             const iqValor = document.getElementById('iqValor');
             if (iqValor) iqValor.textContent = atributos.iq.valor;
             
-            const htValor = document.getElementById('htValor');
-            if (htValor) htValor.textContent = atributos.ht.valor;
-            
+            // HT já é atualizado no calcularDerivados
             if (pontosRestantesSpan) {
                 pontosRestantesSpan.textContent = pontosRestantes;
             }
@@ -1795,6 +1807,7 @@
             const peculiaridades = document.getElementById('peculiaridades')?.value || '';
             const fotoURL = previewImage?.src || '';
 
+            const vida = atributos.ht.base + (atributos.ht.bolinhas * 6);
             const fadiga = 8 + atributos.ht.bolinhas;
             const mana = fadiga + atributos.iq.valor;
 
@@ -1809,10 +1822,10 @@
                     st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 9 },
                     dx: { bolinhas: atributos.dx.bolinhas, valor: atributos.dx.valor, base: 5 },
                     iq: { bolinhas: atributos.iq.bolinhas, valor: atributos.iq.valor, base: 5 },
-                    ht: { bolinhas: atributos.ht.bolinhas, valor: atributos.ht.valor, base: 48 }
+                    ht: { bolinhas: atributos.ht.bolinhas, valor: vida, base: 48 }
                 },
                 status: {
-                    vidaMax: atributos.ht.valor,
+                    vidaMax: vida,
                     fadigaMax: fadiga,
                     manaMax: mana
                 },
@@ -1821,7 +1834,7 @@
                     esquiva: Math.floor(atributos.dx.valor / 2) + 3,
                     vontade: atributos.iq.valor,
                     percepcao: atributos.iq.valor,
-                    deslocamento: (atributos.ht.valor / 10).toFixed(1)
+                    deslocamento: (vida / 10).toFixed(1)
                 }
             };
 
@@ -2050,6 +2063,7 @@
                         if (personagemTemp?.riqueza === 'pobre') dinheiro = 25;
                         if (personagemTemp?.riqueza === 'rico') dinheiro = 250;
 
+                        const vida = atributos.ht.base + (atributos.ht.bolinhas * 6);
                         const fadiga = 8 + atributos.ht.bolinhas;
                         const mana = fadiga + atributos.iq.valor;
 
@@ -2079,12 +2093,15 @@
                                 st: atributos.st,
                                 dx: atributos.dx,
                                 iq: atributos.iq,
-                                ht: atributos.ht
+                                ht: {
+                                    ...atributos.ht,
+                                    valor: vida
+                                }
                             },
                             
                             status: {
-                                vidaAtual: atributos.ht.valor,
-                                vidaMax: atributos.ht.valor,
+                                vidaAtual: vida,
+                                vidaMax: vida,
                                 fadigaAtual: fadiga,
                                 fadigaMax: fadiga,
                                 manaAtual: mana,
@@ -2096,7 +2113,7 @@
                                 esquiva: Math.floor(atributos.dx.valor / 2) + 3,
                                 vontade: atributos.iq.valor,
                                 percepcao: atributos.iq.valor,
-                                deslocamento: (atributos.ht.valor / 10).toFixed(1)
+                                deslocamento: (vida / 10).toFixed(1)
                             },
                             
                             reacao: {
