@@ -426,7 +426,7 @@
         .card-actions {
             display: flex;
             gap: 15px;
-            justify-content: flex-end;
+            justify-content: space-between;
             margin-top: 30px;
         }
 
@@ -709,8 +709,8 @@
                 <button type="button" class="btn-secondary" onclick="history.back()">
                     <i class="fas fa-arrow-left"></i> Cancelar
                 </button>
-                <button type="button" class="btn-primary" id="btnCriarPersonagem">
-                    <i class="fas fa-save"></i> Criar Personagem
+                <button type="button" class="btn-primary" id="btnProximaEtapa">
+                    Próximo: Vantagens e Desvantagens <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
         </div>
@@ -726,8 +726,6 @@
         import { 
             getFirestore, 
             doc,
-            setDoc,
-            collection,
             getDoc
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
@@ -748,7 +746,7 @@
         const displayNickname = document.getElementById('displayNickname');
         const btnSair = document.getElementById('btnSair');
         const loadingOverlay = document.getElementById('loadingOverlay');
-        const btnCriar = document.getElementById('btnCriarPersonagem');
+        const btnProxima = document.getElementById('btnProximaEtapa');
         
         const uploadArea = document.getElementById('uploadArea');
         const fotoInput = document.getElementById('fotoInput');
@@ -918,7 +916,7 @@
             }
         });
 
-        btnCriar.addEventListener('click', async () => {
+        btnProxima.addEventListener('click', () => {
             const nome = document.getElementById('nomePersonagem').value.trim();
             
             if (!nome) {
@@ -931,92 +929,48 @@
                 return;
             }
 
-            try {
-                showLoading();
-                const user = auth.currentUser;
-                
-                const personagemRef = doc(collection(db, "personagens"));
-                const personagemId = personagemRef.id;
+            const dx = atributos.dx.valor;
+            const iq = atributos.iq.valor;
+            const ht = atributos.ht.valor;
+            const fadiga = 8 + atributos.ht.bolinhas;
+            const mana = iq + ht;
+            const esquiva = Math.floor(dx / 2) + 3;
+            const dano = tabelaDano[atributos.st.valor] || "1d-1";
 
-                const dx = atributos.dx.valor;
-                const iq = atributos.iq.valor;
-                const ht = atributos.ht.valor;
-                const fadiga = 8 + atributos.ht.bolinhas;
-                const mana = iq + ht;
-                const esquiva = Math.floor(dx / 2) + 3;
-                const dano = tabelaDano[atributos.st.valor] || "1d-1";
+            const aparencia = document.getElementById('aparencia').value;
+            const riqueza = document.getElementById('riqueza').value;
+            const peculiaridades = document.getElementById('peculiaridades').value.trim();
 
-                const aparencia = document.getElementById('aparencia').value;
-                const riqueza = document.getElementById('riqueza').value;
-                const peculiaridades = document.getElementById('peculiaridades').value.trim();
+            const personagemTemp = {
+                nome: nome,
+                classe: document.getElementById('classePersonagem').value,
+                fotoURL: previewImage.src || '',
+                aparencia: aparencia,
+                riqueza: riqueza,
+                peculiaridades: peculiaridades,
+                atributos: {
+                    st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 9 },
+                    dx: { bolinhas: atributos.dx.bolinhas, valor: dx, base: 5 },
+                    iq: { bolinhas: atributos.iq.bolinhas, valor: iq, base: 5 },
+                    ht: { bolinhas: atributos.ht.bolinhas, valor: ht, base: 48 }
+                },
+                status: {
+                    vidaMax: ht,
+                    fadigaMax: fadiga,
+                    manaMax: mana
+                },
+                derivados: {
+                    danoBase: dano,
+                    esquiva: esquiva,
+                    vontade: iq,
+                    percepcao: iq,
+                    deslocamento: (ht / 10).toFixed(1)
+                }
+            };
 
-                let dinheiro = 50;
-                if (riqueza === 'pobre') dinheiro = 25;
-                if (riqueza === 'rico') dinheiro = 250;
-
-                let reacaoBase = 0;
-                if (aparencia === 'feio') reacaoBase = -2;
-                if (aparencia === 'atraente') reacaoBase = 2;
-
-                const personagemData = {
-                    id: personagemId,
-                    userId: user.uid,
-                    nome: nome,
-                    classe: document.getElementById('classePersonagem').value,
-                    fotoURL: previewImage.src || '',
-                    
-                    aparencia: aparencia,
-                    riqueza: riqueza,
-                    peculiaridades: peculiaridades,
-                    
-                    pontos: {
-                        xp: 0,
-                        xpTotal: 0,
-                        pm: 0,
-                        dinheiro: dinheiro
-                    },
-                    
-                    atributos: {
-                        st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 9 },
-                        dx: { bolinhas: atributos.dx.bolinhas, valor: dx, base: 5 },
-                        iq: { bolinhas: atributos.iq.bolinhas, valor: iq, base: 5 },
-                        ht: { bolinhas: atributos.ht.bolinhas, valor: ht, base: 48 }
-                    },
-                    
-                    status: {
-                        vidaAtual: ht,
-                        vidaMax: ht,
-                        fadigaAtual: fadiga,
-                        fadigaMax: fadiga,
-                        manaAtual: mana,
-                        manaMax: mana
-                    },
-                    
-                    derivados: {
-                        danoBase: dano,
-                        esquiva: esquiva,
-                        vontade: iq,
-                        percepcao: iq,
-                        deslocamento: (ht / 10).toFixed(1)
-                    },
-                    
-                    reacao: {
-                        base: reacaoBase,
-                        total: reacaoBase
-                    },
-                    
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                };
-
-                await setDoc(personagemRef, personagemData);
-                
-                window.location.href = `aventura-solo.html?personagemId=${personagemId}`;
-                
-            } catch (error) {
-                alert('Erro ao criar personagem. Tente novamente.');
-                hideLoading();
-            }
+            sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
+            
+            window.location.href = 'vantagens-desvantagens.html';
         });
     </script>
 </body>
