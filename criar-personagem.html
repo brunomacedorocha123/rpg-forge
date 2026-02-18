@@ -1107,6 +1107,18 @@
             .aba { min-width: auto; padding: 10px; font-size: 0.8rem; }
             .pericias-container { grid-template-columns: 1fr; }
         }
+        .pericia-adquirida-info .nh {
+    font-size: 0.9rem;
+    color: #4CAF50;
+    font-weight: bold;
+    margin-top: 2px;
+}
+
+.pericia-adquirida-info .nh span {
+    color: #ffd700;
+    font-size: 1rem;
+    margin-left: 5px;
+}
     </style>
 </head>
 <body>
@@ -1840,8 +1852,7 @@
                             <!-- Perícias serão inseridas via JavaScript -->
                         </div>
                     </div>
-
-            <!-- Perícias Adquiridas -->
+<!-- Perícias Adquiridas -->
 <div class="pericias-adquiridas">
     <h3>
         <i class="fas fa-check-circle"></i> Perícias do Personagem
@@ -2117,11 +2128,18 @@
             const iqValor = document.getElementById('iqValor');
             if (iqValor) iqValor.textContent = atributos.iq.valor;
             if (pontosRestantesSpan) pontosRestantesSpan.textContent = pontosRestantes;
+            
             atualizarBolinhas('st');
             atualizarBolinhas('dx');
             atualizarBolinhas('iq');
             atualizarBolinhas('ht');
+            
             calcularDerivados();
+            
+            // Se estiver na aba de perícias, atualiza a lista para recalcular NH
+            if (abaAtual === 'pericias') {
+                renderizarPericiasAdquiridas();
+            }
         }
 
         function mudarAba(abaId) {
@@ -2263,19 +2281,37 @@
 
         function renderizarPericiasAdquiridas() {
             if (!listaPericiasAdquiridas) return;
+            
             const periciasArray = Object.entries(pericias);
+
             if (periciasArray.length === 0) {
                 listaPericiasAdquiridas.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">Clique em uma perícia do catálogo para adicionar</div>';
                 return;
             }
+
             listaPericiasAdquiridas.innerHTML = periciasArray.map(([id, dados]) => {
                 const pericia = catalogoPericias.find(p => p.id === id);
                 const bonus = dados.nivel === 1 ? 0 : dados.nivel - 1;
+                
+                let atributoBase = 0;
+                if (pericia?.atributo === 'st') atributoBase = atributos.st.valor;
+                else if (pericia?.atributo === 'dx') atributoBase = atributos.dx.valor;
+                else if (pericia?.atributo === 'iq') atributoBase = atributos.iq.valor;
+                else if (pericia?.atributo === 'ht') atributoBase = atributos.ht.valor;
+                
+                const nh = atributoBase + bonus;
+                
                 return `
                     <div class="pericia-adquirida" data-pericia-id="${id}">
                         <div class="pericia-adquirida-info">
                             <h4>${pericia?.nome || id}</h4>
-                            <div class="nivel">Nível ${dados.nivel} <span class="bonus">(Bônus ${bonus > 0 ? '+' : ''}${bonus})</span></div>
+                            <div class="nivel">
+                                Nível ${dados.nivel} 
+                                <span class="bonus">(Bônus ${bonus > 0 ? '+' : ''}${bonus})</span>
+                            </div>
+                            <div class="nh">
+                                NH: <span>${nh}</span> (${pericia?.atributo.toUpperCase()} ${atributoBase} + ${bonus})
+                            </div>
                         </div>
                         <div class="pericia-adquirida-acoes">
                             <button class="btn-pericia btn-aumentar-pericia" data-pericia-id="${id}" ${pmGastoTotal >= pmDisponivel ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
@@ -2284,12 +2320,14 @@
                     </div>
                 `;
             }).join('');
+
             document.querySelectorAll('.btn-aumentar-pericia').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     aumentarPericia(btn.dataset.periciaId);
                 });
             });
+            
             document.querySelectorAll('.btn-diminuir-pericia').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
