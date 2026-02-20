@@ -2113,7 +2113,7 @@
         </div>
     </div>
     <script type="module">
-       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, collection, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
@@ -2180,7 +2180,7 @@ const detalheMagiaInfo = document.getElementById('detalheMagiaInfo');
 const corpoTabelaDetalhe = document.getElementById('corpoTabelaDetalhe');
 const fecharDetalheMagia = document.getElementById('fecharDetalheMagia');
 const comprarNivelMagia = document.getElementById('comprarNivelMagia');
-
+const dinheiroBaseInput = document.getElementById('dinheiroBase');
 const dinheiroSaldo = document.getElementById('dinheiroSaldo');
 const cargaAtual = document.getElementById('cargaAtual');
 const cargaLimite = document.getElementById('cargaLimite');
@@ -2216,6 +2216,7 @@ let pmDisponivel = 30;
 let pmGastoTotal = 0;
 let pericias = {};
 let periciaAtual = null;
+let dinheiroBase = 1000;
 
 let inventario = {
     corpo: [],
@@ -2223,7 +2224,7 @@ let inventario = {
     deposito: []
 };
 
-let dinheiro = 50;
+let dinheiro = 0;
 
 const catalogoItensData = {
     armas_ca: [
@@ -2287,7 +2288,7 @@ const escolas = {
 };
 
 const tabelasMagia = {
-    localizarAgua: { coluna: 'Alcance', valores: ['50m', '100m', '200m', '350m', '500m', '1km', '1.5km', '2km', '2.5km', '3km', '4km', '5km', '10km', '20km', '50km+'] },
+    localizarAgua: { coluna: 'Alcance', valores: ['50m', '100m', '200m', '350m', '500m', '1km', '1.5km', '2km', '2.5km', '3km', '4km', '5km', '10km', '14km', '20km+'] },
     purificarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
     criarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
     dissiparAgua: { coluna: 'Volume (m³)', valores: ['1m³', '2m³', '3m³', '5m³', '8m³', '12m³', '18m³', '25m³', '35m³', '50m³', '70m³', '100m³', '150m³', '250m³', '500m³'] },
@@ -2374,6 +2375,25 @@ let magiaSelecionada = null;
 let escolaSelecionada = 'agua';
 let esferasDesbloqueadas = 0;
 
+function calcularDinheiroInicial() {
+    const base = parseInt(dinheiroBaseInput?.value) || 1000;
+    const riquezaSelect = document.getElementById('riqueza');
+    const riqueza = riquezaSelect?.value || 'medio';
+    
+    if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
+        return Math.floor(base / 2);
+    } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
+        return base * 5;
+    } else {
+        return base;
+    }
+}
+
+function atualizarDinheiroDisplay() {
+    dinheiro = calcularDinheiroInicial();
+    if (dinheiroSaldo) dinheiroSaldo.textContent = dinheiro;
+}
+
 function custoNivelMagia(nivelAtual) {
     const novoNivel = nivelAtual + 1;
     if (novoNivel <= 5) return 2;
@@ -2438,7 +2458,7 @@ function calcularCarga() {
     cargaPenalidade.textContent = penalidade;
     
     let pesoMochilaTotal = 0;
-       inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
+    inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
     pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
     
     return { nivel, reducaoEsquiva, reducaoDeslocamento };
@@ -2842,6 +2862,8 @@ function atualizarContadoresAbas() {
     
     pmGasto.textContent = pmGastoTotal;
     pmRestante.textContent = pmDisponivel - pmGastoTotal;
+    
+    atualizarDinheiroDisplay();
 }
 
 function calcularDerivados() {
@@ -2973,6 +2995,7 @@ function mudarAba(abaId) {
         btnAnterior.style.display = 'inline-flex';
         btnProximo.style.display = 'none';
         btnFinalizar.style.display = 'inline-flex';
+        atualizarDinheiroDisplay();
         renderizarInventario();
         renderizarTabelas('armas_ca');
     }
@@ -3015,12 +3038,9 @@ function selecionarVantagem(card) {
     }
     
     if (vantagemId === 'rico') {
-        dinheiro = 250;
-    } else if (vantagemId === 'pobre') {
-        dinheiro = 25;
-    } else {
-        if (!vantagensSelecionadas.has('rico') && !desvantagensSelecionadas.has('pobre')) {
-            dinheiro = 50;
+        if (desvantagensSelecionadas.has('pobre')) {
+            desvantagensSelecionadas.delete('pobre');
+            document.querySelector('[data-desvantagem="pobre"]')?.classList.remove('selecionada');
         }
     }
     
@@ -3040,12 +3060,9 @@ function selecionarDesvantagem(card) {
     }
     
     if (desvantagemId === 'pobre') {
-        dinheiro = 25;
-    } else if (desvantagemId === 'rico') {
-        dinheiro = 250;
-    } else {
-        if (!vantagensSelecionadas.has('rico') && !desvantagensSelecionadas.has('pobre')) {
-            dinheiro = 50;
+        if (vantagensSelecionadas.has('rico')) {
+            vantagensSelecionadas.delete('rico');
+            document.querySelector('[data-vantagem="rico"]')?.classList.remove('selecionada');
         }
     }
     
@@ -3311,12 +3328,11 @@ function salvarDadosBasicos() {
     const fadiga = 8 + atributos.ht.bolinhas;
     const mana = fadiga + atributos.iq.valor;
     
-    if (riqueza === 'pobre') dinheiro = 25;
-    else if (riqueza === 'rico') dinheiro = 250;
-    else dinheiro = 50;
+    dinheiro = calcularDinheiroInicial();
     
     personagemTemp = {
         nome, classe, fotoURL, aparencia, riqueza, peculiaridades,
+        dinheiroBase: parseInt(dinheiroBaseInput?.value) || 1000,
         atributos: {
             st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 9 },
             dx: { bolinhas: atributos.dx.bolinhas, valor: atributos.dx.valor, base: 5 },
@@ -3347,6 +3363,9 @@ function carregarDadosSalvos() {
             document.getElementById('aparencia').value = personagemTemp.aparencia || 'normal';
             document.getElementById('riqueza').value = personagemTemp.riqueza || 'medio';
             document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
+            if (personagemTemp.dinheiroBase) {
+                document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase;
+            }
             if (personagemTemp.fotoURL) {
                 previewImage.src = personagemTemp.fotoURL;
                 previewArea.style.display = 'block';
@@ -3376,6 +3395,18 @@ document.addEventListener('DOMContentLoaded', () => {
     criarBolinhas('iq');
     criarBolinhas('ht');
     carregarDadosSalvos();
+    atualizarDinheiroDisplay();
+    
+    dinheiroBaseInput.addEventListener('input', () => {
+        atualizarDinheiroDisplay();
+        if (personagemTemp) {
+            personagemTemp.dinheiroBase = parseInt(dinheiroBaseInput.value) || 1000;
+        }
+    });
+    
+    document.getElementById('riqueza').addEventListener('change', () => {
+        atualizarDinheiroDisplay();
+    });
     
     abas.forEach(aba => {
         aba.addEventListener('click', () => {
@@ -3759,6 +3790,6 @@ btnSair.addEventListener('click', async () => {
 });
 
 atualizarContadoresAbas();
-    </script>
+</script>
 </body>
 </html>
