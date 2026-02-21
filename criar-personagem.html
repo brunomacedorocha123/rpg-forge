@@ -2508,14 +2508,14 @@ let inventario = {
 let dinheiro = 0;
 
 // ========== ATRIBUTOS CORRIGIDOS ==========
-// HT base = 8 (NUNCA muda)
-// PV = 8 × 8 = 64 (fixo)
-// Fadiga = 8 + bolinhas do HT
+// HT = 8 + bolinhas
+// PV = HT × 8
+// Fadiga = 8 + bolinhas
 const atributos = {
     st: { valor: 9, bolinhas: 0, base: 9 },
     dx: { valor: 5, bolinhas: 0, base: 5 },
     iq: { valor: 5, bolinhas: 0, base: 5 },
-    ht: { valor: 8, bolinhas: 0, base: 8 } // HT fixo em 8, bolinhas só para fadiga
+    ht: { valor: 8, bolinhas: 0, base: 8 } // HT base 8, bolinhas aumentam HT
 };
 
 const tabelaDano = {
@@ -2554,8 +2554,8 @@ function criarBolinhas(atributoId) {
                 if (atributoId === 'st' || atributoId === 'dx' || atributoId === 'iq') {
                     atributo.valor = atributo.base + atributo.bolinhas;
                 }
-                // HT: bolinhas NÃO aumentam o valor do HT (fica sempre 8)
-                // Só usamos para calcular fadiga
+                // HT: bolinhas aumentam o HT (8 + bolinhas)
+                // O valor do HT é calculado pela função calcularHT()
                 pontosRestantes--;
             } else if (clicada) {
                 atributo.bolinhas--;
@@ -2588,9 +2588,14 @@ function atualizarBolinhas(atributoId) {
 }
 
 // ========== FUNÇÕES DE COMBATE CORRIGIDAS ==========
+function calcularHT() {
+    // HT = 8 + número de bolinhas
+    return 8 + atributos.ht.bolinhas;
+}
+
 function calcularPV() {
-    // PV = 8 × 8 = 64 (fixo)
-    return 64;
+    // PV = HT × 8
+    return calcularHT() * 8;
 }
 
 function calcularFadiga() {
@@ -2604,14 +2609,14 @@ function calcularMana() {
 }
 
 function calcularDeslocamento() {
-    // Deslocamento = (ST + DX + HT) / 5, HT = 8
-    return (atributos.st.valor + atributos.dx.valor + 8) / 5;
+    // Deslocamento = (ST + DX + HT) / 5
+    return (atributos.st.valor + atributos.dx.valor + calcularHT()) / 5;
 }
 
 function calcularEsquiva() {
     const carga = calcularCarga();
-    // Esquiva = (DX + HT)/6 + 6, HT = 8
-    let esquiva = Math.floor((atributos.dx.valor + 8) / 6) + 6;
+    // Esquiva = (DX + HT)/6 + 6
+    let esquiva = Math.floor((atributos.dx.valor + calcularHT()) / 6) + 6;
     return Math.max(0, esquiva - carga.reducaoEsquiva);
 }
 
@@ -2730,6 +2735,7 @@ function atualizarEscudoPV() {
 }
 
 function atualizarCombate() {
+    const ht = calcularHT();
     const pv = calcularPV();
     const fadiga = calcularFadiga();
     const mana = calcularMana();
@@ -2740,9 +2746,9 @@ function atualizarCombate() {
     const rd = calcularRD();
     
     // PV e thresholds - CORRIGIDO
-    if (combatePV) combatePV.textContent = pv; // 64
-    if (thresholdAtordoamento) thresholdAtordoamento.textContent = 48; // 75% de 64
-    if (thresholdMorte) thresholdMorte.textContent = 64; // 100% de 64
+    if (combatePV) combatePV.textContent = pv;
+    if (thresholdAtordoamento) thresholdAtordoamento.textContent = 6 * ht; // 6 × HT
+    if (thresholdMorte) thresholdMorte.textContent = 8 * ht; // 8 × HT
     
     if (combateFadiga) combateFadiga.textContent = fadiga;
     if (combateDeslocamento) combateDeslocamento.textContent = deslocamento.toFixed(1);
@@ -2766,9 +2772,15 @@ function atualizarCombate() {
         document.getElementById('statusEsquiva').textContent = esquiva;
     }
     
-    // HT sempre 8
+    // HT atualizado
     if (document.getElementById('htValor')) {
-        document.getElementById('htValor').textContent = 8;
+        document.getElementById('htValor').textContent = ht;
+    }
+    if (document.getElementById('htVida')) {
+        document.getElementById('htVida').textContent = `Vida ${pv}`;
+    }
+    if (document.getElementById('htFadiga')) {
+        document.getElementById('htFadiga').textContent = `Fadiga ${fadiga}`;
     }
 }
 
@@ -2776,7 +2788,9 @@ function atualizarInterface() {
     if (document.getElementById('stValor')) document.getElementById('stValor').textContent = atributos.st.valor;
     if (document.getElementById('dxValor')) document.getElementById('dxValor').textContent = atributos.dx.valor;
     if (document.getElementById('iqValor')) document.getElementById('iqValor').textContent = atributos.iq.valor;
-    if (document.getElementById('htValor')) document.getElementById('htValor').textContent = 8; // HT sempre 8
+    
+    const ht = calcularHT();
+    if (document.getElementById('htValor')) document.getElementById('htValor').textContent = ht;
     if (pontosRestantesSpan) pontosRestantesSpan.textContent = pontosRestantes;
     
     atualizarBolinhas('st');
