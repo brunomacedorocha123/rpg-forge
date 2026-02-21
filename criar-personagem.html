@@ -2369,7 +2369,7 @@
             <button type="button" class="btn-primary" id="btnFinalizar" style="display: none;"><i class="fas fa-save"></i> Finalizar Personagem</button>
         </div>
     </div>
-        <script type="module">
+       <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, collection, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -2496,6 +2496,8 @@ let pmGastoTotal = 0;
 let pericias = {};
 let periciaAtual = null;
 let dinheiroBase = 1000;
+let escudoPVAtual = 0;
+let escudoPVMax = 0;
 
 let inventario = {
     corpo: [],
@@ -2504,10 +2506,6 @@ let inventario = {
 };
 
 let dinheiro = 0;
-
-// PV e status do escudo
-let escudoPVAtual = 0;
-let escudoPVMax = 0;
 
 const catalogoItensData = {
     armas_ca: [
@@ -2640,6 +2638,7 @@ const catalogoPericias = [
     { id: "natacao", nome: "Natação", tipo: "organica", atributo: "ht", descricao: "Nadar" },
     { id: "sexAppeal", nome: "Sex Appeal", tipo: "organica", atributo: "ht", descricao: "Atrair sexualmente" }
 ];
+
 const tabelaDano = {
     9: "1d-1", 10: "1d", 11: "1d+1", 12: "1d+2",
     13: "2d-1", 14: "2d", 15: "2d+1", 16: "2d+2",
@@ -2650,14 +2649,14 @@ const atributos = {
     st: { valor: 9, bolinhas: 0, base: 9 },
     dx: { valor: 5, bolinhas: 0, base: 5 },
     iq: { valor: 5, bolinhas: 0, base: 5 },
-    ht: { valor: 48, bolinhas: 0, base: 48 }
+    ht: { valor: 8, bolinhas: 0, base: 8 }
 };
 
 let magiaSelecionada = null;
 let escolaSelecionada = 'agua';
 let esferasDesbloqueadas = 0;
 
-// Funções de utilidade
+// ========== FUNÇÕES DE UTILIDADE ==========
 function showLoading() {
     loadingOverlay.classList.add('active');
 }
@@ -2666,7 +2665,7 @@ function hideLoading() {
     loadingOverlay.classList.remove('active');
 }
 
-// NOVAS FUNÇÕES DE COMBATE
+// ========== FUNÇÕES DE COMBATE CORRIGIDAS ==========
 function calcularPV() {
     return atributos.ht.valor * 8;
 }
@@ -2677,47 +2676,26 @@ function calcularDeslocamento() {
 
 function calcularEsquiva() {
     const carga = calcularCarga();
-    let esquiva = atributos.dx.valor + (atributos.ht.valor / 6) + 8;
+    let esquiva = ((atributos.dx.valor + atributos.ht.valor) / 6) + 6;
     esquiva = Math.floor(esquiva) - carga.reducaoEsquiva;
     return Math.max(0, esquiva);
 }
 
 function calcularAparar() {
-    // Pega a melhor arma equipada para aparar
     let melhorNH = 0;
     let temArma = false;
     
     inventario.corpo.forEach(item => {
         if (item.dano && item.tipo !== 'escudo') {
             temArma = true;
-            // Busca a perícia correspondente
-            const periciaId = item.periciaId || 'espada';
-            const pericia = pericias[periciaId];
-            if (pericia) {
-                const bonus = pericia.nivel === 1 ? 0 : pericia.nivel - 1;
-                const atributoBase = atributos[item.atributo || 'dx'].valor;
-                const nh = atributoBase + bonus;
-                if (nh > melhorNH) melhorNH = nh;
-            }
-        }
-    });
-    
-    if (!temArma) return 0;
-    
-    const aparar = melhorNH + (atributos.dx.valor / 4) + 6;
-    return Math.floor(aparar);
-}
-
-function calcularBloqueio() {
-    let melhorNH = 0;
-    let bonusEscudo = 0;
-    let temEscudo = false;
-    
-    inventario.corpo.forEach(item => {
-        if (item.tipo === 'escudo' || (item.tipoDano && item.id.includes('escudo'))) {
-            temEscudo = true;
-            bonusEscudo = item.bonus || 0;
-            const periciaId = 'escudo';
+            let periciaId = 'espada';
+            const nomeItem = item.nome.toLowerCase();
+            if (nomeItem.includes('machado')) periciaId = 'machado';
+            else if (nomeItem.includes('espada')) periciaId = 'espada';
+            else if (nomeItem.includes('arco')) periciaId = 'arco';
+            else if (nomeItem.includes('besta')) periciaId = 'besta';
+            else if (nomeItem.includes('maca')) periciaId = 'maca_lisa';
+            
             const pericia = pericias[periciaId];
             if (pericia) {
                 const bonus = pericia.nivel === 1 ? 0 : pericia.nivel - 1;
@@ -2728,49 +2706,69 @@ function calcularBloqueio() {
         }
     });
     
-    if (!temEscudo) return 0;
-    if (melhorNH === 0) melhorNH = atributos.dx.valor; // Sem perícia, usa DX
+    if (!temArma) return 0;
+    if (melhorNH === 0) melhorNH = atributos.dx.valor;
     
-    const bloqueio = melhorNH + (atributos.dx.valor / 4) + 6 + bonusEscudo;
-    return Math.floor(bloqueio);
+    let aparar = ((melhorNH + atributos.dx.valor) / 4) + 6;
+    return Math.floor(aparar);
 }
 
-function calcularRD() {
-    let rdCorpoTotal = 0;
-    let rdCabecaTotal = 0;
-    let rdMembrosTotal = 0;
+function calcularBloqueio() {
+    let melhorNH = 0;
+    let bonusEscudo = 0;
+    let temEscudo = false;
     
     inventario.corpo.forEach(item => {
-        if (item.rd) {
-            if (item.local === 'completo') {
-                rdCorpoTotal += item.rd;
-                rdCabecaTotal += item.rd;
-                rdMembrosTotal += item.rd;
-            } else if (item.local === 'torso') {
-                rdCorpoTotal += item.rd;
-            } else if (item.local === 'membros') {
-                rdMembrosTotal += item.rd;
+        if (item.tipo === 'escudo' || item.nome.toLowerCase().includes('escudo')) {
+            temEscudo = true;
+            bonusEscudo = item.bonus || 0;
+            const pericia = pericias['escudo'];
+            if (pericia) {
+                const bonus = pericia.nivel === 1 ? 0 : pericia.nivel - 1;
+                const nh = atributos.dx.valor + bonus;
+                if (nh > melhorNH) melhorNH = nh;
             }
         }
     });
     
-    return { corpo: rdCorpoTotal, cabeca: rdCabecaTotal, membros: rdMembrosTotal };
+    if (!temEscudo) return 0;
+    if (melhorNH === 0) melhorNH = atributos.dx.valor;
+    
+    let bloqueio = ((melhorNH + atributos.dx.valor) / 4) + 6 + bonusEscudo;
+    return Math.floor(bloqueio);
 }
 
-function atualizarArmaEquipada() {
-    let armaEncontrada = null;
+function calcularRD() {
+    let rdCorpo = 0, rdCabeca = 0, rdMembros = 0;
     
     inventario.corpo.forEach(item => {
-        if (item.dano && item.tipo !== 'escudo') {
-            armaEncontrada = item;
+        if (item.rd) {
+            if (item.local === 'completo') {
+                rdCorpo += item.rd;
+                rdCabeca += item.rd;
+                rdMembros += item.rd;
+            } else if (item.local === 'torso') {
+                rdCorpo += item.rd;
+            } else if (item.local === 'membros') {
+                rdMembros += item.rd;
+            }
         }
     });
     
-    if (armaEncontrada) {
-        armaNome.textContent = armaEncontrada.nome;
-        armaDano.textContent = armaEncontrada.dano;
-        armaTipo.textContent = armaEncontrada.tipoDano || '-';
-        armaAlcance.textContent = armaEncontrada.alcance || '-';
+    return { corpo: rdCorpo, cabeca: rdCabeca, membros: rdMembros };
+}
+
+function atualizarArmaEquipada() {
+    let arma = null;
+    inventario.corpo.forEach(item => {
+        if (item.dano && item.tipo !== 'escudo') arma = item;
+    });
+    
+    if (arma) {
+        armaNome.textContent = arma.nome;
+        armaDano.textContent = arma.dano;
+        armaTipo.textContent = arma.tipoDano || '-';
+        armaAlcance.textContent = arma.alcance || '-';
     } else {
         armaNome.textContent = 'Nenhuma';
         armaDano.textContent = '-';
@@ -2780,18 +2778,15 @@ function atualizarArmaEquipada() {
 }
 
 function atualizarEscudoPV() {
-    let escudoEncontrado = null;
-    
+    let escudo = null;
     inventario.corpo.forEach(item => {
-        if (item.tipo === 'escudo' || (item.tipoDano && item.id.includes('escudo'))) {
-            escudoEncontrado = item;
-        }
+        if (item.tipo === 'escudo' || item.nome.toLowerCase().includes('escudo')) escudo = item;
     });
     
-    if (escudoEncontrado && escudoEncontrado.ve) {
-        const veParts = escudoEncontrado.ve.split('/');
-        if (veParts.length === 2) {
-            escudoPVMax = parseInt(veParts[1]) || 30;
+    if (escudo && escudo.ve) {
+        const partes = escudo.ve.split('/');
+        if (partes.length === 2) {
+            escudoPVMax = parseInt(partes[1]) || 30;
             if (escudoPVAtual === 0) escudoPVAtual = escudoPVMax;
             
             escudoPVContainer.style.display = 'block';
@@ -2813,27 +2808,26 @@ function atualizarCombate() {
     const bloqueio = calcularBloqueio();
     const rd = calcularRD();
     
-    combatePV.textContent = pv;
-    combateFadiga.textContent = fadiga;
-    combateDeslocamento.textContent = deslocamento.toFixed(1);
-    defesaEsquiva.textContent = esquiva;
-    defesaAparar.textContent = aparar;
-    defesaBloqueio.textContent = bloqueio;
-    rdCorpo.textContent = rd.corpo;
-    rdCabeca.textContent = rd.cabeca;
-    rdMembros.textContent = rd.membros;
-    
-    // Thresholds
-    thresholdAtordoamento.textContent = pv * 6;
-    thresholdMorte.textContent = pv * 8;
+    if (combatePV) combatePV.textContent = pv;
+    if (combateFadiga) combateFadiga.textContent = fadiga;
+    if (combateDeslocamento) combateDeslocamento.textContent = deslocamento.toFixed(1);
+    if (defesaEsquiva) defesaEsquiva.textContent = esquiva;
+    if (defesaAparar) defesaAparar.textContent = aparar;
+    if (defesaBloqueio) defesaBloqueio.textContent = bloqueio;
+    if (rdCorpo) rdCorpo.textContent = rd.corpo;
+    if (rdCabeca) rdCabeca.textContent = rd.cabeca;
+    if (rdMembros) rdMembros.textContent = rd.membros;
+    if (thresholdAtordoamento) thresholdAtordoamento.textContent = pv * 6;
+    if (thresholdMorte) thresholdMorte.textContent = pv * 8;
     
     atualizarArmaEquipada();
     atualizarEscudoPV();
     
-    // Atualiza status na aba básicos também
-    document.getElementById('statusVida').textContent = pv;
-    document.getElementById('statusFadiga').textContent = fadiga;
-    document.getElementById('statusDeslocamento').textContent = deslocamento.toFixed(1);
+    if (document.getElementById('statusVida')) {
+        document.getElementById('statusVida').textContent = pv;
+        document.getElementById('statusFadiga').textContent = fadiga;
+        document.getElementById('statusDeslocamento').textContent = deslocamento.toFixed(1);
+    }
 }
 
 function calcularDinheiroInicial() {
@@ -2874,15 +2868,15 @@ function calcularCarga() {
     inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     
-    cargaAtual.textContent = pesoTotal.toFixed(1);
-    cargaLeve.textContent = leve;
-    cargaMedia.textContent = media;
-    cargaPesada.textContent = pesada;
-    cargaLimiteSpan.textContent = limite;
+    if (cargaAtual) cargaAtual.textContent = pesoTotal.toFixed(1);
+    if (cargaLeve) cargaLeve.textContent = leve;
+    if (cargaMedia) cargaMedia.textContent = media;
+    if (cargaPesada) cargaPesada.textContent = pesada;
+    if (cargaLimiteSpan) cargaLimiteSpan.textContent = limite;
     
     let percentual = (pesoTotal / limite) * 100;
     if (percentual > 100) percentual = 100;
-    cargaBarra.style.width = percentual + '%';
+    if (cargaBarra) cargaBarra.style.width = percentual + '%';
     
     let nivel = 'leve';
     let penalidade = 'Nenhuma';
@@ -2906,17 +2900,20 @@ function calcularCarga() {
         reducaoDeslocamento = 0.1;
     }
     
-    cargaNivel.textContent = nivel.charAt(0).toUpperCase() + nivel.slice(1);
-    cargaNivel.className = `carga-nivel ${nivel}`;
-    cargaPenalidade.textContent = penalidade;
+    if (cargaNivel) {
+        cargaNivel.textContent = nivel.charAt(0).toUpperCase() + nivel.slice(1);
+        cargaNivel.className = `carga-nivel ${nivel}`;
+    }
+    if (cargaPenalidade) cargaPenalidade.textContent = penalidade;
     
     let pesoMochilaTotal = 0;
-    inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidadade || 1)));
-    pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
+    inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
+    if (pesoMochila) pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
     
     return { nivel, reducaoEsquiva, reducaoDeslocamento };
 }
 
+// ========== FUNÇÕES DE INVENTÁRIO ==========
 function renderizarInventario() {
     if (!inventarioCorpo) return;
     
@@ -3022,6 +3019,7 @@ function renderizarInventario() {
     calcularCarga();
     atualizarCombate();
 }
+
 function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
     const tabelaId = 'tabela' + tab.split('_').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
@@ -3159,13 +3157,12 @@ function adicionarEventosCompra() {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const itemData = JSON.parse(btn.dataset.item.replace(/&apos;/g, "'"));
-            const tab = btn.dataset.tab;
-            comprarItem(itemData, tab);
+            comprarItem(itemData);
         });
     });
 }
 
-function comprarItem(item, tab) {
+function comprarItem(item) {
     const preco = item.preco;
     if (dinheiro < preco) {
         alert('Dinheiro insuficiente!');
@@ -3322,6 +3319,7 @@ function atualizarContadoresAbas() {
     
     atualizarDinheiroDisplay();
 }
+
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
     if (!container) return;
@@ -3366,39 +3364,36 @@ function atualizarBolinhas(atributoId) {
 function calcularDerivados() {
     const st = atributos.st.valor;
     const dano = tabelaDano[st] || "1d-1";
-    const dx = atributos.dx.valor;
-    const carga = calcularCarga();
     const esquiva = calcularEsquiva();
-    
     const iq = atributos.iq.valor;
     const vontade = iq;
-    const vida = atributos.ht.base + (atributos.ht.bolinhas * 8); // HT × 8
+    const vida = atributos.ht.base + (atributos.ht.bolinhas * 8);
     atributos.ht.valor = vida;
     const fadiga = 8 + atributos.ht.bolinhas;
     const mana = fadiga + vontade;
     const deslocamento = calcularDeslocamento();
 
-    document.getElementById('stDano').textContent = dano;
-    document.getElementById('dxEsquiva').textContent = `Esquiva ${esquiva}`;
-    document.getElementById('iqVontade').textContent = `Vontade ${vontade}`;
-    document.getElementById('htVida').textContent = `Vida ${vida}`;
-    document.getElementById('htFadiga').textContent = `Fadiga ${fadiga}`;
-    document.getElementById('htValor').textContent = vida;
-    document.getElementById('statusVida').textContent = vida;
-    document.getElementById('statusFadiga').textContent = fadiga;
-    document.getElementById('statusMana').textContent = mana;
-    document.getElementById('statusDano').textContent = dano;
-    document.getElementById('statusEsquiva').textContent = esquiva;
-    document.getElementById('statusDeslocamento').textContent = deslocamento.toFixed(1);
+    if (document.getElementById('stDano')) document.getElementById('stDano').textContent = dano;
+    if (document.getElementById('dxEsquiva')) document.getElementById('dxEsquiva').textContent = `Esquiva ${esquiva}`;
+    if (document.getElementById('iqVontade')) document.getElementById('iqVontade').textContent = `Vontade ${vontade}`;
+    if (document.getElementById('htVida')) document.getElementById('htVida').textContent = `Vida ${vida}`;
+    if (document.getElementById('htFadiga')) document.getElementById('htFadiga').textContent = `Fadiga ${fadiga}`;
+    if (document.getElementById('htValor')) document.getElementById('htValor').textContent = vida;
+    if (document.getElementById('statusVida')) document.getElementById('statusVida').textContent = vida;
+    if (document.getElementById('statusFadiga')) document.getElementById('statusFadiga').textContent = fadiga;
+    if (document.getElementById('statusMana')) document.getElementById('statusMana').textContent = mana;
+    if (document.getElementById('statusDano')) document.getElementById('statusDano').textContent = dano;
+    if (document.getElementById('statusEsquiva')) document.getElementById('statusEsquiva').textContent = esquiva;
+    if (document.getElementById('statusDeslocamento')) document.getElementById('statusDeslocamento').textContent = deslocamento.toFixed(1);
     
     atualizarCombate();
 }
 
 function atualizarInterface() {
-    document.getElementById('stValor').textContent = atributos.st.valor;
-    document.getElementById('dxValor').textContent = atributos.dx.valor;
-    document.getElementById('iqValor').textContent = atributos.iq.valor;
-    pontosRestantesSpan.textContent = pontosRestantes;
+    if (document.getElementById('stValor')) document.getElementById('stValor').textContent = atributos.st.valor;
+    if (document.getElementById('dxValor')) document.getElementById('dxValor').textContent = atributos.dx.valor;
+    if (document.getElementById('iqValor')) document.getElementById('iqValor').textContent = atributos.iq.valor;
+    if (pontosRestantesSpan) pontosRestantesSpan.textContent = pontosRestantes;
     
     atualizarBolinhas('st');
     atualizarBolinhas('dx');
@@ -3463,26 +3458,26 @@ function mudarAba(abaId) {
 
 function carregarResumoPersonagem() {
     if (!personagemTemp) return;
-    document.getElementById('resumoNome').textContent = personagemTemp.nome || 'Sem nome';
+    if (document.getElementById('resumoNome')) document.getElementById('resumoNome').textContent = personagemTemp.nome || 'Sem nome';
     const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
-    document.getElementById('resumoClasse').textContent = classes[personagemTemp.classe] || personagemTemp.classe;
+    if (document.getElementById('resumoClasse')) document.getElementById('resumoClasse').textContent = classes[personagemTemp.classe] || personagemTemp.classe;
     const aparencias = { feio: 'Feio', normal: 'Normal', atraente: 'Atraente' };
-    document.getElementById('resumoAparencia').textContent = aparencias[personagemTemp.aparencia] || 'Normal';
+    if (document.getElementById('resumoAparencia')) document.getElementById('resumoAparencia').textContent = aparencias[personagemTemp.aparencia] || 'Normal';
     const riquezas = { pobre: 'Pobre', medio: 'Médio', rico: 'Rico' };
-    document.getElementById('resumoRiqueza').textContent = riquezas[personagemTemp.riqueza] || 'Médio';
-    if (personagemTemp.fotoURL) document.getElementById('resumoFoto').innerHTML = `<img src="${personagemTemp.fotoURL}" alt="Foto">`;
+    if (document.getElementById('resumoRiqueza')) document.getElementById('resumoRiqueza').textContent = riquezas[personagemTemp.riqueza] || 'Médio';
+    if (personagemTemp.fotoURL && document.getElementById('resumoFoto')) document.getElementById('resumoFoto').innerHTML = `<img src="${personagemTemp.fotoURL}" alt="Foto">`;
 }
 
 function carregarResumoPersonagem2() {
     if (!personagemTemp) return;
-    document.getElementById('resumoNome2').textContent = personagemTemp.nome || 'Sem nome';
+    if (document.getElementById('resumoNome2')) document.getElementById('resumoNome2').textContent = personagemTemp.nome || 'Sem nome';
     const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
-    document.getElementById('resumoClasse2').textContent = classes[personagemTemp.classe] || personagemTemp.classe;
+    if (document.getElementById('resumoClasse2')) document.getElementById('resumoClasse2').textContent = classes[personagemTemp.classe] || personagemTemp.classe;
     const aparencias = { feio: 'Feio', normal: 'Normal', atraente: 'Atraente' };
-    document.getElementById('resumoAparencia2').textContent = aparencias[personagemTemp.aparencia] || 'Normal';
+    if (document.getElementById('resumoAparencia2')) document.getElementById('resumoAparencia2').textContent = aparencias[personagemTemp.aparencia] || 'Normal';
     const riquezas = { pobre: 'Pobre', medio: 'Médio', rico: 'Rico' };
-    document.getElementById('resumoRiqueza2').textContent = riquezas[personagemTemp.riqueza] || 'Médio';
-    if (personagemTemp.fotoURL) document.getElementById('resumoFoto2').innerHTML = `<img src="${personagemTemp.fotoURL}" alt="Foto">`;
+    if (document.getElementById('resumoRiqueza2')) document.getElementById('resumoRiqueza2').textContent = riquezas[personagemTemp.riqueza] || 'Médio';
+    if (personagemTemp.fotoURL && document.getElementById('resumoFoto2')) document.getElementById('resumoFoto2').innerHTML = `<img src="${personagemTemp.fotoURL}" alt="Foto">`;
 }
 
 function selecionarVantagem(card) {
@@ -3528,6 +3523,8 @@ function selecionarDesvantagem(card) {
     
     atualizarContadoresAbas();
 }
+
+// ========== FUNÇÕES DE PERÍCIAS ==========
 function carregarPericias() {
     renderizarCatalogoPericias('todas');
     renderizarPericiasAdquiridas();
@@ -3656,7 +3653,7 @@ function aumentarPericia(periciaId) {
     pmRestante.textContent = pmDisponivel - pmGastoTotal;
     renderizarPericiasAdquiridas();
     atualizarContadoresAbas();
-    atualizarCombate(); // Atualiza combate pois pode afetar aparar
+    atualizarCombate();
 }
 
 function diminuirPericia(periciaId) {
@@ -3674,8 +3671,10 @@ function diminuirPericia(periciaId) {
     pmRestante.textContent = pmDisponivel - pmGastoTotal;
     renderizarPericiasAdquiridas();
     atualizarContadoresAbas();
-    atualizarCombate(); 
+    atualizarCombate();
 }
+
+// ========== FUNÇÕES DE MAGIAS ==========
 function renderizarEsferas() {
     if (!esferasGrid) return;
     const magiasLista = Object.entries(escolas.agua.magias);
@@ -3784,7 +3783,7 @@ function salvarDadosBasicos() {
     const riqueza = document.getElementById('riqueza')?.value || 'medio';
     const peculiaridades = document.getElementById('peculiaridades')?.value || '';
     const fotoURL = previewImage?.src || '';
-    const vida = atributos.ht.base + (atributos.ht.bolinhas * 8); // HT × 8
+    const vida = atributos.ht.base + (atributos.ht.bolinhas * 8);
     const fadiga = 8 + atributos.ht.bolinhas;
     const mana = fadiga + atributos.iq.valor;
     
@@ -3797,16 +3796,9 @@ function salvarDadosBasicos() {
             st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 9 },
             dx: { bolinhas: atributos.dx.bolinhas, valor: atributos.dx.valor, base: 5 },
             iq: { bolinhas: atributos.iq.bolinhas, valor: atributos.iq.valor, base: 5 },
-            ht: { bolinhas: atributos.ht.bolinhas, valor: vida, base: 48 }
+            ht: { bolinhas: atributos.ht.bolinhas, valor: vida, base: 8 }
         },
         status: { vidaMax: vida, fadigaMax: fadiga, manaMax: mana },
-        derivados: {
-            danoBase: tabelaDano[atributos.st.valor] || "1d-1",
-            esquiva: Math.floor(atributos.dx.valor / 2) + 3,
-            vontade: atributos.iq.valor,
-            percepcao: atributos.iq.valor,
-            deslocamento: (vida / 10).toFixed(1)
-        },
         inventario: inventario,
         dinheiro: dinheiro
     };
@@ -3818,12 +3810,12 @@ function carregarDadosSalvos() {
         const salvos = sessionStorage.getItem('personagemTemp');
         if (salvos) {
             personagemTemp = JSON.parse(salvos);
-            document.getElementById('nomePersonagem').value = personagemTemp.nome || '';
-            document.getElementById('classePersonagem').value = personagemTemp.classe || 'guerreiro';
-            document.getElementById('aparencia').value = personagemTemp.aparencia || 'normal';
-            document.getElementById('riqueza').value = personagemTemp.riqueza || 'medio';
-            document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
-            if (personagemTemp.dinheiroBase) {
+            if (document.getElementById('nomePersonagem')) document.getElementById('nomePersonagem').value = personagemTemp.nome || '';
+            if (document.getElementById('classePersonagem')) document.getElementById('classePersonagem').value = personagemTemp.classe || 'guerreiro';
+            if (document.getElementById('aparencia')) document.getElementById('aparencia').value = personagemTemp.aparencia || 'normal';
+            if (document.getElementById('riqueza')) document.getElementById('riqueza').value = personagemTemp.riqueza || 'medio';
+            if (document.getElementById('peculiaridades')) document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
+            if (personagemTemp.dinheiroBase && document.getElementById('dinheiroBase')) {
                 document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase;
             }
             if (personagemTemp.fotoURL) {
@@ -3835,7 +3827,7 @@ function carregarDadosSalvos() {
                 atributos.st = personagemTemp.atributos.st || { valor: 9, bolinhas: 0, base: 9 };
                 atributos.dx = personagemTemp.atributos.dx || { valor: 5, bolinhas: 0, base: 5 };
                 atributos.iq = personagemTemp.atributos.iq || { valor: 5, bolinhas: 0, base: 5 };
-                atributos.ht = personagemTemp.atributos.ht || { valor: 48, bolinhas: 0, base: 48 };
+                atributos.ht = personagemTemp.atributos.ht || { valor: 8, bolinhas: 0, base: 8 };
                 pontosRestantes = 6 - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
                 atualizarInterface();
             }
@@ -3848,6 +3840,8 @@ function carregarDadosSalvos() {
         }
     } catch (e) {}
 }
+
+// ========== EVENT LISTENERS E INICIALIZAÇÃO ==========
 document.addEventListener('DOMContentLoaded', () => {
     criarBolinhas('st');
     criarBolinhas('dx');
@@ -3857,16 +3851,21 @@ document.addEventListener('DOMContentLoaded', () => {
     atualizarDinheiroDisplay();
     atualizarCombate();
     
-    dinheiroBaseInput.addEventListener('input', () => {
-        atualizarDinheiroDisplay();
-        if (personagemTemp) {
-            personagemTemp.dinheiroBase = parseInt(dinheiroBaseInput.value) || 1000;
-        }
-    });
+    if (dinheiroBaseInput) {
+        dinheiroBaseInput.addEventListener('input', () => {
+            atualizarDinheiroDisplay();
+            if (personagemTemp) {
+                personagemTemp.dinheiroBase = parseInt(dinheiroBaseInput.value) || 1000;
+            }
+        });
+    }
     
-    document.getElementById('riqueza').addEventListener('change', () => {
-        atualizarDinheiroDisplay();
-    });
+    const riquezaSelect = document.getElementById('riqueza');
+    if (riquezaSelect) {
+        riquezaSelect.addEventListener('change', () => {
+            atualizarDinheiroDisplay();
+        });
+    }
     
     abas.forEach(aba => {
         aba.addEventListener('click', () => {
@@ -3885,44 +3884,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    uploadArea.addEventListener('click', () => fotoInput.click());
-    fotoInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-                previewArea.style.display = 'block';
-                uploadArea.style.display = 'none';
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-    removeFoto.addEventListener('click', () => {
-        previewArea.style.display = 'none';
-        uploadArea.style.display = 'block';
-        fotoInput.value = '';
-    });
+    if (uploadArea) {
+        uploadArea.addEventListener('click', () => fotoInput.click());
+    }
+    
+    if (fotoInput) {
+        fotoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImage.src = e.target.result;
+                    previewArea.style.display = 'block';
+                    uploadArea.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    
+    if (removeFoto) {
+        removeFoto.addEventListener('click', () => {
+            previewArea.style.display = 'none';
+            uploadArea.style.display = 'block';
+            fotoInput.value = '';
+        });
+    }
 
     document.querySelectorAll('.vantagem-card').forEach(card => {
         card.addEventListener('click', () => selecionarVantagem(card));
     });
+    
     document.querySelectorAll('.desvantagem-card:not(#cardFobia)').forEach(card => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
 
-    cardFobia.addEventListener('click', () => modalFobias.classList.add('active'));
-    fecharModalFobias.addEventListener('click', () => modalFobias.classList.remove('active'));
-    modalFobias.addEventListener('click', (e) => { if (e.target === modalFobias) modalFobias.classList.remove('active'); });
+    if (cardFobia) {
+        cardFobia.addEventListener('click', () => modalFobias.classList.add('active'));
+    }
+    
+    if (fecharModalFobias) {
+        fecharModalFobias.addEventListener('click', () => modalFobias.classList.remove('active'));
+    }
+    
+    if (modalFobias) {
+        modalFobias.addEventListener('click', (e) => { if (e.target === modalFobias) modalFobias.classList.remove('active'); });
+    }
+    
     document.querySelectorAll('.fobia-item').forEach(item => {
         item.addEventListener('click', () => {
             if (desvantagensSelecionadas.size >= 4) { alert('Você já selecionou 4 desvantagens!'); modalFobias.classList.remove('active'); return; }
             const fobia = item.dataset.fobia;
             const nomeFobia = item.querySelector('h4')?.textContent || fobia;
             fobiaSelecionada = fobia;
-            fobiaEscolhida.style.display = 'inline-block';
-            fobiaEscolhida.textContent = nomeFobia;
-            cardFobia.classList.add('selecionada');
+            if (fobiaEscolhida) {
+                fobiaEscolhida.style.display = 'inline-block';
+                fobiaEscolhida.textContent = nomeFobia;
+            }
+            if (cardFobia) cardFobia.classList.add('selecionada');
             desvantagensSelecionadas.add(`fobia:${fobia}`);
             atualizarContadoresAbas();
             modalFobias.classList.remove('active');
@@ -3937,38 +3956,56 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    modalPericiaMais.addEventListener('click', () => {
-        if (periciaAtual) { periciaAtual.novoNivel++; modalPericiaNivel.textContent = periciaAtual.novoNivel; atualizarModalPericia(); }
-    });
-    modalPericiaMenos.addEventListener('click', () => {
-        if (periciaAtual) { periciaAtual.novoNivel--; modalPericiaNivel.textContent = periciaAtual.novoNivel; atualizarModalPericia(); }
-    });
-    modalPericiaCancelar.addEventListener('click', () => modalPericia.classList.remove('active'));
-    modalPericiaConfirmar.addEventListener('click', confirmarPericia);
+    if (modalPericiaMais) {
+        modalPericiaMais.addEventListener('click', () => {
+            if (periciaAtual) { periciaAtual.novoNivel++; modalPericiaNivel.textContent = periciaAtual.novoNivel; atualizarModalPericia(); }
+        });
+    }
+    
+    if (modalPericiaMenos) {
+        modalPericiaMenos.addEventListener('click', () => {
+            if (periciaAtual) { periciaAtual.novoNivel--; modalPericiaNivel.textContent = periciaAtual.novoNivel; atualizarModalPericia(); }
+        });
+    }
+    
+    if (modalPericiaCancelar) {
+        modalPericiaCancelar.addEventListener('click', () => modalPericia.classList.remove('active'));
+    }
+    
+    if (modalPericiaConfirmar) {
+        modalPericiaConfirmar.addEventListener('click', confirmarPericia);
+    }
 
-    pmInicial.addEventListener('change', () => {
-        pmDisponivel = parseInt(pmInicial.value) || 30;
-        pmRestante.textContent = pmDisponivel - pmGastoTotal;
-    });
+    if (pmInicial) {
+        pmInicial.addEventListener('change', () => {
+            pmDisponivel = parseInt(pmInicial.value) || 30;
+            pmRestante.textContent = pmDisponivel - pmGastoTotal;
+        });
+    }
 
-    fecharDetalheMagia.addEventListener('click', () => detalheMagiaModal.classList.remove('active'));
-    comprarNivelMagia.addEventListener('click', () => {
-        if (!magiaSelecionada) return;
-        const magia = escolas.agua.magias[magiaSelecionada];
-        if (magia.nivel >= 15) return;
-        
-        const custo = custoNivelMagia(magia.nivel);
-        if (custo > (pmDisponivel - pmGastoTotal)) { alert('PM insuficiente!'); return; }
-        
-        pmGastoTotal += custo;
-        magia.nivel++;
-        
-        pmGasto.textContent = pmGastoTotal;
-        pmRestante.textContent = pmDisponivel - pmGastoTotal;
-        atualizarContadoresAbas();
-        abrirDetalheMagia(magiaSelecionada);
-        renderizarEsferas();
-    });
+    if (fecharDetalheMagia) {
+        fecharDetalheMagia.addEventListener('click', () => detalheMagiaModal.classList.remove('active'));
+    }
+    
+    if (comprarNivelMagia) {
+        comprarNivelMagia.addEventListener('click', () => {
+            if (!magiaSelecionada) return;
+            const magia = escolas.agua.magias[magiaSelecionada];
+            if (magia.nivel >= 15) return;
+            
+            const custo = custoNivelMagia(magia.nivel);
+            if (custo > (pmDisponivel - pmGastoTotal)) { alert('PM insuficiente!'); return; }
+            
+            pmGastoTotal += custo;
+            magia.nivel++;
+            
+            pmGasto.textContent = pmGastoTotal;
+            pmRestante.textContent = pmDisponivel - pmGastoTotal;
+            atualizarContadoresAbas();
+            abrirDetalheMagia(magiaSelecionada);
+            renderizarEsferas();
+        });
+    }
 
     document.querySelectorAll('.catalogo-tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -3978,16 +4015,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    btnCriarItem.addEventListener('click', () => {
-        modalCriarItem.classList.add('active');
-        atualizarCamposEspecificos();
-    });
+    if (btnCriarItem) {
+        btnCriarItem.addEventListener('click', () => {
+            modalCriarItem.classList.add('active');
+            atualizarCamposEspecificos();
+        });
+    }
 
-    cancelarCriarItem.addEventListener('click', () => {
-        modalCriarItem.classList.remove('active');
-    });
+    if (cancelarCriarItem) {
+        cancelarCriarItem.addEventListener('click', () => {
+            modalCriarItem.classList.remove('active');
+        });
+    }
 
-    itemPersonalizadoTipo.addEventListener('change', atualizarCamposEspecificos);
+    if (itemPersonalizadoTipo) {
+        itemPersonalizadoTipo.addEventListener('change', atualizarCamposEspecificos);
+    }
 
     function atualizarCamposEspecificos() {
         const tipo = itemPersonalizadoTipo.value;
@@ -4081,162 +4124,169 @@ document.addEventListener('DOMContentLoaded', () => {
         camposEspecificos.innerHTML = html;
     }
 
-    confirmarCriarItem.addEventListener('click', () => {
-        const nome = itemPersonalizadoNome.value.trim();
-        if (!nome) { alert('Digite um nome para o item'); return; }
-        
-        const tipo = itemPersonalizadoTipo.value;
-        const preco = parseInt(itemPersonalizadoPreco.value) || 10;
-        const peso = parseFloat(itemPersonalizadoPeso.value) || 1;
-        const quantidade = parseInt(itemPersonalizadoQtd.value) || 1;
-        
-        const novoItem = {
-            id: 'personalizado_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            nome: nome,
-            preco: preco,
-            peso: peso,
-            quantidade: quantidade,
-            tipo: tipo
-        };
-        
-        if (tipo === 'arma_ca') {
-            novoItem.alcance = parseFloat(document.getElementById('itemAlcance')?.value) || 1;
-            novoItem.dano = document.getElementById('itemDano')?.value || '1d';
-            novoItem.tipoDano = document.getElementById('itemTipoDano')?.value || 'Corte';
-            novoItem.st = parseInt(document.getElementById('itemST')?.value) || 9;
-        } else if (tipo === 'arma_dist') {
-            novoItem.precisao = parseInt(document.getElementById('itemPrecisao')?.value) || 1;
-            novoItem.dano = document.getElementById('itemDano')?.value || '1d';
-            novoItem.tipoDano = document.getElementById('itemTipoDano')?.value || 'Perfuração';
-            novoItem.alcance = document.getElementById('itemAlcance')?.value || 'STx10';
-            novoItem.st = parseInt(document.getElementById('itemST')?.value) || 9;
-        } else if (tipo === 'armadura') {
-            novoItem.rd = parseInt(document.getElementById('itemRD')?.value) || 2;
-            novoItem.local = document.getElementById('itemLocal')?.value || 'completo';
-        } else if (tipo === 'escudo') {
-            novoItem.bonus = parseInt(document.getElementById('itemBonus')?.value) || 1;
-            novoItem.ve = document.getElementById('itemVE')?.value || '5/30';
-        } else {
-            novoItem.especificacao = document.getElementById('itemEspec')?.value || '';
-        }
-        
-        inventario.deposito.push(novoItem);
-        
-        renderizarInventario();
-        salvarInventario();
-        
-        modalCriarItem.classList.remove('active');
-        itemPersonalizadoNome.value = '';
-        itemPersonalizadoPreco.value = '10';
-        itemPersonalizadoPeso.value = '1';
-        itemPersonalizadoQtd.value = '1';
-        
-        alert('Item criado e adicionado ao depósito!');
-    });
-
-    btnAnterior.addEventListener('click', () => {
-        if (abaAtual === 'combate') mudarAba('basicos');
-        else if (abaAtual === 'vantagens') mudarAba('combate');
-        else if (abaAtual === 'desvantagens') mudarAba('vantagens');
-        else if (abaAtual === 'pericias') mudarAba('desvantagens');
-        else if (abaAtual === 'magias') mudarAba('pericias');
-        else if (abaAtual === 'equipamentos') mudarAba('magias');
-    });
-
-    btnProximo.addEventListener('click', () => {
-        if (abaAtual === 'basicos') {
-            const nome = document.getElementById('nomePersonagem')?.value.trim();
-            if (!nome) { alert('Digite um nome para o personagem'); return; }
-            if (pontosRestantes > 0) { alert(`Você ainda tem ${pontosRestantes} pontos para distribuir`); return; }
-            salvarDadosBasicos();
-            mudarAba('combate');
-        } else if (abaAtual === 'combate') {
-            mudarAba('vantagens');
-        } else if (abaAtual === 'vantagens') {
-            if (vantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 vantagem'); return; }
-            mudarAba('desvantagens');
-        } else if (abaAtual === 'desvantagens') {
-            if (desvantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 desvantagem'); return; }
-            mudarAba('pericias');
-        }
-    });
-
-    btnFinalizar.addEventListener('click', async () => {
-        if (vantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 vantagem'); return; }
-        if (desvantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 desvantagem'); return; }
-        if (desvantagensSelecionadas.size < 4) { alert(`Você precisa escolher 4 desvantagens (faltam ${4 - desvantagensSelecionadas.size})`); return; }
-
-        try {
-            showLoading();
-            const user = auth.currentUser;
-            if (!user) { window.location.href = 'index.html'; return; }
+    if (confirmarCriarItem) {
+        confirmarCriarItem.addEventListener('click', () => {
+            const nome = itemPersonalizadoNome.value.trim();
+            if (!nome) { alert('Digite um nome para o item'); return; }
             
-            const personagemRef = doc(collection(db, "personagens"));
-            const personagemId = personagemRef.id;
-
-            let reacaoBase = 0;
-            if (vantagensSelecionadas.has('atraente')) reacaoBase += 2;
-            if (desvantagensSelecionadas.has('feio')) reacaoBase -= 2;
-
-            const vida = atributos.ht.base + (atributos.ht.bolinhas * 8); // HT × 8
-            const fadiga = 8 + atributos.ht.bolinhas;
-            const mana = fadiga + atributos.iq.valor;
-
-            const personagemData = {
-                id: personagemId,
-                userId: user.uid,
-                nome: personagemTemp?.nome || '',
-                classe: personagemTemp?.classe || 'guerreiro',
-                fotoURL: personagemTemp?.fotoURL || '',
-                aparencia: personagemTemp?.aparencia || 'normal',
-                riqueza: personagemTemp?.riqueza || 'medio',
-                peculiaridades: personagemTemp?.peculiaridades || '',
-                vantagens: Array.from(vantagensSelecionadas),
-                desvantagens: Array.from(desvantagensSelecionadas),
-                fobia: fobiaSelecionada,
-                pericias: pericias,
-                escolas: escolas,
-                esferasDesbloqueadas: esferasDesbloqueadas,
-                pmDisponivel: pmDisponivel,
-                pmGasto: pmGastoTotal,
-                inventario: inventario,
-                dinheiro: dinheiro,
-                pontos: { xp: 0, xpTotal: 0, pm: 0, dinheiro: dinheiro },
-                atributos: {
-                    st: atributos.st,
-                    dx: atributos.dx,
-                    iq: atributos.iq,
-                    ht: { ...atributos.ht, valor: vida }
-                },
-                status: {
-                    vidaAtual: vida, vidaMax: vida,
-                    fadigaAtual: fadiga, fadigaMax: fadiga,
-                    manaAtual: mana, manaMax: mana
-                },
-                derivados: {
-                    danoBase: tabelaDano[atributos.st.valor] || "1d-1",
-                    esquiva: calcularEsquiva(),
-                    aparar: calcularAparar(),
-                    bloqueio: calcularBloqueio(),
-                    vontade: atributos.iq.valor,
-                    percepcao: atributos.iq.valor,
-                    deslocamento: calcularDeslocamento().toFixed(1),
-                    rd: calcularRD()
-                },
-                reacao: { base: reacaoBase, total: reacaoBase },
-                createdAt: new Date(),
-                updatedAt: new Date()
+            const tipo = itemPersonalizadoTipo.value;
+            const preco = parseInt(itemPersonalizadoPreco.value) || 10;
+            const peso = parseFloat(itemPersonalizadoPeso.value) || 1;
+            const quantidade = parseInt(itemPersonalizadoQtd.value) || 1;
+            
+            const novoItem = {
+                id: 'personalizado_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                nome: nome,
+                preco: preco,
+                peso: peso,
+                quantidade: quantidade,
+                tipo: tipo
             };
+            
+            if (tipo === 'arma_ca') {
+                novoItem.alcance = parseFloat(document.getElementById('itemAlcance')?.value) || 1;
+                novoItem.dano = document.getElementById('itemDano')?.value || '1d';
+                novoItem.tipoDano = document.getElementById('itemTipoDano')?.value || 'Corte';
+                novoItem.st = parseInt(document.getElementById('itemST')?.value) || 9;
+            } else if (tipo === 'arma_dist') {
+                novoItem.precisao = parseInt(document.getElementById('itemPrecisao')?.value) || 1;
+                novoItem.dano = document.getElementById('itemDano')?.value || '1d';
+                novoItem.tipoDano = document.getElementById('itemTipoDano')?.value || 'Perfuração';
+                novoItem.alcance = document.getElementById('itemAlcance')?.value || 'STx10';
+                novoItem.st = parseInt(document.getElementById('itemST')?.value) || 9;
+            } else if (tipo === 'armadura') {
+                novoItem.rd = parseInt(document.getElementById('itemRD')?.value) || 2;
+                novoItem.local = document.getElementById('itemLocal')?.value || 'completo';
+            } else if (tipo === 'escudo') {
+                novoItem.bonus = parseInt(document.getElementById('itemBonus')?.value) || 1;
+                novoItem.ve = document.getElementById('itemVE')?.value || '5/30';
+            } else {
+                novoItem.especificacao = document.getElementById('itemEspec')?.value || '';
+            }
+            
+            inventario.deposito.push(novoItem);
+            
+            renderizarInventario();
+            salvarInventario();
+            
+            modalCriarItem.classList.remove('active');
+            itemPersonalizadoNome.value = '';
+            itemPersonalizadoPreco.value = '10';
+            itemPersonalizadoPeso.value = '1';
+            itemPersonalizadoQtd.value = '1';
+            
+            alert('Item criado e adicionado ao depósito!');
+        });
+    }
 
-            await setDoc(personagemRef, personagemData);
-            sessionStorage.removeItem('personagemTemp');
-            window.location.href = `aventura-solo.html?personagemId=${personagemId}`;
-        } catch (error) {
-            console.error(error);
-            alert('Erro ao criar personagem. Tente novamente.');
-            hideLoading();
-        }
-    });
+    if (btnAnterior) {
+        btnAnterior.addEventListener('click', () => {
+            if (abaAtual === 'combate') mudarAba('basicos');
+            else if (abaAtual === 'vantagens') mudarAba('combate');
+            else if (abaAtual === 'desvantagens') mudarAba('vantagens');
+            else if (abaAtual === 'pericias') mudarAba('desvantagens');
+            else if (abaAtual === 'magias') mudarAba('pericias');
+            else if (abaAtual === 'equipamentos') mudarAba('magias');
+        });
+    }
+
+    if (btnProximo) {
+        btnProximo.addEventListener('click', () => {
+            if (abaAtual === 'basicos') {
+                const nome = document.getElementById('nomePersonagem')?.value.trim();
+                if (!nome) { alert('Digite um nome para o personagem'); return; }
+                if (pontosRestantes > 0) { alert(`Você ainda tem ${pontosRestantes} pontos para distribuir`); return; }
+                salvarDadosBasicos();
+                mudarAba('combate');
+            } else if (abaAtual === 'combate') {
+                mudarAba('vantagens');
+            } else if (abaAtual === 'vantagens') {
+                if (vantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 vantagem'); return; }
+                mudarAba('desvantagens');
+            } else if (abaAtual === 'desvantagens') {
+                if (desvantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 desvantagem'); return; }
+                mudarAba('pericias');
+            }
+        });
+    }
+
+    if (btnFinalizar) {
+        btnFinalizar.addEventListener('click', async () => {
+            if (vantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 vantagem'); return; }
+            if (desvantagensSelecionadas.size === 0) { alert('Escolha pelo menos 1 desvantagem'); return; }
+            if (desvantagensSelecionadas.size < 4) { alert(`Você precisa escolher 4 desvantagens (faltam ${4 - desvantagensSelecionadas.size})`); return; }
+
+            try {
+                showLoading();
+                const user = auth.currentUser;
+                if (!user) { window.location.href = 'index.html'; return; }
+                
+                const personagemRef = doc(collection(db, "personagens"));
+                const personagemId = personagemRef.id;
+
+                let reacaoBase = 0;
+                if (vantagensSelecionadas.has('atraente')) reacaoBase += 2;
+                if (desvantagensSelecionadas.has('feio')) reacaoBase -= 2;
+
+                const vida = atributos.ht.base + (atributos.ht.bolinhas * 8);
+                const fadiga = 8 + atributos.ht.bolinhas;
+                const mana = fadiga + atributos.iq.valor;
+
+                const personagemData = {
+                    id: personagemId,
+                    userId: user.uid,
+                    nome: personagemTemp?.nome || '',
+                    classe: personagemTemp?.classe || 'guerreiro',
+                    fotoURL: personagemTemp?.fotoURL || '',
+                    aparencia: personagemTemp?.aparencia || 'normal',
+                    riqueza: personagemTemp?.riqueza || 'medio',
+                    peculiaridades: personagemTemp?.peculiaridades || '',
+                    vantagens: Array.from(vantagensSelecionadas),
+                    desvantagens: Array.from(desvantagensSelecionadas),
+                    fobia: fobiaSelecionada,
+                    pericias: pericias,
+                    escolas: escolas,
+                    esferasDesbloqueadas: esferasDesbloqueadas,
+                    pmDisponivel: pmDisponivel,
+                    pmGasto: pmGastoTotal,
+                    inventario: inventario,
+                    dinheiro: dinheiro,
+                    pontos: { xp: 0, xpTotal: 0, pm: 0, dinheiro: dinheiro },
+                    atributos: {
+                        st: atributos.st,
+                        dx: atributos.dx,
+                        iq: atributos.iq,
+                        ht: { ...atributos.ht, valor: vida }
+                    },
+                    status: {
+                        vidaAtual: vida, vidaMax: vida,
+                        fadigaAtual: fadiga, fadigaMax: fadiga,
+                        manaAtual: mana, manaMax: mana
+                    },
+                    derivados: {
+                        danoBase: tabelaDano[atributos.st.valor] || "1d-1",
+                        esquiva: calcularEsquiva(),
+                        aparar: calcularAparar(),
+                        bloqueio: calcularBloqueio(),
+                        vontade: atributos.iq.valor,
+                        percepcao: atributos.iq.valor,
+                        deslocamento: calcularDeslocamento().toFixed(1),
+                        rd: calcularRD()
+                    },
+                    reacao: { base: reacaoBase, total: reacaoBase },
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+
+                await setDoc(personagemRef, personagemData);
+                sessionStorage.removeItem('personagemTemp');
+                window.location.href = `aventura-solo.html?personagemId=${personagemId}`;
+            } catch (error) {
+                alert('Erro ao criar personagem. Tente novamente.');
+                hideLoading();
+            }
+        });
+    }
 });
 
 onAuthStateChanged(auth, async (user) => {
@@ -4248,15 +4298,19 @@ onAuthStateChanged(auth, async (user) => {
             if (displayIdPc) displayIdPc.textContent = userData.id_pc || '--------';
             if (displayNickname) displayNickname.textContent = userData.nickname || 'Aventureiro';
         }
-    } else window.location.href = 'index.html';
+    } else {
+        window.location.href = 'index.html';
+    }
 });
 
-btnSair.addEventListener('click', async () => {
-    try { showLoading(); await signOut(auth); window.location.href = 'index.html'; } 
-    catch (error) { hideLoading(); }
-});
+if (btnSair) {
+    btnSair.addEventListener('click', async () => {
+        try { showLoading(); await signOut(auth); window.location.href = 'index.html'; } 
+        catch (error) { hideLoading(); }
+    });
+}
 
 atualizarContadoresAbas();
-    </script>
+</script>
 </body>
 </html>
