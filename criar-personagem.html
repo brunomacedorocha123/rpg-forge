@@ -2622,7 +2622,7 @@
     </div>
     
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, collection, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
@@ -2825,7 +2825,10 @@ function atualizarUltimoSalvamento() {
 // ===== FUNÇÕES DE ATRIBUTOS =====
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
-    if (!container) return;
+    if (!container) {
+        console.error(`Container ${atributoId}Bolinhas não encontrado`);
+        return;
+    }
     
     container.innerHTML = '';
     for (let i = 0; i < 15; i++) {
@@ -3168,7 +3171,7 @@ function calcularCarga() {
     if (cargaPenalidade) cargaPenalidade.textContent = penalidade;
     
     let pesoMochilaTotal = 0;
-        inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
+    inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
     if (pesoMochila) pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
     
     return { nivel, reducaoEsquiva };
@@ -4372,32 +4375,62 @@ async function salvarRascunho() {
         }
         
         let fotoURL = personagemTemp.fotoURL;
+        
+        // Upload da foto se houver uma nova
         if (fotoInput?.files?.[0]) {
-            const file = fotoInput.files[0];
-            const reader = new FileReader();
-            const base64 = await new Promise((resolve) => {
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsDataURL(file);
-            });
-            
-            const storageRef = ref(storage, `personagens/${user.uid}/${Date.now()}_${file.name}`);
-            await uploadString(storageRef, base64, 'data_url');
-            fotoURL = await getDownloadURL(storageRef);
+            try {
+                const file = fotoInput.files[0];
+                
+                // Verificar tamanho (máx 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('A imagem deve ter no máximo 5MB');
+                    hideLoading();
+                    return;
+                }
+                
+                // Verificar tipo
+                if (!file.type.startsWith('image/')) {
+                    alert('O arquivo deve ser uma imagem');
+                    hideLoading();
+                    return;
+                }
+                
+                const reader = new FileReader();
+                const base64 = await new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                
+                const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                const storageRef = ref(storage, `personagens/${user.uid}/${fileName}`);
+                
+                await uploadString(storageRef, base64, 'data_url');
+                fotoURL = await getDownloadURL(storageRef);
+            } catch (uploadError) {
+                console.error('Erro no upload:', uploadError);
+                alert('Erro ao fazer upload da imagem. Continuando sem a foto...');
+                // Continua com a foto antiga se houver
+            }
         }
         
         const personagemData = {
             ...personagemTemp,
-            fotoURL: fotoURL || personagemTemp.fotoURL,
+            fotoURL: fotoURL || personagemTemp.fotoURL || '',
             userId: user.uid,
             updatedAt: new Date(),
             status: 'rascunho'
         };
         
+        // Se não tem createdAt, é criação nova
+        if (!personagemData.createdAt) {
+            personagemData.createdAt = new Date();
+        }
+        
         if (!personagemId) {
             const personagemRef = doc(collection(db, "personagens"));
             personagemId = personagemRef.id;
             personagemData.id = personagemId;
-            personagemData.createdAt = new Date();
             await setDoc(personagemRef, personagemData);
         } else {
             const personagemRef = doc(db, "personagens", personagemId);
@@ -4463,14 +4496,27 @@ function exportarPDF() {
 
 // ===== EVENT LISTENERS E INICIALIZAÇÃO =====
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Inicializando...');
+    
+    // Criar bolinhas dos atributos
     criarBolinhas('st');
     criarBolinhas('dx');
     criarBolinhas('iq');
     criarBolinhas('ht');
     
+    // Carregar dados salvos
     carregarDadosSalvos();
     atualizarDinheiroDisplay();
     atualizarCombate();
+    
+    // Verificar se as bolinhas foram criadas
+    setTimeout(() => {
+        console.log('Verificando bolinhas:');
+        console.log('stBolinhas:', document.getElementById('stBolinhas')?.children.length);
+        console.log('dxBolinhas:', document.getElementById('dxBolinhas')?.children.length);
+        console.log('iqBolinhas:', document.getElementById('iqBolinhas')?.children.length);
+        console.log('htBolinhas:', document.getElementById('htBolinhas')?.children.length);
+    }, 500);
     
     // NOVOS EVENT LISTENERS
     if (btnSalvarRascunho) btnSalvarRascunho.addEventListener('click', salvarRascunho);
@@ -4561,11 +4607,28 @@ document.addEventListener('DOMContentLoaded', () => {
         fotoInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
+                // Verificar tamanho
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('A imagem deve ter no máximo 5MB');
+                    fotoInput.value = '';
+                    return;
+                }
+                
+                // Verificar tipo
+                if (!file.type.startsWith('image/')) {
+                    alert('O arquivo deve ser uma imagem');
+                    fotoInput.value = '';
+                    return;
+                }
+                
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     previewImage.src = e.target.result;
                     previewArea.style.display = 'block';
                     uploadArea.style.display = 'none';
+                };
+                reader.onerror = () => {
+                    alert('Erro ao ler o arquivo');
                 };
                 reader.readAsDataURL(file);
             }
@@ -4576,6 +4639,7 @@ document.addEventListener('DOMContentLoaded', () => {
         removeFoto.addEventListener('click', () => {
             previewArea.style.display = 'none';
             uploadArea.style.display = 'block';
+            previewImage.src = '';
             fotoInput.value = '';
         });
     }
