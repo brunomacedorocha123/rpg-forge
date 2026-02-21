@@ -2686,8 +2686,6 @@ const camposEspecificos = document.getElementById('camposEspecificos');
 const itemPersonalizadoPreco = document.getElementById('itemPersonalizadoPreco');
 const itemPersonalizadoPeso = document.getElementById('itemPersonalizadoPeso');
 const itemPersonalizadoQtd = document.getElementById('itemPersonalizadoQtd');
-
-// ===== NOVOS ELEMENTOS =====
 const idadePersonagem = document.getElementById('idadePersonagem');
 const alturaPersonagem = document.getElementById('alturaPersonagem');
 const pesoPersonagem = document.getElementById('pesoPersonagem');
@@ -2703,8 +2701,6 @@ const autoSaveIndicator = document.getElementById('autoSaveIndicator');
 const breadcrumbCurrent = document.getElementById('breadcrumbCurrent');
 const pageTitle = document.getElementById('pageTitle');
 const personagemIdHidden = document.getElementById('personagemId');
-
-// ===== ELEMENTOS DA ABA DE COMBATE =====
 const combatePV = document.getElementById('combatePV');
 const combateFadiga = document.getElementById('combateFadiga');
 const combateDeslocamento = document.getElementById('combateDeslocamento');
@@ -2723,6 +2719,11 @@ const escudoPVTexto = document.getElementById('escudoPVTexto');
 const escudoPVBarra = document.getElementById('escudoPVBarra');
 const thresholdAtordoamento = document.getElementById('thresholdAtordoamento');
 const thresholdMorte = document.getElementById('thresholdMorte');
+const corpoTabelaArmasCA = document.getElementById('corpoTabelaArmasCA');
+const corpoTabelaArmasDist = document.getElementById('corpoTabelaArmasDist');
+const corpoTabelaArmaduras = document.getElementById('corpoTabelaArmaduras');
+const corpoTabelaEscudos = document.getElementById('corpoTabelaEscudos');
+const corpoTabelaItensGerais = document.getElementById('corpoTabelaItensGerais');
 
 // ===== VARIÁVEIS DE ESTADO =====
 let abaAtual = 'basicos';
@@ -2741,6 +2742,9 @@ let dinheiroBase = 1000;
 let escudoPVAtual = 0;
 let escudoPVMax = 0;
 let autoSaveTimeout = null;
+let magiaSelecionada = null;
+let escolaSelecionada = 'agua';
+let esferasDesbloqueadas = 0;
 
 let inventario = {
     corpo: [],
@@ -2765,10 +2769,6 @@ const tabelaDano = {
 };
 
 // ===== ESCOLAS DE MAGIA =====
-let magiaSelecionada = null;
-let escolaSelecionada = 'agua';
-let esferasDesbloqueadas = 0;
-
 const escolas = {
     agua: {
         id: 'agua',
@@ -2890,16 +2890,16 @@ const catalogoItensData = {
         { id: 'escudo_medio', nome: 'Escudo Médio', bonus: 2, preco: 150, peso: 8.0, ve: '7/55' }
     ],
     itens_gerais: [
-        { id: 'corda', nome: 'Corda (10m)', duracao: '10m', preco: 5, peso: 1.5 },
-        { id: 'tocha', nome: 'Tocha', duracao: '1h', preco: 1, peso: 0.5 },
-        { id: 'oleo', nome: 'Óleo para lamparina (1L)', duracao: '1L', preco: 3, peso: 1.0 },
-        { id: 'mochila', nome: 'Mochila', capacidade: '50kg', preco: 20, peso: 1.5 },
-        { id: 'racao', nome: 'Ração de viagem (1 dia)', duracao: '1 dia', preco: 2, peso: 0.5 },
-        { id: 'cantil', nome: 'Cantil (1L)', capacidade: '1L', preco: 2, peso: 0.3 },
-        { id: 'kit_primeiros', nome: 'Kit de primeiros socorros', usos: 3, preco: 15, peso: 1.0 },
-        { id: 'pederneira', nome: 'Pederneira', preco: 5, peso: 0.1 },
-        { id: 'saco_dormir', nome: 'Saco de dormir', preco: 10, peso: 2.0 },
-        { id: 'barraca', nome: 'Barraca (2 pessoas)', preco: 30, peso: 5.0 }
+        { id: 'corda', nome: 'Corda (10m)', especificacao: '10m', preco: 5, peso: 1.5 },
+        { id: 'tocha', nome: 'Tocha', especificacao: '1h', preco: 1, peso: 0.5 },
+        { id: 'oleo', nome: 'Óleo para lamparina (1L)', especificacao: '1L', preco: 3, peso: 1.0 },
+        { id: 'mochila', nome: 'Mochila', especificacao: '50kg', preco: 20, peso: 1.5 },
+        { id: 'racao', nome: 'Ração de viagem (1 dia)', especificacao: '1 dia', preco: 2, peso: 0.5 },
+        { id: 'cantil', nome: 'Cantil (1L)', especificacao: '1L', preco: 2, peso: 0.3 },
+        { id: 'kit_primeiros', nome: 'Kit de primeiros socorros', especificacao: '3 usos', preco: 15, peso: 1.0 },
+        { id: 'pederneira', nome: 'Pederneira', especificacao: '', preco: 5, peso: 0.1 },
+        { id: 'saco_dormir', nome: 'Saco de dormir', especificacao: '', preco: 10, peso: 2.0 },
+        { id: 'barraca', nome: 'Barraca (2 pessoas)', especificacao: '2 pessoas', preco: 30, peso: 5.0 }
     ]
 };
 
@@ -3805,24 +3805,21 @@ function venderItem(itemId, local) {
         renderizarInventario();
         salvarInventario();
         if (local === 'corpo') atualizarCombate();
-        alert(`Vendeu por ${valorVenda} $`);
     }
 }
 
 function descartarItem(itemId, local) {
-    if (confirm('Tem certeza que deseja descartar este item?')) {
-        const index = inventario[local].findIndex(i => i.id === itemId);
-        if (index !== -1) {
-            const item = inventario[local][index];
-            if (item.quantidade > 1) {
-                item.quantidade--;
-            } else {
-                inventario[local].splice(index, 1);
-            }
-            renderizarInventario();
-            salvarInventario();
-            if (local === 'corpo') atualizarCombate();
+    const index = inventario[local].findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario[local][index];
+        if (item.quantidade > 1) {
+            item.quantidade--;
+        } else {
+            inventario[local].splice(index, 1);
         }
+        renderizarInventario();
+        salvarInventario();
+        if (local === 'corpo') atualizarCombate();
     }
 }
 
@@ -4038,7 +4035,6 @@ function salvarDadosBasicos() {
     return personagemTemp;
 }
 
-// ===== NOVA FUNÇÃO: SALVAR PERSONAGEM NO FIRESTORE =====
 async function salvarPersonagem(finalizar = false) {
     try {
         setAutoSaveIndicator('saving');
@@ -4156,13 +4152,11 @@ async function salvarPersonagem(finalizar = false) {
     }
 }
 
-// ===== NOVA FUNÇÃO: SALVAR RASCUNHO =====
 async function salvarRascunho() {
     if (!auth.currentUser) return;
     await salvarPersonagem(false);
 }
 
-// ===== NOVA FUNÇÃO: CARREGAR PERSONAGEM PARA EDIÇÃO =====
 async function carregarPersonagem(id) {
     try {
         showLoading();
@@ -4268,7 +4262,6 @@ async function carregarPersonagem(id) {
     }
 }
 
-// ===== NOVA FUNÇÃO: EXCLUIR PERSONAGEM =====
 async function excluirPersonagem() {
     if (!personagemId) {
         alert('Nenhum personagem para excluir');
@@ -4292,7 +4285,6 @@ async function excluirPersonagem() {
     }
 }
 
-// ===== NOVA FUNÇÃO: EXPORTAR PDF =====
 async function exportarPDF() {
     try {
         showLoading();
@@ -4304,17 +4296,18 @@ async function exportarPDF() {
             format: 'a4'
         });
         
+        let yPos = 20;
+        
         pdf.setFontSize(22);
         pdf.setTextColor(255, 215, 0);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Ficha de Personagem - RPGForce', 105, 20, { align: 'center' });
+        pdf.text('Ficha de Personagem - RPGForce', 105, yPos, { align: 'center' });
         
+        yPos += 10;
         pdf.setDrawColor(255, 215, 0);
         pdf.setLineWidth(0.5);
-        pdf.line(20, 25, 190, 25);
-        
-        pdf.setFontSize(12);
-        pdf.setTextColor(255, 255, 255);
+        pdf.line(20, yPos, 190, yPos);
+        yPos += 10;
         
         const nome = document.getElementById('nomePersonagem')?.value || 'Sem nome';
         const classe = document.getElementById('classePersonagem')?.value || 'guerreiro';
@@ -4324,13 +4317,24 @@ async function exportarPDF() {
         
         const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
         
-        pdf.text(`Nome: ${nome}`, 20, 35);
-        pdf.text(`Classe: ${classes[classe] || classe}`, 20, 42);
-        pdf.text(`Idade: ${idade} anos | Altura: ${altura} cm | Peso: ${peso} kg`, 20, 49);
+        pdf.setFontSize(14);
+        pdf.setTextColor(255, 215, 0);
+        pdf.text('Dados Básicos', 20, yPos);
+        yPos += 7;
+        
+        pdf.setFontSize(11);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(`Nome: ${nome}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`Classe: ${classes[classe] || classe}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`Idade: ${idade} anos | Altura: ${altura} cm | Peso: ${peso} kg`, 25, yPos);
+        yPos += 10;
         
         pdf.setFontSize(14);
         pdf.setTextColor(255, 215, 0);
-        pdf.text('Atributos', 20, 60);
+        pdf.text('Atributos', 20, yPos);
+        yPos += 7;
         
         pdf.setFontSize(11);
         pdf.setTextColor(255, 255, 255);
@@ -4340,45 +4344,152 @@ async function exportarPDF() {
         const iq = document.getElementById('iqValor')?.textContent || '5';
         const ht = document.getElementById('htValor')?.textContent || '8';
         
-        pdf.text(`ST (Força): ${st}`, 25, 67);
-        pdf.text(`DX (Destreza): ${dx}`, 25, 74);
-        pdf.text(`IQ (Inteligência): ${iq}`, 25, 81);
-        pdf.text(`HT (Vigor): ${ht}`, 25, 88);
+        pdf.text(`ST (Força): ${st}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`DX (Destreza): ${dx}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`IQ (Inteligência): ${iq}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`HT (Vigor): ${ht}`, 25, yPos);
+        yPos += 10;
         
         const pv = document.getElementById('statusVida')?.textContent || '48';
         const fp = document.getElementById('statusFadiga')?.textContent || '8';
         const mp = document.getElementById('statusMana')?.textContent || '13';
-        
-        pdf.text(`PV: ${pv} | FP: ${fp} | PM: ${mp}`, 25, 98);
-        
-        pdf.setFontSize(14);
-        pdf.setTextColor(255, 215, 0);
-        pdf.text('Combate', 20, 108);
-        
-        pdf.setFontSize(11);
-        pdf.setTextColor(255, 255, 255);
-        
         const esquiva = document.getElementById('statusEsquiva')?.textContent || '5';
         const dano = document.getElementById('statusDano')?.textContent || '1d-1';
         const desloc = document.getElementById('statusDeslocamento')?.textContent || '12.2';
         
-        pdf.text(`Esquiva: ${esquiva} | Dano: ${dano} | Deslocamento: ${desloc}`, 25, 115);
+        pdf.setFontSize(14);
+        pdf.setTextColor(255, 215, 0);
+        pdf.text('Status', 20, yPos);
+        yPos += 7;
+        
+        pdf.setFontSize(11);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(`PV: ${pv} | FP: ${fp} | PM: ${mp}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`Esquiva: ${esquiva} | Dano: ${dano} | Deslocamento: ${desloc}`, 25, yPos);
+        yPos += 10;
         
         pdf.setFontSize(14);
         pdf.setTextColor(255, 215, 0);
-        pdf.text('Vantagens', 20, 125);
+        pdf.text('Combate', 20, yPos);
+        yPos += 7;
+        
+        pdf.setFontSize(11);
+        pdf.setTextColor(255, 255, 255);
+        
+        const rdCorpoValor = document.getElementById('rdCorpo')?.textContent || '0';
+        const rdCabecaValor = document.getElementById('rdCabeca')?.textContent || '0';
+        const rdMembrosValor = document.getElementById('rdMembros')?.textContent || '0';
+        
+        pdf.text(`RD Corpo: ${rdCorpoValor} | RD Cabeça: ${rdCabecaValor} | RD Membros: ${rdMembrosValor}`, 25, yPos);
+        yPos += 6;
+        
+        const armaEquipada = armaNome?.textContent || 'Nenhuma';
+        const armaDanoValor = armaDano?.textContent || '-';
+        pdf.text(`Arma: ${armaEquipada} (Dano: ${armaDanoValor})`, 25, yPos);
+        yPos += 10;
+        
+        if (Object.keys(pericias).length > 0) {
+            pdf.setFontSize(14);
+            pdf.setTextColor(255, 215, 0);
+            pdf.text('Perícias', 20, yPos);
+            yPos += 7;
+            
+            pdf.setFontSize(9);
+            pdf.setTextColor(255, 255, 255);
+            
+            const periciasArray = Object.entries(pericias).slice(0, 15);
+            periciasArray.forEach(([id, dados], index) => {
+                const pericia = catalogoPericias.find(p => p.id === id);
+                const nomePericia = pericia?.nome || id;
+                const bonus = dados.nivel === 1 ? 0 : dados.nivel - 1;
+                pdf.text(`${nomePericia}: Nv ${dados.nivel} (Bônus +${bonus})`, 25, yPos);
+                yPos += 5;
+            });
+            yPos += 5;
+        }
+        
+        const magiasDesbloqueadas = Object.entries(escolas.agua.magias).filter(([_, m]) => m.desbloqueada);
+        if (magiasDesbloqueadas.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setTextColor(255, 215, 0);
+            pdf.text('Magias', 20, yPos);
+            yPos += 7;
+            
+            pdf.setFontSize(9);
+            pdf.setTextColor(255, 255, 255);
+            
+            const nomesMagia = {
+                localizarAgua: 'Localizar Água', purificarAgua: 'Purificar Água', criarAgua: 'Criar Água',
+                dissiparAgua: 'Dissipar Água', respirarNaAgua: 'Respirar na Água', moldarAgua: 'Moldar Água',
+                nevoeiro: 'Nevoeiro', armaCongelante: 'Arma Congelante', cortinaDagua: 'Cortina D\'água',
+                jatoDeAgua: 'Jato de Água', ondaExpulsora: 'Onda Expulsora', adagaDeGelo: 'Adaga de Gelo',
+                golemDeAgua: 'Golem de Água', tempestadeDeGelo: 'Tempestade de Gelo', congelamento: 'Congelamento'
+            };
+            
+            magiasDesbloqueadas.forEach(([id, magia], index) => {
+                pdf.text(`${nomesMagia[id] || id}: Nv ${magia.nivel} (${magia.tipo})`, 25, yPos);
+                yPos += 5;
+            });
+            yPos += 5;
+        }
+        
+        if (inventario.corpo.length > 0 || inventario.mochila.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setTextColor(255, 215, 0);
+            pdf.text('Equipamentos', 20, yPos);
+            yPos += 7;
+            
+            pdf.setFontSize(10);
+            pdf.setTextColor(255, 215, 0);
+            pdf.text('Equipado:', 25, yPos);
+            yPos += 5;
+            
+            pdf.setFontSize(9);
+            pdf.setTextColor(255, 255, 255);
+            inventario.corpo.forEach(item => {
+                pdf.text(`• ${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''} - ${item.peso}kg`, 30, yPos);
+                yPos += 5;
+            });
+            
+            if (inventario.mochila.length > 0) {
+                pdf.setFontSize(10);
+                pdf.setTextColor(255, 215, 0);
+                pdf.text('Mochila:', 25, yPos);
+                yPos += 5;
+                
+                pdf.setFontSize(9);
+                pdf.setTextColor(255, 255, 255);
+                inventario.mochila.slice(0, 10).forEach(item => {
+                    pdf.text(`• ${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''} - ${item.peso}kg`, 30, yPos);
+                    yPos += 5;
+                });
+            }
+            yPos += 5;
+        }
+        
+        pdf.setFontSize(14);
+        pdf.setTextColor(255, 215, 0);
+        pdf.text('Vantagens', 20, yPos);
+        yPos += 7;
         
         pdf.setFontSize(10);
         pdf.setTextColor(255, 255, 255);
-        
         const vantagensList = Array.from(vantagensSelecionadas).join(', ') || 'Nenhuma';
         const linhasVantagens = pdf.splitTextToSize(vantagensList, 170);
-        pdf.text(linhasVantagens, 25, 132);
+        linhasVantagens.forEach(linha => {
+            pdf.text(linha, 25, yPos);
+            yPos += 5;
+        });
+        yPos += 5;
         
-        let yPos = 132 + (linhasVantagens.length * 5);
         pdf.setFontSize(14);
         pdf.setTextColor(255, 215, 0);
         pdf.text('Desvantagens', 20, yPos);
+        yPos += 7;
         
         pdf.setFontSize(10);
         pdf.setTextColor(255, 255, 255);
@@ -4388,7 +4499,27 @@ async function exportarPDF() {
             desvantagensList += `, Fobia: ${fobiaSelecionada}`;
         }
         const linhasDesvantagens = pdf.splitTextToSize(desvantagensList, 170);
-        pdf.text(linhasDesvantagens, 25, yPos + 7);
+        linhasDesvantagens.forEach(linha => {
+            pdf.text(linha, 25, yPos);
+            yPos += 5;
+        });
+        
+        const peculiaridades = document.getElementById('peculiaridades')?.value || '';
+        if (peculiaridades) {
+            yPos += 5;
+            pdf.setFontSize(14);
+            pdf.setTextColor(255, 215, 0);
+            pdf.text('Peculiaridades', 20, yPos);
+            yPos += 7;
+            
+            pdf.setFontSize(10);
+            pdf.setTextColor(255, 255, 255);
+            const linhasPeculiaridades = pdf.splitTextToSize(peculiaridades, 170);
+            linhasPeculiaridades.forEach(linha => {
+                pdf.text(linha, 25, yPos);
+                yPos += 5;
+            });
+        }
         
         pdf.save(`ficha_${nome.replace(/\s+/g, '_')}.pdf`);
         
@@ -4405,7 +4536,10 @@ function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
     
     const tabelaId = 'tabela' + tab.split('_').map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
-    document.getElementById(tabelaId)?.classList.add('ativa');
+    const tabelaElement = document.getElementById(tabelaId);
+    if (tabelaElement) {
+        tabelaElement.classList.add('ativa');
+    }
     
     renderizarTabelaArmasCA();
     renderizarTabelaArmasDist();
@@ -4415,10 +4549,9 @@ function renderizarTabelas(tab = 'armas_ca') {
 }
 
 function renderizarTabelaArmasCA() {
-    const tbody = document.getElementById('corpoTabelaArmasCA');
-    if (!tbody) return;
+    if (!corpoTabelaArmasCA) return;
     
-    tbody.innerHTML = catalogoItensData.armas_ca.map(item => `
+    corpoTabelaArmasCA.innerHTML = catalogoItensData.armas_ca.map(item => `
         <tr>
             <td>${item.nome}</td>
             <td>${item.alcance}</td>
@@ -4439,10 +4572,9 @@ function renderizarTabelaArmasCA() {
 }
 
 function renderizarTabelaArmasDist() {
-    const tbody = document.getElementById('corpoTabelaArmasDist');
-    if (!tbody) return;
+    if (!corpoTabelaArmasDist) return;
     
-    tbody.innerHTML = catalogoItensData.armas_dist.map(item => `
+    corpoTabelaArmasDist.innerHTML = catalogoItensData.armas_dist.map(item => `
         <tr>
             <td>${item.nome}</td>
             <td>+${item.precisao}</td>
@@ -4464,10 +4596,9 @@ function renderizarTabelaArmasDist() {
 }
 
 function renderizarTabelaArmaduras() {
-    const tbody = document.getElementById('corpoTabelaArmaduras');
-    if (!tbody) return;
+    if (!corpoTabelaArmaduras) return;
     
-    tbody.innerHTML = catalogoItensData.armaduras.map(item => `
+    corpoTabelaArmaduras.innerHTML = catalogoItensData.armaduras.map(item => `
         <tr>
             <td>${item.nome}</td>
             <td>${item.rd}</td>
@@ -4485,10 +4616,9 @@ function renderizarTabelaArmaduras() {
 }
 
 function renderizarTabelaEscudos() {
-    const tbody = document.getElementById('corpoTabelaEscudos');
-    if (!tbody) return;
+    if (!corpoTabelaEscudos) return;
     
-    tbody.innerHTML = catalogoItensData.escudos.map(item => `
+    corpoTabelaEscudos.innerHTML = catalogoItensData.escudos.map(item => `
         <tr>
             <td>${item.nome}</td>
             <td>+${item.bonus}</td>
@@ -4507,14 +4637,10 @@ function renderizarTabelaEscudos() {
 }
 
 function renderizarTabelaItensGerais() {
-    const tbody = document.getElementById('corpoTabelaItensGerais');
-    if (!tbody) return;
+    if (!corpoTabelaItensGerais) return;
     
-    tbody.innerHTML = catalogoItensData.itens_gerais.map(item => {
-        let espec = '';
-        if (item.duracao) espec = `Duração: ${item.duracao}`;
-        else if (item.capacidade) espec = `Capacidade: ${item.capacidade}`;
-        else if (item.usos) espec = `${item.usos} usos`;
+    corpoTabelaItensGerais.innerHTML = catalogoItensData.itens_gerais.map(item => {
+        const espec = item.especificacao || '';
         
         return `
             <tr>
@@ -4538,9 +4664,13 @@ function adicionarEventosCompra() {
     document.querySelectorAll('.btn-comprar-tabela').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const itemData = JSON.parse(btn.dataset.item.replace(/&apos;/g, "'"));
-            comprarItem(itemData);
-            triggerAutoSave();
+            try {
+                const itemData = JSON.parse(btn.dataset.item.replace(/&apos;/g, "'"));
+                comprarItem(itemData);
+                triggerAutoSave();
+            } catch (e) {
+                console.error('Erro ao comprar item:', e);
+            }
         });
     });
 }
@@ -4570,6 +4700,176 @@ function comprarItem(item) {
     
     renderizarInventario();
     salvarInventario();
+}
+
+// ===== FUNÇÃO DE ITEM PERSONALIZADO =====
+function configurarCamposItemPersonalizado() {
+    if (!itemPersonalizadoTipo || !camposEspecificos) return;
+    
+    const tipo = itemPersonalizadoTipo.value;
+    let html = '';
+    
+    switch(tipo) {
+        case 'arma_ca':
+            html = `
+                <div class="campo-dinamico">
+                    <label>Alcance (m)</label>
+                    <input type="number" id="itemAlcance" min="0" step="0.1" value="1">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Dano</label>
+                    <input type="text" id="itemDano" placeholder="Ex: 1d+2" value="1d">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Tipo de Dano</label>
+                    <select id="itemTipoDano">
+                        <option value="Corte">Corte</option>
+                        <option value="Perfuração">Perfuração</option>
+                        <option value="Contusão">Contusão</option>
+                        <option value="Corte/Perf">Corte/Perf</option>
+                    </select>
+                </div>
+                <div class="campo-dinamico">
+                    <label>ST Mínima</label>
+                    <input type="number" id="itemSt" min="1" value="8">
+                </div>
+            `;
+            break;
+            
+        case 'arma_distancia':
+            html = `
+                <div class="campo-dinamico">
+                    <label>Precisão</label>
+                    <input type="number" id="itemPrecisao" min="0" value="1">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Dano</label>
+                    <input type="text" id="itemDano" placeholder="Ex: 2d" value="1d">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Tipo de Dano</label>
+                    <select id="itemTipoDano">
+                        <option value="Perf">Perfuração</option>
+                        <option value="Corte">Corte</option>
+                        <option value="Impacto">Impacto</option>
+                    </select>
+                </div>
+                <div class="campo-dinamico">
+                    <label>Alcance</label>
+                    <input type="text" id="itemAlcance" placeholder="Ex: STx10" value="STx10">
+                </div>
+                <div class="campo-dinamico">
+                    <label>ST Mínima</label>
+                    <input type="number" id="itemSt" min="1" value="8">
+                </div>
+            `;
+            break;
+            
+        case 'armadura':
+            html = `
+                <div class="campo-dinamico">
+                    <label>RD (Redução de Dano)</label>
+                    <input type="number" id="itemRd" min="0" value="2">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Localização</label>
+                    <select id="itemLocal">
+                        <option value="completo">Completo</option>
+                        <option value="torso">Torso</option>
+                        <option value="membros">Membros</option>
+                        <option value="cabeca">Cabeça</option>
+                    </select>
+                </div>
+            `;
+            break;
+            
+        case 'escudo':
+            html = `
+                <div class="campo-dinamico">
+                    <label>Bônus de Bloqueio</label>
+                    <input type="number" id="itemBonus" min="0" value="1">
+                </div>
+                <div class="campo-dinamico">
+                    <label>VE (Ex: 5/30)</label>
+                    <input type="text" id="itemVe" placeholder="5/30" value="5/30">
+                </div>
+            `;
+            break;
+            
+        default:
+            html = '';
+    }
+    
+    camposEspecificos.innerHTML = html;
+}
+
+function criarItemPersonalizado() {
+    const nome = itemPersonalizadoNome?.value.trim();
+    if (!nome) {
+        alert('Digite um nome para o item');
+        return;
+    }
+    
+    const tipo = itemPersonalizadoTipo?.value;
+    const preco = parseInt(itemPersonalizadoPreco?.value) || 10;
+    const peso = parseFloat(itemPersonalizadoPeso?.value) || 1;
+    const quantidade = parseInt(itemPersonalizadoQtd?.value) || 1;
+    
+    const itemBase = {
+        id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        nome: nome,
+        tipo: tipo,
+        preco: preco,
+        peso: peso,
+        quantidade: quantidade
+    };
+    
+    switch(tipo) {
+        case 'arma_ca':
+            itemBase.alcance = parseFloat(document.getElementById('itemAlcance')?.value) || 1;
+            itemBase.dano = document.getElementById('itemDano')?.value || '1d';
+            itemBase.tipoDano = document.getElementById('itemTipoDano')?.value || 'Corte';
+            itemBase.st = parseInt(document.getElementById('itemSt')?.value) || 8;
+            break;
+            
+        case 'arma_distancia':
+            itemBase.precisao = parseInt(document.getElementById('itemPrecisao')?.value) || 1;
+            itemBase.dano = document.getElementById('itemDano')?.value || '1d';
+            itemBase.tipoDano = document.getElementById('itemTipoDano')?.value || 'Perf';
+            itemBase.alcance = document.getElementById('itemAlcance')?.value || 'STx10';
+            itemBase.st = parseInt(document.getElementById('itemSt')?.value) || 8;
+            break;
+            
+        case 'armadura':
+            itemBase.rd = parseInt(document.getElementById('itemRd')?.value) || 2;
+            itemBase.local = document.getElementById('itemLocal')?.value || 'completo';
+            break;
+            
+        case 'escudo':
+            itemBase.bonus = parseInt(document.getElementById('itemBonus')?.value) || 1;
+            itemBase.ve = document.getElementById('itemVe')?.value || '5/30';
+            break;
+            
+        default:
+            itemBase.especificacao = 'Item personalizado';
+    }
+    
+    const existente = inventario.deposito.find(i => i.nome === nome && i.preco === preco);
+    if (existente) {
+        existente.quantidade = (existente.quantidade || 1) + quantidade;
+    } else {
+        inventario.deposito.push(itemBase);
+    }
+    
+    renderizarInventario();
+    salvarInventario();
+    
+    modalCriarItem.classList.remove('active');
+    
+    itemPersonalizadoNome.value = '';
+    itemPersonalizadoPreco.value = '10';
+    itemPersonalizadoPeso.value = '1';
+    itemPersonalizadoQtd.value = '1';
 }
 
 function atualizarContadoresAbas() {
@@ -4605,7 +4905,6 @@ function atualizarContadoresAbas() {
     atualizarDinheiroDisplay();
 }
 
-// ===== FUNÇÃO DE CARREGAR DADOS SALVOS =====
 function carregarDadosSalvos() {
     try {
         const salvos = sessionStorage.getItem('personagemTemp');
@@ -4913,14 +5212,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnCriarItem) {
         btnCriarItem.addEventListener('click', () => {
+            configurarCamposItemPersonalizado();
             modalCriarItem.classList.add('active');
         });
+    }
+
+    if (itemPersonalizadoTipo) {
+        itemPersonalizadoTipo.addEventListener('change', configurarCamposItemPersonalizado);
     }
 
     if (cancelarCriarItem) {
         cancelarCriarItem.addEventListener('click', () => {
             modalCriarItem.classList.remove('active');
         });
+    }
+
+    if (confirmarCriarItem) {
+        confirmarCriarItem.addEventListener('click', criarItemPersonalizado);
     }
 
     if (btnAnterior) {
@@ -4985,7 +5293,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ===== NOVOS EVENT LISTENERS =====
     if (btnSalvarPersonagem) {
         btnSalvarPersonagem.addEventListener('click', async () => {
             await salvarPersonagem(false);
