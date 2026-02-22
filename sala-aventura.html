@@ -1312,8 +1312,9 @@
             </div>
         </div>
     </div>
-
-    <script type="module">
+<!-- Carregar a aventura -->
+<script src="aventuras/masmorra_goblins.js"></script>
+   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -1489,6 +1490,7 @@
     function getValorAtributo(atributo) {
         if (!personagem || !personagem.atributos) return 0;
         
+        // Valores base do sistema
         const base = { st: 9, dx: 5, iq: 5, ht: 8 }[atributo];
         const bolinhas = personagem.atributos[atributo]?.bolinhas || 0;
         return base + bolinhas;
@@ -1945,6 +1947,8 @@
         
         if (cena.imagem) {
             cenarioArea.style.backgroundImage = `url('${cena.imagem}')`;
+        } else {
+            cenarioArea.style.backgroundImage = 'none';
         }
         
         npcsContainer.innerHTML = '';
@@ -1994,10 +1998,19 @@
                 btn.addEventListener('click', () => {
                     if (opcao.proximo) {
                         carregarCena(historia.cenas[opcao.proximo]);
-                    } else if (opcao.acao === 'combate') {
+                    } else if (opcao.acao === 'iniciar_combate') {
                         iniciarCombate(opcao.inimigos || []);
                     } else if (opcao.resposta) {
                         dialogoTexto.textContent = opcao.resposta;
+                    } else if (opcao.tipo === 'pagar') {
+                        if (personagem.dinheiro >= opcao.valor) {
+                            personagem.dinheiro -= opcao.valor;
+                            dialogoTexto.textContent = opcao.sucesso || 'Negócio feito!';
+                            adicionarLog(`💰 Pagou ${opcao.valor} moedas`, 'sucesso');
+                            atualizarFichaPersonagem();
+                        } else {
+                            dialogoTexto.textContent = opcao.falha || 'Você não tem dinheiro suficiente!';
+                        }
                     }
                 });
                 
@@ -2032,6 +2045,7 @@
                             personagem.dinheiro -= opcao.valor;
                             dialogoTexto.textContent = opcao.sucesso || 'Negócio feito!';
                             adicionarLog(`💰 Pagou ${opcao.valor} moedas`, 'sucesso');
+                            atualizarFichaPersonagem();
                         } else {
                             dialogoTexto.textContent = opcao.falha || 'Você não tem dinheiro suficiente!';
                         }
@@ -2057,20 +2071,36 @@
         turnoIndicator.className = 'turno-indicator jogador';
         turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
         
-        inimigos = inimigosIds.map((id, index) => ({
-            id: id,
-            nome: `Goblin ${index + 1}`,
-            pv: 12,
-            pv_max: 12,
-            dados: { defesa: 8 },
-            equipamento: {
-                arma: { nome: 'Espada', dano: '1d6', tipo: 'corte' }
-            }
-        }));
+        // Pega os dados completos dos inimigos da cena atual
+        inimigos = [];
+        if (capituloAtual.inimigos) {
+            inimigosIds.forEach(id => {
+                const inimigoData = capituloAtual.inimigos.find(i => i.id === id);
+                if (inimigoData) {
+                    inimigos.push({
+                        ...inimigoData,
+                        pv: inimigoData.pv || inimigoData.pv_max,
+                        pv_max: inimigoData.pv_max || inimigoData.pv
+                    });
+                }
+            });
+        }
+        
+        if (inimigos.length === 0) {
+            // Fallback
+            inimigos = inimigosIds.map((id, index) => ({
+                id: id,
+                nome: `Inimigo ${index + 1}`,
+                pv: 20,
+                pv_max: 20,
+                esquiva: 8,
+                nh_ataque: 10,
+                dano: "1d6"
+            }));
+        }
         
         inimigosContainer.style.display = 'block';
         renderizarInimigos();
-        
         adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
     }
 
@@ -2157,27 +2187,36 @@
         
         modalAtaque.classList.remove('active');
         
+        // Rolar ataque (2d10)
         const rolagem = rolar2d10();
         const nhAtaque = getValorAtributo('dx') + 3;
         
-        adicionarLog(`🎯 Rolagem de ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
+        adicionarLog(`🎯 Ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
         
         if (rolagem.total <= nhAtaque) {
-            const dano = Math.floor(Math.random() * 6) + 1;
-            inimigo.pv -= dano;
+            // Calcular dano baseado na arma
+            let dano = 0;
+            if (arma.dano === "1d-2") dano = Math.max(0, Math.floor(Math.random() * 6) - 1);
+            else if (arma.dano === "1d6") dano = Math.floor(Math.random() * 6) + 1;
+            else if (arma.dano === "2d-3") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) - 2;
+            else if (arma.dano === "1d+2") dano = Math.floor(Math.random() * 6) + 3;
+            else if (arma.dano === "2d+2") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 3;
+            else dano = Math.floor(Math.random() * 6) + 1;
             
+            inimigo.pv -= dano;
             adicionarLog(`✅ Acertou! Causou ${dano} de dano.`, 'dano');
             
             if (inimigo.pv <= 0) {
                 adicionarLog(`💀 ${inimigo.nome} foi derrotado!`, 'sucesso');
                 
-                const xpGanho = 25;
+                // Ganhar XP
+                const xpGanho = inimigo.xp || 25;
                 xpAtual += xpGanho;
                 personagem.xp = xpAtual;
                 adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
-                
                 verificarGanhoBolinha();
                 
+                // Remover inimigo
                 inimigos = inimigos.filter((_, i) => i !== inimigoSelecionado);
                 inimigoSelecionado = null;
             }
@@ -2188,11 +2227,14 @@
             if (inimigos.length === 0) {
                 adicionarLog('🎉 VITÓRIA!', 'sucesso');
                 inimigosContainer.style.display = 'none';
-                turnoAtual = 'jogador';
+                
+                // Verificar se tem cena pós-combate
+                if (capituloAtual.ao_vencer) {
+                    carregarCena(historia.cenas[capituloAtual.ao_vencer]);
+                }
             } else {
                 passarTurno();
             }
-            
         } else {
             adicionarLog(`❌ Errou!`, 'erro');
             passarTurno();
@@ -2224,12 +2266,20 @@
             return;
         }
         
+        // Cada inimigo ataca
         inimigos.forEach(inimigo => {
             const rolagem = rolar2d10();
-            const defesa = Math.floor((getValorAtributo('dx') + getValorAtributo('ht')) / 6) + 6;
             
-            if (rolagem.total <= 10) {
-                const dano = Math.floor(Math.random() * 6) + 1;
+            if (rolagem.total <= (inimigo.nh_ataque || 10)) {
+                // Calcular dano do inimigo
+                let dano = 0;
+                if (inimigo.dano === "1d-2") dano = Math.max(0, Math.floor(Math.random() * 6) - 1);
+                else if (inimigo.dano === "1d6") dano = Math.floor(Math.random() * 6) + 1;
+                else if (inimigo.dano === "2d-3") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) - 2;
+                else if (inimigo.dano === "1d+2") dano = Math.floor(Math.random() * 6) + 3;
+                else if (inimigo.dano === "2d+2") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 3;
+                else dano = Math.floor(Math.random() * 6) + 1;
+                
                 pvAtual -= dano;
                 personagem.statusCombate.vidaAtual = pvAtual;
                 
@@ -2354,22 +2404,34 @@
         }
     }
 
-    // ===== FUNÇÃO PRINCIPAL CARREGAR AVENTURA - SEM FALLBACK =====
+    // ===== 🟢 NOVA FUNÇÃO CARREGAR AVENTURA - DEFINITIVA 🟢 =====
     async function carregarAventura(aventuraId) {
         try {
-            console.log('📂 Carregando aventura:', aventuraId);
+            console.log('📂 Tentando carregar aventura:', aventuraId);
             
-            // Tenta importar o arquivo da aventura
-            const module = await import(`./aventuras/${aventuraId}.js`);
-            historia = module.default || module.AVENTURA;
-            
-            if (!historia) {
-                throw new Error('Arquivo de aventura não contém dados válidos');
+            // 🟢 Verifica se já está no window (carregado via script tag)
+            if (window.AVENTURA) {
+                console.log('✅ Aventura encontrada no window.AVENTURA');
+                historia = window.AVENTURA;
+            } else {
+                console.log('⚠️ window.AVENTURA não encontrado. Aguardando script carregar...');
+                
+                // 🟢 Aguarda até 3 segundos pelo script carregar
+                let tentativas = 0;
+                while (!window.AVENTURA && tentativas < 30) {
+                    await new Promise(r => setTimeout(r, 100));
+                    tentativas++;
+                }
+                
+                if (window.AVENTURA) {
+                    historia = window.AVENTURA;
+                } else {
+                    throw new Error(`Aventura "${aventuraId}" não encontrada. O script não foi carregado.`);
+                }
             }
             
             console.log('✅ Aventura carregada:', historia.nome);
             
-            // Pega a cena inicial
             const cenaInicialId = historia.cenaInicial;
             capituloAtual = historia.cenas[cenaInicialId];
             
@@ -2377,18 +2439,14 @@
                 throw new Error(`Cena inicial "${cenaInicialId}" não encontrada`);
             }
             
-            // CARREGA A PRIMEIRA CENA
             carregarCena(capituloAtual);
             adicionarLog(`📖 ${historia.nome} iniciada!`, 'sucesso');
             
         } catch (error) {
             console.error('❌ ERRO AO CARREGAR AVENTURA:', error);
+            dialogoTexto.textContent = `ERRO: ${error.message}. Verifique se o arquivo existe.`;
             
-            // Mostra erro na tela - sem fallback, só o erro real
-            dialogoTexto.textContent = `ERRO: ${error.message}. Verifique se o arquivo "${aventuraId}.js" existe na pasta aventuras/`;
-            adicionarLog(`❌ Falha ao carregar aventura: ${error.message}`, 'erro');
-            
-            // Cria botão para voltar
+            // Botão para voltar
             opcoesDialogo.innerHTML = '';
             const btnVoltar = document.createElement('button');
             btnVoltar.className = 'opcao-btn';

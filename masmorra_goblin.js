@@ -488,7 +488,7 @@ export const AVENTURA = {
         // ------------------------------------------------------
         // CENA FINAL: TAVERNA
         // ------------------------------------------------------
-        final_taverna: {
+              final_taverna: {
             id: "final_taverna",
             nome: "Retorno Triunfal",
             imagem: "imagem/taverna-interior.jpg",
@@ -519,11 +519,20 @@ export const AVENTURA = {
             opcoes: [
                 {
                     texto: "Encerrar aventura",
-                    acao: "finalizar_aventura"
+                    acao: "finalizar_aventura",
+                    log: "🏆 Aventura concluída com sucesso!"
+                },
+                {
+                    texto: "Ficar mais um pouco",
+                    proximo: "final_taverna",
+                    log: "Você aproveita a comemoração..."
                 }
             ]
         }
     }
 };
+
+
+window.AVENTURA = AVENTURA;
 
 export default AVENTURA;
