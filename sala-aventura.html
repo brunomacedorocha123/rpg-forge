@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sala de Aventura - RPGForce</title>
+    <title>Sala de Aventura - Combate Tático - RPGForce</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -309,11 +309,24 @@
             color: #ffd700;
         }
 
-        .aventura-capitulo {
+        .turno-indicator {
             background: rgba(255, 215, 0, 0.2);
-            padding: 5px 15px;
+            padding: 8px 15px;
             border-radius: 20px;
             font-size: 0.9rem;
+            border: 1px solid #ffd700;
+        }
+
+        .turno-indicator.jogador {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+
+        .turno-indicator.inimigo {
+            background: rgba(255, 87, 34, 0.2);
+            border-color: #ff5722;
+            color: #ff5722;
         }
 
         /* CAIXA DE NARRATIVA */
@@ -323,8 +336,8 @@
             border-radius: 15px;
             padding: 25px;
             margin-bottom: 20px;
-            min-height: 200px;
-            font-size: 1.1rem;
+            min-height: 150px;
+            font-size: 1rem;
             line-height: 1.6;
             color: rgba(255, 255, 255, 0.9);
             position: relative;
@@ -333,9 +346,9 @@
         .narrativa-box::before {
             content: '"';
             position: absolute;
-            top: 10px;
+            top: 5px;
             left: 10px;
-            font-size: 4rem;
+            font-size: 3rem;
             color: rgba(255, 215, 0, 0.2);
             font-family: 'MedievalSharp', cursive;
         }
@@ -373,6 +386,18 @@
             border: 1px solid #ff6b6b;
             border-radius: 12px;
             padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .inimigo-card:hover {
+            background: rgba(255, 107, 107, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .inimigo-card.selecionado {
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
         }
 
         .inimigo-nome {
@@ -395,41 +420,12 @@
             transition: width 0.3s;
         }
 
-        /* OPÇÕES */
-        .opcoes-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        .opcao-btn {
-            background: rgba(255, 215, 0, 0.1);
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            color: #ffd700;
-            padding: 15px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 1rem;
-            text-align: left;
+        /* AÇÕES */
+        .acoes-container {
             display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .opcao-btn:hover:not(:disabled) {
-            background: rgba(255, 215, 0, 0.2);
-            border-color: #ffd700;
-            transform: translateY(-2px);
-        }
-
-        /* AÇÕES DE COMBATE */
-        .acoes-combate {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
             flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
         }
 
         .acao-btn {
@@ -446,11 +442,17 @@
             gap: 8px;
             flex: 1;
             justify-content: center;
+            min-width: 150px;
         }
 
-        .acao-btn:hover {
+        .acao-btn:hover:not(:disabled) {
             background: #ffd700;
             color: #0a0a1a;
+        }
+
+        .acao-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
         }
 
         .acao-btn.atacar {
@@ -458,7 +460,7 @@
             color: #ff6b6b;
         }
 
-        .acao-btn.atacar:hover {
+        .acao-btn.atacar:hover:not(:disabled) {
             background: #ff6b6b;
             color: #0a0a1a;
         }
@@ -468,32 +470,13 @@
             color: #4d4dff;
         }
 
-        /* MODAL DE DADOS */
-        .dados-flutuante {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
+        .acao-btn.defender {
+            border-color: #4CAF50;
+            color: #4CAF50;
         }
 
-        .btn-dados {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            color: #0a0a1a;
-            border: none;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.5rem;
-            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
-            transition: all 0.3s;
-        }
-
-        .btn-dados:hover {
-            transform: scale(1.1);
-        }
-
-        .modal-dados {
+        /* MODAL DE ATAQUE */
+        .modal {
             display: none;
             position: fixed;
             top: 0;
@@ -506,58 +489,69 @@
             justify-content: center;
         }
 
-        .modal-dados.active {
+        .modal.active {
             display: flex;
         }
 
-        .modal-dados-content {
+        .modal-content {
             background: #1a1a3a;
             border: 2px solid #ffd700;
             border-radius: 20px;
-            padding: 30px;
-            max-width: 400px;
+            padding: 25px;
+            max-width: 500px;
             width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
-        .dados-controles {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .dado-control {
+        .modal-content h3 {
+            color: #ffd700;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-        }
-
-        .dado-control input,
-        .dado-control select {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            padding: 8px;
-            border-radius: 8px;
-            width: 100px;
-        }
-
-        .dados-resultado {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            font-size: 1.5rem;
-            color: #ffd700;
-            margin: 20px 0;
-        }
-
-        .dados-botoes {
-            display: flex;
             gap: 10px;
         }
 
-        .btn-rolar {
+        .arma-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .arma-card:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-color: #ffd700;
+        }
+
+        .arma-card.selecionada {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: #ffd700;
+        }
+
+        .arma-nome {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+
+        .arma-detalhes {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            gap: 15px;
+        }
+
+        .modal-botoes {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-confirmar {
             background: #ffd700;
             color: #0a0a1a;
             border: none;
@@ -568,7 +562,7 @@
             flex: 2;
         }
 
-        .btn-fechar {
+        .btn-cancelar {
             background: transparent;
             border: 2px solid #ff6b6b;
             color: #ff6b6b;
@@ -578,6 +572,34 @@
             flex: 1;
         }
 
+        /* MODAL DE DEFESA */
+        .defesa-card-modal {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #4CAF50;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .defesa-card-modal:hover:not(.disabled) {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4CAF50;
+        }
+
+        .defesa-card-modal.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: #666;
+        }
+
+        .defesa-card-modal.selecionada {
+            background: rgba(76, 175, 80, 0.3);
+            border-color: #4CAF50;
+        }
+
+        /* LOG */
         .log-container {
             margin-top: 20px;
             background: rgba(0, 0, 0, 0.3);
@@ -593,6 +615,19 @@
             border-bottom: 1px solid rgba(255, 215, 0, 0.1);
         }
 
+        .log-item.sucesso {
+            color: #4CAF50;
+        }
+
+        .log-item.erro {
+            color: #ff6b6b;
+        }
+
+        .log-item.dano {
+            color: #ff5722;
+        }
+
+        /* LOADING */
         .loading-overlay {
             display: none;
             position: fixed;
@@ -625,6 +660,31 @@
             to { transform: rotate(360deg); }
         }
 
+        /* DADOS FLUTUANTES */
+        .dados-flutuante {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .btn-dados {
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            color: #0a0a1a;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+            transition: all 0.3s;
+        }
+
+        .btn-dados:hover {
+            transform: scale(1.1);
+        }
+
         @media (max-width: 768px) {
             .container {
                 flex-direction: column;
@@ -633,6 +693,9 @@
             .ficha-pc {
                 width: 100%;
                 height: auto;
+            }
+            .acoes-container {
+                flex-direction: column;
             }
         }
     </style>
@@ -645,22 +708,62 @@
         <div class="loading-text">Carregando sua aventura...</div>
     </div>
 
-    <!-- Modal de Dados -->
-    <div class="modal-dados" id="modalDados">
-        <div class="modal-dados-content">
-            <h3 style="color: #ffd700; margin-bottom: 15px;">
-                <i class="fas fa-dice-d20"></i> Rolagem de Dados
-            </h3>
+    <!-- MODAL DE ATAQUE -->
+    <div class="modal" id="modalAtaque">
+        <div class="modal-content">
+            <h3><i class="fas fa-sword"></i> Escolha sua Arma</h3>
             
-            <div class="dados-controles">
-                <div class="dado-control">
+            <div id="armasLista">
+                <!-- Preenchido via JS -->
+            </div>
+            
+            <div class="modal-botoes">
+                <button class="btn-cancelar" id="btnCancelarAtaque">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button class="btn-confirmar" id="btnConfirmarAtaque" disabled>
+                    <i class="fas fa-check"></i> Atacar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DEFESA -->
+    <div class="modal" id="modalDefesa">
+        <div class="modal-content">
+            <h3><i class="fas fa-shield-alt"></i> Escolha sua Defesa</h3>
+            
+            <p id="defesaContexto" style="margin-bottom: 15px; color: rgba(255,255,255,0.8);"></p>
+            
+            <div id="defesasLista">
+                <!-- Preenchido via JS -->
+            </div>
+            
+            <div class="modal-botoes">
+                <button class="btn-cancelar" id="btnCancelarDefesa">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button class="btn-confirmar" id="btnConfirmarDefesa" disabled>
+                    <i class="fas fa-check"></i> Defender
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DADOS -->
+    <div class="modal" id="modalDados">
+        <div class="modal-content">
+            <h3><i class="fas fa-dice-d20"></i> Rolagem de Dados</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px; margin: 20px 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
                     <label>Quantidade:</label>
-                    <input type="number" id="dadosQtd" min="1" max="10" value="1">
+                    <input type="number" id="dadosQtd" min="1" max="10" value="1" style="background: rgba(0,0,0,0.3); border: 1px solid #ffd700; color: #ffd700; padding: 8px; border-radius: 8px; width: 100px;">
                 </div>
                 
-                <div class="dado-control">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
                     <label>Faces:</label>
-                    <select id="dadosFaces">
+                    <select id="dadosFaces" style="background: rgba(0,0,0,0.3); border: 1px solid #ffd700; color: #ffd700; padding: 8px; border-radius: 8px; width: 100px;">
                         <option value="4">d4</option>
                         <option value="6">d6</option>
                         <option value="8">d8</option>
@@ -671,23 +774,19 @@
                     </select>
                 </div>
                 
-                <div class="dado-control">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
                     <label>Modificador:</label>
-                    <input type="number" id="dadosMod" value="0">
+                    <input type="number" id="dadosMod" value="0" style="background: rgba(0,0,0,0.3); border: 1px solid #ffd700; color: #ffd700; padding: 8px; border-radius: 8px; width: 100px;">
                 </div>
             </div>
             
-            <div class="dados-resultado" id="dadosResultado">
+            <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 20px; text-align: center; font-size: 1.5rem; color: #ffd700; margin: 20px 0;" id="dadosResultado">
                 Clique em Rolar
             </div>
             
-            <div class="dados-botoes">
-                <button class="btn-rolar" id="btnRolarDados">
-                    <i class="fas fa-dice"></i> Rolar
-                </button>
-                <button class="btn-fechar" id="btnFecharDados">
-                    Fechar
-                </button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-cancelar" id="btnFecharDados" style="flex:1;">Fechar</button>
+                <button class="btn-confirmar" id="btnRolarDados" style="flex:2;">Rolar</button>
             </div>
         </div>
     </div>
@@ -795,7 +894,9 @@
         <div class="area-jogo">
             <div class="aventura-header">
                 <div class="aventura-titulo" id="aventuraTitulo">Carregando...</div>
-                <div class="aventura-capitulo" id="aventuraCapitulo"></div>
+                <div class="turno-indicator" id="turnoIndicator">
+                    <i class="fas fa-hourglass-half"></i> Turno: Carregando
+                </div>
             </div>
 
             <!-- Caixa de narrativa -->
@@ -813,29 +914,8 @@
                 <div class="inimigos-grid" id="inimigosGrid"></div>
             </div>
 
-            <!-- Opções do capítulo -->
-            <div class="opcoes-container" id="opcoesContainer"></div>
-
-            <!-- Ações de combate -->
-            <div class="acoes-combate" id="acoesCombate" style="display: none;">
-                <button class="acao-btn atacar" id="btnAtacar">
-                    <i class="fas fa-sword"></i> Atacar
-                </button>
-                <button class="acao-btn magia" id="btnMagia">
-                    <i class="fas fa-magic"></i> Usar Magia
-                </button>
-                <button class="acao-btn" id="btnItem">
-                    <i class="fas fa-flask"></i> Usar Item
-                </button>
-                <button class="acao-btn" id="btnFugir">
-                    <i class="fas fa-running"></i> Fugir
-                </button>
-            </div>
-
-            <!-- Botão continuar -->
-            <button class="btn-continuar" id="btnContinuar" style="display: none;">
-                Continuar <i class="fas fa-arrow-right"></i>
-            </button>
+            <!-- Ações -->
+            <div class="acoes-container" id="acoesContainer"></div>
 
             <!-- Log de ações -->
             <div class="log-container" id="logContainer">
@@ -891,34 +971,37 @@
         const dinheiroValor = document.getElementById('dinheiroValor');
         const xpValor = document.getElementById('xpValor');
         const aventuraTitulo = document.getElementById('aventuraTitulo');
-        const aventuraCapitulo = document.getElementById('aventuraCapitulo');
+        const turnoIndicator = document.getElementById('turnoIndicator');
         const narrativaTexto = document.getElementById('narrativaTexto');
         const inimigosContainer = document.getElementById('inimigosContainer');
         const inimigosGrid = document.getElementById('inimigosGrid');
-        const opcoesContainer = document.getElementById('opcoesContainer');
-        const acoesCombate = document.getElementById('acoesCombate');
-        const btnContinuar = document.getElementById('btnContinuar');
+        const acoesContainer = document.getElementById('acoesContainer');
         const logContainer = document.getElementById('logContainer');
         
-        // Botões
-        const btnAtacar = document.getElementById('btnAtacar');
-        const btnMagia = document.getElementById('btnMagia');
-        const btnItem = document.getElementById('btnItem');
-        const btnFugir = document.getElementById('btnFugir');
-        const btnPericias = document.getElementById('btnPericias');
-        const btnMagias = document.getElementById('btnMagias');
-        const btnInventario = document.getElementById('btnInventario');
-        const btnDescansar = document.getElementById('btnDescansar');
-        
-        // Dados
+        // Modais
+        const modalAtaque = document.getElementById('modalAtaque');
+        const modalDefesa = document.getElementById('modalDefesa');
+        const modalDados = document.getElementById('modalDados');
+        const armasLista = document.getElementById('armasLista');
+        const defesasLista = document.getElementById('defesasLista');
+        const defesaContexto = document.getElementById('defesaContexto');
+        const btnCancelarAtaque = document.getElementById('btnCancelarAtaque');
+        const btnConfirmarAtaque = document.getElementById('btnConfirmarAtaque');
+        const btnCancelarDefesa = document.getElementById('btnCancelarDefesa');
+        const btnConfirmarDefesa = document.getElementById('btnConfirmarDefesa');
         const btnAbrirDados = document.getElementById('btnAbrirDados');
         const btnFecharDados = document.getElementById('btnFecharDados');
         const btnRolarDados = document.getElementById('btnRolarDados');
-        const modalDados = document.getElementById('modalDados');
         const dadosResultado = document.getElementById('dadosResultado');
         const dadosQtd = document.getElementById('dadosQtd');
         const dadosFaces = document.getElementById('dadosFaces');
         const dadosMod = document.getElementById('dadosMod');
+        
+        // Botões
+        const btnPericias = document.getElementById('btnPericias');
+        const btnMagias = document.getElementById('btnMagias');
+        const btnInventario = document.getElementById('btnInventario');
+        const btnDescansar = document.getElementById('btnDescansar');
 
         // Estado do jogo
         let currentUser = null;
@@ -927,6 +1010,13 @@
         let capituloAtual = null;
         let inimigos = [];
         let sessaoId = null;
+        
+        // Estado do combate
+        let turnoAtual = 'jogador'; // 'jogador' ou 'inimigo'
+        let inimigoSelecionado = null;
+        let armaSelecionada = null;
+        let defesaSelecionada = null;
+        let ataqueAtual = null; // Dados do ataque sendo realizado
 
         // ========== FUNÇÕES ==========
         
@@ -940,14 +1030,15 @@
 
         function adicionarLog(mensagem, tipo = 'info') {
             const logItem = document.createElement('div');
-            logItem.className = 'log-item';
+            logItem.className = `log-item ${tipo}`;
             logItem.innerHTML = mensagem;
             logContainer.appendChild(logItem);
             logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        function getModificador(atributo) {
-            return Math.floor((atributo - 10) / 2);
+            
+            // Limitar log a 50 itens
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
         }
 
         function rolarDados(quantidade, faces, modificador = 0) {
@@ -970,45 +1061,115 @@
             };
         }
 
-        function calcularDano(st, armaDano) {
-            const mod = getModificador(st);
-            return mod + rolarDados(1, 6).total;
+        function rolar2d10() {
+            return rolarDados(2, 10, 0);
         }
 
-        // ========== CARREGAR PERSONAGEM ==========
-        
-        async function carregarPersonagem(personagemId) {
-            try {
-                const personagemRef = doc(db, "personagens", personagemId);
-                const personagemSnap = await getDoc(personagemRef);
-                
-                if (!personagemSnap.exists()) {
-                    throw new Error('Personagem não encontrado');
-                }
-                
-                personagem = {
-                    id: personagemSnap.id,
-                    ...personagemSnap.data()
-                };
-                
-                // Garantir que statusCombate existe
-                if (!personagem.statusCombate) {
-                    personagem.statusCombate = {
-                        vidaAtual: personagem.status?.vidaMax || 48,
-                        vidaMax: personagem.status?.vidaMax || 48,
-                        fadigaAtual: personagem.status?.fadigaMax || 8,
-                        fadigaMax: personagem.status?.fadigaMax || 8,
-                        manaAtual: personagem.status?.manaMax || 13,
-                        manaMax: personagem.status?.manaMax || 13
-                    };
-                }
-                
-                atualizarFichaPersonagem();
-                
-            } catch (error) {
-                console.error('Erro ao carregar personagem:', error);
-                adicionarLog('❌ Erro ao carregar personagem!');
+        function calcularNH(atributoBase, periciaNivel) {
+            const bonus = periciaNivel === 1 ? 0 : periciaNivel - 1;
+            return atributoBase + bonus;
+        }
+
+        function getAtributoValor(atributo) {
+            if (!personagem || !personagem.atributos) return 0;
+            
+            if (atributo === 'st') return personagem.atributos.st?.valor || 9;
+            if (atributo === 'dx') return personagem.atributos.dx?.valor || 5;
+            if (atributo === 'iq') return personagem.atributos.iq?.valor || 5;
+            if (atributo === 'ht') return 8; // HT base é sempre 8 + bolinhas
+            return 0;
+        }
+
+        function getPericiaNivel(periciaId) {
+            if (!personagem || !personagem.pericias) return 0;
+            return personagem.pericias[periciaId]?.nivel || 0;
+        }
+
+        function getArmasEquipadas() {
+            if (!personagem || !personagem.inventario) return [];
+            
+            const armas = [];
+            
+            // Procura no inventário do corpo (equipado)
+            if (personagem.inventario.corpo) {
+                personagem.inventario.corpo.forEach(item => {
+                    if (item.dano) { // É uma arma
+                        armas.push({
+                            id: item.id,
+                            nome: item.nome,
+                            dano: item.dano,
+                            tipo: item.tipoDano || 'Desconhecido',
+                            alcance: item.alcance || 1,
+                            st: item.st || 8,
+                            periciaId: getPericiaIdPorArma(item.nome)
+                        });
+                    }
+                });
             }
+            
+            return armas;
+        }
+
+        function getPericiaIdPorArma(nomeArma) {
+            nomeArma = nomeArma.toLowerCase();
+            
+            if (nomeArma.includes('espada')) return 'espada';
+            if (nomeArma.includes('machado')) return 'machado';
+            if (nomeArma.includes('arco')) return 'arco';
+            if (nomeArma.includes('besta')) return 'besta';
+            if (nomeArma.includes('adaga')) return 'adaga';
+            if (nomeArma.includes('escudo')) return 'escudo';
+            
+            return 'espada'; // Padrão
+        }
+
+        function calcularEsquiva() {
+            const dx = getAtributoValor('dx');
+            const ht = getAtributoValor('ht');
+            return Math.floor((dx + ht) / 6) + 6;
+        }
+
+        function calcularAparar() {
+            // Precisa ter arma equipada
+            const armas = getArmasEquipadas();
+            if (armas.length === 0) return 0;
+            
+            const dx = getAtributoValor('dx');
+            
+            // Usa a melhor perícia de arma
+            let melhorNH = dx;
+            armas.forEach(arma => {
+                const periciaNivel = getPericiaNivel(arma.periciaId);
+                if (periciaNivel > 0) {
+                    const nh = calcularNH(dx, periciaNivel);
+                    if (nh > melhorNH) melhorNH = nh;
+                }
+            });
+            
+            return Math.floor((melhorNH + dx) / 4) + 6;
+        }
+
+        function calcularBloqueio() {
+            // Precisa ter escudo equipado
+            let temEscudo = false;
+            let bonusEscudo = 0;
+            
+            if (personagem && personagem.inventario && personagem.inventario.corpo) {
+                personagem.inventario.corpo.forEach(item => {
+                    if (item.tipo === 'escudo' || item.nome.toLowerCase().includes('escudo')) {
+                        temEscudo = true;
+                        bonusEscudo = item.bonus || 0;
+                    }
+                });
+            }
+            
+            if (!temEscudo) return 0;
+            
+            const dx = getAtributoValor('dx');
+            const periciaEscudo = getPericiaNivel('escudo');
+            const nhEscudo = periciaEscudo > 0 ? calcularNH(dx, periciaEscudo) : dx;
+            
+            return Math.floor((nhEscudo + dx) / 4) + 6 + bonusEscudo;
         }
 
         function atualizarFichaPersonagem() {
@@ -1032,59 +1193,66 @@
             }
             
             // PV
-            const pvAtual = personagem.statusCombate?.vidaAtual || 48;
-            const pvMax = personagem.statusCombate?.vidaMax || 48;
+            const pvAtual = personagem.statusCombate?.vidaAtual || 
+                            (personagem.status?.vidaMax || 48);
+            const pvMax = personagem.statusCombate?.vidaMax || 
+                         (personagem.status?.vidaMax || 48);
             pvTexto.textContent = `${pvAtual}/${pvMax}`;
             pvBarra.style.width = (pvAtual / pvMax * 100) + '%';
             
             // Fadiga
-            const fadigaAtual = personagem.statusCombate?.fadigaAtual || 8;
-            const fadigaMax = personagem.statusCombate?.fadigaMax || 8;
+            const fadigaAtual = personagem.statusCombate?.fadigaAtual || 
+                               (personagem.status?.fadigaMax || 8);
+            const fadigaMax = personagem.statusCombate?.fadigaMax || 
+                             (personagem.status?.fadigaMax || 8);
             fadigaTexto.textContent = `${fadigaAtual}/${fadigaMax}`;
             fadigaBarra.style.width = (fadigaAtual / fadigaMax * 100) + '%';
             
             // Mana
-            const manaAtual = personagem.statusCombate?.manaAtual || 13;
-            const manaMax = personagem.statusCombate?.manaMax || 13;
+            const manaAtual = personagem.statusCombate?.manaAtual || 
+                            (personagem.status?.manaMax || 13);
+            const manaMax = personagem.statusCombate?.manaMax || 
+                          (personagem.status?.manaMax || 13);
             manaTexto.textContent = `${manaAtual}/${manaMax}`;
             manaBarra.style.width = (manaAtual / manaMax * 100) + '%';
             
             // Atributos
+            const st = getAtributoValor('st');
+            const dx = getAtributoValor('dx');
+            const iq = getAtributoValor('iq');
+            const ht = getAtributoValor('ht');
+            
             atributosGrid.innerHTML = `
                 <div class="atributo-card">
                     <div class="atributo-nome">ST</div>
-                    <div class="atributo-valor">${personagem.atributos?.st?.valor || 9}</div>
-                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos?.st?.valor || 9)}</div>
+                    <div class="atributo-valor">${st}</div>
                 </div>
                 <div class="atributo-card">
                     <div class="atributo-nome">DX</div>
-                    <div class="atributo-valor">${personagem.atributos?.dx?.valor || 5}</div>
-                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos?.dx?.valor || 5)}</div>
+                    <div class="atributo-valor">${dx}</div>
                 </div>
                 <div class="atributo-card">
                     <div class="atributo-nome">IQ</div>
-                    <div class="atributo-valor">${personagem.atributos?.iq?.valor || 5}</div>
-                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos?.iq?.valor || 5)}</div>
+                    <div class="atributo-valor">${iq}</div>
                 </div>
                 <div class="atributo-card">
                     <div class="atributo-nome">HT</div>
-                    <div class="atributo-valor">${personagem.atributos?.ht?.valor || 8}</div>
-                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos?.ht?.valor || 8)}</div>
+                    <div class="atributo-valor">${ht}</div>
                 </div>
             `;
             
             // Defesas
             defesasGrid.innerHTML = `
                 <div class="defesa-card">
-                    <div class="defesa-valor">${personagem.derivados?.esquiva || 5}</div>
+                    <div class="defesa-valor">${calcularEsquiva()}</div>
                     <div class="defesa-label">Esquiva</div>
                 </div>
                 <div class="defesa-card">
-                    <div class="defesa-valor">${personagem.derivados?.aparar || 5}</div>
+                    <div class="defesa-valor">${calcularAparar()}</div>
                     <div class="defesa-label">Aparar</div>
                 </div>
                 <div class="defesa-card">
-                    <div class="defesa-valor">${personagem.derivados?.bloqueio || 5}</div>
+                    <div class="defesa-valor">${calcularBloqueio()}</div>
                     <div class="defesa-label">Bloqueio</div>
                 </div>
             `;
@@ -1112,6 +1280,465 @@
             xpValor.textContent = personagem.xp || 0;
         }
 
+        function atualizarTurnoIndicator() {
+            if (turnoAtual === 'jogador') {
+                turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+                turnoIndicator.className = 'turno-indicator jogador';
+            } else {
+                turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+                turnoIndicator.className = 'turno-indicator inimigo';
+            }
+        }
+
+        function renderizarInimigos() {
+            if (inimigos.length === 0) {
+                inimigosContainer.style.display = 'none';
+                return;
+            }
+            
+            inimigosContainer.style.display = 'block';
+            
+            inimigosGrid.innerHTML = inimigos.map((inimigo, index) => `
+                <div class="inimigo-card ${inimigoSelecionado === index ? 'selecionado' : ''}" data-index="${index}">
+                    <div class="inimigo-nome">${inimigo.nome}</div>
+                    <div class="inimigo-pv">
+                        <div class="inimigo-pv-fill" style="width: ${(inimigo.pv / inimigo.pv_max) * 100}%"></div>
+                    </div>
+                    <div style="font-size:0.8rem; text-align:center;">${inimigo.pv}/${inimigo.pv_max} PV</div>
+                    <div style="font-size:0.7rem; color: #ffd700; text-align:center; margin-top:5px;">
+                        Defesa ${inimigo.dados?.defesa || 8}
+                    </div>
+                </div>
+            `).join('');
+            
+            // Adicionar evento de seleção
+            document.querySelectorAll('.inimigo-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const index = parseInt(card.dataset.index);
+                    selecionarInimigo(index);
+                });
+            });
+        }
+
+        function selecionarInimigo(index) {
+            if (turnoAtual !== 'jogador') {
+                adicionarLog('❌ Não é seu turno!', 'erro');
+                return;
+            }
+            
+            inimigoSelecionado = index;
+            renderizarInimigos();
+            
+            // Habilitar botão de ataque
+            const btnAtacar = document.getElementById('btnAtacarAcao');
+            if (btnAtacar) {
+                btnAtacar.disabled = false;
+            }
+        }
+
+        function renderizarAcoes() {
+            let html = '';
+            
+            if (turnoAtual === 'jogador') {
+                html = `
+                    <button class="acao-btn atacar" id="btnAtacarAcao" ${inimigos.length === 0 ? 'disabled' : ''}>
+                        <i class="fas fa-sword"></i> Atacar
+                    </button>
+                    <button class="acao-btn magia" id="btnMagiaAcao">
+                        <i class="fas fa-magic"></i> Usar Magia
+                    </button>
+                    <button class="acao-btn" id="btnItemAcao">
+                        <i class="fas fa-flask"></i> Usar Item
+                    </button>
+                    <button class="acao-btn" id="btnPassarAcao">
+                        <i class="fas fa-hourglass-end"></i> Passar Turno
+                    </button>
+                `;
+            } else {
+                html = `
+                    <button class="acao-btn" disabled style="opacity:0.5;">
+                        <i class="fas fa-hourglass"></i> Aguarde... inimigos atacando
+                    </button>
+                `;
+            }
+            
+            acoesContainer.innerHTML = html;
+            
+            // Adicionar eventos
+            if (turnoAtual === 'jogador') {
+                document.getElementById('btnAtacarAcao')?.addEventListener('click', abrirModalAtaque);
+                document.getElementById('btnMagiaAcao')?.addEventListener('click', () => {
+                    adicionarLog('🔮 Sistema de magias em desenvolvimento...', 'info');
+                });
+                document.getElementById('btnItemAcao')?.addEventListener('click', () => {
+                    adicionarLog('🎒 Sistema de itens em desenvolvimento...', 'info');
+                });
+                document.getElementById('btnPassarAcao')?.addEventListener('click', passarTurno);
+            }
+        }
+
+        function abrirModalAtaque() {
+            if (inimigoSelecionado === null) {
+                adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
+                return;
+            }
+            
+            const armas = getArmasEquipadas();
+            
+            if (armas.length === 0) {
+                adicionarLog('❌ Você não tem armas equipadas!', 'erro');
+                return;
+            }
+            
+            armaSelecionada = null;
+            btnConfirmarAtaque.disabled = true;
+            
+            armasLista.innerHTML = armas.map((arma, index) => {
+                const periciaNivel = getPericiaNivel(arma.periciaId);
+                const dx = getAtributoValor('dx');
+                const nh = periciaNivel > 0 ? calcularNH(dx, periciaNivel) : dx;
+                
+                return `
+                    <div class="arma-card" data-index="${index}">
+                        <div class="arma-nome">${arma.nome}</div>
+                        <div class="arma-detalhes">
+                            <span><i class="fas fa-tint"></i> Dano: ${arma.dano}</span>
+                            <span><i class="fas fa-ruler"></i> Alcance: ${arma.alcance}m</span>
+                            <span><i class="fas fa-bullseye"></i> NH: ${nh}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.querySelectorAll('.arma-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.arma-card').forEach(c => c.classList.remove('selecionada'));
+                    card.classList.add('selecionada');
+                    armaSelecionada = parseInt(card.dataset.index);
+                    btnConfirmarAtaque.disabled = false;
+                });
+            });
+            
+            modalAtaque.classList.add('active');
+        }
+
+        function executarAtaque() {
+            if (armaSelecionada === null) return;
+            
+            const armas = getArmasEquipadas();
+            const arma = armas[armaSelecionada];
+            const inimigo = inimigos[inimigoSelecionado];
+            
+            if (!arma || !inimigo) return;
+            
+            // Fechar modal
+            modalAtaque.classList.remove('active');
+            
+            // Calcular NH do ataque
+            const periciaNivel = getPericiaNivel(arma.periciaId);
+            const dx = getAtributoValor('dx');
+            const nhAtaque = periciaNivel > 0 ? calcularNH(dx, periciaNivel) : dx;
+            
+            // Rolar ataque (2d10)
+            const rolagem = rolar2d10();
+            const totalAtaque = rolagem.total;
+            
+            adicionarLog(`🎯 Rolagem de ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
+            
+            // Verificar se acertou (NH é a dificuldade para rolar abaixo ou igual)
+            if (totalAtaque <= nhAtaque) {
+                // ACERTOU!
+                adicionarLog(`✅ Acertou! Rolou ${totalAtaque} vs NH ${nhAtaque}`, 'sucesso');
+                
+                // Verificar se é crítico (fulminante) - rolar 2, 3 ou 4?
+                const ehCritico = totalAtaque <= 4; // Regra: 2-4 é crítico
+                
+                // Calcular dano
+                let dano = calcularDanoArma(arma);
+                let danoTexto = dano.toString();
+                
+                if (ehCritico) {
+                    dano *= 2;
+                    danoTexto = `${dano} (CRÍTICO! Dano dobrado)`;
+                    adicionarLog(`⚡ FULMINANTE! Dano dobrado!`, 'sucesso');
+                }
+                
+                adicionarLog(`💥 Dano causado: ${danoTexto}`, 'dano');
+                
+                // Aplicar dano
+                inimigo.pv -= dano;
+                
+                if (inimigo.pv <= 0) {
+                    adicionarLog(`💀 ${inimigo.nome} foi derrotado!`, 'sucesso');
+                    inimigos = inimigos.filter((_, i) => i !== inimigoSelecionado);
+                    inimigoSelecionado = null;
+                }
+                
+                renderizarInimigos();
+                
+                // Verificar se combate acabou
+                if (inimigos.length === 0) {
+                    adicionarLog('🎉 VITÓRIA! Todos os inimigos foram derrotados!', 'sucesso');
+                    setTimeout(() => {
+                        if (capituloAtual?.vitoria) {
+                            iniciarCapitulo(capituloAtual.vitoria);
+                        }
+                    }, 2000);
+                    return;
+                }
+                
+                // Passar para o turno dos inimigos
+                passarTurno();
+                
+            } else {
+                // ERROU!
+                adicionarLog(`❌ Errou! Rolou ${totalAtaque} vs NH ${nhAtaque}`, 'erro');
+                
+                // Passar para o turno dos inimigos
+                passarTurno();
+            }
+            
+            atualizarFichaPersonagem();
+        }
+
+        function calcularDanoArma(arma) {
+            // Interpreta string de dano tipo "1d6+2"
+            const formula = arma.dano.toLowerCase();
+            
+            // Extrai dados e modificador
+            const match = formula.match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/);
+            
+            if (!match) return 1; // Padrão
+            
+            const qtdDados = parseInt(match[1]) || 1;
+            const faces = parseInt(match[2]) || 6;
+            const operador = match[3];
+            const modValor = parseInt(match[4]) || 0;
+            
+            let dano = 0;
+            for (let i = 0; i < qtdDados; i++) {
+                dano += Math.floor(Math.random() * faces) + 1;
+            }
+            
+            if (operador === '+') dano += modValor;
+            if (operador === '-') dano -= modValor;
+            
+            return Math.max(1, dano); // Mínimo 1
+        }
+
+        function passarTurno() {
+            if (turnoAtual === 'jogador') {
+                turnoAtual = 'inimigo';
+                atualizarTurnoIndicator();
+                renderizarAcoes();
+                
+                // Iniciar turno dos inimigos
+                setTimeout(turnoInimigos, 1000);
+            }
+        }
+
+        function turnoInimigos() {
+            if (inimigos.length === 0) {
+                // Sem inimigos, volta para o jogador
+                turnoAtual = 'jogador';
+                atualizarTurnoIndicator();
+                renderizarAcoes();
+                return;
+            }
+            
+            adicionarLog('👾 Turno dos inimigos!', 'info');
+            
+            // Fila de ataques dos inimigos
+            let inimigosVivos = [...inimigos];
+            
+            function atacarProximoInimigo() {
+                if (inimigosVivos.length === 0 || personagem.statusCombate?.vidaAtual <= 0) {
+                    // Acabaram os ataques ou personagem morreu
+                    turnoAtual = 'jogador';
+                    atualizarTurnoIndicator();
+                    renderizarAcoes();
+                    return;
+                }
+                
+                const inimigo = inimigosVivos.shift();
+                
+                adicionarLog(`⚔️ ${inimigo.nome} vai atacar!`, 'info');
+                
+                // Salvar dados do ataque para o modal de defesa
+                ataqueAtual = {
+                    inimigo: inimigo,
+                    danoBase: inimigo.equipamento?.arma?.dano || '1d4',
+                    tipo: inimigo.equipamento?.arma?.tipo || 'contusao'
+                };
+                
+                // Abrir modal para o jogador escolher defesa
+                abrirModalDefesa(inimigo);
+            }
+            
+            atacarProximoInimigo();
+        }
+
+        function abrirModalDefesa(inimigo) {
+            defesaSelecionada = null;
+            btnConfirmarDefesa.disabled = true;
+            
+            defesaContexto.textContent = `${inimigo.nome} está atacando você! Escolha como defender:`;
+            
+            const esquiva = calcularEsquiva();
+            const aparar = calcularAparar();
+            const bloqueio = calcularBloqueio();
+            
+            defesasLista.innerHTML = `
+                <div class="defesa-card-modal" data-defesa="esquiva">
+                    <div style="font-weight:bold; color:#ffd700; margin-bottom:5px;">Esquiva</div>
+                    <div style="font-size:0.9rem;">NH: ${esquiva}</div>
+                    <div style="font-size:0.8rem; color:rgba(255,255,255,0.7);">Baseado em DX + HT</div>
+                </div>
+                
+                <div class="defesa-card-modal ${aparar === 0 ? 'disabled' : ''}" data-defesa="aparar">
+                    <div style="font-weight:bold; color:#ffd700; margin-bottom:5px;">Aparar</div>
+                    <div style="font-size:0.9rem;">NH: ${aparar}</div>
+                    <div style="font-size:0.8rem; color:rgba(255,255,255,0.7);">${aparar === 0 ? 'Precisa de arma' : 'Baseado em perícia'}</div>
+                </div>
+                
+                <div class="defesa-card-modal ${bloqueio === 0 ? 'disabled' : ''}" data-defesa="bloqueio">
+                    <div style="font-weight:bold; color:#ffd700; margin-bottom:5px;">Bloqueio</div>
+                    <div style="font-size:0.9rem;">NH: ${bloqueio}</div>
+                    <div style="font-size:0.8rem; color:rgba(255,255,255,0.7);">${bloqueio === 0 ? 'Precisa de escudo' : 'Baseado em perícia Escudo'}</div>
+                </div>
+            `;
+            
+            document.querySelectorAll('.defesa-card-modal').forEach(card => {
+                card.addEventListener('click', () => {
+                    if (card.classList.contains('disabled')) return;
+                    
+                    document.querySelectorAll('.defesa-card-modal').forEach(c => c.classList.remove('selecionada'));
+                    card.classList.add('selecionada');
+                    defesaSelecionada = card.dataset.defesa;
+                    btnConfirmarDefesa.disabled = false;
+                });
+            });
+            
+            modalDefesa.classList.add('active');
+        }
+
+        function executarDefesa() {
+            if (!defesaSelecionada || !ataqueAtual) return;
+            
+            modalDefesa.classList.remove('active');
+            
+            const inimigo = ataqueAtual.inimigo;
+            
+            // Calcular NH da defesa escolhida
+            let nhDefesa = 0;
+            
+            switch(defesaSelecionada) {
+                case 'esquiva':
+                    nhDefesa = calcularEsquiva();
+                    break;
+                case 'aparar':
+                    nhDefesa = calcularAparar();
+                    break;
+                case 'bloqueio':
+                    nhDefesa = calcularBloqueio();
+                    break;
+            }
+            
+            // Rolar defesa (2d10)
+            const rolagem = rolar2d10();
+            const totalDefesa = rolagem.total;
+            
+            adicionarLog(`🛡️ Defesa (${defesaSelecionada}): ${rolagem.texto} (NH ${nhDefesa})`, 'info');
+            
+            if (totalDefesa <= nhDefesa) {
+                // DEFENDEU!
+                adicionarLog(`✅ Você defendeu o ataque de ${inimigo.nome}!`, 'sucesso');
+            } else {
+                // FOI ATINGIDO!
+                adicionarLog(`❌ Falhou na defesa!`, 'erro');
+                
+                // Calcular dano do inimigo
+                const dano = calcularDanoInimigo(inimigo);
+                adicionarLog(`💥 Dano recebido: ${dano}`, 'dano');
+                
+                // Aplicar dano
+                personagem.statusCombate.vidaAtual -= dano;
+                
+                if (personagem.statusCombate.vidaAtual <= 0) {
+                    adicionarLog('💀 VOCÊ MORREU!', 'erro');
+                    if (capituloAtual?.derrota) {
+                        setTimeout(() => iniciarCapitulo(capituloAtual.derrota), 2000);
+                    }
+                    return;
+                }
+                
+                atualizarFichaPersonagem();
+            }
+            
+            // Continuar com próximo inimigo
+            ataqueAtual = null;
+            setTimeout(turnoInimigos, 1000);
+        }
+
+        function calcularDanoInimigo(inimigo) {
+            // Dano base do inimigo
+            const formula = inimigo.equipamento?.arma?.dano || '1d4';
+            
+            const match = formula.match(/(\d+)d(\d+)(?:\s*([+-])\s*(\d+))?/);
+            
+            if (!match) return 1;
+            
+            const qtdDados = parseInt(match[1]) || 1;
+            const faces = parseInt(match[2]) || 4;
+            
+            let dano = 0;
+            for (let i = 0; i < qtdDados; i++) {
+                dano += Math.floor(Math.random() * faces) + 1;
+            }
+            
+            return Math.max(1, dano);
+        }
+
+        // ========== CARREGAR PERSONAGEM ==========
+        
+        async function carregarPersonagem(personagemId) {
+            try {
+                const personagemRef = doc(db, "personagens", personagemId);
+                const personagemSnap = await getDoc(personagemRef);
+                
+                if (!personagemSnap.exists()) {
+                    throw new Error('Personagem não encontrado');
+                }
+                
+                personagem = {
+                    id: personagemSnap.id,
+                    ...personagemSnap.data()
+                };
+                
+                // Garantir que statusCombate existe
+                if (!personagem.statusCombate) {
+                    const pv = (personagem.atributos?.ht?.valor || 8) * 8;
+                    const fadiga = 8 + (personagem.atributos?.ht?.bolinhas || 0);
+                    const mana = fadiga + (personagem.atributos?.iq?.valor || 5);
+                    
+                    personagem.statusCombate = {
+                        vidaAtual: pv,
+                        vidaMax: pv,
+                        fadigaAtual: fadiga,
+                        fadigaMax: fadiga,
+                        manaAtual: mana,
+                        manaMax: mana
+                    };
+                }
+                
+                atualizarFichaPersonagem();
+                
+            } catch (error) {
+                console.error('Erro ao carregar personagem:', error);
+                adicionarLog('❌ Erro ao carregar personagem!', 'erro');
+            }
+        }
+
         // ========== CARREGAR HISTÓRIA ==========
         
         async function carregarHistoria(historiaId) {
@@ -1127,215 +1754,76 @@
                 aventuraTitulo.textContent = historia.nome;
                 
                 // Inicia no primeiro capítulo
-                iniciarCapitulo(historia.capitulos[0].id);
+                iniciarCapitulo(historia.capítulos[0].id);
                 
             } catch (error) {
                 console.error('Erro ao carregar história:', error);
                 
                 // Fallback para teste
-                aventuraTitulo.textContent = 'História de Teste';
-                narrativaTexto.textContent = 'Clique em Continuar para testar o motor de jogo.';
+                aventuraTitulo.textContent = 'Masmorra dos Goblins';
+                narrativaTexto.textContent = 'Você está na entrada de uma masmorra escura...';
                 
-                opcoesContainer.innerHTML = `
-                    <button class="opcao-btn" id="btnTeste">
-                        <i class="fas fa-flask"></i> Testar Motor
-                    </button>
-                `;
+                // Inimigos de teste
+                inimigos = [
+                    {
+                        id: 'goblin1',
+                        nome: 'Goblin Guarda',
+                        pv: 12,
+                        pv_max: 12,
+                        dados: {
+                            defesa: 8
+                        },
+                        equipamento: {
+                            arma: {
+                                nome: 'Espada Curta',
+                                dano: '1d6',
+                                tipo: 'corte'
+                            }
+                        }
+                    }
+                ];
                 
-                document.getElementById('btnTeste')?.addEventListener('click', () => {
-                    adicionarLog('✅ Motor de jogo funcionando!');
-                });
+                turnoAtual = 'jogador';
+                renderizarInimigos();
+                renderizarAcoes();
+                atualizarTurnoIndicator();
             }
         }
 
         function iniciarCapitulo(capituloId) {
             if (!historia) return;
             
-            const capitulo = historia.capitulos.find(c => c.id === capituloId);
+            const capitulo = historia.capítulos.find(c => c.id === capituloId);
             if (!capitulo) return;
             
             capituloAtual = capitulo;
             
-            aventuraCapitulo.textContent = capitulo.titulo || 'Capítulo';
             narrativaTexto.textContent = capitulo.texto || '...';
             
-            // Esconde tudo
-            inimigosContainer.style.display = 'none';
-            opcoesContainer.style.display = 'none';
-            acoesCombate.style.display = 'none';
-            btnContinuar.style.display = 'none';
-            
-            if (capitulo.tipo === 'narrativa') {
-                // Mostra opções
-                if (capitulo.opcoes && capitulo.opcoes.length > 0) {
-                    opcoesContainer.style.display = 'grid';
-                    opcoesContainer.innerHTML = capitulo.opcoes.map(opcao => `
-                        <button class="opcao-btn" data-proximo="${opcao.proximo}">
-                            <i class="fas fa-arrow-right"></i> ${opcao.texto}
-                        </button>
-                    `).join('');
-                    
-                    document.querySelectorAll('.opcao-btn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            iniciarCapitulo(btn.dataset.proximo);
-                        });
-                    });
-                }
-                
-            } else if (capitulo.tipo === 'combate') {
-                // Inicia combate
-                inimigos = capitulo.inimigos.map(i => ({...i, pv: i.pv_max || i.pv}));
+            if (capitulo.tipo === 'combate' && capitulo.inimigos) {
+                inimigos = capitulo.inimigos.map(i => ({...i}));
+                turnoAtual = 'jogador';
                 renderizarInimigos();
-                
-                inimigosContainer.style.display = 'block';
-                acoesCombate.style.display = 'flex';
-                
-                adicionarLog('⚔️ COMBATE INICIADO!');
-                
-            } else if (capitulo.tipo === 'recompensa') {
-                // Dá recompensa
-                if (capitulo.xp) {
-                    personagem.xp = (personagem.xp || 0) + capitulo.xp;
-                    xpValor.textContent = personagem.xp;
-                    adicionarLog(`✨ +${capitulo.xp} XP`);
-                }
-                
-                if (capitulo.ouro) {
-                    personagem.dinheiro = (personagem.dinheiro || 0) + capitulo.ouro;
-                    dinheiroValor.textContent = personagem.dinheiro;
-                    adicionarLog(`💰 +${capitulo.ouro} moedas`);
-                }
-                
-                if (capitulo.item) {
-                    adicionarLog(`🎒 Item encontrado: ${capitulo.item}`);
-                }
-                
-                // Próximo passo
-                if (capitulo.opcoes) {
-                    opcoesContainer.style.display = 'grid';
-                    opcoesContainer.innerHTML = capitulo.opcoes.map(opcao => `
-                        <button class="opcao-btn" data-proximo="${opcao.proximo}">
+                renderizarAcoes();
+                atualizarTurnoIndicator();
+            } else if (capitulo.tipo === 'narrativa' && capitulo.opcoes) {
+                // Renderizar opções narrativas
+                let opcoesHtml = '';
+                capitulo.opcoes.forEach(opcao => {
+                    opcoesHtml += `
+                        <button class="acao-btn" data-proximo="${opcao.proximo}">
                             <i class="fas fa-arrow-right"></i> ${opcao.texto}
                         </button>
-                    `).join('');
-                    
-                    document.querySelectorAll('.opcao-btn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            iniciarCapitulo(btn.dataset.proximo);
-                        });
-                    });
-                    
-                } else if (capitulo.proximo) {
-                    btnContinuar.style.display = 'block';
-                    btnContinuar.onclick = () => iniciarCapitulo(capitulo.proximo);
-                }
-                
-            } else if (capitulo.tipo === 'final') {
-                // Fim da aventura
-                if (capitulo.xp) {
-                    personagem.xp = (personagem.xp || 0) + capitulo.xp;
-                    xpValor.textContent = personagem.xp;
-                }
-                
-                if (capitulo.ouro) {
-                    personagem.dinheiro = (personagem.dinheiro || 0) + capitulo.ouro;
-                    dinheiroValor.textContent = personagem.dinheiro;
-                }
-                
-                opcoesContainer.style.display = 'grid';
-                opcoesContainer.innerHTML = `
-                    <button class="opcao-btn" onclick="window.location.href='aventura-solo.html'">
-                        <i class="fas fa-home"></i> Voltar para Aventuras
-                    </button>
-                `;
-            }
-            
-            salvarProgresso();
-        }
-
-        function renderizarInimigos() {
-            inimigosGrid.innerHTML = inimigos.map(inimigo => `
-                <div class="inimigo-card" data-id="${inimigo.id || Math.random()}">
-                    <div class="inimigo-nome">${inimigo.nome}</div>
-                    <div class="inimigo-pv">
-                        <div class="inimigo-pv-fill" style="width: ${(inimigo.pv / (inimigo.pv_max || inimigo.pv)) * 100}%"></div>
-                    </div>
-                    <div style="font-size:0.8rem; text-align:center;">${inimigo.pv}/${inimigo.pv_max || inimigo.pv} PV</div>
-                </div>
-            `).join('');
-        }
-
-        function atacarInimigo() {
-            if (inimigos.length === 0) return;
-            
-            const inimigo = inimigos[0];
-            const st = personagem.atributos?.st?.valor || 9;
-            
-            // Rola ataque (3d6 vs DX)
-            const rolagem = rolarDados(3, 6).total;
-            const dx = personagem.atributos?.dx?.valor || 5;
-            
-            if (rolagem <= dx) {
-                const dano = calcularDano(st);
-                inimigo.pv -= dano;
-                adicionarLog(`🎯 Acertou! Dano: ${dano}`);
-                
-                if (inimigo.pv <= 0) {
-                    adicionarLog(`💀 ${inimigo.nome} derrotado!`);
-                    inimigos = inimigos.filter(i => i !== inimigo);
-                }
-            } else {
-                adicionarLog(`❌ Errou! (rolagem ${rolagem} vs NH ${dx})`);
-            }
-            
-            // Inimigos atacam de volta
-            inimigos.forEach(i => {
-                const rolagemInimigo = rolarDados(3, 6).total;
-                if (rolagemInimigo <= 10) { // Esquiva base do inimigo
-                    const dano = rolarDados(1, 4).total;
-                    personagem.statusCombate.vidaAtual -= dano;
-                    adicionarLog(`😖 ${i.nome} causou ${dano} de dano!`);
-                }
-            });
-            
-            atualizarFichaPersonagem();
-            renderizarInimigos();
-            
-            // Verifica fim de combate
-            if (inimigos.length === 0) {
-                adicionarLog('🎉 VITÓRIA!');
-                setTimeout(() => {
-                    if (capituloAtual.vitoria) {
-                        iniciarCapitulo(capituloAtual.vitoria);
-                    }
-                }, 2000);
-            }
-            
-            if (personagem.statusCombate.vidaAtual <= 0) {
-                adicionarLog('💀 VOCÊ MORREU!');
-                setTimeout(() => {
-                    if (capituloAtual.derrota) {
-                        iniciarCapitulo(capituloAtual.derrota);
-                    }
-                }, 2000);
-            }
-            
-            salvarProgresso();
-        }
-
-        async function salvarProgresso() {
-            if (!sessaoId || !currentUser) return;
-            
-            try {
-                const sessaoRef = doc(db, "sessoes_aventura", sessaoId);
-                await updateDoc(sessaoRef, {
-                    pc_atual: personagem,
-                    inimigos: inimigos,
-                    capitulo_atual: capituloAtual?.id,
-                    ultima_sessao: new Date().toISOString()
+                    `;
                 });
-            } catch (error) {
-                console.error('Erro ao salvar progresso:', error);
+                
+                acoesContainer.innerHTML = opcoesHtml;
+                
+                document.querySelectorAll('[data-proximo]').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        iniciarCapitulo(btn.dataset.proximo);
+                    });
+                });
             }
         }
 
@@ -1366,8 +1854,8 @@
                     personagem_id: personagemId,
                     aventura_id: aventuraId,
                     pc_atual: personagem,
-                    inimigos: [],
-                    capitulo_atual: "inicio",
+                    inimigos: inimigos,
+                    capitulo_atual: "entrada",
                     data_inicio: new Date().toISOString(),
                     ultima_sessao: new Date().toISOString(),
                     status: "em_andamento"
@@ -1383,47 +1871,18 @@
 
         // ========== EVENT LISTENERS ==========
         
-        btnAtacar.addEventListener('click', atacarInimigo);
-        
-        btnMagia.addEventListener('click', () => {
-            adicionarLog('🔮 Funcionalidade de magias em breve...');
+        btnCancelarAtaque.addEventListener('click', () => {
+            modalAtaque.classList.remove('active');
         });
         
-        btnItem.addEventListener('click', () => {
-            adicionarLog('🎒 Funcionalidade de itens em breve...');
+        btnConfirmarAtaque.addEventListener('click', executarAtaque);
+        
+        btnCancelarDefesa.addEventListener('click', () => {
+            modalDefesa.classList.remove('active');
         });
         
-        btnFugir.addEventListener('click', () => {
-            if (capituloAtual?.derrota) {
-                adicionarLog('🏃 Você fugiu do combate!');
-                iniciarCapitulo(capituloAtual.derrota);
-            }
-        });
+        btnConfirmarDefesa.addEventListener('click', executarDefesa);
         
-        btnPericias.addEventListener('click', () => {
-            adicionarLog('📚 Suas perícias estão disponíveis');
-        });
-        
-        btnMagias.addEventListener('click', () => {
-            adicionarLog('🔮 Suas magias estão disponíveis');
-        });
-        
-        btnInventario.addEventListener('click', () => {
-            adicionarLog('🎒 Abrindo inventário...');
-        });
-        
-        btnDescansar.addEventListener('click', () => {
-            if (personagem.statusCombate.vidaAtual < personagem.statusCombate.vidaMax) {
-                const cura = Math.min(5, personagem.statusCombate.vidaMax - personagem.statusCombate.vidaAtual);
-                personagem.statusCombate.vidaAtual += cura;
-                atualizarFichaPersonagem();
-                adicionarLog(`💤 Você descansou e recuperou ${cura} PV`);
-            } else {
-                adicionarLog('💤 Você já está com vida cheia');
-            }
-        });
-        
-        // Dados
         btnAbrirDados.addEventListener('click', () => {
             modalDados.classList.add('active');
         });
@@ -1439,7 +1898,30 @@
             
             const resultado = rolarDados(qtd, faces, mod);
             dadosResultado.textContent = resultado.texto;
-            adicionarLog(`🎲 Rolagem: ${resultado.texto}`);
+            adicionarLog(`🎲 Rolagem: ${resultado.texto}`, 'info');
+        });
+        
+        btnPericias.addEventListener('click', () => {
+            adicionarLog('📚 Perícias disponíveis', 'info');
+        });
+        
+        btnMagias.addEventListener('click', () => {
+            adicionarLog('🔮 Sistema de magias em desenvolvimento', 'info');
+        });
+        
+        btnInventario.addEventListener('click', () => {
+            adicionarLog('🎒 Abrindo inventário...', 'info');
+        });
+        
+        btnDescansar.addEventListener('click', () => {
+            if (personagem.statusCombate.vidaAtual < personagem.statusCombate.vidaMax) {
+                const cura = Math.min(5, personagem.statusCombate.vidaMax - personagem.statusCombate.vidaAtual);
+                personagem.statusCombate.vidaAtual += cura;
+                atualizarFichaPersonagem();
+                adicionarLog(`💤 Você descansou e recuperou ${cura} PV`, 'sucesso');
+            } else {
+                adicionarLog('💤 Você já está com vida cheia', 'info');
+            }
         });
 
         // Auth
@@ -1452,9 +1934,11 @@
             }
         });
 
-        // Fechar modal com ESC
+        // Fechar modais com ESC
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modalDados.classList.contains('active')) {
+            if (e.key === 'Escape') {
+                modalAtaque.classList.remove('active');
+                modalDefesa.classList.remove('active');
                 modalDados.classList.remove('active');
             }
         });
