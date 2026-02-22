@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aventura Solo - RPGForce</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #2a1a3a 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .magic-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .magic-bg::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        .magic-bg::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 80% 80%, rgba(198, 40, 40, 0.1) 0%, transparent 50%);
+            animation: pulse 10s ease-in-out infinite reverse;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .navbar {
+            background: rgba(10, 10, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo-area h2 {
+            font-family: 'MedievalSharp', cursive;
+            font-size: 1.3rem;
+            background: linear-gradient(45deg, #ffd700, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .user-id {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 12px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .user-id i {
+            color: #ffd700;
+        }
+
+        .user-id .value {
+            color: #ffd700;
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .user-nick {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 6px 15px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .user-nick i {
+            color: #ffd700;
+        }
+
+        .btn-sair {
+            background: transparent;
+            border: 2px solid rgba(255, 107, 107, 0.5);
+            color: #ff6b6b;
+            padding: 6px 15px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-sair:hover {
+            background: #ff6b6b;
+            color: #0a0a1a;
+            border-color: #ff6b6b;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb a {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .breadcrumb a:hover {
+            color: #ffd700;
+        }
+
+        .breadcrumb i {
+            font-size: 0.7rem;
+            color: rgba(255, 215, 0, 0.5);
+        }
+
+        .breadcrumb .current {
+            color: #ffd700;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .page-header h1 {
+            font-family: 'MedievalSharp', cursive;
+            font-size: 2rem;
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            color: #0a0a1a;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            text-decoration: none;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            color: #ffd700;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-color: #ffd700;
+            transform: translateY(-2px);
+        }
+
+        .aventuras-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .aventura-card {
+            background: rgba(10, 10, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 25px;
+            padding: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .aventura-card:hover {
+            transform: translateY(-5px);
+            border-color: #ffd700;
+            box-shadow: 0 20px 40px rgba(255, 215, 0, 0.2);
+        }
+
+        .aventura-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .aventura-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #0a0a1a;
+        }
+
+        .aventura-info h3 {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+
+        .aventura-meta {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .aventura-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status-nova {
+            background: rgba(255, 170, 0, 0.2);
+            color: #ffaa00;
+            border: 1px solid #ffaa00;
+        }
+
+        .status-andamento {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+
+        .status-concluida {
+            background: rgba(100, 100, 255, 0.2);
+            color: #6464ff;
+            border: 1px solid #6464ff;
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            background: rgba(10, 10, 26, 0.6);
+            border: 2px dashed rgba(255, 215, 0, 0.3);
+            border-radius: 30px;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: rgba(255, 215, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .empty-state p {
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 5000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a3a;
+            border: 2px solid #ffd700;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h2 {
+            font-family: 'MedievalSharp', cursive;
+            color: #ffd700;
+            margin-bottom: 20px;
+        }
+
+        .personagem-lista {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .personagem-option {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .personagem-option:hover {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: #ffd700;
+        }
+
+        .personagem-option.selected {
+            background: rgba(255, 215, 0, 0.3);
+            border-color: #ffd700;
+        }
+
+        .personagem-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #0a0a1a;
+        }
+
+        .personagem-info {
+            flex: 1;
+        }
+
+        .personagem-nome {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .personagem-classe {
+            color: #ffd700;
+            font-size: 0.85rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 26, 0.9);
+            z-index: 4000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 215, 0, 0.2);
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: #ffd700;
+            font-size: 1.2rem;
+            font-family: 'MedievalSharp', cursive;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .aventuras-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="magic-bg"></div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Preparando aventura...</div>
+    </div>
+
+    <!-- Modal de escolher personagem -->
+    <div class="modal" id="modalEscolherPersonagem">
+        <div class="modal-content">
+            <h2><i class="fas fa-dragon"></i> Escolha seu Personagem</h2>
+            <div class="personagem-lista" id="personagemLista">
+                <!-- Personagens serão carregados aqui -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="cancelarEscolha">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button class="btn-primary" id="confirmarEscolha" disabled>
+                    <i class="fas fa-play"></i> Iniciar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo-area">
+                <h2>RPGForce</h2>
+            </div>
+            <div class="user-info">
+                <div class="user-id">
+                    <i class="fas fa-id-card"></i>
+                    <span class="value" id="displayIdPc">--------</span>
+                </div>
+                <div class="user-nick">
+                    <i class="fas fa-user"></i>
+                    <span id="displayNickname">Aventureiro</span>
+                </div>
+                <button class="btn-sair" id="btnSair">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
+        </nav>
+
+        <div class="breadcrumb">
+            <a href="dashboard-pc.html"><i class="fas fa-home"></i> Dashboard</a>
+            <i class="fas fa-chevron-right"></i>
+            <span class="current">Aventura Solo</span>
+        </div>
+
+        <div class="page-header">
+            <h1>
+                <i class="fas fa-scroll"></i> 
+                Aventuras Solo
+            </h1>
+            <button class="btn-primary" id="btnCriarAventura">
+                <i class="fas fa-plus-circle"></i> 
+                Criar Nova Aventura
+            </button>
+        </div>
+
+        <!-- Grid de Aventuras -->
+        <div class="aventuras-grid" id="aventurasGrid">
+            <!-- Aventuras serão carregadas aqui -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { 
+            getAuth, 
+            signOut,
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc,
+            getDoc,
+            collection,
+            query,
+            where,
+            getDocs,
+            orderBy
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+            authDomain: "rpgforce-e3227.firebaseapp.com",
+            projectId: "rpgforce-e3227",
+            storageBucket: "rpgforce-e3227.firebasestorage.app",
+            messagingSenderId: "984517342332",
+            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Elementos do DOM
+        const displayIdPc = document.getElementById('displayIdPc');
+        const displayNickname = document.getElementById('displayNickname');
+        const btnSair = document.getElementById('btnSair');
+        const btnCriarAventura = document.getElementById('btnCriarAventura');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const aventurasGrid = document.getElementById('aventurasGrid');
+        
+        // Modal elementos
+        const modalEscolherPersonagem = document.getElementById('modalEscolherPersonagem');
+        const personagemLista = document.getElementById('personagemLista');
+        const cancelarEscolha = document.getElementById('cancelarEscolha');
+        const confirmarEscolha = document.getElementById('confirmarEscolha');
+
+        // Variáveis globais
+        let currentUser = null;
+        let userData = null;
+        let aventuras = [];
+        let personagens = [];
+        let aventuraSelecionada = null;
+        let personagemSelecionado = null;
+
+        function showLoading() {
+            loadingOverlay.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        // Função para buscar o nome da classe (adaptada do seu código)
+        function getClasseNome(classe) {
+            const nomes = {
+                guerreiro: 'Guerreiro',
+                mago: 'Mago',
+                ladino: 'Ladino',
+                clerigo: 'Clérigo',
+                barbaro: 'Bárbaro'
+            };
+            return nomes[classe] || classe;
+        }
+
+        // Função para buscar ícone da classe
+        function getClasseIcon(classe) {
+            const icons = {
+                guerreiro: 'fa-shield-alt',
+                mago: 'fa-magic',
+                ladino: 'fa-mask',
+                clerigo: 'fa-cross',
+                barbaro: 'fa-axe'
+            };
+            return icons[classe] || 'fa-user';
+        }
+
+        // Função para carregar aventuras
+        async function carregarAventuras() {
+            if (!currentUser) return;
+            
+            try {
+                showLoading();
+                
+                // Aqui você carrega as aventuras do seu Firebase
+                // Exemplo: buscando da coleção "aventuras"
+                const q = query(
+                    collection(db, "aventuras"),
+                    where("userId", "==", currentUser.uid),
+                    orderBy("createdAt", "desc")
+                );
+                
+                const querySnapshot = await getDocs(q);
+                
+                aventuras = [];
+                querySnapshot.forEach((doc) => {
+                    aventuras.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                renderizarAventuras();
+                
+            } catch (error) {
+                console.error('Erro ao carregar aventuras:', error);
+                aventurasGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Erro ao carregar aventuras</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Função para renderizar aventuras
+        function renderizarAventuras() {
+            if (aventuras.length === 0) {
+                aventurasGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-scroll"></i>
+                        <h3>Nenhuma aventura encontrada</h3>
+                        <p>Comece criando sua primeira aventura solo!</p>
+                        <button class="btn-primary" onclick="document.getElementById('btnCriarAventura').click()">
+                            <i class="fas fa-plus-circle"></i> Criar Aventura
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            aventurasGrid.innerHTML = aventuras.map(aventura => {
+                // Determine a classe de status baseado no status da aventura
+                let statusClass = 'status-nova';
+                let statusText = 'Nova';
+                
+                if (aventura.status === 'andamento') {
+                    statusClass = 'status-andamento';
+                    statusText = 'Em Andamento';
+                } else if (aventura.status === 'concluida') {
+                    statusClass = 'status-concluida';
+                    statusText = 'Concluída';
+                }
+                
+                return `
+                    <div class="aventura-card" data-id="${aventura.id}">
+                        <div class="aventura-header">
+                            <div class="aventura-icon">
+                                <i class="fas fa-scroll"></i>
+                            </div>
+                            <div class="aventura-info">
+                                <h3>${aventura.nome || 'Aventura sem nome'}</h3>
+                                <div class="aventura-meta">
+                                    <span><i class="fas fa-level-up-alt"></i> Nível ${aventura.nivel_min || 1}-${aventura.nivel_max || 3}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color: rgba(255,255,255,0.7); margin: 10px 0; font-size: 0.9rem;">
+                            ${aventura.descricao || 'Uma nova aventura espera por você...'}
+                        </p>
+                        <div class="aventura-status ${statusClass}">${statusText}</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Adicionar evento de clique nos cards
+            document.querySelectorAll('.aventura-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const aventuraId = card.dataset.id;
+                    abrirModalPersonagem(aventuraId);
+                });
+            });
+        }
+
+        // Função para carregar personagens do usuário
+        async function carregarPersonagens() {
+            if (!currentUser) return [];
+            
+            try {
+                const q = query(
+                    collection(db, "personagens"),
+                    where("userId", "==", currentUser.uid),
+                    orderBy("updatedAt", "desc")
+                );
+                
+                const querySnapshot = await getDocs(q);
+                const lista = [];
+                querySnapshot.forEach((doc) => {
+                    lista.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                return lista;
+            } catch (error) {
+                console.error('Erro ao carregar personagens:', error);
+                return [];
+            }
+        }
+
+        // Função para abrir modal de escolha de personagem
+        async function abrirModalPersonagem(aventuraId) {
+            showLoading();
+            aventuraSelecionada = aventuraId;
+            personagens = await carregarPersonagens();
+            
+            if (personagens.length === 0) {
+                if (confirm('Você não tem personagens. Deseja criar um agora?')) {
+                    window.location.href = 'criar-personagem.html';
+                }
+                hideLoading();
+                return;
+            }
+            
+            // Renderizar lista de personagens
+            personagemLista.innerHTML = personagens.map(p => {
+                const classeIcon = getClasseIcon(p.classe);
+                const classeNome = getClasseNome(p.classe);
+                
+                return `
+                    <div class="personagem-option" data-id="${p.id}">
+                        <div class="personagem-avatar">
+                            <i class="fas ${classeIcon}"></i>
+                        </div>
+                        <div class="personagem-info">
+                            <div class="personagem-nome">${p.nome}</div>
+                            <div class="personagem-classe">
+                                <i class="fas ${classeIcon}"></i>
+                                ${classeNome}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Adicionar eventos de seleção
+            document.querySelectorAll('.personagem-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    document.querySelectorAll('.personagem-option').forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    personagemSelecionado = opt.dataset.id;
+                    confirmarEscolha.disabled = false;
+                });
+            });
+            
+            modalEscolherPersonagem.classList.add('active');
+            hideLoading();
+        }
+
+        // Função para iniciar aventura
+        function iniciarAventura() {
+            if (!aventuraSelecionada || !personagemSelecionado) return;
+            
+            // Aqui você decide para onde vai
+            // Por enquanto, apenas mostra uma mensagem
+            alert(`Aventura ${aventuraSelecionada} iniciada com personagem ${personagemSelecionado}`);
+            
+            // Exemplo de redirecionamento:
+            // window.location.href = `sala-aventura.html?aventura=${aventuraSelecionada}&personagem=${personagemSelecionado}`;
+            
+            modalEscolherPersonagem.classList.remove('active');
+            personagemSelecionado = null;
+            confirmarEscolha.disabled = true;
+        }
+
+        // Carregar dados do usuário
+        async function carregarDadosUsuario(user) {
+            if (!user) return;
+            
+            try {
+                currentUser = user;
+                
+                const docRef = doc(db, "usuarios", user.uid);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    userData = docSnap.data();
+                    displayIdPc.textContent = userData.id_pc || '--------';
+                    displayNickname.textContent = userData.nickname || 'Aventureiro';
+                }
+                
+                await carregarAventuras();
+                
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+            }
+        }
+
+        // Auth state observer
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                await carregarDadosUsuario(user);
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        // Event Listeners
+        btnSair.addEventListener('click', async () => {
+            try {
+                showLoading();
+                await signOut(auth);
+                sessionStorage.clear();
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Erro ao sair:', error);
+                hideLoading();
+            }
+        });
+
+        btnCriarAventura.addEventListener('click', () => {
+            // Redirecionar para página de criar aventura
+            alert('Funcionalidade de criar aventura será implementada em breve!');
+            // window.location.href = 'criar-aventura.html';
+        });
+
+        cancelarEscolha.addEventListener('click', () => {
+            modalEscolherPersonagem.classList.remove('active');
+            personagemSelecionado = null;
+            aventuraSelecionada = null;
+            confirmarEscolha.disabled = true;
+        });
+
+        confirmarEscolha.addEventListener('click', iniciarAventura);
+    </script>
+</body>
+</html>
