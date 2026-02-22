@@ -1314,944 +1314,970 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        // Config Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    // Config Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+        authDomain: "rpgforce-e3227.firebaseapp.com",
+        projectId: "rpgforce-e3227",
+        storageBucket: "rpgforce-e3227.firebasestorage.app",
+        messagingSenderId: "984517342332",
+        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // ===== ELEMENTOS DOM =====
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Header
+    const headerAvatar = document.getElementById('headerAvatar');
+    const headerNome = document.getElementById('headerNome');
+    const headerClasse = document.getElementById('headerClasse');
+    const headerPV = document.getElementById('headerPV');
+    const headerPVBarra = document.getElementById('headerPVBarra');
+    const headerMana = document.getElementById('headerMana');
+    const headerManaBarra = document.getElementById('headerManaBarra');
+    const headerFadiga = document.getElementById('headerFadiga');
+    const headerFadigaBarra = document.getElementById('headerFadigaBarra');
+    const headerXP = document.getElementById('headerXP');
+    const headerXPBarra = document.getElementById('headerXPBarra');
+    const pmValor = document.getElementById('pmValor');
+    
+    // Ficha
+    const fichaAvatar = document.getElementById('fichaAvatar');
+    const fichaNome = document.getElementById('fichaNome');
+    const fichaClasse = document.getElementById('fichaClasse');
+    const atributosContainer = document.getElementById('atributosContainer');
+    const defesasGrid = document.getElementById('defesasGrid');
+    const itensRapidosLista = document.getElementById('itensRapidosLista');
+    const cargaRapida = document.getElementById('cargaRapida');
+    const vantagensMini = document.getElementById('vantagensMini');
+    const bolinhasSaldoContainer = document.getElementById('bolinhasSaldoContainer');
+    const bolinhasSaldo = document.getElementById('bolinhasSaldo');
+    
+    // Cenário e diálogo
+    const cenarioArea = document.getElementById('cenarioArea');
+    const npcsContainer = document.getElementById('npcsContainer');
+    const npcFalando = document.getElementById('npcFalando');
+    const npcAvatar = document.getElementById('npcAvatar');
+    const npcNome = document.getElementById('npcNome');
+    const dialogoTexto = document.getElementById('dialogoTexto');
+    const opcoesDialogo = document.getElementById('opcoesDialogo');
+    
+    // Ações
+    const turnoIndicator = document.getElementById('turnoIndicator');
+    const btnAtacar = document.getElementById('btnAtacar');
+    const btnMagia = document.getElementById('btnMagia');
+    const btnInventario = document.getElementById('btnInventario');
+    const btnDescansar = document.getElementById('btnDescansar');
+    const inimigosContainer = document.getElementById('inimigosContainer');
+    const inimigosLista = document.getElementById('inimigosLista');
+    const logContainer = document.getElementById('logContainer');
+    
+    // Modais
+    const modalEscolhaAtributo = document.getElementById('modalEscolhaAtributo');
+    const modalInventario = document.getElementById('modalInventario');
+    const modalAtaque = document.getElementById('modalAtaque');
+    const modalDefesa = document.getElementById('modalDefesa');
+    const modalDados = document.getElementById('modalDados');
+    
+    const bolinhasDisponiveisModal = document.getElementById('bolinhasDisponiveisModal');
+    const valorStModal = document.getElementById('valorStModal');
+    const valorDxModal = document.getElementById('valorDxModal');
+    const valorIqModal = document.getElementById('valorIqModal');
+    const valorHtModal = document.getElementById('valorHtModal');
+    
+    const cancelarEscolhaAtributo = document.getElementById('cancelarEscolhaAtributo');
+    const fecharModalInventario = document.getElementById('fecharModalInventario');
+    
+    const armasLista = document.getElementById('armasLista');
+    const btnCancelarAtaque = document.getElementById('btnCancelarAtaque');
+    const btnConfirmarAtaque = document.getElementById('btnConfirmarAtaque');
+    
+    const defesaContexto = document.getElementById('defesaContexto');
+    const defesasLista = document.getElementById('defesasLista');
+    const btnCancelarDefesa = document.getElementById('btnCancelarDefesa');
+    const btnConfirmarDefesa = document.getElementById('btnConfirmarDefesa');
+    
+    const btnAbrirDados = document.getElementById('btnAbrirDados');
+    const btnFecharDados = document.getElementById('btnFecharDados');
+    const btnRolarDados = document.getElementById('btnRolarDados');
+    const dadosResultado = document.getElementById('dadosResultado');
+    const dadosQtd = document.getElementById('dadosQtd');
+    const dadosFaces = document.getElementById('dadosFaces');
+    const dadosMod = document.getElementById('dadosMod');
+
+    // ===== ESTADO DO JOGO =====
+    let currentUser = null;
+    let personagem = null;
+    let historia = null;
+    let capituloAtual = null;
+    let inimigos = [];
+    let sessaoId = null;
+    
+    let turnoAtual = 'jogador';
+    let inimigoSelecionado = null;
+    let armaSelecionada = null;
+    let defesaSelecionada = null;
+    let ataqueAtual = null;
+
+    // Status do personagem
+    let pvAtual = 0;
+    let pvMax = 0;
+    let fadigaAtual = 0;
+    let fadigaMax = 0;
+    let manaAtual = 0;
+    let manaMax = 0;
+    let xpAtual = 0;
+    let pmAtual = 0;
+    let bolinhasDisponiveis = 0;
+
+    const XP_POR_BOLINHA = 100;
+
+    // ===== FUNÇÕES AUXILIARES =====
+    function showLoading() {
+        loadingOverlay.classList.add('active');
+    }
+
+    function hideLoading() {
+        loadingOverlay.classList.remove('active');
+    }
+
+    function adicionarLog(mensagem, tipo = 'info') {
+        const logItem = document.createElement('div');
+        logItem.className = `log-item ${tipo}`;
+        logItem.innerHTML = mensagem;
+        logContainer.appendChild(logItem);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        
+        while (logContainer.children.length > 50) {
+            logContainer.removeChild(logContainer.firstChild);
+        }
+    }
+
+    function rolarDados(quantidade, faces, modificador = 0) {
+        let total = 0;
+        let resultados = [];
+        
+        for (let i = 0; i < quantidade; i++) {
+            const resultado = Math.floor(Math.random() * faces) + 1;
+            resultados.push(resultado);
+            total += resultado;
+        }
+        
+        total += modificador;
+        
+        return {
+            total: total,
+            resultados: resultados,
+            modificador: modificador,
+            texto: `${resultados.join(' + ')} ${modificador >= 0 ? '+' : '-'} ${Math.abs(modificador)} = ${total}`
         };
+    }
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    function rolar2d10() {
+        return rolarDados(2, 10, 0);
+    }
 
-        // ===== ELEMENTOS DOM =====
-        const loadingOverlay = document.getElementById('loadingOverlay');
+    // ===== FUNÇÕES DE ATRIBUTOS =====
+    function getValorAtributo(atributo) {
+        if (!personagem || !personagem.atributos) return 0;
         
-        // Header
-        const headerAvatar = document.getElementById('headerAvatar');
-        const headerNome = document.getElementById('headerNome');
-        const headerClasse = document.getElementById('headerClasse');
-        const headerPV = document.getElementById('headerPV');
-        const headerPVBarra = document.getElementById('headerPVBarra');
-        const headerMana = document.getElementById('headerMana');
-        const headerManaBarra = document.getElementById('headerManaBarra');
-        const headerFadiga = document.getElementById('headerFadiga');
-        const headerFadigaBarra = document.getElementById('headerFadigaBarra');
-        const headerXP = document.getElementById('headerXP');
-        const headerXPBarra = document.getElementById('headerXPBarra');
-        const pmValor = document.getElementById('pmValor');
+        const base = { st: 9, dx: 5, iq: 5, ht: 8 }[atributo];
+        const bolinhas = personagem.atributos[atributo]?.bolinhas || 0;
+        return base + bolinhas;
+    }
+
+    function calcularManaMax() {
+        const iq = getValorAtributo('iq');
+        const ht = getValorAtributo('ht');
+        return iq + ht;
+    }
+
+    function calcularPVMax() {
+        const ht = getValorAtributo('ht');
+        return ht * 8;
+    }
+
+    function calcularFadigaMax() {
+        return 8 + (personagem?.atributos?.ht?.bolinhas || 0);
+    }
+
+    function calcularPMAtual() {
+        if (!personagem) return 0;
+        const disponivel = personagem.pmDisponivel || 30;
+        const gasto = personagem.pmGasto || 0;
+        return Math.max(0, disponivel - gasto);
+    }
+
+    // ===== SISTEMA DE BOLINHAS =====
+    function verificarGanhoBolinha() {
+        if (!personagem) return;
         
-        // Ficha
-        const fichaAvatar = document.getElementById('fichaAvatar');
-        const fichaNome = document.getElementById('fichaNome');
-        const fichaClasse = document.getElementById('fichaClasse');
-        const atributosContainer = document.getElementById('atributosContainer');
-        const defesasGrid = document.getElementById('defesasGrid');
-        const itensRapidosLista = document.getElementById('itensRapidosLista');
-        const cargaRapida = document.getElementById('cargaRapida');
-        const vantagensMini = document.getElementById('vantagensMini');
-        const bolinhasSaldoContainer = document.getElementById('bolinhasSaldoContainer');
-        const bolinhasSaldo = document.getElementById('bolinhasSaldo');
+        const stBolinhas = personagem.atributos?.st?.bolinhas || 0;
+        const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
+        const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
+        const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
         
-        // Cenário e diálogo
-        const cenarioArea = document.getElementById('cenarioArea');
-        const npcsContainer = document.getElementById('npcsContainer');
-        const npcFalando = document.getElementById('npcFalando');
-        const npcAvatar = document.getElementById('npcAvatar');
-        const npcNome = document.getElementById('npcNome');
-        const dialogoTexto = document.getElementById('dialogoTexto');
-        const opcoesDialogo = document.getElementById('opcoesDialogo');
+        const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
+        const xpNecessario = (totalBolinhas + bolinhasDisponiveis + 1) * XP_POR_BOLINHA;
         
-        // Ações
-        const turnoIndicator = document.getElementById('turnoIndicator');
-        const btnAtacar = document.getElementById('btnAtacar');
-        const btnMagia = document.getElementById('btnMagia');
-        const btnInventario = document.getElementById('btnInventario');
-        const btnDescansar = document.getElementById('btnDescansar');
-        const inimigosContainer = document.getElementById('inimigosContainer');
-        const inimigosLista = document.getElementById('inimigosLista');
-        const logContainer = document.getElementById('logContainer');
+        while (xpAtual >= xpNecessario) {
+            bolinhasDisponiveis++;
+            xpAtual -= xpNecessario;
+            adicionarLog(`🌟 Você ganhou uma bolinha! (Total: ${bolinhasDisponiveis} disponíveis)`, 'sucesso');
+            
+            const novoTotal = totalBolinhas + bolinhasDisponiveis;
+            const proximoXP = (novoTotal + 1) * XP_POR_BOLINHA;
+            headerXP.textContent = `${xpAtual}/${proximoXP}`;
+            headerXPBarra.style.width = (xpAtual / proximoXP * 100) + '%';
+        }
         
-        // Modais
-        const modalEscolhaAtributo = document.getElementById('modalEscolhaAtributo');
-        const modalInventario = document.getElementById('modalInventario');
-        const modalAtaque = document.getElementById('modalAtaque');
-        const modalDefesa = document.getElementById('modalDefesa');
-        const modalDados = document.getElementById('modalDados');
-        
-        const bolinhasDisponiveisModal = document.getElementById('bolinhasDisponiveisModal');
-        const valorStModal = document.getElementById('valorStModal');
-        const valorDxModal = document.getElementById('valorDxModal');
-        const valorIqModal = document.getElementById('valorIqModal');
-        const valorHtModal = document.getElementById('valorHtModal');
-        
-        const cancelarEscolhaAtributo = document.getElementById('cancelarEscolhaAtributo');
-        const fecharModalInventario = document.getElementById('fecharModalInventario');
-        
-        const armasLista = document.getElementById('armasLista');
-        const btnCancelarAtaque = document.getElementById('btnCancelarAtaque');
-        const btnConfirmarAtaque = document.getElementById('btnConfirmarAtaque');
-        
-        const defesaContexto = document.getElementById('defesaContexto');
-        const defesasLista = document.getElementById('defesasLista');
-        const btnCancelarDefesa = document.getElementById('btnCancelarDefesa');
-        const btnConfirmarDefesa = document.getElementById('btnConfirmarDefesa');
-        
-        const btnAbrirDados = document.getElementById('btnAbrirDados');
-        const btnFecharDados = document.getElementById('btnFecharDados');
-        const btnRolarDados = document.getElementById('btnRolarDados');
-        const dadosResultado = document.getElementById('dadosResultado');
-        const dadosQtd = document.getElementById('dadosQtd');
-        const dadosFaces = document.getElementById('dadosFaces');
-        const dadosMod = document.getElementById('dadosMod');
+        atualizarInterfaceBolinhas();
+    }
 
-        // ===== ESTADO DO JOGO =====
-        let currentUser = null;
-        let personagem = null;
-        let historia = null;
-        let capituloAtual = null;
-        let inimigos = [];
-        let sessaoId = null;
-        
-        let turnoAtual = 'jogador';
-        let inimigoSelecionado = null;
-        let armaSelecionada = null;
-        let defesaSelecionada = null;
-        let ataqueAtual = null;
-
-        // Status do personagem
-        let pvAtual = 0;
-        let pvMax = 0;
-        let fadigaAtual = 0;
-        let fadigaMax = 0;
-        let manaAtual = 0;
-        let manaMax = 0;
-        let xpAtual = 0;
-        let pmAtual = 0;
-        let bolinhasDisponiveis = 0;
-
-        const XP_POR_BOLINHA = 100;
-
-        // ===== FUNÇÕES AUXILIARES =====
-        function showLoading() {
-            loadingOverlay.classList.add('active');
-        }
-
-        function hideLoading() {
-            loadingOverlay.classList.remove('active');
-        }
-
-        function adicionarLog(mensagem, tipo = 'info') {
-            const logItem = document.createElement('div');
-            logItem.className = `log-item ${tipo}`;
-            logItem.innerHTML = mensagem;
-            logContainer.appendChild(logItem);
-            logContainer.scrollTop = logContainer.scrollHeight;
-            
-            while (logContainer.children.length > 50) {
-                logContainer.removeChild(logContainer.firstChild);
-            }
-        }
-
-        function rolarDados(quantidade, faces, modificador = 0) {
-            let total = 0;
-            let resultados = [];
-            
-            for (let i = 0; i < quantidade; i++) {
-                const resultado = Math.floor(Math.random() * faces) + 1;
-                resultados.push(resultado);
-                total += resultado;
-            }
-            
-            total += modificador;
-            
-            return {
-                total: total,
-                resultados: resultados,
-                modificador: modificador,
-                texto: `${resultados.join(' + ')} ${modificador >= 0 ? '+' : '-'} ${Math.abs(modificador)} = ${total}`
-            };
-        }
-
-        function rolar2d10() {
-            return rolarDados(2, 10, 0);
-        }
-
-        // ===== FUNÇÕES DE ATRIBUTOS =====
-        function getValorAtributo(atributo) {
-            if (!personagem || !personagem.atributos) return 0;
-            
-            const base = { st: 9, dx: 5, iq: 5, ht: 8 }[atributo];
-            const bolinhas = personagem.atributos[atributo]?.bolinhas || 0;
-            return base + bolinhas;
-        }
-
-        function calcularManaMax() {
-            const iq = getValorAtributo('iq');
-            const ht = getValorAtributo('ht');
-            return iq + ht;
-        }
-
-        function calcularPVMax() {
-            const ht = getValorAtributo('ht');
-            return ht * 8;
-        }
-
-        function calcularFadigaMax() {
-            return 8 + (personagem?.atributos?.ht?.bolinhas || 0);
-        }
-
-        function calcularPMAtual() {
-            if (!personagem) return 0;
-            const disponivel = personagem.pmDisponivel || 30;
-            const gasto = personagem.pmGasto || 0;
-            return Math.max(0, disponivel - gasto);
-        }
-
-        // ===== SISTEMA DE BOLINHAS =====
-        function verificarGanhoBolinha() {
-            if (!personagem) return;
-            
-            const stBolinhas = personagem.atributos?.st?.bolinhas || 0;
-            const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
-            const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
-            const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
-            
-            const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
-            const xpNecessario = (totalBolinhas + bolinhasDisponiveis + 1) * XP_POR_BOLINHA;
-            
-            while (xpAtual >= xpNecessario) {
-                bolinhasDisponiveis++;
-                xpAtual -= xpNecessario;
-                adicionarLog(`🌟 Você ganhou uma bolinha! (Total: ${bolinhasDisponiveis} disponíveis)`, 'sucesso');
-                
-                const novoTotal = totalBolinhas + bolinhasDisponiveis;
-                const proximoXP = (novoTotal + 1) * XP_POR_BOLINHA;
-                headerXP.textContent = `${xpAtual}/${proximoXP}`;
-                headerXPBarra.style.width = (xpAtual / proximoXP * 100) + '%';
-            }
-            
-            atualizarInterfaceBolinhas();
-        }
-
-        function atualizarInterfaceBolinhas() {
-            if (bolinhasDisponiveis > 0) {
-                bolinhasSaldoContainer.style.display = 'flex';
-                bolinhasSaldo.textContent = bolinhasDisponiveis;
-                
-                document.querySelectorAll('.atributo-card').forEach(card => {
-                    card.classList.add('bolinha-disponivel');
-                });
-            } else {
-                bolinhasSaldoContainer.style.display = 'none';
-                document.querySelectorAll('.atributo-card').forEach(card => {
-                    card.classList.remove('bolinha-disponivel');
-                });
-            }
-        }
-
-        function abrirModalEscolhaAtributo() {
-            if (bolinhasDisponiveis <= 0) return;
-            
-            valorStModal.textContent = getValorAtributo('st');
-            valorDxModal.textContent = getValorAtributo('dx');
-            valorIqModal.textContent = getValorAtributo('iq');
-            valorHtModal.textContent = getValorAtributo('ht');
-            bolinhasDisponiveisModal.textContent = bolinhasDisponiveis;
-            
-            modalEscolhaAtributo.classList.add('active');
-        }
-
-        function adicionarBolinha(atributo) {
-            if (bolinhasDisponiveis <= 0) return;
-            
-            if (!personagem.atributos[atributo]) {
-                personagem.atributos[atributo] = { bolinhas: 0 };
-            }
-            personagem.atributos[atributo].bolinhas = (personagem.atributos[atributo].bolinhas || 0) + 1;
-            bolinhasDisponiveis--;
-            
-            pvMax = calcularPVMax();
-            manaMax = calcularManaMax();
-            fadigaMax = calcularFadigaMax();
-            
-            adicionarLog(`✨ Bolinha adicionada em ${atributo.toUpperCase()}! (${bolinhasDisponiveis} restantes)`, 'sucesso');
-            
-            atualizarFichaPersonagem();
-            salvarProgresso();
-            
-            if (bolinhasDisponiveis > 0) {
-                abrirModalEscolhaAtributo();
-            } else {
-                modalEscolhaAtributo.classList.remove('active');
-            }
-        }
-
-        // ===== FUNÇÕES DE INVENTÁRIO =====
-        function abrirModalInventario() {
-            if (!personagem || !personagem.inventario) return;
-            
-            const equipado = document.getElementById('inventarioEquipado');
-            const mochila = document.getElementById('inventarioMochila');
-            const deposito = document.getElementById('inventarioDeposito');
-            const modalDinheiro = document.getElementById('modalDinheiro');
-            const modalCarga = document.getElementById('modalCarga');
-            
-            equipado.innerHTML = '';
-            if (personagem.inventario.corpo && personagem.inventario.corpo.length > 0) {
-                personagem.inventario.corpo.forEach(item => {
-                    equipado.innerHTML += `
-                        <div class="item-card">
-                            <div class="nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
-                            <div class="detalhes">
-                                <span>${item.peso || 0} kg</span>
-                                <span>${item.preco || 0} $</span>
-                            </div>
-                            <div class="item-acoes">
-                                <button class="item-acao" onclick="guardarItem('${item.id}')">Guardar</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                equipado.innerHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Nada equipado</div>';
-            }
-            
-            mochila.innerHTML = '';
-            if (personagem.inventario.mochila && personagem.inventario.mochila.length > 0) {
-                personagem.inventario.mochila.forEach(item => {
-                    mochila.innerHTML += `
-                        <div class="item-card">
-                            <div class="nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
-                            <div class="detalhes">
-                                <span>${item.peso || 0} kg</span>
-                                <span>${item.preco || 0} $</span>
-                            </div>
-                            <div class="item-acoes">
-                                <button class="item-acao" onclick="equiparItem('${item.id}')">Equipar</button>
-                                <button class="item-acao" onclick="moverParaDeposito('${item.id}')">Depósito</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                mochila.innerHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Mochila vazia</div>';
-            }
-            
-            deposito.innerHTML = '';
-            if (personagem.inventario.deposito && personagem.inventario.deposito.length > 0) {
-                personagem.inventario.deposito.forEach(item => {
-                    deposito.innerHTML += `
-                        <div class="item-card">
-                            <div class="nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
-                            <div class="detalhes">
-                                <span>${item.peso || 0} kg</span>
-                                <span>${item.preco || 0} $</span>
-                            </div>
-                            <div class="item-acoes">
-                                <button class="item-acao" onclick="pegarItem('${item.id}')">Pegar</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                deposito.innerHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Depósito vazio</div>';
-            }
-            
-            modalDinheiro.textContent = personagem.dinheiro || 0;
-            
-            let pesoTotal = 0;
-            ['corpo', 'mochila'].forEach(local => {
-                if (personagem.inventario[local]) {
-                    personagem.inventario[local].forEach(item => {
-                        pesoTotal += (item.peso || 0) * (item.quantidade || 1);
-                    });
-                }
-            });
-            
-            const st = getValorAtributo('st');
-            const limiteCarga = st * 12;
-            modalCarga.textContent = `${pesoTotal.toFixed(1)}/${limiteCarga} kg`;
-            
-            modalInventario.classList.add('active');
-        }
-
-        window.equiparItem = function(itemId) {
-            if (!personagem?.inventario) return;
-            
-            const index = personagem.inventario.mochila.findIndex(i => i.id === itemId);
-            if (index !== -1) {
-                const item = personagem.inventario.mochila[index];
-                personagem.inventario.corpo.push(item);
-                personagem.inventario.mochila.splice(index, 1);
-                abrirModalInventario();
-                atualizarFichaPersonagem();
-                salvarProgresso();
-            }
-        };
-
-        window.guardarItem = function(itemId) {
-            if (!personagem?.inventario) return;
-            
-            const index = personagem.inventario.corpo.findIndex(i => i.id === itemId);
-            if (index !== -1) {
-                const item = personagem.inventario.corpo[index];
-                personagem.inventario.mochila.push(item);
-                personagem.inventario.corpo.splice(index, 1);
-                abrirModalInventario();
-                atualizarFichaPersonagem();
-                salvarProgresso();
-            }
-        };
-
-        window.moverParaDeposito = function(itemId) {
-            if (!personagem?.inventario) return;
-            
-            const index = personagem.inventario.mochila.findIndex(i => i.id === itemId);
-            if (index !== -1) {
-                const item = personagem.inventario.mochila[index];
-                personagem.inventario.deposito.push(item);
-                personagem.inventario.mochila.splice(index, 1);
-                abrirModalInventario();
-                atualizarFichaPersonagem();
-                salvarProgresso();
-            }
-        };
-
-        window.pegarItem = function(itemId) {
-            if (!personagem?.inventario) return;
-            
-            const index = personagem.inventario.deposito.findIndex(i => i.id === itemId);
-            if (index !== -1) {
-                const item = personagem.inventario.deposito[index];
-                personagem.inventario.mochila.push(item);
-                personagem.inventario.deposito.splice(index, 1);
-                abrirModalInventario();
-                atualizarFichaPersonagem();
-                salvarProgresso();
-            }
-        };
-
-        // ===== ATUALIZAR FICHA DO PERSONAGEM =====
-        function atualizarFichaPersonagem() {
-            if (!personagem) return;
-            
-            headerNome.textContent = personagem.nome || 'Aventureiro';
-            
-            const classes = {
-                guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino',
-                clerigo: 'Clérigo', barbaro: 'Bárbaro'
-            };
-            headerClasse.textContent = classes[personagem.classe] || personagem.classe || '';
-            
-            if (personagem.fotoURL) {
-                headerAvatar.innerHTML = `<img src="${personagem.fotoURL}" alt="Avatar">`;
-                fichaAvatar.innerHTML = `<img src="${personagem.fotoURL}" alt="Avatar">`;
-            }
-            
-            pvMax = calcularPVMax();
-            pvAtual = personagem.statusCombate?.vidaAtual || pvMax;
-            headerPV.textContent = `${pvAtual}/${pvMax}`;
-            headerPVBarra.style.width = (pvAtual / pvMax * 100) + '%';
-            
-            fadigaMax = calcularFadigaMax();
-            fadigaAtual = personagem.statusCombate?.fadigaAtual || fadigaMax;
-            headerFadiga.textContent = `${fadigaAtual}/${fadigaMax}`;
-            headerFadigaBarra.style.width = (fadigaAtual / fadigaMax * 100) + '%';
-            
-            manaMax = calcularManaMax();
-            manaAtual = personagem.statusCombate?.manaAtual || manaMax;
-            headerMana.textContent = `${manaAtual}/${manaMax}`;
-            headerManaBarra.style.width = (manaAtual / manaMax * 100) + '%';
-            
-            const stBolinhas = personagem.atributos?.st?.bolinhas || 0;
-            const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
-            const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
-            const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
-            const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
-            const xpNecessario = (totalBolinhas + bolinhasDisponiveis + 1) * XP_POR_BOLINHA;
-            
-            headerXP.textContent = `${xpAtual}/${xpNecessario}`;
-            headerXPBarra.style.width = (xpAtual / xpNecessario * 100) + '%';
-            
-            pmAtual = calcularPMAtual();
-            pmValor.textContent = pmAtual;
-            
-            fichaNome.textContent = personagem.nome || 'Aventureiro';
-            fichaClasse.textContent = classes[personagem.classe] || personagem.classe || '';
-            
-            const st = getValorAtributo('st');
-            const dx = getValorAtributo('dx');
-            const iq = getValorAtributo('iq');
-            const ht = getValorAtributo('ht');
-            
-            const criarBolinhasHTML = (atrib, total) => {
-                let html = '';
-                for (let i = 0; i < 15; i++) {
-                    if (i < total) {
-                        html += '<div class="bolinha-pequena preenchida"></div>';
-                    } else {
-                        html += '<div class="bolinha-pequena"></div>';
-                    }
-                }
-                return html;
-            };
-            
-            atributosContainer.innerHTML = `
-                <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="st">
-                    <div class="atributo-info">
-                        <span class="atributo-nome">ST</span>
-                        <div class="atributo-bolinhas">${criarBolinhasHTML('st', personagem.atributos?.st?.bolinhas || 0)}</div>
-                    </div>
-                    <div>
-                        <span class="atributo-valor">${st}</span>
-                        <span class="atributo-base">(9+${personagem.atributos?.st?.bolinhas || 0})</span>
-                    </div>
-                </div>
-                
-                <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="dx">
-                    <div class="atributo-info">
-                        <span class="atributo-nome">DX</span>
-                        <div class="atributo-bolinhas">${criarBolinhasHTML('dx', personagem.atributos?.dx?.bolinhas || 0)}</div>
-                    </div>
-                    <div>
-                        <span class="atributo-valor">${dx}</span>
-                        <span class="atributo-base">(5+${personagem.atributos?.dx?.bolinhas || 0})</span>
-                    </div>
-                </div>
-                
-                <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="iq">
-                    <div class="atributo-info">
-                        <span class="atributo-nome">IQ</span>
-                        <div class="atributo-bolinhas">${criarBolinhasHTML('iq', personagem.atributos?.iq?.bolinhas || 0)}</div>
-                    </div>
-                    <div>
-                        <span class="atributo-valor">${iq}</span>
-                        <span class="atributo-base">(5+${personagem.atributos?.iq?.bolinhas || 0})</span>
-                    </div>
-                </div>
-                
-                <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="ht">
-                    <div class="atributo-info">
-                        <span class="atributo-nome">HT</span>
-                        <div class="atributo-bolinhas">${criarBolinhasHTML('ht', personagem.atributos?.ht?.bolinhas || 0)}</div>
-                    </div>
-                    <div>
-                        <span class="atributo-valor">${ht}</span>
-                        <span class="atributo-base">(8+${personagem.atributos?.ht?.bolinhas || 0})</span>
-                    </div>
-                </div>
-            `;
+    function atualizarInterfaceBolinhas() {
+        if (bolinhasDisponiveis > 0) {
+            bolinhasSaldoContainer.style.display = 'flex';
+            bolinhasSaldo.textContent = bolinhasDisponiveis;
             
             document.querySelectorAll('.atributo-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    if (bolinhasDisponiveis > 0) {
-                        const atributo = card.dataset.atributo;
-                        adicionarBolinha(atributo);
+                card.classList.add('bolinha-disponivel');
+            });
+        } else {
+            bolinhasSaldoContainer.style.display = 'none';
+            document.querySelectorAll('.atributo-card').forEach(card => {
+                card.classList.remove('bolinha-disponivel');
+            });
+        }
+    }
+
+    function abrirModalEscolhaAtributo() {
+        if (bolinhasDisponiveis <= 0) return;
+        
+        valorStModal.textContent = getValorAtributo('st');
+        valorDxModal.textContent = getValorAtributo('dx');
+        valorIqModal.textContent = getValorAtributo('iq');
+        valorHtModal.textContent = getValorAtributo('ht');
+        bolinhasDisponiveisModal.textContent = bolinhasDisponiveis;
+        
+        modalEscolhaAtributo.classList.add('active');
+    }
+
+    function adicionarBolinha(atributo) {
+        if (bolinhasDisponiveis <= 0) return;
+        
+        if (!personagem.atributos[atributo]) {
+            personagem.atributos[atributo] = { bolinhas: 0 };
+        }
+        personagem.atributos[atributo].bolinhas = (personagem.atributos[atributo].bolinhas || 0) + 1;
+        bolinhasDisponiveis--;
+        
+        pvMax = calcularPVMax();
+        manaMax = calcularManaMax();
+        fadigaMax = calcularFadigaMax();
+        
+        adicionarLog(`✨ Bolinha adicionada em ${atributo.toUpperCase()}! (${bolinhasDisponiveis} restantes)`, 'sucesso');
+        
+        atualizarFichaPersonagem();
+        salvarProgresso();
+        
+        if (bolinhasDisponiveis > 0) {
+            abrirModalEscolhaAtributo();
+        } else {
+            modalEscolhaAtributo.classList.remove('active');
+        }
+    }
+
+    // ===== FUNÇÕES DE INVENTÁRIO =====
+    function abrirModalInventario() {
+        if (!personagem || !personagem.inventario) return;
+        
+        const equipado = document.getElementById('inventarioEquipado');
+        const mochila = document.getElementById('inventarioMochila');
+        const deposito = document.getElementById('inventarioDeposito');
+        const modalDinheiro = document.getElementById('modalDinheiro');
+        const modalCarga = document.getElementById('modalCarga');
+        
+        equipado.innerHTML = '';
+        if (personagem.inventario.corpo && personagem.inventario.corpo.length > 0) {
+            personagem.inventario.corpo.forEach(item => {
+                equipado.innerHTML += `
+                    <div class="item-card">
+                        <div class="nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
+                        <div class="detalhes">
+                            <span>${item.peso || 0} kg</span>
+                            <span>${item.preco || 0} $</span>
+                        </div>
+                        <div class="item-acoes">
+                            <button class="item-acao" onclick="guardarItem('${item.id}')">Guardar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            equipado.innerHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Nada equipado</div>';
+        }
+        
+        mochila.innerHTML = '';
+        if (personagem.inventario.mochila && personagem.inventario.mochila.length > 0) {
+            personagem.inventario.mochila.forEach(item => {
+                mochila.innerHTML += `
+                    <div class="item-card">
+                        <div class="nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
+                        <div class="detalhes">
+                            <span>${item.peso || 0} kg</span>
+                            <span>${item.preco || 0} $</span>
+                        </div>
+                        <div class="item-acoes">
+                            <button class="item-acao" onclick="equiparItem('${item.id}')">Equipar</button>
+                            <button class="item-acao" onclick="moverParaDeposito('${item.id}')">Depósito</button>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            mochila.innerHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Mochila vazia</div>';
+        }
+        
+        deposito.innerHTML = '';
+        if (personagem.inventario.deposito && personagem.inventario.deposito.length > 0) {
+            personagem.inventario.deposito.forEach(item => {
+                deposito.innerHTML += `
+                    <div class="item-card">
+                        <div class="nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
+                        <div class="detalhes">
+                            <span>${item.peso || 0} kg</span>
+                            <span>${item.preco || 0} $</span>
+                        </div>
+                        <div class="item-acoes">
+                            <button class="item-acao" onclick="pegarItem('${item.id}')">Pegar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            deposito.innerHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Depósito vazio</div>';
+        }
+        
+        modalDinheiro.textContent = personagem.dinheiro || 0;
+        
+        let pesoTotal = 0;
+        ['corpo', 'mochila'].forEach(local => {
+            if (personagem.inventario[local]) {
+                personagem.inventario[local].forEach(item => {
+                    pesoTotal += (item.peso || 0) * (item.quantidade || 1);
+                });
+            }
+        });
+        
+        const st = getValorAtributo('st');
+        const limiteCarga = st * 12;
+        modalCarga.textContent = `${pesoTotal.toFixed(1)}/${limiteCarga} kg`;
+        
+        modalInventario.classList.add('active');
+    }
+
+    window.equiparItem = function(itemId) {
+        if (!personagem?.inventario) return;
+        
+        const index = personagem.inventario.mochila.findIndex(i => i.id === itemId);
+        if (index !== -1) {
+            const item = personagem.inventario.mochila[index];
+            personagem.inventario.corpo.push(item);
+            personagem.inventario.mochila.splice(index, 1);
+            abrirModalInventario();
+            atualizarFichaPersonagem();
+            salvarProgresso();
+        }
+    };
+
+    window.guardarItem = function(itemId) {
+        if (!personagem?.inventario) return;
+        
+        const index = personagem.inventario.corpo.findIndex(i => i.id === itemId);
+        if (index !== -1) {
+            const item = personagem.inventario.corpo[index];
+            personagem.inventario.mochila.push(item);
+            personagem.inventario.corpo.splice(index, 1);
+            abrirModalInventario();
+            atualizarFichaPersonagem();
+            salvarProgresso();
+        }
+    };
+
+    window.moverParaDeposito = function(itemId) {
+        if (!personagem?.inventario) return;
+        
+        const index = personagem.inventario.mochila.findIndex(i => i.id === itemId);
+        if (index !== -1) {
+            const item = personagem.inventario.mochila[index];
+            personagem.inventario.deposito.push(item);
+            personagem.inventario.mochila.splice(index, 1);
+            abrirModalInventario();
+            atualizarFichaPersonagem();
+            salvarProgresso();
+        }
+    };
+
+    window.pegarItem = function(itemId) {
+        if (!personagem?.inventario) return;
+        
+        const index = personagem.inventario.deposito.findIndex(i => i.id === itemId);
+        if (index !== -1) {
+            const item = personagem.inventario.deposito[index];
+            personagem.inventario.mochila.push(item);
+            personagem.inventario.deposito.splice(index, 1);
+            abrirModalInventario();
+            atualizarFichaPersonagem();
+            salvarProgresso();
+        }
+    };
+
+    // ===== ATUALIZAR FICHA DO PERSONAGEM =====
+    function atualizarFichaPersonagem() {
+        if (!personagem) return;
+        
+        headerNome.textContent = personagem.nome || 'Aventureiro';
+        
+        const classes = {
+            guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino',
+            clerigo: 'Clérigo', barbaro: 'Bárbaro'
+        };
+        headerClasse.textContent = classes[personagem.classe] || personagem.classe || '';
+        
+        if (personagem.fotoURL) {
+            headerAvatar.innerHTML = `<img src="${personagem.fotoURL}" alt="Avatar">`;
+            fichaAvatar.innerHTML = `<img src="${personagem.fotoURL}" alt="Avatar">`;
+        }
+        
+        pvMax = calcularPVMax();
+        pvAtual = personagem.statusCombate?.vidaAtual || pvMax;
+        headerPV.textContent = `${pvAtual}/${pvMax}`;
+        headerPVBarra.style.width = (pvAtual / pvMax * 100) + '%';
+        
+        fadigaMax = calcularFadigaMax();
+        fadigaAtual = personagem.statusCombate?.fadigaAtual || fadigaMax;
+        headerFadiga.textContent = `${fadigaAtual}/${fadigaMax}`;
+        headerFadigaBarra.style.width = (fadigaAtual / fadigaMax * 100) + '%';
+        
+        manaMax = calcularManaMax();
+        manaAtual = personagem.statusCombate?.manaAtual || manaMax;
+        headerMana.textContent = `${manaAtual}/${manaMax}`;
+        headerManaBarra.style.width = (manaAtual / manaMax * 100) + '%';
+        
+        const stBolinhas = personagem.atributos?.st?.bolinhas || 0;
+        const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
+        const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
+        const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
+        const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
+        const xpNecessario = (totalBolinhas + bolinhasDisponiveis + 1) * XP_POR_BOLINHA;
+        
+        headerXP.textContent = `${xpAtual}/${xpNecessario}`;
+        headerXPBarra.style.width = (xpAtual / xpNecessario * 100) + '%';
+        
+        pmAtual = calcularPMAtual();
+        pmValor.textContent = pmAtual;
+        
+        fichaNome.textContent = personagem.nome || 'Aventureiro';
+        fichaClasse.textContent = classes[personagem.classe] || personagem.classe || '';
+        
+        const st = getValorAtributo('st');
+        const dx = getValorAtributo('dx');
+        const iq = getValorAtributo('iq');
+        const ht = getValorAtributo('ht');
+        
+        const criarBolinhasHTML = (atrib, total) => {
+            let html = '';
+            for (let i = 0; i < 15; i++) {
+                if (i < total) {
+                    html += '<div class="bolinha-pequena preenchida"></div>';
+                } else {
+                    html += '<div class="bolinha-pequena"></div>';
+                }
+            }
+            return html;
+        };
+        
+        atributosContainer.innerHTML = `
+            <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="st">
+                <div class="atributo-info">
+                    <span class="atributo-nome">ST</span>
+                    <div class="atributo-bolinhas">${criarBolinhasHTML('st', personagem.atributos?.st?.bolinhas || 0)}</div>
+                </div>
+                <div>
+                    <span class="atributo-valor">${st}</span>
+                    <span class="atributo-base">(9+${personagem.atributos?.st?.bolinhas || 0})</span>
+                </div>
+            </div>
+            
+            <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="dx">
+                <div class="atributo-info">
+                    <span class="atributo-nome">DX</span>
+                    <div class="atributo-bolinhas">${criarBolinhasHTML('dx', personagem.atributos?.dx?.bolinhas || 0)}</div>
+                </div>
+                <div>
+                    <span class="atributo-valor">${dx}</span>
+                    <span class="atributo-base">(5+${personagem.atributos?.dx?.bolinhas || 0})</span>
+                </div>
+            </div>
+            
+            <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="iq">
+                <div class="atributo-info">
+                    <span class="atributo-nome">IQ</span>
+                    <div class="atributo-bolinhas">${criarBolinhasHTML('iq', personagem.atributos?.iq?.bolinhas || 0)}</div>
+                </div>
+                <div>
+                    <span class="atributo-valor">${iq}</span>
+                    <span class="atributo-base">(5+${personagem.atributos?.iq?.bolinhas || 0})</span>
+                </div>
+            </div>
+            
+            <div class="atributo-card ${bolinhasDisponiveis > 0 ? 'bolinha-disponivel' : ''}" data-atributo="ht">
+                <div class="atributo-info">
+                    <span class="atributo-nome">HT</span>
+                    <div class="atributo-bolinhas">${criarBolinhasHTML('ht', personagem.atributos?.ht?.bolinhas || 0)}</div>
+                </div>
+                <div>
+                    <span class="atributo-valor">${ht}</span>
+                    <span class="atributo-base">(8+${personagem.atributos?.ht?.bolinhas || 0})</span>
+                </div>
+            </div>
+        `;
+        
+        document.querySelectorAll('.atributo-card').forEach(card => {
+            card.addEventListener('click', () => {
+                if (bolinhasDisponiveis > 0) {
+                    const atributo = card.dataset.atributo;
+                    adicionarBolinha(atributo);
+                }
+            });
+        });
+        
+        const esquiva = Math.floor((dx + ht) / 6) + 6;
+        
+        let aparar = 0;
+        if (personagem.inventario?.corpo) {
+            const temArma = personagem.inventario.corpo.some(item => item.dano);
+            if (temArma) aparar = Math.floor((dx + dx) / 4) + 6;
+        }
+        
+        let bloqueio = 0;
+        if (personagem.inventario?.corpo) {
+            const temEscudo = personagem.inventario.corpo.some(item => item.tipo === 'escudo' || item.nome?.toLowerCase().includes('escudo'));
+            if (temEscudo) bloqueio = Math.floor((dx + dx) / 4) + 6 + 2;
+        }
+        
+        defesasGrid.innerHTML = `
+            <div class="defesa-card">
+                <div class="defesa-valor">${esquiva}</div>
+                <div class="defesa-label">Esquiva</div>
+            </div>
+            <div class="defesa-card">
+                <div class="defesa-valor">${aparar}</div>
+                <div class="defesa-label">Aparar</div>
+            </div>
+            <div class="defesa-card">
+                <div class="defesa-valor">${bloqueio}</div>
+                <div class="defesa-label">Bloqueio</div>
+            </div>
+        `;
+        
+        let itensHTML = '';
+        let pesoTotal = 0;
+        
+        if (personagem.inventario?.corpo) {
+            personagem.inventario.corpo.slice(0, 2).forEach(item => {
+                itensHTML += `<div class="item-rapido">
+                    <span class="nome">⚔️ ${item.nome}</span>
+                    <span class="quantidade">${item.quantidade || 1}x</span>
+                </div>`;
+                pesoTotal += (item.peso || 0) * (item.quantidade || 1);
+            });
+        }
+        
+        if (personagem.inventario?.mochila) {
+            personagem.inventario.mochila.slice(0, 3).forEach(item => {
+                itensHTML += `<div class="item-rapido">
+                    <span class="nome">🎒 ${item.nome}</span>
+                    <span class="quantidade">${item.quantidade || 1}x</span>
+                </div>`;
+                pesoTotal += (item.peso || 0) * (item.quantidade || 1);
+            });
+        }
+        
+        if (itensHTML === '') {
+            itensHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Nenhum item</div>';
+        }
+        
+        itensRapidosLista.innerHTML = itensHTML;
+        
+        const limiteCarga = st * 12;
+        cargaRapida.textContent = `${pesoTotal.toFixed(1)}/${limiteCarga} kg`;
+        
+        let vantagensHTML = '';
+        if (personagem.vantagens && personagem.vantagens.length > 0) {
+            personagem.vantagens.slice(0, 3).forEach(v => {
+                vantagensHTML += `<span class="tag-mini">${v}</span>`;
+            });
+            if (personagem.vantagens.length > 3) {
+                vantagensHTML += `<span class="tag-mini">+${personagem.vantagens.length - 3}</span>`;
+            }
+        } else {
+            vantagensHTML = '<span style="color:rgba(255,255,255,0.5);">Nenhuma</span>';
+        }
+        vantagensMini.innerHTML = vantagensHTML;
+        
+        atualizarInterfaceBolinhas();
+    }
+
+    // ===== FUNÇÕES DE CENÁRIO E DIÁLOGO =====
+    function carregarCena(cena) {
+        if (!cena) return;
+        
+        console.log('Carregando cena:', cena.id || 'sem ID');
+        
+        if (cena.imagem) {
+            cenarioArea.style.backgroundImage = `url('${cena.imagem}')`;
+        }
+        
+        npcsContainer.innerHTML = '';
+        if (cena.npcs) {
+            cena.npcs.forEach(npc => {
+                if (npc.visivel === false) return;
+                
+                const npcDiv = document.createElement('div');
+                npcDiv.className = 'npc-sprite';
+                npcDiv.style.left = (npc.x || 50) + '%';
+                npcDiv.style.top = (npc.y || 50) + '%';
+                npcDiv.dataset.npcId = npc.id;
+                
+                npcDiv.innerHTML = `
+                    <img src="${npc.sprite || 'imagem/default.png'}" alt="${npc.nome}">
+                    <div class="npc-nome">${npc.nome}</div>
+                `;
+                
+                npcDiv.addEventListener('click', () => {
+                    falarComNPC(npc);
+                });
+                
+                npcsContainer.appendChild(npcDiv);
+            });
+        }
+        
+        if (cena.fala) {
+            npcNome.textContent = cena.fala.npc || 'Narrador';
+            if (cena.fala.avatar) {
+                npcAvatar.src = cena.fala.avatar;
+                npcAvatar.style.display = 'inline';
+            } else {
+                npcAvatar.style.display = 'none';
+            }
+            dialogoTexto.textContent = cena.fala.texto;
+        } else {
+            dialogoTexto.textContent = '...';
+        }
+        
+        opcoesDialogo.innerHTML = '';
+        if (cena.opcoes) {
+            cena.opcoes.forEach(opcao => {
+                const btn = document.createElement('button');
+                btn.className = 'opcao-btn';
+                btn.textContent = opcao.texto;
+                
+                btn.addEventListener('click', () => {
+                    if (opcao.proximo) {
+                        carregarCena(historia.cenas[opcao.proximo]);
+                    } else if (opcao.acao === 'combate') {
+                        iniciarCombate(opcao.inimigos || []);
+                    } else if (opcao.resposta) {
+                        dialogoTexto.textContent = opcao.resposta;
                     }
                 });
+                
+                opcoesDialogo.appendChild(btn);
             });
-            
-            const esquiva = Math.floor((dx + ht) / 6) + 6;
-            
-            let aparar = 0;
-            if (personagem.inventario?.corpo) {
-                const temArma = personagem.inventario.corpo.some(item => item.dano);
-                if (temArma) aparar = Math.floor((dx + dx) / 4) + 6;
-            }
-            
-            let bloqueio = 0;
-            if (personagem.inventario?.corpo) {
-                const temEscudo = personagem.inventario.corpo.some(item => item.tipo === 'escudo' || item.nome?.toLowerCase().includes('escudo'));
-                if (temEscudo) bloqueio = Math.floor((dx + dx) / 4) + 6 + 2;
-            }
-            
-            defesasGrid.innerHTML = `
-                <div class="defesa-card">
-                    <div class="defesa-valor">${esquiva}</div>
-                    <div class="defesa-label">Esquiva</div>
-                </div>
-                <div class="defesa-card">
-                    <div class="defesa-valor">${aparar}</div>
-                    <div class="defesa-label">Aparar</div>
-                </div>
-                <div class="defesa-card">
-                    <div class="defesa-valor">${bloqueio}</div>
-                    <div class="defesa-label">Bloqueio</div>
-                </div>
-            `;
-            
-            let itensHTML = '';
-            let pesoTotal = 0;
-            
-            if (personagem.inventario?.corpo) {
-                personagem.inventario.corpo.slice(0, 2).forEach(item => {
-                    itensHTML += `<div class="item-rapido">
-                        <span class="nome">⚔️ ${item.nome}</span>
-                        <span class="quantidade">${item.quantidade || 1}x</span>
-                    </div>`;
-                    pesoTotal += (item.peso || 0) * (item.quantidade || 1);
-                });
-            }
-            
-            if (personagem.inventario?.mochila) {
-                personagem.inventario.mochila.slice(0, 3).forEach(item => {
-                    itensHTML += `<div class="item-rapido">
-                        <span class="nome">🎒 ${item.nome}</span>
-                        <span class="quantidade">${item.quantidade || 1}x</span>
-                    </div>`;
-                    pesoTotal += (item.peso || 0) * (item.quantidade || 1);
-                });
-            }
-            
-            if (itensHTML === '') {
-                itensHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Nenhum item</div>';
-            }
-            
-            itensRapidosLista.innerHTML = itensHTML;
-            
-            const limiteCarga = st * 12;
-            cargaRapida.textContent = `${pesoTotal.toFixed(1)}/${limiteCarga} kg`;
-            
-            let vantagensHTML = '';
-            if (personagem.vantagens && personagem.vantagens.length > 0) {
-                personagem.vantagens.slice(0, 3).forEach(v => {
-                    vantagensHTML += `<span class="tag-mini">${v}</span>`;
-                });
-                if (personagem.vantagens.length > 3) {
-                    vantagensHTML += `<span class="tag-mini">+${personagem.vantagens.length - 3}</span>`;
-                }
-            } else {
-                vantagensHTML = '<span style="color:rgba(255,255,255,0.5);">Nenhuma</span>';
-            }
-            vantagensMini.innerHTML = vantagensHTML;
-            
-            atualizarInterfaceBolinhas();
         }
+    }
 
-        // ===== FUNÇÕES DE CENÁRIO E DIÁLOGO =====
-        function carregarCena(cena) {
-            if (!cena) return;
-            
-            console.log('Carregando cena:', cena);
-            
-            if (cena.imagem) {
-                cenarioArea.style.backgroundImage = `url('${cena.imagem}')`;
-            }
-            
-            npcsContainer.innerHTML = '';
-            if (cena.npcs) {
-                cena.npcs.forEach(npc => {
-                    if (npc.visivel === false) return;
-                    
-                    const npcDiv = document.createElement('div');
-                    npcDiv.className = 'npc-sprite';
-                    npcDiv.style.left = (npc.x || 50) + '%';
-                    npcDiv.style.top = (npc.y || 50) + '%';
-                    npcDiv.dataset.npcId = npc.id;
-                    
-                    npcDiv.innerHTML = `
-                        <img src="${npc.sprite || 'imagem/default.png'}" alt="${npc.nome}">
-                        <div class="npc-nome">${npc.nome}</div>
-                    `;
-                    
-                    npcDiv.addEventListener('click', () => {
-                        falarComNPC(npc);
-                    });
-                    
-                    npcsContainer.appendChild(npcDiv);
-                });
-            }
-            
-            if (cena.fala) {
-                npcNome.textContent = cena.fala.npc || 'Narrador';
-                if (cena.fala.avatar) {
-                    npcAvatar.src = cena.fala.avatar;
-                    npcAvatar.style.display = 'inline';
-                } else {
-                    npcAvatar.style.display = 'none';
-                }
-                dialogoTexto.textContent = cena.fala.texto;
-            } else {
-                dialogoTexto.textContent = '...';
-            }
-            
-            opcoesDialogo.innerHTML = '';
-            if (cena.opcoes) {
-                cena.opcoes.forEach(opcao => {
-                    const btn = document.createElement('button');
-                    btn.className = 'opcao-btn';
-                    btn.textContent = opcao.texto;
-                    
-                    btn.addEventListener('click', () => {
-                        if (opcao.proximo) {
-                            carregarCena(historia.cenas[opcao.proximo]);
-                        } else if (opcao.acao === 'combate') {
-                            iniciarCombate(opcao.inimigos || []);
-                        } else if (opcao.resposta) {
-                            dialogoTexto.textContent = opcao.resposta;
+    function falarComNPC(npc) {
+        npcNome.textContent = npc.nome;
+        if (npc.avatar) {
+            npcAvatar.src = npc.avatar;
+            npcAvatar.style.display = 'inline';
+        }
+        dialogoTexto.textContent = npc.dialogo || '...';
+        
+        opcoesDialogo.innerHTML = '';
+        
+        if (npc.opcoes) {
+            npc.opcoes.forEach(opcao => {
+                const btn = document.createElement('button');
+                btn.className = 'opcao-btn';
+                btn.textContent = opcao.texto;
+                
+                btn.addEventListener('click', () => {
+                    if (opcao.proximo) {
+                        carregarCena(historia.cenas[opcao.proximo]);
+                    } else if (opcao.resposta) {
+                        dialogoTexto.textContent = opcao.resposta;
+                    } else if (opcao.tipo === 'pagar') {
+                        if (personagem.dinheiro >= opcao.valor) {
+                            personagem.dinheiro -= opcao.valor;
+                            dialogoTexto.textContent = opcao.sucesso || 'Negócio feito!';
+                            adicionarLog(`💰 Pagou ${opcao.valor} moedas`, 'sucesso');
+                        } else {
+                            dialogoTexto.textContent = opcao.falha || 'Você não tem dinheiro suficiente!';
                         }
-                    });
-                    
-                    opcoesDialogo.appendChild(btn);
+                    }
                 });
-            }
-        }
-
-        function falarComNPC(npc) {
-            npcNome.textContent = npc.nome;
-            if (npc.avatar) {
-                npcAvatar.src = npc.avatar;
-                npcAvatar.style.display = 'inline';
-            }
-            dialogoTexto.textContent = npc.dialogo || '...';
-            
-            opcoesDialogo.innerHTML = '';
-            
-            if (npc.opcoes) {
-                npc.opcoes.forEach(opcao => {
-                    const btn = document.createElement('button');
-                    btn.className = 'opcao-btn';
-                    btn.textContent = opcao.texto;
-                    
-                    btn.addEventListener('click', () => {
-                        if (opcao.proximo) {
-                            carregarCena(historia.cenas[opcao.proximo]);
-                        } else if (opcao.resposta) {
-                            dialogoTexto.textContent = opcao.resposta;
-                        }
-                    });
-                    
-                    opcoesDialogo.appendChild(btn);
-                });
-            }
-            
-            const btnFechar = document.createElement('button');
-            btnFechar.className = 'opcao-btn';
-            btnFechar.textContent = 'Voltar';
-            btnFechar.addEventListener('click', () => {
-                carregarCena(capituloAtual);
+                
+                opcoesDialogo.appendChild(btn);
             });
-            opcoesDialogo.appendChild(btnFechar);
         }
+        
+        const btnFechar = document.createElement('button');
+        btnFechar.className = 'opcao-btn';
+        btnFechar.textContent = 'Voltar';
+        btnFechar.addEventListener('click', () => {
+            carregarCena(capituloAtual);
+        });
+        opcoesDialogo.appendChild(btnFechar);
+    }
 
-        // ===== FUNÇÕES DE COMBATE =====
-        function iniciarCombate(inimigosIds) {
-            turnoAtual = 'jogador';
-            turnoIndicator.className = 'turno-indicator jogador';
-            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-            
-            inimigos = inimigosIds.map((id, index) => ({
-                id: id,
-                nome: `Goblin ${index + 1}`,
-                pv: 12,
-                pv_max: 12,
-                dados: { defesa: 8 },
-                equipamento: {
-                    arma: { nome: 'Espada', dano: '1d6', tipo: 'corte' }
-                }
-            }));
-            
-            inimigosContainer.style.display = 'block';
-            renderizarInimigos();
-            
-            adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
-        }
+    // ===== FUNÇÕES DE COMBATE =====
+    function iniciarCombate(inimigosIds) {
+        turnoAtual = 'jogador';
+        turnoIndicator.className = 'turno-indicator jogador';
+        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        
+        inimigos = inimigosIds.map((id, index) => ({
+            id: id,
+            nome: `Goblin ${index + 1}`,
+            pv: 12,
+            pv_max: 12,
+            dados: { defesa: 8 },
+            equipamento: {
+                arma: { nome: 'Espada', dano: '1d6', tipo: 'corte' }
+            }
+        }));
+        
+        inimigosContainer.style.display = 'block';
+        renderizarInimigos();
+        
+        adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
+    }
 
-        function renderizarInimigos() {
-            inimigosLista.innerHTML = inimigos.map((inimigo, index) => `
-                <div class="inimigo-mini ${inimigoSelecionado === index ? 'selecionado' : ''}" data-index="${index}">
-                    <div class="inimigo-mini-nome">${inimigo.nome}</div>
-                    <div class="inimigo-mini-pv">
-                        <div class="inimigo-mini-pv-fill" style="width: ${(inimigo.pv / inimigo.pv_max) * 100}%"></div>
-                    </div>
-                    <div style="font-size:0.7rem; text-align:center;">${inimigo.pv}/${inimigo.pv_max}</div>
+    function renderizarInimigos() {
+        inimigosLista.innerHTML = inimigos.map((inimigo, index) => `
+            <div class="inimigo-mini ${inimigoSelecionado === index ? 'selecionado' : ''}" data-index="${index}">
+                <div class="inimigo-mini-nome">${inimigo.nome}</div>
+                <div class="inimigo-mini-pv">
+                    <div class="inimigo-mini-pv-fill" style="width: ${(inimigo.pv / inimigo.pv_max) * 100}%"></div>
                 </div>
-            `).join('');
-            
-            document.querySelectorAll('.inimigo-mini').forEach(card => {
-                card.addEventListener('click', () => {
-                    const index = parseInt(card.dataset.index);
-                    inimigoSelecionado = index;
-                    renderizarInimigos();
-                    btnAtacar.disabled = false;
-                });
-            });
-        }
-
-        function getArmasEquipadas() {
-            if (!personagem?.inventario?.corpo) return [];
-            
-            return personagem.inventario.corpo.filter(item => item.dano).map(item => ({
-                id: item.id,
-                nome: item.nome,
-                dano: item.dano,
-                tipo: item.tipoDano || 'Desconhecido',
-                alcance: item.alcance || 1,
-                st: item.st || 8
-            }));
-        }
-
-        function abrirModalAtaque() {
-            if (inimigoSelecionado === null) {
-                adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
-                return;
-            }
-            
-            const armas = getArmasEquipadas();
-            
-            if (armas.length === 0) {
-                adicionarLog('❌ Você não tem armas equipadas!', 'erro');
-                return;
-            }
-            
-            armaSelecionada = null;
-            btnConfirmarAtaque.disabled = true;
-            
-            armasLista.innerHTML = armas.map((arma, index) => `
-                <div class="arma-card" data-index="${index}">
-                    <div class="arma-nome">${arma.nome}</div>
-                    <div class="arma-detalhes">
-                        <span><i class="fas fa-tint"></i> Dano: ${arma.dano}</span>
-                        <span><i class="fas fa-ruler"></i> Alcance: ${arma.alcance}m</span>
-                    </div>
-                </div>
-            `).join('');
-            
-            document.querySelectorAll('.arma-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    document.querySelectorAll('.arma-card').forEach(c => c.classList.remove('selecionada'));
-                    card.classList.add('selecionada');
-                    armaSelecionada = parseInt(card.dataset.index);
-                    btnConfirmarAtaque.disabled = false;
-                });
-            });
-            
-            modalAtaque.classList.add('active');
-        }
-
-        function executarAtaque() {
-            if (armaSelecionada === null) return;
-            
-            const armas = getArmasEquipadas();
-            const arma = armas[armaSelecionada];
-            const inimigo = inimigos[inimigoSelecionado];
-            
-            if (!arma || !inimigo) return;
-            
-            modalAtaque.classList.remove('active');
-            
-            const rolagem = rolar2d10();
-            const nhAtaque = getValorAtributo('dx') + 3;
-            
-            adicionarLog(`🎯 Rolagem de ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
-            
-            if (rolagem.total <= nhAtaque) {
-                const dano = Math.floor(Math.random() * 6) + 1;
-                inimigo.pv -= dano;
-                
-                adicionarLog(`✅ Acertou! Causou ${dano} de dano.`, 'dano');
-                
-                if (inimigo.pv <= 0) {
-                    adicionarLog(`💀 ${inimigo.nome} foi derrotado!`, 'sucesso');
-                    
-                    const xpGanho = 25;
-                    xpAtual += xpGanho;
-                    personagem.xp = xpAtual;
-                    adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
-                    
-                    verificarGanhoBolinha();
-                    
-                    inimigos = inimigos.filter((_, i) => i !== inimigoSelecionado);
-                    inimigoSelecionado = null;
-                }
-                
+                <div style="font-size:0.7rem; text-align:center;">${inimigo.pv}/${inimigo.pv_max}</div>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.inimigo-mini').forEach(card => {
+            card.addEventListener('click', () => {
+                const index = parseInt(card.dataset.index);
+                inimigoSelecionado = index;
                 renderizarInimigos();
-                atualizarFichaPersonagem();
+                btnAtacar.disabled = false;
+            });
+        });
+    }
+
+    function getArmasEquipadas() {
+        if (!personagem?.inventario?.corpo) return [];
+        
+        return personagem.inventario.corpo.filter(item => item.dano).map(item => ({
+            id: item.id,
+            nome: item.nome,
+            dano: item.dano,
+            tipo: item.tipoDano || 'Desconhecido',
+            alcance: item.alcance || 1,
+            st: item.st || 8
+        }));
+    }
+
+    function abrirModalAtaque() {
+        if (inimigoSelecionado === null) {
+            adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
+            return;
+        }
+        
+        const armas = getArmasEquipadas();
+        
+        if (armas.length === 0) {
+            adicionarLog('❌ Você não tem armas equipadas!', 'erro');
+            return;
+        }
+        
+        armaSelecionada = null;
+        btnConfirmarAtaque.disabled = true;
+        
+        armasLista.innerHTML = armas.map((arma, index) => `
+            <div class="arma-card" data-index="${index}">
+                <div class="arma-nome">${arma.nome}</div>
+                <div class="arma-detalhes">
+                    <span><i class="fas fa-tint"></i> Dano: ${arma.dano}</span>
+                    <span><i class="fas fa-ruler"></i> Alcance: ${arma.alcance}m</span>
+                </div>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.arma-card').forEach(card => {
+            card.addEventListener('click', () => {
+                document.querySelectorAll('.arma-card').forEach(c => c.classList.remove('selecionada'));
+                card.classList.add('selecionada');
+                armaSelecionada = parseInt(card.dataset.index);
+                btnConfirmarAtaque.disabled = false;
+            });
+        });
+        
+        modalAtaque.classList.add('active');
+    }
+
+    function executarAtaque() {
+        if (armaSelecionada === null) return;
+        
+        const armas = getArmasEquipadas();
+        const arma = armas[armaSelecionada];
+        const inimigo = inimigos[inimigoSelecionado];
+        
+        if (!arma || !inimigo) return;
+        
+        modalAtaque.classList.remove('active');
+        
+        const rolagem = rolar2d10();
+        const nhAtaque = getValorAtributo('dx') + 3;
+        
+        adicionarLog(`🎯 Rolagem de ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
+        
+        if (rolagem.total <= nhAtaque) {
+            const dano = Math.floor(Math.random() * 6) + 1;
+            inimigo.pv -= dano;
+            
+            adicionarLog(`✅ Acertou! Causou ${dano} de dano.`, 'dano');
+            
+            if (inimigo.pv <= 0) {
+                adicionarLog(`💀 ${inimigo.nome} foi derrotado!`, 'sucesso');
                 
-                if (inimigos.length === 0) {
-                    adicionarLog('🎉 VITÓRIA!', 'sucesso');
-                    inimigosContainer.style.display = 'none';
-                    turnoAtual = 'jogador';
-                } else {
-                    passarTurno();
-                }
+                const xpGanho = 25;
+                xpAtual += xpGanho;
+                personagem.xp = xpAtual;
+                adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
                 
+                verificarGanhoBolinha();
+                
+                inimigos = inimigos.filter((_, i) => i !== inimigoSelecionado);
+                inimigoSelecionado = null;
+            }
+            
+            renderizarInimigos();
+            atualizarFichaPersonagem();
+            
+            if (inimigos.length === 0) {
+                adicionarLog('🎉 VITÓRIA!', 'sucesso');
+                inimigosContainer.style.display = 'none';
+                turnoAtual = 'jogador';
             } else {
-                adicionarLog(`❌ Errou!`, 'erro');
                 passarTurno();
             }
             
-            salvarProgresso();
+        } else {
+            adicionarLog(`❌ Errou!`, 'erro');
+            passarTurno();
         }
+        
+        salvarProgresso();
+    }
 
-        function passarTurno() {
-            if (turnoAtual === 'jogador') {
-                turnoAtual = 'inimigo';
-                turnoIndicator.className = 'turno-indicator inimigo';
-                turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
-                
-                btnAtacar.disabled = true;
-                btnMagia.disabled = true;
-                
-                setTimeout(turnoInimigos, 1000);
-            }
+    function passarTurno() {
+        if (turnoAtual === 'jogador') {
+            turnoAtual = 'inimigo';
+            turnoIndicator.className = 'turno-indicator inimigo';
+            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+            
+            btnAtacar.disabled = true;
+            btnMagia.disabled = true;
+            
+            setTimeout(turnoInimigos, 1000);
         }
+    }
 
-        function turnoInimigos() {
-            if (inimigos.length === 0) {
-                turnoAtual = 'jogador';
-                turnoIndicator.className = 'turno-indicator jogador';
-                turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-                btnAtacar.disabled = false;
-                btnMagia.disabled = false;
-                return;
-            }
-            
-            inimigos.forEach(inimigo => {
-                const rolagem = rolar2d10();
-                const defesa = Math.floor((getValorAtributo('dx') + getValorAtributo('ht')) / 6) + 6;
-                
-                if (rolagem.total <= 10) {
-                    const dano = Math.floor(Math.random() * 6) + 1;
-                    pvAtual -= dano;
-                    personagem.statusCombate.vidaAtual = pvAtual;
-                    
-                    adicionarLog(`👾 ${inimigo.nome} causou ${dano} de dano!`, 'dano');
-                    
-                    if (pvAtual <= 0) {
-                        pvAtual = 0;
-                        adicionarLog('💀 VOCÊ MORREU!', 'erro');
-                        return;
-                    }
-                    
-                    atualizarFichaPersonagem();
-                }
-            });
-            
+    function turnoInimigos() {
+        if (inimigos.length === 0) {
             turnoAtual = 'jogador';
             turnoIndicator.className = 'turno-indicator jogador';
             turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-            
             btnAtacar.disabled = false;
             btnMagia.disabled = false;
-            
-            salvarProgresso();
+            return;
         }
-
-        function descansar() {
-            pvAtual = Math.min(pvAtual + 5, pvMax);
-            manaAtual = Math.min(manaAtual + 3, manaMax);
-            fadigaAtual = Math.min(fadigaAtual + 2, fadigaMax);
+        
+        inimigos.forEach(inimigo => {
+            const rolagem = rolar2d10();
+            const defesa = Math.floor((getValorAtributo('dx') + getValorAtributo('ht')) / 6) + 6;
             
+            if (rolagem.total <= 10) {
+                const dano = Math.floor(Math.random() * 6) + 1;
+                pvAtual -= dano;
+                personagem.statusCombate.vidaAtual = pvAtual;
+                
+                adicionarLog(`👾 ${inimigo.nome} causou ${dano} de dano!`, 'dano');
+                
+                if (pvAtual <= 0) {
+                    pvAtual = 0;
+                    adicionarLog('💀 VOCÊ MORREU!', 'erro');
+                    return;
+                }
+                
+                atualizarFichaPersonagem();
+            }
+        });
+        
+        turnoAtual = 'jogador';
+        turnoIndicator.className = 'turno-indicator jogador';
+        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        
+        btnAtacar.disabled = false;
+        btnMagia.disabled = false;
+        
+        salvarProgresso();
+    }
+
+    function descansar() {
+        pvAtual = Math.min(pvAtual + 5, pvMax);
+        manaAtual = Math.min(manaAtual + 3, manaMax);
+        fadigaAtual = Math.min(fadigaAtual + 2, fadigaMax);
+        
+        personagem.statusCombate = {
+            vidaAtual: pvAtual,
+            vidaMax: pvMax,
+            fadigaAtual: fadigaAtual,
+            fadigaMax: fadigaMax,
+            manaAtual: manaAtual,
+            manaMax: manaMax
+        };
+        
+        atualizarFichaPersonagem();
+        salvarProgresso();
+        adicionarLog('💤 Você descansou e recuperou energia.', 'sucesso');
+    }
+
+    async function salvarProgresso() {
+        if (!personagem || !sessaoId) return;
+        
+        try {
             personagem.statusCombate = {
                 vidaAtual: pvAtual,
                 vidaMax: pvMax,
@@ -2260,258 +2286,232 @@
                 manaAtual: manaAtual,
                 manaMax: manaMax
             };
+            personagem.xp = xpAtual;
+            
+            const personagemRef = doc(db, "personagens", personagem.id);
+            await updateDoc(personagemRef, {
+                statusCombate: personagem.statusCombate,
+                xp: xpAtual,
+                atributos: personagem.atributos,
+                pmGasto: personagem.pmGasto
+            });
+            
+        } catch (error) {
+            console.error('Erro ao salvar progresso:', error);
+        }
+    }
+
+    async function carregarPersonagem(personagemId) {
+        try {
+            const personagemRef = doc(db, "personagens", personagemId);
+            const personagemSnap = await getDoc(personagemRef);
+            
+            if (!personagemSnap.exists()) {
+                throw new Error('Personagem não encontrado');
+            }
+            
+            personagem = {
+                id: personagemSnap.id,
+                ...personagemSnap.data()
+            };
+            
+            if (!personagem.inventario) {
+                personagem.inventario = {
+                    corpo: [],
+                    mochila: [],
+                    deposito: []
+                };
+            }
+            
+            pvMax = calcularPVMax();
+            pvAtual = personagem.statusCombate?.vidaAtual || pvMax;
+            
+            fadigaMax = calcularFadigaMax();
+            fadigaAtual = personagem.statusCombate?.fadigaAtual || fadigaMax;
+            
+            manaMax = calcularManaMax();
+            manaAtual = personagem.statusCombate?.manaAtual || manaMax;
+            
+            xpAtual = personagem.xp || 0;
+            
+            const stBolinhas = personagem.atributos?.st?.bolinhas || 0;
+            const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
+            const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
+            const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
+            const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
+            const xpNecessario = (totalBolinhas + 1) * XP_POR_BOLINHA;
+            
+            while (xpAtual >= xpNecessario) {
+                bolinhasDisponiveis++;
+                xpAtual -= xpNecessario;
+            }
             
             atualizarFichaPersonagem();
-            salvarProgresso();
-            adicionarLog('💤 Você descansou e recuperou energia.', 'sucesso');
-        }
-
-        async function salvarProgresso() {
-            if (!personagem || !sessaoId) return;
             
-            try {
-                personagem.statusCombate = {
-                    vidaAtual: pvAtual,
-                    vidaMax: pvMax,
-                    fadigaAtual: fadigaAtual,
-                    fadigaMax: fadigaMax,
-                    manaAtual: manaAtual,
-                    manaMax: manaMax
-                };
-                personagem.xp = xpAtual;
-                
-                const personagemRef = doc(db, "personagens", personagem.id);
-                await updateDoc(personagemRef, {
-                    statusCombate: personagem.statusCombate,
-                    xp: xpAtual,
-                    atributos: personagem.atributos,
-                    pmGasto: personagem.pmGasto
-                });
-                
-            } catch (error) {
-                console.error('Erro ao salvar progresso:', error);
-            }
+        } catch (error) {
+            console.error('Erro ao carregar personagem:', error);
+            adicionarLog('❌ Erro ao carregar personagem!', 'erro');
         }
+    }
 
-        async function carregarPersonagem(personagemId) {
-            try {
-                const personagemRef = doc(db, "personagens", personagemId);
-                const personagemSnap = await getDoc(personagemRef);
-                
-                if (!personagemSnap.exists()) {
-                    throw new Error('Personagem não encontrado');
-                }
-                
-                personagem = {
-                    id: personagemSnap.id,
-                    ...personagemSnap.data()
-                };
-                
-                if (!personagem.inventario) {
-                    personagem.inventario = {
-                        corpo: [],
-                        mochila: [],
-                        deposito: []
-                    };
-                }
-                
-                pvMax = calcularPVMax();
-                pvAtual = personagem.statusCombate?.vidaAtual || pvMax;
-                
-                fadigaMax = calcularFadigaMax();
-                fadigaAtual = personagem.statusCombate?.fadigaAtual || fadigaMax;
-                
-                manaMax = calcularManaMax();
-                manaAtual = personagem.statusCombate?.manaAtual || manaMax;
-                
-                xpAtual = personagem.xp || 0;
-                
-                const stBolinhas = personagem.atributos?.st?.bolinhas || 0;
-                const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
-                const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
-                const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
-                const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
-                const xpNecessario = (totalBolinhas + 1) * XP_POR_BOLINHA;
-                
-                while (xpAtual >= xpNecessario) {
-                    bolinhasDisponiveis++;
-                    xpAtual -= xpNecessario;
-                }
-                
-                atualizarFichaPersonagem();
-                
-            } catch (error) {
-                console.error('Erro ao carregar personagem:', error);
-                adicionarLog('❌ Erro ao carregar personagem!', 'erro');
-            }
-        }
-
-        async function carregarAventura(aventuraId) {
-            try {
-                const module = await import(`./aventuras/${aventuraId}.js`);
-                historia = module.default || module.AVENTURA;
-                
-                if (!historia) {
-                    throw new Error('Aventura não encontrada');
-                }
-                
-                capituloAtual = historia.cenas[historia.cenaInicial];
-                carregarCena(capituloAtual);
-                
-            } catch (error) {
-                console.error('Erro ao carregar aventura:', error);
-                
-                historia = {
-                    nome: 'Masmorra dos Goblins',
-                    cenaInicial: 'entrada',
-                    cenas: {
-                        entrada: {
-                            imagem: 'imagem/taverna-exterior.jpg',
-                            fala: {
-                                npc: 'Narrador',
-                                texto: 'Você está na entrada de uma masmorra escura.'
-                            },
-                            npcs: [
-                                {
-                                    id: 'goblin1',
-                                    nome: 'Goblin Guarda',
-                                    x: 70,
-                                    y: 50,
-                                    sprite: 'imagem/goblin.jpg',
-                                    dialogo: 'O que você quer aqui?',
-                                    opcoes: [
-                                        { texto: 'Quero entrar', resposta: 'Não vai passar!' },
-                                        { texto: 'Quero lutar', acao: 'combate', inimigos: ['goblin1'] }
-                                    ]
-                                }
-                            ],
-                            opcoes: [
-                                { texto: 'Entrar na masmorra', proximo: 'corredor' },
-                                { texto: 'Falar com o goblin', acao: 'dialogo' }
-                            ]
-                        }
-                    }
-                };
-                
-                capituloAtual = historia.cenas[historia.cenaInicial];
-                carregarCena(capituloAtual);
-            }
-        }
-
-        async function criarSessao() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const aventuraId = urlParams.get('aventura');
-            const personagemId = urlParams.get('personagem');
+    // ===== FUNÇÃO PRINCIPAL CARREGAR AVENTURA - SEM FALLBACK =====
+    async function carregarAventura(aventuraId) {
+        try {
+            console.log('📂 Carregando aventura:', aventuraId);
             
-            if (!aventuraId || !personagemId) {
-                alert('Aventura ou personagem não selecionado!');
+            // Tenta importar o arquivo da aventura
+            const module = await import(`./aventuras/${aventuraId}.js`);
+            historia = module.default || module.AVENTURA;
+            
+            if (!historia) {
+                throw new Error('Arquivo de aventura não contém dados válidos');
+            }
+            
+            console.log('✅ Aventura carregada:', historia.nome);
+            
+            // Pega a cena inicial
+            const cenaInicialId = historia.cenaInicial;
+            capituloAtual = historia.cenas[cenaInicialId];
+            
+            if (!capituloAtual) {
+                throw new Error(`Cena inicial "${cenaInicialId}" não encontrada`);
+            }
+            
+            // CARREGA A PRIMEIRA CENA
+            carregarCena(capituloAtual);
+            adicionarLog(`📖 ${historia.nome} iniciada!`, 'sucesso');
+            
+        } catch (error) {
+            console.error('❌ ERRO AO CARREGAR AVENTURA:', error);
+            
+            // Mostra erro na tela - sem fallback, só o erro real
+            dialogoTexto.textContent = `ERRO: ${error.message}. Verifique se o arquivo "${aventuraId}.js" existe na pasta aventuras/`;
+            adicionarLog(`❌ Falha ao carregar aventura: ${error.message}`, 'erro');
+            
+            // Cria botão para voltar
+            opcoesDialogo.innerHTML = '';
+            const btnVoltar = document.createElement('button');
+            btnVoltar.className = 'opcao-btn';
+            btnVoltar.textContent = 'Voltar à seleção';
+            btnVoltar.addEventListener('click', () => {
                 window.location.href = 'aventura-solo.html';
-                return;
-            }
-            
-            showLoading();
-            
-            try {
-                await carregarPersonagem(personagemId);
-                await carregarAventura(aventuraId);
-                
-                const sessaoRef = doc(collection(db, "sessoes_aventura"));
-                sessaoId = sessaoRef.id;
-                
-                await setDoc(sessaoRef, {
-                    id: sessaoId,
-                    userId: currentUser.uid,
-                    personagem_id: personagemId,
-                    aventura_id: aventuraId,
-                    pc_atual: personagem,
-                    cena_atual: historia.cenaInicial,
-                    data_inicio: new Date().toISOString(),
-                    ultima_sessao: new Date().toISOString(),
-                    status: "em_andamento"
-                });
-                
-                adicionarLog('🎲 Aventura iniciada!', 'sucesso');
-                
-            } catch (error) {
-                console.error('Erro ao iniciar sessão:', error);
-                alert('Erro ao iniciar aventura!');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                await criarSessao();
-            } else {
-                window.location.href = 'index.html';
-            }
-        });
-
-        btnAtacar.addEventListener('click', abrirModalAtaque);
-        btnMagia.addEventListener('click', () => adicionarLog('🔮 Sistema de magias em desenvolvimento', 'info'));
-        btnInventario.addEventListener('click', abrirModalInventario);
-        btnDescansar.addEventListener('click', descansar);
-
-        cancelarEscolhaAtributo.addEventListener('click', () => {
-            modalEscolhaAtributo.classList.remove('active');
-        });
-
-        fecharModalInventario.addEventListener('click', () => {
-            modalInventario.classList.remove('active');
-        });
-
-        btnCancelarAtaque.addEventListener('click', () => {
-            modalAtaque.classList.remove('active');
-        });
-
-        btnConfirmarAtaque.addEventListener('click', executarAtaque);
-
-        btnCancelarDefesa.addEventListener('click', () => {
-            modalDefesa.classList.remove('active');
-        });
-
-        btnAbrirDados.addEventListener('click', () => {
-            modalDados.classList.add('active');
-        });
-
-        btnFecharDados.addEventListener('click', () => {
-            modalDados.classList.remove('active');
-        });
-
-        btnRolarDados.addEventListener('click', () => {
-            const qtd = parseInt(dadosQtd.value) || 1;
-            const faces = parseInt(dadosFaces.value) || 10;
-            const mod = parseInt(dadosMod.value) || 0;
-            
-            const resultado = rolarDados(qtd, faces, mod);
-            dadosResultado.textContent = resultado.texto;
-            adicionarLog(`🎲 Rolagem: ${resultado.texto}`, 'info');
-        });
-
-        document.querySelectorAll('.atributo-opcao').forEach(opcao => {
-            opcao.addEventListener('click', () => {
-                const atributo = opcao.dataset.atributo;
-                adicionarBolinha(atributo);
             });
-        });
+            opcoesDialogo.appendChild(btnVoltar);
+        }
+    }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                modalEscolhaAtributo.classList.remove('active');
-                modalInventario.classList.remove('active');
-                modalAtaque.classList.remove('active');
-                modalDefesa.classList.remove('active');
-                modalDados.classList.remove('active');
-            }
-        });
+    async function criarSessao() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const aventuraId = urlParams.get('aventura');
+        const personagemId = urlParams.get('personagem');
+        
+        if (!aventuraId || !personagemId) {
+            alert('Aventura ou personagem não selecionado!');
+            window.location.href = 'aventura-solo.html';
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            await carregarPersonagem(personagemId);
+            await carregarAventura(aventuraId);
+            
+            const sessaoRef = doc(collection(db, "sessoes_aventura"));
+            sessaoId = sessaoRef.id;
+            
+            await setDoc(sessaoRef, {
+                id: sessaoId,
+                userId: currentUser.uid,
+                personagem_id: personagemId,
+                aventura_id: aventuraId,
+                pc_atual: personagem,
+                cena_atual: historia?.cenaInicial || '',
+                data_inicio: new Date().toISOString(),
+                ultima_sessao: new Date().toISOString(),
+                status: "em_andamento"
+            });
+            
+        } catch (error) {
+            console.error('Erro ao iniciar sessão:', error);
+        } finally {
+            hideLoading();
+        }
+    }
 
-        setInterval(() => {
-            if (personagem && sessaoId) {
-                salvarProgresso();
-            }
-        }, 30000);
-    </script>
+    // ===== EVENT LISTENERS =====
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            await criarSessao();
+        } else {
+            window.location.href = 'index.html';
+        }
+    });
+
+    btnAtacar.addEventListener('click', abrirModalAtaque);
+    btnMagia.addEventListener('click', () => adicionarLog('🔮 Sistema de magias em desenvolvimento', 'info'));
+    btnInventario.addEventListener('click', abrirModalInventario);
+    btnDescansar.addEventListener('click', descansar);
+
+    cancelarEscolhaAtributo.addEventListener('click', () => {
+        modalEscolhaAtributo.classList.remove('active');
+    });
+
+    fecharModalInventario.addEventListener('click', () => {
+        modalInventario.classList.remove('active');
+    });
+
+    btnCancelarAtaque.addEventListener('click', () => {
+        modalAtaque.classList.remove('active');
+    });
+
+    btnConfirmarAtaque.addEventListener('click', executarAtaque);
+
+    btnCancelarDefesa.addEventListener('click', () => {
+        modalDefesa.classList.remove('active');
+    });
+
+    btnAbrirDados.addEventListener('click', () => {
+        modalDados.classList.add('active');
+    });
+
+    btnFecharDados.addEventListener('click', () => {
+        modalDados.classList.remove('active');
+    });
+
+    btnRolarDados.addEventListener('click', () => {
+        const qtd = parseInt(dadosQtd.value) || 1;
+        const faces = parseInt(dadosFaces.value) || 10;
+        const mod = parseInt(dadosMod.value) || 0;
+        
+        const resultado = rolarDados(qtd, faces, mod);
+        dadosResultado.textContent = resultado.texto;
+        adicionarLog(`🎲 Rolagem: ${resultado.texto}`, 'info');
+    });
+
+    document.querySelectorAll('.atributo-opcao').forEach(opcao => {
+        opcao.addEventListener('click', () => {
+            const atributo = opcao.dataset.atributo;
+            adicionarBolinha(atributo);
+        });
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            modalEscolhaAtributo.classList.remove('active');
+            modalInventario.classList.remove('active');
+            modalAtaque.classList.remove('active');
+            modalDefesa.classList.remove('active');
+            modalDados.classList.remove('active');
+        }
+    });
+
+    setInterval(() => {
+        if (personagem && sessaoId) {
+            salvarProgresso();
+        }
+    }, 30000);
+</script>
 </body>
 </html>
