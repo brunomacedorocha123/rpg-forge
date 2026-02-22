@@ -4229,13 +4229,38 @@ async function carregarPersonagem(id) {
 async function excluirPersonagem() {
     if (!personagemId) {
         alert('Nenhum personagem para excluir');
+        modalConfirmarExclusao.classList.remove('active');
         return;
     }
     
     try {
         showLoading();
         
+        const user = auth.currentUser;
+        if (!user) {
+            alert('Usuário não autenticado!');
+            window.location.href = 'index.html';
+            return;
+        }
+        
         const docRef = doc(db, "personagens", personagemId);
+        
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+            alert('Personagem não encontrado no banco de dados!');
+            modalConfirmarExclusao.classList.remove('active');
+            hideLoading();
+            return;
+        }
+        
+        if (docSnap.data().userId !== user.uid) {
+            alert('Você não tem permissão para excluir este personagem!');
+            modalConfirmarExclusao.classList.remove('active');
+            hideLoading();
+            return;
+        }
+        
         await deleteDoc(docRef);
         
         sessionStorage.removeItem('personagemTemp');
@@ -4243,7 +4268,7 @@ async function excluirPersonagem() {
         window.location.href = 'personagens.html';
         
     } catch (error) {
-        alert('Erro ao excluir personagem');
+        alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
 }
@@ -4800,7 +4825,7 @@ function adicionarEventosCompra() {
                 comprarItem(item);
                 triggerAutoSave();
             }
-        }, { once: false });
+        });
     });
 }
 
