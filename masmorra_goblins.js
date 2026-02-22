@@ -1,25 +1,7 @@
 // aventuras/masmorra_goblins.js
 // Aventura: A Menina Elfa Raptada
-// AVENTURA SIMPLIFICADA PARA TESTE
-window.AVENTURA = {
-    nome: "A Menina Elfa Raptada",
-    cenaInicial: "teste",
-    cenas: {
-        teste: {
-            id: "teste",
-            nome: "Cena de Teste",
-            fala: {
-                npc: "Narrador",
-                texto: "SE VOCÊ ESTÁ VENDO ISSO, O SCRIPT FUNCIONOU!"
-            },
-            opcoes: []
-        }
-    }
-};
 
-console.log('✅ ARQUIVO DE AVENTURA CARREGADO COM SUCESSO!');
-console.log('📢 AVENTURA:', window.AVENTURA.nome);
-export const AVENTURA = {
+const AVENTURA = {
     nome: "A Menina Elfa Raptada",
     descricao: "Uma aventura clássica começando em uma taverna.",
     cenaInicial: "exterior_taverna",
@@ -506,7 +488,7 @@ export const AVENTURA = {
         // ------------------------------------------------------
         // CENA FINAL: TAVERNA
         // ------------------------------------------------------
-              final_taverna: {
+        final_taverna: {
             id: "final_taverna",
             nome: "Retorno Triunfal",
             imagem: "imagem/taverna-interior.jpg",
@@ -550,7 +532,10 @@ export const AVENTURA = {
     }
 };
 
-
+// EXPORTAÇÃO CORRETA - APENAS UMA VEZ!
 window.AVENTURA = AVENTURA;
 
-export default AVENTURA;
+// Se quiser usar como módulo também (opcional)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = AVENTURA;
+}
