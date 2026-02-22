@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sala de Aventura - RPGForce</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #2a1a3a 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .magic-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        /* COLUNA ESQUERDA - FICHA DO PERSONAGEM */
+        .ficha-pc {
+            width: 300px;
+            background: rgba(10, 10, 26, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+        }
+
+        .pc-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .pc-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: #0a0a1a;
+            margin: 0 auto 15px;
+            overflow: hidden;
+        }
+
+        .pc-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .pc-nome {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffd700;
+            font-family: 'MedievalSharp', cursive;
+            margin-bottom: 5px;
+        }
+
+        .pc-classe {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+
+        .pc-status {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            margin-bottom: 15px;
+        }
+
+        .status-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .status-label i {
+            color: #ffd700;
+        }
+
+        .status-bar {
+            height: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .status-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+            transition: width 0.3s;
+        }
+
+        .status-fill.vida {
+            background: linear-gradient(90deg, #ff4d4d, #ff1a1a);
+        }
+
+        .status-fill.mana {
+            background: linear-gradient(90deg, #4d4dff, #1a1aff);
+        }
+
+        .status-fill.fadiga {
+            background: linear-gradient(90deg, #ffaa00, #ff8800);
+        }
+
+        .atributos-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .atributo-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .atributo-nome {
+            color: #ffd700;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        .atributo-valor {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .atributo-mod {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .defesas-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .defesa-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .defesa-valor {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .defesa-label {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* COLUNA DIREITA - ÁREA DE JOGO */
+        .area-jogo {
+            flex: 1;
+            background: rgba(10, 10, 26, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .aventura-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .aventura-titulo {
+            font-size: 1.8rem;
+            font-family: 'MedievalSharp', cursive;
+            color: #ffd700;
+        }
+
+        .aventura-capitulo {
+            background: rgba(255, 215, 0, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        /* CAIXA DE NARRATIVA */
+        .narrativa-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            flex: 1;
+            overflow-y: auto;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+            position: relative;
+        }
+
+        .narrativa-box::before {
+            content: '"';
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 4rem;
+            color: rgba(255, 215, 0, 0.2);
+            font-family: 'MedievalSharp', cursive;
+        }
+
+        .narrativa-texto {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* INIMIGOS (aparece durante combate) */
+        .inimigos-container {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff6b6b;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .inimigos-titulo {
+            color: #ff6b6b;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .inimigos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .inimigo-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #ff6b6b;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .inimigo-nome {
+            font-weight: bold;
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        .inimigo-pv {
+            height: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .inimigo-pv-fill {
+            height: 100%;
+            background: #ff6b6b;
+            width: 100%;
+        }
+
+        /* OPÇÕES DE AÇÃO */
+        .opcoes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .opcao-btn {
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            padding: 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .opcao-btn:hover:not(:disabled) {
+            background: rgba(255, 215, 0, 0.2);
+            border-color: #ffd700;
+            transform: translateY(-2px);
+        }
+
+        .opcao-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* AÇÕES DE COMBATE */
+        .acoes-combate {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .acao-btn {
+            background: transparent;
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            padding: 12px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .acao-btn:hover {
+            background: #ffd700;
+            color: #0a0a1a;
+        }
+
+        .acao-btn.atacar {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        .acao-btn.atacar:hover {
+            background: #ff6b6b;
+            color: #0a0a1a;
+        }
+
+        .acao-btn.magia {
+            border-color: #4d4dff;
+            color: #4d4dff;
+        }
+
+        .acao-btn.magia:hover {
+            background: #4d4dff;
+            color: #0a0a1a;
+        }
+
+        .btn-continuar {
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            color: #0a0a1a;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .btn-continuar:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+        }
+
+        .log-container {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .log-item {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 10, 26, 0.9);
+            z-index: 4000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.active { display: flex; }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 215, 0, 0.2);
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            .ficha-pc {
+                width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="magic-bg"></div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Iniciando aventura...</div>
+    </div>
+
+    <div class="container">
+        <!-- COLUNA ESQUERDA: Ficha do Personagem -->
+        <div class="ficha-pc" id="fichaPC">
+            <div class="pc-header">
+                <div class="pc-avatar" id="pcAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="pc-nome" id="pcNome">Carregando...</div>
+                <div class="pc-classe" id="pcClasse">-</div>
+            </div>
+
+            <div class="pc-status">
+                <div class="status-item">
+                    <div class="status-label">
+                        <span><i class="fas fa-heart"></i> PV</span>
+                        <span id="pvTexto">0/0</span>
+                    </div>
+                    <div class="status-bar">
+                        <div class="status-fill vida" id="pvBarra" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="status-item">
+                    <div class="status-label">
+                        <span><i class="fas fa-tint"></i> Fadiga</span>
+                        <span id="fadigaTexto">0/0</span>
+                    </div>
+                    <div class="status-bar">
+                        <div class="status-fill fadiga" id="fadigaBarra" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="status-item">
+                    <div class="status-label">
+                        <span><i class="fas fa-magic"></i> PM</span>
+                        <span id="manaTexto">0/0</span>
+                    </div>
+                    <div class="status-bar">
+                        <div class="status-fill mana" id="manaBarra" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="atributos-grid" id="atributosGrid">
+                <!-- Atributos serão preenchidos via JS -->
+            </div>
+
+            <div class="defesas-grid" id="defesasGrid">
+                <!-- Defesas serão preenchidas via JS -->
+            </div>
+
+            <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 12px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #ffd700;">
+                    <span><i class="fas fa-coins"></i> Dinheiro</span>
+                    <span id="dinheiroValor">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; color: rgba(255,255,255,0.7);">
+                    <span><i class="fas fa-trophy"></i> XP</span>
+                    <span id="xpValor">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUNA DIREITA: Área de Jogo -->
+        <div class="area-jogo">
+            <div class="aventura-header">
+                <div class="aventura-titulo" id="aventuraTitulo">Carregando...</div>
+                <div class="aventura-capitulo" id="aventuraCapitulo">Capítulo 1</div>
+            </div>
+
+            <!-- Caixa de narrativa -->
+            <div class="narrativa-box" id="narrativaBox">
+                <div class="narrativa-texto" id="narrativaTexto">
+                    Preparando sua aventura...
+                </div>
+            </div>
+
+            <!-- Container de inimigos (aparece só em combate) -->
+            <div class="inimigos-container" id="inimigosContainer" style="display: none;">
+                <div class="inimigos-titulo">
+                    <i class="fas fa-skull"></i> Inimigos
+                </div>
+                <div class="inimigos-grid" id="inimigosGrid">
+                    <!-- Inimigos serão inseridos aqui -->
+                </div>
+            </div>
+
+            <!-- Opções do capítulo (narrativa) -->
+            <div class="opcoes-container" id="opcoesContainer">
+                <!-- Opções serão inseridas aqui -->
+            </div>
+
+            <!-- Ações de combate (aparece só em combate) -->
+            <div class="acoes-combate" id="acoesCombate" style="display: none;">
+                <button class="acao-btn atacar" id="btnAtacar">
+                    <i class="fas fa-sword"></i> Atacar
+                </button>
+                <button class="acao-btn magia" id="btnMagia">
+                    <i class="fas fa-magic"></i> Usar Magia
+                </button>
+                <button class="acao-btn" id="btnItem">
+                    <i class="fas fa-flask"></i> Usar Item
+                </button>
+                <button class="acao-btn" id="btnFugir">
+                    <i class="fas fa-running"></i> Fugir
+                </button>
+            </div>
+
+            <!-- Botão continuar (para avançar após ler) -->
+            <button class="btn-continuar" id="btnContinuar" style="display: none;">
+                Continuar <i class="fas fa-arrow-right"></i>
+            </button>
+
+            <!-- Log de ações -->
+            <div class="log-container" id="logContainer">
+                <div class="log-item">A aventura começou...</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc,
+            getDoc,
+            collection,
+            setDoc,
+            updateDoc
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+            authDomain: "rpgforce-e3227.firebaseapp.com",
+            projectId: "rpgforce-e3227",
+            storageBucket: "rpgforce-e3227.firebasestorage.app",
+            messagingSenderId: "984517342332",
+            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // ========== AVENTURAS FIXAS ==========
+        const AVENTURAS_SISTEMA = {
+            "masmorra_goblins": {
+                id: "masmorra_goblins",
+                nome: "🏰 A Masmorra dos Goblins",
+                capitulos: [
+                    {
+                        id: "inicio",
+                        titulo: "A Entrada",
+                        texto: "Você está diante da entrada escura da masmorra. Tochas tremulam nas paredes úmidas. O cheiro de bolor e sangue podre vem de dentro. Você ouve risadas distantes de goblins ecoando pelos corredores.",
+                        tipo: "narrativa",
+                        opcoes: [
+                            { texto: "Entrar na masmorra", proximo: "sala1" },
+                            { texto: "Desistir e voltar", proximo: "fim" }
+                        ]
+                    },
+                    {
+                        id: "sala1",
+                        titulo: "Sala dos Goblins",
+                        texto: "Você entra em uma sala iluminada por uma fogueira. Três goblins estão jogando dados e bebendo. Eles não perceberam sua presença ainda.",
+                        tipo: "combate",
+                        inimigos: [
+                            { 
+                                id: "goblin1",
+                                nome: "Goblin Guarda", 
+                                pv: 12,
+                                pv_max: 12,
+                                dano: "1d4",
+                                rd: 0,
+                                esquiva: 8
+                            },
+                            { 
+                                id: "goblin2",
+                                nome: "Goblin Saqueador", 
+                                pv: 10,
+                                pv_max: 10,
+                                dano: "1d4+1",
+                                rd: 0,
+                                esquiva: 9
+                            },
+                            { 
+                                id: "goblin3",
+                                nome: "Goblin Batedor", 
+                                pv: 8,
+                                pv_max: 8,
+                                dano: "1d4",
+                                rd: 0,
+                                esquiva: 10
+                            }
+                        ],
+                        vitoria: "tesouro",
+                        derrota: "fim"
+                    },
+                    {
+                        id: "tesouro",
+                        titulo: "Tesouro Goblin",
+                        texto: "Com os goblins derrotados, você encontra o baú deles. Dentro há moedas de ouro e uma poção brilhante.",
+                        tipo: "recompensa",
+                        xp: 100,
+                        ouro: 50,
+                        item: "Poção de Cura",
+                        opcoes: [
+                            { texto: "Continuar explorando", proximo: "sala2" },
+                            { texto: "Voltar para cidade", proximo: "fim" }
+                        ]
+                    },
+                    {
+                        id: "sala2",
+                        titulo: "Sala do Chefão",
+                        texto: "Você chega a uma sala maior. No centro, um goblin enorme com uma armadura de ossos está sentado num trono improvisado. Ele rosna ao te ver.",
+                        tipo: "combate",
+                        inimigos: [
+                            { 
+                                id: "chefao",
+                                nome: "Chefe Goblin Gorsh", 
+                                pv: 35,
+                                pv_max: 35,
+                                dano: "2d4",
+                                rd: 2,
+                                esquiva: 7
+                            }
+                        ],
+                        vitoria: "final",
+                        derrota: "fim"
+                    },
+                    {
+                        id: "final",
+                        titulo: "Vitória!",
+                        texto: "O chefe goblin cai diante de seus golpes. A masmorra agora está livre! Você encontra um tesouro enorme e volta para cidade como um herói.",
+                        tipo: "final",
+                        xp: 300,
+                        ouro: 200
+                    },
+                    {
+                        id: "fim",
+                        titulo: "Fim da Jornada",
+                        texto: "Sua aventura termina aqui. Você volta para casa, vivo, mas com a sensação de que poderia ter ido mais longe.",
+                        tipo: "final"
+                    }
+                ]
+            }
+            // Aqui você pode adicionar mais aventuras
+        };
+
+        // Elementos do DOM
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const pcNome = document.getElementById('pcNome');
+        const pcClasse = document.getElementById('pcClasse');
+        const pcAvatar = document.getElementById('pcAvatar');
+        const pvTexto = document.getElementById('pvTexto');
+        const pvBarra = document.getElementById('pvBarra');
+        const fadigaTexto = document.getElementById('fadigaTexto');
+        const fadigaBarra = document.getElementById('fadigaBarra');
+        const manaTexto = document.getElementById('manaTexto');
+        const manaBarra = document.getElementById('manaBarra');
+        const atributosGrid = document.getElementById('atributosGrid');
+        const defesasGrid = document.getElementById('defesasGrid');
+        const dinheiroValor = document.getElementById('dinheiroValor');
+        const xpValor = document.getElementById('xpValor');
+        const aventuraTitulo = document.getElementById('aventuraTitulo');
+        const aventuraCapitulo = document.getElementById('aventuraCapitulo');
+        const narrativaTexto = document.getElementById('narrativaTexto');
+        const inimigosContainer = document.getElementById('inimigosContainer');
+        const inimigosGrid = document.getElementById('inimigosGrid');
+        const opcoesContainer = document.getElementById('opcoesContainer');
+        const acoesCombate = document.getElementById('acoesCombate');
+        const btnContinuar = document.getElementById('btnContinuar');
+        const logContainer = document.getElementById('logContainer');
+        
+        const btnAtacar = document.getElementById('btnAtacar');
+        const btnMagia = document.getElementById('btnMagia');
+        const btnItem = document.getElementById('btnItem');
+        const btnFugir = document.getElementById('btnFugir');
+
+        // Estado do jogo
+        let currentUser = null;
+        let personagem = null;
+        let aventura = null;
+        let capituloAtual = null;
+        let indiceCapitulo = 0;
+        let inimigos = [];
+        let sessaoId = null;
+
+        function showLoading() {
+            loadingOverlay.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        function adicionarLog(mensagem, tipo = 'info') {
+            const logItem = document.createElement('div');
+            logItem.className = 'log-item';
+            logItem.innerHTML = mensagem;
+            logContainer.appendChild(logItem);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function getModificador(atributo) {
+            return Math.floor((atributo - 10) / 2);
+        }
+
+        function rolarDados(qtd, faces) {
+            let total = 0;
+            for (let i = 0; i < qtd; i++) {
+                total += Math.floor(Math.random() * faces) + 1;
+            }
+            return total;
+        }
+
+        function calcularDano(st, armaDano) {
+            const mod = getModificador(st);
+            const danoBase = mod + rolarDados(1, 6);
+            return Math.max(1, danoBase);
+        }
+
+        function atualizarFichaPersonagem() {
+            if (!personagem) return;
+            
+            pcNome.textContent = personagem.nome;
+            
+            const classes = {
+                guerreiro: 'Guerreiro',
+                mago: 'Mago',
+                ladino: 'Ladino',
+                clerigo: 'Clérigo',
+                barbaro: 'Bárbaro'
+            };
+            pcClasse.textContent = classes[personagem.classe] || personagem.classe;
+            
+            if (personagem.fotoURL) {
+                pcAvatar.innerHTML = `<img src="${personagem.fotoURL}" alt="${personagem.nome}">`;
+            }
+            
+            const pvAtual = personagem.statusCombate?.vidaAtual || personagem.statusCombate?.vidaMax || 48;
+            const pvMax = personagem.statusCombate?.vidaMax || 48;
+            pvTexto.textContent = `${pvAtual}/${pvMax}`;
+            pvBarra.style.width = (pvAtual / pvMax * 100) + '%';
+            
+            const fadigaAtual = personagem.statusCombate?.fadigaAtual || personagem.statusCombate?.fadigaMax || 8;
+            const fadigaMax = personagem.statusCombate?.fadigaMax || 8;
+            fadigaTexto.textContent = `${fadigaAtual}/${fadigaMax}`;
+            fadigaBarra.style.width = (fadigaAtual / fadigaMax * 100) + '%';
+            
+            const manaAtual = personagem.statusCombate?.manaAtual || personagem.statusCombate?.manaMax || 13;
+            const manaMax = personagem.statusCombate?.manaMax || 13;
+            manaTexto.textContent = `${manaAtual}/${manaMax}`;
+            manaBarra.style.width = (manaAtual / manaMax * 100) + '%';
+            
+            // Atributos
+            atributosGrid.innerHTML = `
+                <div class="atributo-card">
+                    <div class="atributo-nome">ST</div>
+                    <div class="atributo-valor">${personagem.atributos.st.valor}</div>
+                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos.st.valor)}</div>
+                </div>
+                <div class="atributo-card">
+                    <div class="atributo-nome">DX</div>
+                    <div class="atributo-valor">${personagem.atributos.dx.valor}</div>
+                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos.dx.valor)}</div>
+                </div>
+                <div class="atributo-card">
+                    <div class="atributo-nome">IQ</div>
+                    <div class="atributo-valor">${personagem.atributos.iq.valor}</div>
+                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos.iq.valor)}</div>
+                </div>
+                <div class="atributo-card">
+                    <div class="atributo-nome">HT</div>
+                    <div class="atributo-valor">${personagem.atributos.ht.valor}</div>
+                    <div class="atributo-mod">Mod ${getModificador(personagem.atributos.ht.valor)}</div>
+                </div>
+            `;
+            
+            // Defesas
+            defesasGrid.innerHTML = `
+                <div class="defesa-card">
+                    <div class="defesa-valor">${personagem.derivados?.esquiva || 5}</div>
+                    <div class="defesa-label">Esquiva</div>
+                </div>
+                <div class="defesa-card">
+                    <div class="defesa-valor">${personagem.derivados?.aparar || 5}</div>
+                    <div class="defesa-label">Aparar</div>
+                </div>
+                <div class="defesa-card">
+                    <div class="defesa-valor">${personagem.derivados?.bloqueio || 5}</div>
+                    <div class="defesa-label">Bloqueio</div>
+                </div>
+            `;
+            
+            dinheiroValor.textContent = personagem.dinheiro || 0;
+            xpValor.textContent = personagem.xp || 0;
+        }
+
+        function iniciarCapitulo(capituloId) {
+            const capitulo = aventura.capitulos.find(c => c.id === capituloId);
+            if (!capitulo) return;
+            
+            capituloAtual = capitulo;
+            
+            aventuraCapitulo.textContent = capitulo.titulo;
+            narrativaTexto.textContent = capitulo.texto;
+            
+            // Esconde tudo primeiro
+            inimigosContainer.style.display = 'none';
+            opcoesContainer.style.display = 'none';
+            acoesCombate.style.display = 'none';
+            btnContinuar.style.display = 'none';
+            
+            if (capitulo.tipo === 'narrativa') {
+                opcoesContainer.style.display = 'grid';
+                opcoesContainer.innerHTML = capitulo.opcoes.map(opcao => `
+                    <button class="opcao-btn" data-proximo="${opcao.proximo}">
+                        <i class="fas fa-arrow-right"></i> ${opcao.texto}
+                    </button>
+                `).join('');
+                
+                document.querySelectorAll('.opcao-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        iniciarCapitulo(btn.dataset.proximo);
+                    });
+                });
+                
+            } else if (capitulo.tipo === 'combate') {
+                inimigos = capitulo.inimigos.map(i => ({...i}));
+                renderizarInimigos();
+                
+                inimigosContainer.style.display = 'block';
+                acoesCombate.style.display = 'flex';
+                
+                adicionarLog('⚔️ COMBATE INICIADO!');
+                
+            } else if (capitulo.tipo === 'recompensa') {
+                personagem.dinheiro = (personagem.dinheiro || 0) + (capitulo.ouro || 0);
+                personagem.xp = (personagem.xp || 0) + (capitulo.xp || 0);
+                
+                dinheiroValor.textContent = personagem.dinheiro;
+                xpValor.textContent = personagem.xp;
+                
+                let textoRecompensa = `Você ganhou ${capitulo.xp || 0} XP e ${capitulo.ouro || 0} moedas!`;
+                if (capitulo.item) {
+                    textoRecompensa += ` Encontrou também: ${capitulo.item}`;
+                }
+                adicionarLog('💰 ' + textoRecompensa);
+                
+                opcoesContainer.style.display = 'grid';
+                opcoesContainer.innerHTML = (capitulo.opcoes || []).map(opcao => `
+                    <button class="opcao-btn" data-proximo="${opcao.proximo}">
+                        <i class="fas fa-arrow-right"></i> ${opcao.texto}
+                    </button>
+                `).join('');
+                
+                if (capitulo.opcoes) {
+                    document.querySelectorAll('.opcao-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            iniciarCapitulo(btn.dataset.proximo);
+                        });
+                    });
+                } else if (capitulo.proximo) {
+                    btnContinuar.style.display = 'block';
+                    btnContinuar.onclick = () => iniciarCapitulo(capitulo.proximo);
+                }
+                
+            } else if (capitulo.tipo === 'final') {
+                if (capitulo.xp) {
+                    personagem.xp = (personagem.xp || 0) + capitulo.xp;
+                    xpValor.textContent = personagem.xp;
+                    adicionarLog(`🏆 Você ganhou ${capitulo.xp} XP!`);
+                }
+                if (capitulo.ouro) {
+                    personagem.dinheiro = (personagem.dinheiro || 0) + capitulo.ouro;
+                    dinheiroValor.textContent = personagem.dinheiro;
+                    adicionarLog(`💰 Você ganhou ${capitulo.ouro} moedas!`);
+                }
+                
+                opcoesContainer.innerHTML = `
+                    <button class="opcao-btn" onclick="window.location.href='aventura-solo.html'">
+                        <i class="fas fa-home"></i> Voltar para Aventuras
+                    </button>
+                `;
+                opcoesContainer.style.display = 'grid';
+            }
+            
+            salvarProgresso();
+        }
+
+        function renderizarInimigos() {
+            inimigosGrid.innerHTML = inimigos.map(inimigo => `
+                <div class="inimigo-card" data-id="${inimigo.id}">
+                    <div class="inimigo-nome">${inimigo.nome}</div>
+                    <div class="inimigo-pv">
+                        <div class="inimigo-pv-fill" style="width: ${(inimigo.pv / inimigo.pv_max) * 100}%"></div>
+                    </div>
+                    <div style="font-size:0.8rem; text-align:center;">${inimigo.pv}/${inimigo.pv_max} PV</div>
+                </div>
+            `).join('');
+        }
+
+        function atacarInimigo() {
+            if (inimigos.length === 0) return;
+            
+            const inimigo = inimigos[0]; // Ataca o primeiro por enquanto
+            
+            const st = personagem.atributos.st.valor;
+            const modForca = getModificador(st);
+            const rolagemAtaque = rolarDados(3, 6);
+            const nhAtaque = personagem.atributos.dx.valor + 2; // Simplificado
+            
+            if (rolagemAtaque <= nhAtaque) {
+                const dano = modForca + rolarDados(1, 6);
+                const danoFinal = Math.max(1, dano - (inimigo.rd || 0));
+                
+                inimigo.pv -= danoFinal;
+                adicionarLog(`🎯 Acertou ${inimigo.nome}! Dano: ${danoFinal}`);
+                
+                if (inimigo.pv <= 0) {
+                    adicionarLog(`💀 ${inimigo.nome} foi derrotado!`);
+                    inimigos = inimigos.filter(i => i.id !== inimigo.id);
+                }
+            } else {
+                adicionarLog(`❌ Errou o ataque em ${inimigo.nome}!`);
+            }
+            
+            // Inimigos atacam de volta
+            inimigos.forEach(i => {
+                const rolagemInimigo = rolarDados(3, 6);
+                if (rolagemInimigo <= i.esquiva) {
+                    const danoInimigo = rolarDados(1, 4) + 1;
+                    personagem.statusCombate.vidaAtual -= danoInimigo;
+                    adicionarLog(`😖 ${i.nome} acertou você! Dano: ${danoInimigo}`);
+                }
+            });
+            
+            atualizarFichaPersonagem();
+            renderizarInimigos();
+            
+            if (inimigos.length === 0) {
+                adicionarLog('🎉 VITÓRIA! Todos inimigos derrotados!');
+                setTimeout(() => {
+                    iniciarCapitulo(capituloAtual.vitoria);
+                }, 2000);
+            }
+            
+            if (personagem.statusCombate.vidaAtual <= 0) {
+                adicionarLog('💀 VOCÊ MORREU!');
+                setTimeout(() => {
+                    iniciarCapitulo(capituloAtual.derrota);
+                }, 2000);
+            }
+            
+            salvarProgresso();
+        }
+
+        async function salvarProgresso() {
+            if (!sessaoId || !currentUser) return;
+            
+            try {
+                const sessaoRef = doc(db, "sessoes_aventura", sessaoId);
+                await updateDoc(sessaoRef, {
+                    pc_atual: personagem,
+                    inimigos: inimigos,
+                    capitulo_atual: capituloAtual?.id,
+                    ultima_sessao: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error('Erro ao salvar progresso:', error);
+            }
+        }
+
+        async function criarSessao() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const aventuraId = urlParams.get('aventura');
+            const personagemId = urlParams.get('personagem');
+            
+            if (!aventuraId || !personagemId) {
+                alert('Aventura ou personagem não selecionado!');
+                window.location.href = 'aventura-solo.html';
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                // Carrega personagem do Firebase
+                const personagemRef = doc(db, "personagens", personagemId);
+                const personagemSnap = await getDoc(personagemRef);
+                
+                if (!personagemSnap.exists()) {
+                    alert('Personagem não encontrado!');
+                    window.location.href = 'aventura-solo.html';
+                    return;
+                }
+                
+                personagem = personagemSnap.data();
+                personagem.id = personagemId;
+                
+                // Pega aventura do sistema
+                aventura = AVENTURAS_SISTEMA[aventuraId];
+                if (!aventura) {
+                    alert('Aventura não encontrada!');
+                    window.location.href = 'aventura-solo.html';
+                    return;
+                }
+                
+                aventuraTitulo.textContent = aventura.nome;
+                
+                // Cria sessão no Firebase
+                const sessaoRef = doc(collection(db, "sessoes_aventura"));
+                sessaoId = sessaoRef.id;
+                
+                await setDoc(sessaoRef, {
+                    id: sessaoId,
+                    userId: currentUser.uid,
+                    personagem_id: personagemId,
+                    aventura_id: aventuraId,
+                    pc_atual: personagem,
+                    inimigos: [],
+                    capitulo_atual: "inicio",
+                    data_inicio: new Date().toISOString(),
+                    ultima_sessao: new Date().toISOString(),
+                    status: "em_andamento"
+                });
+                
+                atualizarFichaPersonagem();
+                iniciarCapitulo("inicio");
+                
+            } catch (error) {
+                console.error('Erro ao iniciar sessão:', error);
+                alert('Erro ao iniciar aventura!');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Event Listeners
+        btnAtacar.addEventListener('click', atacarInimigo);
+        
+        btnMagia.addEventListener('click', () => {
+            adicionarLog('🔮 Funcionalidade de magias em breve...');
+        });
+        
+        btnItem.addEventListener('click', () => {
+            adicionarLog('🎒 Funcionalidade de itens em breve...');
+        });
+        
+        btnFugir.addEventListener('click', () => {
+            if (capituloAtual && capituloAtual.derrota) {
+                adicionarLog('🏃 Você fugiu do combate!');
+                iniciarCapitulo(capituloAtual.derrota);
+            }
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await criarSessao();
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>
