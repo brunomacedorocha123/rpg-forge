@@ -3663,22 +3663,29 @@ function atualizarNHMagias() {
     }
 }
 
+// CORREÇÃO: Função para calcular dinheiro inicial APENAS para personagem novo
 function calcularDinheiroInicial() {
     const base = parseInt(dinheiroBaseInput?.value) || 1000;
     const riquezaSelect = document.getElementById('riqueza');
     const riqueza = riquezaSelect?.value || 'medio';
     
-    if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
-        return Math.floor(base / 2);
-    } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
-        return base * 5;
-    } else {
-        return base;
+    // Só calcula se for personagem novo (sem ID) e dinheiro ainda não foi definido
+    if (!personagemId && dinheiro === 0) {
+        if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
+            return Math.floor(base / 2);
+        } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
+            return base * 5;
+        } else {
+            return base;
+        }
     }
+    
+    // Se já tem personagem, retorna o valor atual (não recalcula)
+    return dinheiro;
 }
 
+// CORREÇÃO: Apenas atualiza o display, não recalcula o dinheiro
 function atualizarDinheiroDisplay() {
-    dinheiro = calcularDinheiroInicial();
     if (dinheiroSaldo) dinheiroSaldo.textContent = dinheiro;
 }
 
@@ -4445,7 +4452,7 @@ function mudarAba(abaId) {
         btnAnterior.style.display = 'inline-flex';
         btnProximo.style.display = 'none';
         btnFinalizar.style.display = 'inline-flex';
-        atualizarDinheiroDisplay();
+        atualizarDinheiroDisplay(); // CORREÇÃO: APENAS atualiza o display, não recalcula
         renderizarInventario();
         renderizarTabelas('armas_ca');
     }
@@ -4473,7 +4480,10 @@ function salvarDadosBasicos() {
     const fadiga = calcularFadiga();
     const mana = calcularMana();
     
-    dinheiro = calcularDinheiroInicial();
+    // CORREÇÃO: Só recalcula o dinheiro se for personagem novo
+    if (!personagemId && dinheiro === 0) {
+        dinheiro = calcularDinheiroInicial();
+    }
     
     personagemTemp = {
         ...dados,
@@ -4583,7 +4593,7 @@ async function salvarPersonagem(finalizar = false) {
             pmGasto: pmGastoTotal,
             
             inventario: inventario,
-            dinheiro: dinheiro
+            dinheiro: dinheiro // CORREÇÃO: Salva o dinheiro atual
         };
         
         let docRef;
@@ -4698,8 +4708,13 @@ async function carregarPersonagem(id) {
         if (data.inventario) {
             inventario = data.inventario;
         }
+        
+        // CORREÇÃO: Carrega o dinheiro salvo, NÃO recalcula
         if (data.dinheiro !== undefined) {
             dinheiro = data.dinheiro;
+        } else {
+            // Se não tiver dinheiro salvo (personagem antigo), calcula o inicial
+            dinheiro = calcularDinheiroInicial();
         }
         
         if (data.pmDisponivel !== undefined) {
@@ -5635,6 +5650,7 @@ function carregarDadosSalvos() {
                 inventario = personagemTemp.inventario;
             }
             
+            // CORREÇÃO: Carrega o dinheiro salvo
             if (personagemTemp.dinheiro !== undefined) {
                 dinheiro = personagemTemp.dinheiro;
             }
