@@ -1,6 +1,24 @@
 // aventuras/masmorra_goblins.js
 // Aventura: A Menina Elfa Raptada
+// AVENTURA SIMPLIFICADA PARA TESTE
+window.AVENTURA = {
+    nome: "A Menina Elfa Raptada",
+    cenaInicial: "teste",
+    cenas: {
+        teste: {
+            id: "teste",
+            nome: "Cena de Teste",
+            fala: {
+                npc: "Narrador",
+                texto: "SE VOCÊ ESTÁ VENDO ISSO, O SCRIPT FUNCIONOU!"
+            },
+            opcoes: []
+        }
+    }
+};
 
+console.log('✅ ARQUIVO DE AVENTURA CARREGADO COM SUCESSO!');
+console.log('📢 AVENTURA:', window.AVENTURA.nome);
 export const AVENTURA = {
     nome: "A Menina Elfa Raptada",
     descricao: "Uma aventura clássica começando em uma taverna.",
