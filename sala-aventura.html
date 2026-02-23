@@ -1354,7 +1354,7 @@
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, collection, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -1472,7 +1472,7 @@
     
     // Controle de tempo e eventos
     let timerHomem = null;
-    let atoAtual = 1; // 1: Taverna, 2: Homem Ferido, 3: Missão, 4: Floresta, 5: Caverna, 6: Final
+    let atoAtual = 1;
 
     // Status do personagem
     let pvAtual = 0;
@@ -1532,14 +1532,12 @@
         return rolarDados(2, 10, 0);
     }
 
-    // Atualizar indicador de ato
     function setAto(numero, texto) {
         atoAtual = numero;
         atoTexto.textContent = `Ato ${numero}: ${texto}`;
         adicionarLog(`📜 Ato ${numero}: ${texto}`, 'sucesso');
     }
 
-    // ===== FUNÇÕES DE ATRIBUTOS =====
     function getValorAtributo(atributo) {
         if (!personagem || !personagem.atributos) return 0;
         
@@ -1570,7 +1568,6 @@
         return Math.max(0, disponivel - gasto);
     }
 
-    // ===== SISTEMA DE BOLINHAS =====
     function verificarGanhoBolinha() {
         if (!personagem) return;
         
@@ -1649,7 +1646,6 @@
         }
     }
 
-    // ===== FUNÇÕES DE INVENTÁRIO =====
     function abrirModalInventario() {
         if (!personagem || !personagem.inventario) return;
         
@@ -1794,7 +1790,6 @@
         }
     };
 
-    // ===== ATUALIZAR FICHA DO PERSONAGEM =====
     function atualizarFichaPersonagem() {
         if (!personagem) return;
         
@@ -1991,30 +1986,19 @@
         atualizarInterfaceBolinhas();
     }
 
-    // ===== FUNÇÕES DE CENÁRIO E DIÁLOGO =====
     function carregarCena(cenaId) {
         if (!cenaId) return;
         
-        console.log('Carregando cena:', cenaId);
-        
-        // Se for string, pega do objeto historia
         if (typeof cenaId === 'string') {
             const cena = historia.cenas[cenaId];
-            if (!cena) {
-                console.error('Cena não encontrada:', cenaId);
-                return;
-            }
+            if (!cena) return;
             capituloAtual = cena;
         } else {
-            // Se já for objeto
             capituloAtual = cenaId;
         }
         
         if (!capituloAtual) return;
         
-        console.log('Cena carregada:', capituloAtual.nome);
-        
-        // Atualizar ato baseado na cena
         if (cenaId === 'exterior_taverna' || cenaId === 'interior_taverna') {
             setAto(1, 'A Taverna');
         } else if (cenaId === 'interior_taverna_com_homem' || cenaId === 'homem_fala_detalhes') {
@@ -2043,12 +2027,11 @@
                 const npcDiv = document.createElement('div');
                 npcDiv.className = 'npc-sprite';
                 
-                // Posicionamento automático
                 if (npc.id === 'taverneiro') {
                     npcDiv.style.left = '85%';
                     npcDiv.style.top = '60%';
                 } else if (npc.id === 'homem_sangue') {
-                    npcDiv.style.left = '25%'; // ESQUERDA
+                    npcDiv.style.left = '25%';
                     npcDiv.style.top = '50%';
                 } else {
                     npcDiv.style.left = (npc.x || 50) + '%';
@@ -2083,10 +2066,8 @@
             dialogoTexto.textContent = '...';
         }
         
-        // Renderizar opções
         renderizarOpcoes(capituloAtual.opcoes);
         
-        // Iniciar timer para entrada do homem se estiver na taverna inicial
         if (cenaId === 'interior_taverna') {
             iniciarTimerHomem();
         }
@@ -2096,14 +2077,13 @@
         opcoesDialogo.innerHTML = '';
         
         if (!opcoes || opcoes.length === 0) {
-            // Opção padrão de voltar se não houver opções
-            const btnVoltar = document.createElement('button');
-            btnVoltar.className = 'opcao-btn';
-            btnVoltar.textContent = 'Voltar';
-            btnVoltar.addEventListener('click', () => {
-                carregarCena('interior_taverna');
+            const btnSair = document.createElement('button');
+            btnSair.className = 'opcao-btn';
+            btnSair.textContent = 'Sair da taverna';
+            btnSair.addEventListener('click', () => {
+                carregarCena('exterior_taverna');
             });
-            opcoesDialogo.appendChild(btnVoltar);
+            opcoesDialogo.appendChild(btnSair);
             return;
         }
         
@@ -2113,14 +2093,12 @@
             btn.textContent = opcao.texto;
             
             btn.addEventListener('click', () => {
-                // Processar a opção
                 if (opcao.proximo) {
                     carregarCena(opcao.proximo);
                 } else if (opcao.acao === 'iniciar_combate') {
                     iniciarCombate(opcao.inimigos || []);
                 } else if (opcao.resposta) {
                     dialogoTexto.textContent = opcao.resposta;
-                    // Manter as mesmas opções (não mudar cena)
                 } else if (opcao.tipo === 'pagar') {
                     if (personagem.dinheiro >= opcao.valor) {
                         personagem.dinheiro -= opcao.valor;
@@ -2131,7 +2109,6 @@
                         dialogoTexto.textContent = opcao.falha || 'Você não tem dinheiro suficiente!';
                     }
                 } else if (opcao.item) {
-                    // Adicionar item ao inventário
                     if (!personagem.inventario.mochila) personagem.inventario.mochila = [];
                     personagem.inventario.mochila.push({
                         id: opcao.item.id,
@@ -2142,24 +2119,13 @@
                     });
                     adicionarLog(`📦 Você pegou: ${opcao.item.nome}`, 'sucesso');
                     dialogoTexto.textContent = opcao.resposta || `Você pegou ${opcao.item.nome}.`;
-                } else if (opcao.acao === 'voltar_menu_principal') {
-                    // Voltar para a taverna inicial
-                    carregarCena('interior_taverna');
-                } else if (opcao.acao === 'voltar_menu_taverneiro') {
-                    // Voltar para o menu do taverneiro
-                    carregarCena('interior_taverna');
                 } else if (opcao.acao === 'finalizar_aventura') {
                     adicionarLog('🎉 Aventura concluída! Parabéns!', 'sucesso');
-                    // Voltar para seleção após alguns segundos
                     setTimeout(() => {
                         window.location.href = 'aventura-solo.html';
                     }, 5000);
-                } else {
-                    // Se não tiver ação definida, apenas manter o diálogo
-                    console.log('Opção sem ação definida', opcao);
                 }
                 
-                // Atualizar ficha se necessário
                 atualizarFichaPersonagem();
             });
             
@@ -2178,33 +2144,28 @@
         if (npc.opcoes) {
             renderizarOpcoes(npc.opcoes);
         } else {
-            // Opção padrão de voltar
             renderizarOpcoes([
                 {
-                    texto: 'Voltar',
-                    acao: 'voltar_menu_principal'
+                    texto: 'Sair da taverna',
+                    proximo: 'exterior_taverna'
                 }
             ]);
         }
     }
     
     function iniciarTimerHomem() {
-        // Limpar timer anterior se existir
         if (timerHomem) {
             clearTimeout(timerHomem);
         }
         
-        // Mostrar mensagem de que algo vai acontecer
         adicionarLog('⏳ Você pede uma cerveja e observa o ambiente...', 'info');
         
         timerHomem = setTimeout(() => {
-            // O homem ensanguentado entra!
             adicionarLog('🚪 A porta se abre violentamente! Um homem ensanguentado entra cambaleando!', 'dano');
             carregarCena('interior_taverna_com_homem');
-        }, 15000); // 15 segundos
+        }, 60000);
     }
 
-    // ===== FUNÇÕES DE COMBATE =====
     function iniciarCombate(inimigosIds) {
         turnoAtual = 'jogador';
         turnoIndicator.className = 'turno-indicator jogador';
@@ -2324,14 +2285,12 @@
         
         modalAtaque.classList.remove('active');
         
-        // Rolar ataque (2d10)
         const rolagem = rolar2d10();
         const nhAtaque = getValorAtributo('dx') + 3;
         
         adicionarLog(`🎯 Ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
         
         if (rolagem.total <= nhAtaque) {
-            // Calcular dano baseado na arma
             let dano = 0;
             if (arma.dano === "1d-2") dano = Math.max(0, Math.floor(Math.random() * 6) - 1);
             else if (arma.dano === "1d6") dano = Math.floor(Math.random() * 6) + 1;
@@ -2346,14 +2305,12 @@
             if (inimigo.pv <= 0) {
                 adicionarLog(`💀 ${inimigo.nome} foi derrotado!`, 'sucesso');
                 
-                // Ganhar XP
                 const xpGanho = inimigo.xp || 25;
                 xpAtual += xpGanho;
                 personagem.xp = xpAtual;
                 adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
                 verificarGanhoBolinha();
                 
-                // Remover inimigo
                 inimigos = inimigos.filter((_, i) => i !== inimigoSelecionado);
                 inimigoSelecionado = null;
             }
@@ -2365,7 +2322,6 @@
                 adicionarLog('🎉 VITÓRIA!', 'sucesso');
                 inimigosContainer.style.display = 'none';
                 
-                // Verificar se tem cena pós-combate
                 if (capituloAtual.ao_vencer) {
                     carregarCena(capituloAtual.ao_vencer);
                 }
@@ -2403,12 +2359,10 @@
             return;
         }
         
-        // Cada inimigo ataca
         inimigos.forEach(inimigo => {
             const rolagem = rolar2d10();
             
             if (rolagem.total <= (inimigo.nh_ataque || 10)) {
-                // Calcular dano do inimigo
                 let dano = 0;
                 if (inimigo.dano === "1d-2") dano = Math.max(0, Math.floor(Math.random() * 6) - 1);
                 else if (inimigo.dano === "1d6") dano = Math.floor(Math.random() * 6) + 1;
@@ -2484,7 +2438,7 @@
             });
             
         } catch (error) {
-            console.error('Erro ao salvar progresso:', error);
+            adicionarLog('❌ Erro ao salvar progresso', 'erro');
         }
     }
 
@@ -2536,22 +2490,15 @@
             atualizarFichaPersonagem();
             
         } catch (error) {
-            console.error('Erro ao carregar personagem:', error);
             adicionarLog('❌ Erro ao carregar personagem!', 'erro');
         }
     }
 
-    // ===== FUNÇÃO CARREGAR AVENTURA =====
     async function carregarAventura(aventuraId) {
         try {
-            console.log('📂 Tentando carregar aventura:', aventuraId);
-            
             if (window.AVENTURA) {
-                console.log('✅ Aventura encontrada no window.AVENTURA');
                 historia = window.AVENTURA;
             } else {
-                console.log('⚠️ window.AVENTURA não encontrado. Aguardando...');
-                
                 let tentativas = 0;
                 while (!window.AVENTURA && tentativas < 30) {
                     await new Promise(r => setTimeout(r, 100));
@@ -2561,11 +2508,9 @@
                 if (window.AVENTURA) {
                     historia = window.AVENTURA;
                 } else {
-                    throw new Error(`Aventura "${aventuraId}" não encontrada. O script não foi carregado.`);
+                    throw new Error(`Aventura "${aventuraId}" não encontrada.`);
                 }
             }
-            
-            console.log('✅ Aventura carregada:', historia.nome);
             
             const cenaInicialId = historia.cenaInicial;
             
@@ -2577,8 +2522,7 @@
             adicionarLog(`📖 ${historia.nome} iniciada!`, 'sucesso');
             
         } catch (error) {
-            console.error('❌ ERRO AO CARREGAR AVENTURA:', error);
-            dialogoTexto.textContent = `ERRO: ${error.message}. Verifique se o arquivo existe.`;
+            dialogoTexto.textContent = `ERRO: ${error.message}`;
             
             opcoesDialogo.innerHTML = '';
             const btnVoltar = document.createElement('button');
@@ -2624,7 +2568,7 @@
             });
             
         } catch (error) {
-            console.error('Erro ao iniciar sessão:', error);
+            adicionarLog('❌ Erro ao iniciar sessão', 'erro');
         } finally {
             hideLoading();
         }
@@ -2705,9 +2649,8 @@
     }, 30000);
 </script>
 
-<!-- AVENTURA COMPLETA COM TIMER E ORGANIZAÇÃO POR ATOS -->
+<!-- AVENTURA COMPLETA -->
 <script>
-// AVENTURA COMPLETA - COM TIMER PARA HOMEM ENSANGUENTADO
 window.AVENTURA = {
     nome: "A Menina Elfa Raptada",
     descricao: "Uma aventura clássica começando em uma taverna.",
@@ -2747,38 +2690,37 @@ window.AVENTURA = {
                     dialogo: "Bem-vindo, viajante! Quer uma cerveja gelada? Só 2 moedas.",
                     opcoes: [
                         {
-                            texto: "Comprar cerveja (2 moedas)",
+                            texto: "🍺 Comprar cerveja (2 moedas)",
                             tipo: "pagar",
                             valor: 2,
                             sucesso: "Saúde! Uma boa cerveja sempre anima.",
                             falha: "Você não tem dinheiro? Que pena..."
                         },
                         {
-                            texto: "Perguntar sobre novidades",
+                            texto: "📰 Perguntar sobre novidades",
                             resposta: "Ora, tem havido problemas na estrada norte. Dizem que goblins estão atacando viajantes. Uns mercadores ontem mesmo falaram que ouviram gritos vindo da floresta..."
                         },
                         {
-                            texto: "Procurar trabalho",
+                            texto: "💼 Procurar trabalho",
                             resposta: "Sempre tem trabalho pra quem tem coragem. Fique por aqui, tome uma cerveja, e quem sabe aparece algo."
                         },
                         {
-                            texto: "Conversar sobre a região",
+                            texto: "🗺️ Conversar sobre a região",
                             resposta: "A região é pacata, mas ultimamente... tem coisas estranhas acontecendo na floresta."
                         },
                         {
-                            texto: "Observar o ambiente enquanto bebe",
-                            resposta: "Você pede uma cerveja e observa o movimento da taverna...",
-                            // Esta opção ativa o timer
+                            texto: "👀 Observar o ambiente enquanto bebe",
+                            resposta: "Você pede uma cerveja e observa calmamente o movimento da taverna...",
                             acao: "iniciar_timer"
                         },
                         {
-                            texto: "Sair da taverna",
+                            texto: "🚪 Sair da taverna",
                             proximo: "exterior_taverna"
                         }
                     ]
                 }
             ],
-            opcoes: [] // Será renderizado pelo NPC
+            opcoes: []
         },
         
         interior_taverna_com_homem: {
@@ -2801,8 +2743,8 @@ window.AVENTURA = {
                             resposta: "Vá falar com ele, rápido! Ele precisa de ajuda!"
                         },
                         {
-                            texto: "Voltar ao menu principal",
-                            acao: "voltar_menu_principal"
+                            texto: "Sair da taverna",
+                            proximo: "exterior_taverna"
                         }
                     ]
                 },
@@ -2826,8 +2768,8 @@ window.AVENTURA = {
             ],
             opcoes: [
                 {
-                    texto: "Voltar ao menu principal",
-                    acao: "voltar_menu_principal"
+                    texto: "Sair da taverna",
+                    proximo: "exterior_taverna"
                 }
             ]
         },
@@ -2852,8 +2794,8 @@ window.AVENTURA = {
                             resposta: "Eles têm um acampamento na floresta, perto de uma caverna. Vários viajantes desapareceram por lá."
                         },
                         {
-                            texto: "Voltar ao menu principal",
-                            acao: "voltar_menu_principal"
+                            texto: "Sair da taverna",
+                            proximo: "exterior_taverna"
                         }
                     ]
                 },
@@ -2864,7 +2806,7 @@ window.AVENTURA = {
                     dialogo: "Minha esposa morreu no inverno... Lyra é tudo que tenho! Por favor, aventureiro, você tem cara de ser corajoso...",
                     opcoes: [
                         {
-                            texto: "ACEITAR MISSÃO - Salvar Lyra",
+                            texto: "✅ ACEITAR MISSÃO - Salvar Lyra",
                             resposta: "Deus te abençoe! Siga a estrada norte até a floresta!",
                             proximo: "sair_para_aventura"
                         },
@@ -2873,16 +2815,16 @@ window.AVENTURA = {
                             resposta: "Eram uns 10... verdes, fedidos... Levaram ela para o norte, para a floresta escura."
                         },
                         {
-                            texto: "Voltar a falar com o taverneiro",
-                            acao: "voltar_menu_principal"
+                            texto: "Sair da taverna",
+                            proximo: "exterior_taverna"
                         }
                     ]
                 }
             ],
             opcoes: [
                 {
-                    texto: "Voltar ao menu principal",
-                    acao: "voltar_menu_principal"
+                    texto: "Sair da taverna",
+                    proximo: "exterior_taverna"
                 }
             ]
         },
@@ -3041,13 +2983,7 @@ window.AVENTURA = {
                 {
                     id: "chefe_goblin",
                     nome: "Chefe Goblin",
-                    sprite: "chefe-goblin.jpg",
-                    pv: 85,
-                    pv_max: 85,
-                    esquiva: 8,
-                    nh_ataque: 10,
-                    dano: "2d+2",
-                    xp: 100
+                    sprite: "chefe-goblin.jpg"
                 }
             ],
             inimigos: [
@@ -3123,10 +3059,6 @@ window.AVENTURA = {
         }
     }
 };
-
-console.log('✅ AVENTURA CORRIGIDA COM TIMER E ATOS!');
-console.log('👉 Ao escolher "Observar o ambiente", o homem aparecerá em 15 segundos');
-console.log('👉 Ato 1: Taverna | Ato 2: Homem Ferido | Ato 3: Missão | Ato 4: Floresta | Ato 5: Caverna | Ato 6: Retorno');
 </script>
 </body>
 </html>
