@@ -2601,7 +2601,7 @@
 
 <!-- AVENTURA DIRETO NO HTML - TODAS AS IMAGENS CORRIGIDAS (SEM "imagem/") -->
 <script>
-// AVENTURA CORRIGIDA - COM AÇÃO PARA AVANÇAR
+// AVENTURA CORRIGIDA - DOIS NPCs NA MESMA CENA
 window.AVENTURA = {
     nome: "A Menina Elfa Raptada",
     descricao: "Uma aventura clássica começando em uma taverna.",
@@ -2631,14 +2631,14 @@ window.AVENTURA = {
             imagem: "taverna-interior.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "O calor da lareira e o cheiro de carne assada te recebem. A taverna está movimentada, mas você encontra um lugar no balcão."
+                texto: "O calor da lareira e o cheiro de carne assada te recebem. A taverna está movimentada. Você encontra um lugar no balcão e o taverneiro se aproxima."
             },
             npcs: [
                 {
                     id: "taverneiro",
                     nome: "Taverneiro",
                     sprite: "taverneiro.jpg",
-                    x: 50,
+                    x: 70, // DIREITA
                     y: 60,
                     dialogo: "Bem-vindo, viajante! Quer uma cerveja gelada? Só 2 moedas.",
                     opcoes: [
@@ -2650,24 +2650,28 @@ window.AVENTURA = {
                             falha: "Você não tem dinheiro? Que pena..."
                         },
                         {
-                            texto: "Recusar educadamente",
-                            resposta: "Como quiser. Se precisar de algo, é só chamar."
-                        },
-                        {
                             texto: "Perguntar sobre novidades",
-                            resposta: "Ora, tem havido problemas na estrada norte. Dizem que goblins estão atacando viajantes. Uns mercadores ontem mesmo falaram que ouviram gritos vindo da floresta..."
+                            resposta: "Ora, tem havido problemas na estrada norte. Dizem que goblins estão atacando viajantes. Uns mercadores ontem mesmo falaram que ouviram gritos vindo da floresta...",
+                            // Após dar essa resposta, ativa o homem
+                            ativar_npc: "homem_sangue"
                         },
                         {
                             texto: "Procurar trabalho",
-                            resposta: "Sempre tem trabalho pra quem tem coragem. Fique por aqui, tome uma cerveja, e quem sabe aparece algo."
+                            resposta: "Sempre tem trabalho pra quem tem coragem. Fique por aqui, tome uma cerveja, e quem sabe aparece algo.",
+                            ativar_npc: "homem_sangue"
+                        },
+                        {
+                            texto: "Conversar sobre a região",
+                            resposta: "A região é pacata, mas ultimamente... tem coisas estranhas acontecendo na floresta."
                         }
                     ]
                 }
             ],
+            // O homem começa invisível
             opcoes: [
                 {
                     texto: "Observar o ambiente",
-                    resposta: "A taverna segue animada. Um grupo de mercadores conversa animadamente no canto."
+                    resposta: "A taverna segue animada. Mercadores conversam no canto."
                 },
                 {
                     texto: "Pedir mais uma cerveja",
@@ -2677,10 +2681,68 @@ window.AVENTURA = {
                     falha: "Sem dinheiro para outra cerveja."
                 },
                 {
-                    texto: "ESPERAR UM POUCO (avançar o tempo)",
-                    // ESTE BOTÃO ATIVA A PRÓXIMA CENA
-                    acao: "aguardar_evento",
-                    proximo: "homem_ensanguentado_entra"
+                    texto: "Sair da taverna",
+                    proximo: "exterior_taverna"
+                }
+            ]
+        },
+        
+        // Esta cena é ATIVADA quando o jogador pergunta sobre novidades
+        interior_taverna_com_homem: {
+            id: "interior_taverna_com_homem",
+            nome: "Taverna - O Ferido Chega",
+            imagem: "taverna-interior.jpg",
+            fala: {
+                npc: "Narrador",
+                texto: "Enquanto você conversa com o taverneiro, a porta se abre violentamente! Um homem ensanguentado entra cambaleando e cai perto da entrada."
+            },
+            npcs: [
+                {
+                    id: "taverneiro",
+                    nome: "Taverneiro",
+                    sprite: "taverneiro.jpg",
+                    x: 70, // DIREITA
+                    y: 60,
+                    dialogo: "Pelos deuses! O que aconteceu com ele? Alguém ajude!",
+                    opcoes: [
+                        {
+                            texto: "Falar com o taverneiro",
+                            resposta: "Vá falar com ele, rápido! Ele precisa de ajuda!"
+                        },
+                        {
+                            texto: "Voltar às opções principais",
+                            // Volta para as opções normais do taverneiro
+                            acao: "voltar_menu_taverneiro"
+                        }
+                    ]
+                },
+                {
+                    id: "homem_sangue",
+                    nome: "Homem Ferido",
+                    sprite: "npc-sangue.jpg",
+                    x: 30, // ESQUERDA (espaço vazio)
+                    y: 50,
+                    dialogo: "Socorro... minha filha... os goblins... levaram minha filha! Por favor, alguém...",
+                    opcoes: [
+                        {
+                            texto: "Falar com o homem ferido",
+                            resposta: "Ele está fraco... você se aproxima para ouvir sua história.",
+                            proximo: "homem_fala_detalhes"
+                        },
+                        {
+                            texto: "Pedir para o taverneiro ajudar",
+                            // Interação entre os dois NPCs
+                            acao: "taverneiro_ajuda"
+                        }
+                    ]
+                }
+            ],
+            opcoes: [
+                {
+                    texto: "Voltar às opções principais",
+                    // Este botão volta para o diálogo normal do taverneiro
+                    acao: "voltar_menu_principal",
+                    resposta: "Você volta sua atenção para o taverneiro."
                 },
                 {
                     texto: "Sair da taverna",
@@ -2689,98 +2751,65 @@ window.AVENTURA = {
             ]
         },
         
-        homem_ensanguentado_entra: {
-            id: "homem_ensanguentado_entra",
-            nome: "Comoção na Taverna",
-            imagem: "taverna-interior.jpg",
-            fala: {
-                npc: "Narrador",
-                texto: "Enquanto você bebe sua cerveja, a porta da taverna é escancarada com violência! Um homem ensanguentado entra cambaleando, segurando o braço ferido. Todos na taverna se viram para olhar."
-            },
-            npcs: [
-                {
-                    id: "taverneiro",
-                    nome: "Taverneiro",
-                    sprite: "taverneiro.jpg",
-                    x: 50,
-                    y: 60
-                },
-                {
-                    id: "homem_sangue",
-                    nome: "Homem Ferido",
-                    sprite: "npc-sangue.jpg",
-                    x: 70,
-                    y: 40
-                }
-            ],
-            opcoes: [
-                {
-                    texto: "Levantar e ir falar com o homem",
-                    proximo: "homem_fala"
-                },
-                {
-                    texto: "Continuar bebendo, ignorando",
-                    resposta: "Você tenta ignorar, mas os gritos do homem chamam sua atenção..."
-                }
-            ]
-        },
-        
-        homem_fala: {
-            id: "homem_fala",
-            nome: "O Apelo",
+        homem_fala_detalhes: {
+            id: "homem_fala_detalhes",
+            nome: "O Desespero de um Pai",
             imagem: "taverna-interior.jpg",
             fala: {
                 npc: "Homem Ferido",
-                texto: "Socorro! Pelos deuses, alguém me ajude! *respira ofegante* Eu vinha pela estrada norte com minha filha... FOMOS ATACADOS! Goblins... dezenas deles! Eles raptaram minha menina! Uma elfa de apenas 10 anos, cabelos prateados... Ela se chama Lyra! Por favor, alguém tem que salvá-la!"
+                texto: "Eu vinha pela estrada norte com minha filha Lyra... Ela tem 10 anos, cabelos prateados... Fomos atacados por goblins! Eles levaram ela para a floresta! Por favor, alguém tem que salvá-la!"
             },
             npcs: [
                 {
                     id: "taverneiro",
                     nome: "Taverneiro",
                     sprite: "taverneiro.jpg",
-                    x: 50,
-                    y: 60
-                },
-                {
-                    id: "homem_sangue",
-                    nome: "Eldrin",
-                    sprite: "npc-sangue.jpg",
                     x: 70,
-                    y: 40
-                }
-            ],
-            opcoes: [
-                {
-                    texto: "Oferecer ajuda (aceitar missão)",
-                    resposta: "Deus te abençoe, aventureiro! Siga a estrada norte até a floresta. Os goblins têm um acampamento perto de uma caverna. Aqui, pegue isto - meu medalhão de família. Que proteja você.",
-                    recompensa: {
-                        item: {
-                            id: "medalhao",
-                            nome: "Medalhão de Família",
-                            descricao: "Um medalhão de prata com uma pedra azul.",
-                            peso: 0.1
-                        }
-                    },
-                    proximo: "sair_para_aventura"
-                },
-                {
-                    texto: "Perguntar sobre recompensa",
-                    resposta: "Recompensa? Tudo o que tenho são 50 moedas... mas se salvar minha filha, ficarei em dívida eterna! Por favor, não importa o dinheiro, salve minha Lyra!",
-                    opcoes_adicionais: [
+                    y: 60,
+                    dialogo: "Coitado. Eu avisei que a estrada estava perigosa. Alguém precisa ajudar esse homem.",
+                    opcoes: [
                         {
-                            texto: "Aceitar ajudar (mesmo sem recompensa)",
-                            resposta: "Obrigado! Siga a estrada norte!",
-                            proximo: "sair_para_aventura"
-                        },
-                        {
-                            texto: "Negociar 100 moedas",
-                            resposta: "Eu não tenho tudo isso... mas posso dar meu cavalo também! Por favor, ela é tudo que tenho!"
+                            texto: "Perguntar ao taverneiro sobre os goblins",
+                            resposta: "Eles têm um acampamento na floresta, perto de uma caverna. Vários viajantes desapareceram por lá."
                         }
                     ]
                 },
                 {
-                    texto: "Ignorar e sair da taverna",
-                    proximo: "exterior_taverna_culpa"
+                    id: "homem_sangue",
+                    nome: "Eldrin (Pai de Lyra)",
+                    sprite: "npc-sangue.jpg",
+                    x: 30,
+                    y: 50,
+                    dialogo: "Minha esposa morreu no inverno... Lyra é tudo que tenho! Por favor, aventureiro, você tem cara de ser corajoso...",
+                    opcoes: [
+                        {
+                            texto: "ACEITAR MISSÃO - Salvar Lyra",
+                            resposta: "Deus te abençoe! Siga a estrada norte até a floresta!",
+                            recompensa: {
+                                item: {
+                                    id: "medalhao",
+                                    nome: "Medalhão de Família",
+                                    descricao: "Um medalhão de prata com uma pedra azul.",
+                                    peso: 0.1
+                                }
+                            },
+                            proximo: "sair_para_aventura"
+                        },
+                        {
+                            texto: "Perguntar sobre os goblins",
+                            resposta: "Eram uns 10... verdes, fedidos... Levaram ela para o norte, para a floresta escura."
+                        },
+                        {
+                            texto: "Voltar a falar com o taverneiro",
+                            acao: "voltar_taverneiro"
+                        }
+                    ]
+                }
+            ],
+            opcoes: [
+                {
+                    texto: "Voltar às opções principais",
+                    acao: "voltar_menu_principal"
                 }
             ]
         },
@@ -2791,7 +2820,7 @@ window.AVENTURA = {
             imagem: "taverna-exterior.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "Você sai da taverna com determinação. A estrada norte se estende diante de você. O vento traz o cheiro da floresta distante. Uma missão importante o aguarda."
+                texto: "Você sai da taverna com determinação. A estrada norte se estende diante de você. O vento traz o cheiro da floresta distante."
             },
             npcs: [],
             opcoes: [
@@ -2802,47 +2831,26 @@ window.AVENTURA = {
             ]
         },
         
-        exterior_taverna_culpa: {
-            id: "exterior_taverna_culpa",
-            nome: "Do lado de fora",
-            imagem: "taverna-exterior.jpg",
-            fala: {
-                npc: "Narrador",
-                texto: "Lá fora, o vento frio te faz pensar. Será que fez a escolha certa? Os gritos do homem ecoam na sua mente..."
-            },
-            npcs: [],
-            opcoes: [
-                {
-                    texto: "Voltar para ajudar (melhor escolha)",
-                    proximo: "homem_fala"
-                },
-                {
-                    texto: "Seguir viagem e ignorar",
-                    resposta: "Você segue seu caminho, mas a culpa pesa em seu coração para sempre..."
-                }
-            ]
-        },
-        
         encontro_camponesa: {
             id: "encontro_camponesa",
             nome: "Estrada Norte",
             imagem: "estrada-norte.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "Enquanto segue pela estrada, você avista uma jovem camponesa colhendo flores na beira do caminho. Ela parece assustada."
+                texto: "Enquanto segue pela estrada, você avista uma jovem camponesa colhendo flores na beira do caminho."
             },
             npcs: [
                 {
                     id: "camponesa",
-                    nome: "Elara",
+                    nome: "Camponesa",
                     sprite: "camponesa.jpg",
-                    x: 40,
+                    x: 50,
                     y: 50,
-                    dialogo: "Oh! Um viajante! Cuidado com a estrada, ouvi gritos de goblins mais adiante. Hoje cedo vi rastros de criaturas pequenas e ouvi uma criança chorando.",
+                    dialogo: "Oh! Um viajante! Cuidado com a estrada, ouvi gritos de goblins mais adiante. Hoje cedo vi uma menina sendo levada para a floresta... uma elfinha de cabelos prateados.",
                     opcoes: [
                         {
-                            texto: "Perguntar sobre a estrada",
-                            resposta: "A estrada é segura até a floresta, mas depois dela... os goblins estão em toda parte. Vi uns mercadores fugindo ontem, todos feridos."
+                            texto: "Perguntar sobre a menina",
+                            resposta: "Ela chorava muito, chamava pelo pai. Levaram ela para uma caverna, mais adiante."
                         },
                         {
                             texto: "Seguir viagem",
@@ -2865,40 +2873,21 @@ window.AVENTURA = {
             imagem: "carroca.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "Você encontra uma carroça destruída na estrada. Manchas de sangue se espalham pela madeira. Uma boneca de pano está caída na lama ao lado de uma bagagem destruída."
+                texto: "Você encontra uma carroça destruída na estrada. Manchas de sangue se espalham pela madeira. Uma boneca de pano está caída na lama."
             },
             npcs: [],
             opcoes: [
                 {
-                    texto: "Pegar a boneca (pode ser de Lyra)",
-                    resposta: "Você guarda a boneca. Deve pertencer à menina.",
+                    texto: "Pegar a boneca (será importante)",
                     item: {
                         id: "boneca_lyra",
-                        nome: "Boneca de Pano",
-                        descricao: "Uma boneca suja, provavelmente de Lyra.",
+                        nome: "Boneca de Lyra",
+                        descricao: "Uma boneca suja, provavelmente da menina.",
                         peso: 0.2
-                    },
-                    proximo: "trilha_goblins"
+                    }
                 },
                 {
                     texto: "Seguir os rastros dos goblins",
-                    proximo: "trilha_goblins"
-                }
-            ]
-        },
-        
-        trilha_goblins: {
-            id: "trilha_goblins",
-            nome: "Trilha na Floresta",
-            imagem: "floresta.jpg",
-            fala: {
-                npc: "Narrador",
-                texto: "Você segue os rastros dos goblins pela floresta. Pegadas pequenas, sangue ocasional, e restos de comida. Os pássaros estão em silêncio."
-            },
-            npcs: [],
-            opcoes: [
-                {
-                    texto: "Avançar com cuidado",
                     proximo: "clareira_goblins"
                 }
             ]
@@ -2910,100 +2899,37 @@ window.AVENTURA = {
             imagem: "clareira-goblins.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "Você encontra uma clareira onde vários goblins estão acampados. Eles estão distraídos perto da fogueira, jogando dados e comendo carne. Ao fundo, você vê a entrada de uma caverna."
+                texto: "Você encontra uma clareira onde vários goblins estão acampados perto de uma fogueira."
             },
             inimigos: [
                 {
                     id: "goblin1",
-                    nome: "Goblin Sentinela",
+                    nome: "Goblin",
                     sprite: "goblin.jpg",
                     pv: 58,
                     pv_max: 58,
                     esquiva: 7,
-                    aparar: 0,
                     nh_ataque: 8,
                     dano: "1d-2",
                     xp: 25
                 },
                 {
                     id: "goblin2",
-                    nome: "Goblin Batedor",
+                    nome: "Goblin",
                     sprite: "goblin.jpg",
                     pv: 58,
                     pv_max: 58,
                     esquiva: 7,
-                    aparar: 0,
                     nh_ataque: 8,
                     dano: "1d-2",
                     xp: 25
-                },
-                {
-                    id: "goblin_arqueiro1",
-                    nome: "Goblin Arqueiro",
-                    sprite: "goblin-arqueiro.jpg",
-                    pv: 58,
-                    pv_max: 58,
-                    esquiva: 7,
-                    aparar: 0,
-                    nh_ataque: 8,
-                    dano: "2d-3",
-                    xp: 35
-                },
-                {
-                    id: "goblin_arqueiro2",
-                    nome: "Goblin Arqueiro",
-                    sprite: "goblin-arqueiro.jpg",
-                    pv: 58,
-                    pv_max: 58,
-                    esquiva: 7,
-                    aparar: 0,
-                    nh_ataque: 8,
-                    dano: "2d-3",
-                    xp: 35
-                },
-                {
-                    id: "goblin_guerreiro",
-                    nome: "Goblin Guerreiro",
-                    sprite: "goblin-guerreiro.jpg",
-                    pv: 64,
-                    pv_max: 64,
-                    esquiva: 8,
-                    aparar: 8,
-                    nh_ataque: 9,
-                    dano: "1d+2",
-                    xp: 50
                 }
             ],
             opcoes: [
                 {
                     texto: "Atacar os goblins",
                     acao: "iniciar_combate",
-                    inimigos: ["goblin1", "goblin2", "goblin_arqueiro1", "goblin_arqueiro2", "goblin_guerreiro"],
-                    ao_vencer: "entrada_caverna"
-                },
-                {
-                    texto: "Tentar passar despercebido até a caverna",
-                    acao: "teste_habilidade",
-                    habilidade: "furtividade",
-                    sucesso: "entrada_caverna",
-                    falha: "clareira_goblins_combate"
-                }
-            ]
-        },
-        
-        clareira_goblins_combate: {
-            id: "clareira_goblins_combate",
-            nome: "Descoberto!",
-            imagem: "clareira-goblins.jpg",
-            fala: {
-                npc: "Narrador",
-                texto: "Você pisou num galho! Os goblins se viram e te veem! Eles gritam e partem para o ataque!"
-            },
-            opcoes: [
-                {
-                    texto: "Lutar!",
-                    acao: "iniciar_combate",
-                    inimigos: ["goblin1", "goblin2", "goblin_arqueiro1", "goblin_arqueiro2", "goblin_guerreiro"],
+                    inimigos: ["goblin1", "goblin2"],
                     ao_vencer: "entrada_caverna"
                 }
             ]
@@ -3015,9 +2941,8 @@ window.AVENTURA = {
             imagem: "entrada-caverna.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "Uma abertura escura na rocha, como a boca de um monstro. Você sente um cheiro úmido e ouve o eco de vozes lá dentro. Tochas bruxuleiam no interior."
+                texto: "Uma abertura escura na rocha. Você ouve vozes ecoando."
             },
-            npcs: [],
             opcoes: [
                 {
                     texto: "Entrar na caverna",
@@ -3032,7 +2957,7 @@ window.AVENTURA = {
             imagem: "menina-elfa.jpg",
             fala: {
                 npc: "Narrador",
-                texto: "Numa jaula de madeira, uma menina elfa de cabelos prateados está sentada, abraçando os joelhos. Ela levanta os olhos quando você entra."
+                texto: "Numa jaula, uma menina elfa de cabelos prateados está sentada, assustada."
             },
             npcs: [
                 {
@@ -3041,7 +2966,7 @@ window.AVENTURA = {
                     sprite: "menina-elfa.jpg",
                     x: 50,
                     y: 60,
-                    dialogo: "Por favor, me ajude! Me tira daqui! O chefe goblin disse que vai me sacrificar!"
+                    dialogo: "Por favor, me ajude!"
                 },
                 {
                     id: "chefe_goblin",
@@ -3052,7 +2977,6 @@ window.AVENTURA = {
                     pv: 85,
                     pv_max: 85,
                     esquiva: 8,
-                    aparar: 9,
                     nh_ataque: 10,
                     dano: "2d+2",
                     xp: 100
@@ -3074,11 +2998,11 @@ window.AVENTURA = {
             imagem: "menina-elfa.jpg",
             fala: {
                 npc: "Lyra",
-                texto: "Você me salvou! Muito obrigada! *ela abraça você* Papai vai ficar tão feliz! Eu sabia que alguém viria me buscar!"
+                texto: "Você me salvou! Muito obrigada!"
             },
             opcoes: [
                 {
-                    texto: "Vamos levar você de volta para seu pai",
+                    texto: "Voltar à taverna",
                     proximo: "final_taverna"
                 }
             ]
@@ -3089,59 +3013,57 @@ window.AVENTURA = {
             nome: "Retorno Triunfal",
             imagem: "taverna-interior.jpg",
             fala: {
-                npc: "Eldrin (pai de Lyra)",
-                texto: "MINHA FILHA! *corre e abraça Lyra* Você está viva! Graças aos deuses e a este bravo aventureiro! Nunca esquecerei o que fez!"
+                npc: "Eldrin",
+                texto: "MINHA FILHA! Você conseguiu! Muito obrigado, aventureiro!"
             },
             npcs: [
                 {
                     id: "homem",
                     nome: "Eldrin",
                     sprite: "npc-sangue.jpg",
-                    x: 40,
+                    x: 30,
                     y: 50
                 },
                 {
                     id: "lyra",
                     nome: "Lyra",
                     sprite: "menina-elfa.jpg",
-                    x: 45,
+                    x: 40,
                     y: 50
                 },
                 {
                     id: "taverneiro",
                     nome: "Taverneiro",
                     sprite: "taverneiro.jpg",
-                    x: 60,
-                    y: 50
+                    x: 70,
+                    y: 60
                 }
             ],
-            fala_ambiente: "Toda a taverna aplaude! O taverneiro serve cerveja de graça para todos em sua homenagem!",
             opcoes: [
                 {
-                    texto: "Aceitar a gratidão de todos",
-                    resposta: "Eldrin insiste em te pagar 200 moedas. 'É tudo o que tenho, mas você merece!'",
-                    recompensa: {
-                        dinheiro: 200,
-                        xp: 100
-                    }
-                },
-                {
-                    texto: "Contar a história da aventura",
-                    resposta: "Você narra os eventos, e todos ouvem fascinados. O bardo promete fazer uma canção sobre você!"
-                },
-                {
                     texto: "Encerrar aventura",
-                    acao: "finalizar_aventura",
-                    log: "🏆 AVENTURA CONCLUÍDA COM SUCESSO! Você salvou Lyra e derrotou os goblins!"
+                    acao: "finalizar_aventura"
                 }
             ]
         }
     }
 };
 
-console.log('✅ AVENTURA CORRIGIDA - COM AÇÕES CLARAS!');
-console.log('📢 Na taverna, use o botão "ESPERAR UM POUCO" para avançar o tempo');
-console.log('⏱️ Assim o homem ensanguentado aparecerá e a aventura continua!');
+// Funções auxiliares (para serem usadas no código principal)
+function ativarNPC(npcId) {
+    if (npcId === "homem_sangue") {
+        carregarCena("interior_taverna_com_homem");
+    }
+}
+
+function voltarMenuPrincipal() {
+    carregarCena("interior_taverna");
+}
+
+console.log('✅ AVENTURA CORRIGIDA - DOIS NPCs VISÍVEIS!');
+console.log('👉 Taverneiro: lado DIREITO (70%)');
+console.log('👉 Homem: lado ESQUERDO (30%)');
+console.log('🔄 Botão "Voltar" retorna ao menu principal do taverneiro');
 </script>
 </body>
 </html>
