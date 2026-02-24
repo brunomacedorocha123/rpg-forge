@@ -3025,12 +3025,22 @@
         </div>
     </div>
 
+
 <script type="module">
+// ============================================
+// RPGForce - SISTEMA DE VANTAGENS COMPLETO
+// Versão 1.0 - Implementação Total
+// Criar Personagem + Efeitos Mecânicos
+// ============================================
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, collection, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
+// ============================================
+// CONFIGURAÇÃO FIREBASE
+// ============================================
 const firebaseConfig = {
     apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
     authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -3045,7 +3055,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Elementos DOM
+// ============================================
+// ELEMENTOS DOM
+// ============================================
 const displayIdPc = document.getElementById('displayIdPc');
 const displayNickname = document.getElementById('displayNickname');
 const btnSair = document.getElementById('btnSair');
@@ -3158,15 +3170,15 @@ const corpoTabelaArmasDist = document.getElementById('corpoTabelaArmasDist');
 const corpoTabelaArmaduras = document.getElementById('corpoTabelaArmaduras');
 const corpoTabelaEscudos = document.getElementById('corpoTabelaEscudos');
 const corpoTabelaItensGerais = document.getElementById('corpoTabelaItensGerais');
-
-// NOVOS elementos para NH das magias
 const magiaNH_IQ = document.getElementById('magiaNH_IQ');
 const magiaNH_Aptidao = document.getElementById('magiaNH_Aptidao');
 const magiaNH_Total = document.getElementById('magiaNH_Total');
 const magiaRequisitoContainer = document.getElementById('magiaRequisitoContainer');
 const detalheMagiaNH = document.getElementById('detalheMagiaNH');
 
-// Catálogo de itens
+// ============================================
+// CATÁLOGO DE ITENS
+// ============================================
 const catalogoItensData = {
     armas_ca: [
         { id: 'machado', nome: 'Machado', alcance: 1, dano: '1d-1', tipoDano: 'Corte', preco: 50, peso: 2.0, st: 10 },
@@ -3201,91 +3213,9 @@ const catalogoItensData = {
     ]
 };
 
-let abaAtual = 'basicos';
-let pontosRestantes = 6;
-let fobiaSelecionada = null;
-let personagemTemp = null;
-let personagemId = null;
-let modoEdicao = false;
-const vantagensSelecionadas = new Set();
-const desvantagensSelecionadas = new Set();
-let pmDisponivel = 30;
-let pmGastoTotal = 0;
-let pericias = {};
-let periciaAtual = null;
-let dinheiroBase = 1000;
-let escudoPVAtual = 0;
-let escudoPVMax = 0;
-let autoSaveTimeout = null;
-let magiaSelecionada = null;
-let escolaSelecionada = 'agua';
-let esferasDesbloqueadas = 0;
-
-let inventario = {
-    corpo: [],
-    mochila: [],
-    deposito: []
-};
-
-let dinheiro = 0;
-
-const atributos = {
-    st: { valor: 9, bolinhas: 0, base: 9 },
-    dx: { valor: 5, bolinhas: 0, base: 5 },
-    iq: { valor: 5, bolinhas: 0, base: 5 },
-    ht: { valor: 8, bolinhas: 0, base: 8 }
-};
-
-const tabelaDano = {
-    9: "1d-1", 10: "1d", 11: "1d+1", 12: "1d+2",
-    13: "2d-1", 14: "2d", 15: "2d+1", 16: "2d+2",
-    17: "3d-1", 18: "3d", 19: "3d+1", 20: "3d+2"
-};
-
-
-const escolas = {
-    agua: {
-        id: 'agua',
-        nome: 'Água',
-        desbloqueada: true,
-        custoDesbloqueio: 0,
-        icone: 'agua1.png',
-        magias: {
-            localizarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Informação', icone: 'fa-location-dot', ordem: 1 },
-            purificarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Utilitária', icone: 'fa-droplet', ordem: 2 },
-            criarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Utilitária', icone: 'fa-water', ordem: 3 },
-            dissiparAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Área', icone: 'fa-wind', ordem: 4 },
-            adagaDeGelo: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Ataque', icone: 'fa-knife', ordem: 5 },
-            respirarNaAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Suporte', icone: 'fa-lungs', ordem: 6 },
-            moldarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Controle', icone: 'fa-hand', ordem: 7 },
-            nevoeiro: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Área', icone: 'fa-cloud', ordem: 8 },
-            armaCongelante: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Encanto', icone: 'fa-snowflake', ordem: 9 },
-            cortinaDagua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Defesa/Área', icone: 'fa-shield', ordem: 10 },
-            jatoDeAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Ataque', icone: 'fa-gun', ordem: 11 },
-            ondaExpulsora: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Ataque/Área', icone: 'fa-wave-square', ordem: 12 },
-            tempestadeDeGelo: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Área', icone: 'fa-cloud-rain', ordem: 13 },
-            congelamento: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Paralisia', icone: 'fa-icicles', ordem: 14 }
-        }
-    }
-};
-
-const tabelasMagia = {
-    localizarAgua: { coluna: 'Alcance', valores: ['50m', '100m', '200m', '350m', '500m', '1km', '1.5km', '2km', '2.5km', '3km', '4km', '5km', '10km', '14km', '20km+'] },
-    purificarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
-    criarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
-    dissiparAgua: { coluna: 'Volume (m³)', valores: ['1m³', '2m³', '3m³', '5m³', '8m³', '12m³', '18m³', '25m³', '35m³', '50m³', '70m³', '100m³', '150m³', '250m³', '500m³'] },
-    adagaDeGelo: { coluna: 'Dano (Perfuração)', valores: ['1d-2', '1d-1', '1d', '1d+1', '1d+2', '2d-1', '2d', '2d+1', '2d+2', '3d-1', '3d', '3d+1', '3d+2', '4d-1', '4d'] },
-    respirarNaAgua: { coluna: 'Duração', valores: ['1min', '2min', '3min', '5min', '8min', '10min', '15min', '20min', '30min', '45min', '1h', '1.5h', '2h', '3h', '6h'] },
-    moldarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
-    nevoeiro: { coluna: 'Raio / Penalidade', valores: ['2m / -1', '3m / -1', '4m / -2', '5m / -2', '6m / -3', '8m / -3', '10m / -4', '12m / -4', '15m / -5', '18m / -5', '20m / -6', '25m / -6', '30m / -7', '40m / -7', '50m / -8'] },
-    armaCongelante: { coluna: 'Dano / Duração', valores: ['+0 / 30s', '+1 / 1min', '+1 / 2min', '+2 / 2min', '+2 / 3min', '+3 / 3min', '+3 / 4min', '+4 / 4min', '+4 / 5min', '+5 / 5min', '+5 / 6min', '+6 / 6min', '+6 / 7min', '+7 / 7min', '+8 / 10min'] },
-    cortinaDagua: { coluna: 'Tamanho / RD / Duração', valores: ['2x2m / RD2 / 2s', '3x2m / RD3 / 2s', '3x3m / RD4 / 3s', '4x3m / RD5 / 3s', '4x4m / RD6 / 4s', '5x4m / RD7 / 4s', '5x5m / RD8 / 5s', '6x5m / RD9 / 5s', '6x6m / RD10 / 6s', '7x6m / RD12 / 6s', '7x7m / RD14 / 7s', '8x7m / RD16 / 7s', '8x8m / RD18 / 8s', '9x8m / RD20 / 8s', '10x10m / RD25 / 10s'] },
-    jatoDeAgua: { coluna: 'Dano / Alcance / Empurra', valores: ['1d-2 / 5m / 1m', '1d-1 / 7m / 1m', '1d / 10m / 2m', '1d+1 / 12m / 2m', '1d+2 / 15m / 3m', '2d-1 / 18m / 3m', '2d / 20m / 4m', '2d+1 / 22m / 4m', '2d+2 / 25m / 5m', '3d-1 / 30m / 5m', '3d / 35m / 6m', '3d+1 / 40m / 6m', '3d+2 / 45m / 7m', '4d-1 / 50m / 8m', '4d / 60m / 10m'] },
-    ondaExpulsora: { coluna: 'Dano / Cone / Empurra', valores: ['1d-2 / 3m / 1m', '1d-1 / 4m / 1m', '1d / 5m / 2m', '1d+1 / 6m / 2m', '1d+2 / 7m / 3m', '2d-1 / 8m / 3m', '2d / 9m / 4m', '2d+1 / 10m / 4m', '2d+2 / 12m / 5m', '3d-1 / 14m / 5m', '3d / 16m / 6m', '3d+1 / 18m / 6m', '3d+2 / 20m / 7m', '4d-1 / 25m / 8m', '4d / 30m / 10m'] },
-    tempestadeDeGelo: { coluna: 'Dano em Área', valores: ['1d-2', '1d-1', '1d', '1d+1', '1d+2', '2d-1', '2d', '2d+1', '2d+2', '3d-1', '3d', '3d+1', '3d+2', '4d-1', '4d'] },
-    congelamento: { coluna: 'Duração / Chance', valores: ['1s / 10%', '2s / 15%', '3s / 20%', '4s / 25%', '5s / 30%', '6s / 35%', '7s / 40%', '8s / 45%', '9s / 50%', '10s / 55%', '12s / 60%', '15s / 65%', '20s / 70%', '30s / 75%', '1min / 80%'] }
-};
-
+// ============================================
+// CATÁLOGO DE PERÍCIAS
+// ============================================
 const catalogoPericias = [
     { id: "adestramento", nome: "Adestramento", tipo: "mental", atributo: "iq", descricao: "Treinar e comandar animais" },
     { id: "alquimia", nome: "Alquimia", tipo: "mental", atributo: "iq", descricao: "Criar poções e misturas" },
@@ -3339,6 +3269,301 @@ const catalogoPericias = [
     { id: "sexAppeal", nome: "Sex Appeal", tipo: "organica", atributo: "ht", descricao: "Atrair sexualmente" }
 ];
 
+// ============================================
+// ESCOLAS DE MAGIA
+// ============================================
+const escolas = {
+    agua: {
+        id: 'agua',
+        nome: 'Água',
+        desbloqueada: true,
+        custoDesbloqueio: 0,
+        icone: 'agua1.png',
+        magias: {
+            localizarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Informação', icone: 'fa-location-dot', ordem: 1 },
+            purificarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Utilitária', icone: 'fa-droplet', ordem: 2 },
+            criarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Utilitária', icone: 'fa-water', ordem: 3 },
+            dissiparAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Área', icone: 'fa-wind', ordem: 4 },
+            adagaDeGelo: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Ataque', icone: 'fa-knife', ordem: 5 },
+            respirarNaAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Suporte', icone: 'fa-lungs', ordem: 6 },
+            moldarAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Controle', icone: 'fa-hand', ordem: 7 },
+            nevoeiro: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Área', icone: 'fa-cloud', ordem: 8 },
+            armaCongelante: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Encanto', icone: 'fa-snowflake', ordem: 9 },
+            cortinaDagua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Defesa/Área', icone: 'fa-shield', ordem: 10 },
+            jatoDeAgua: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Ataque', icone: 'fa-gun', ordem: 11 },
+            ondaExpulsora: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Ataque/Área', icone: 'fa-wave-square', ordem: 12 },
+            tempestadeDeGelo: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Área', icone: 'fa-cloud-rain', ordem: 13 },
+            congelamento: { nivel: 0, desbloqueada: false, atributo: 'IQ', tipo: 'Paralisia', icone: 'fa-icicles', ordem: 14 }
+        }
+    }
+};
+
+// ============================================
+// TABELAS DE MAGIA
+// ============================================
+const tabelasMagia = {
+    localizarAgua: { coluna: 'Alcance', valores: ['50m', '100m', '200m', '350m', '500m', '1km', '1.5km', '2km', '2.5km', '3km', '4km', '5km', '10km', '14km', '20km+'] },
+    purificarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
+    criarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
+    dissiparAgua: { coluna: 'Volume (m³)', valores: ['1m³', '2m³', '3m³', '5m³', '8m³', '12m³', '18m³', '25m³', '35m³', '50m³', '70m³', '100m³', '150m³', '250m³', '500m³'] },
+    adagaDeGelo: { coluna: 'Dano (Perfuração)', valores: ['1d-2', '1d-1', '1d', '1d+1', '1d+2', '2d-1', '2d', '2d+1', '2d+2', '3d-1', '3d', '3d+1', '3d+2', '4d-1', '4d'] },
+    respirarNaAgua: { coluna: 'Duração', valores: ['1min', '2min', '3min', '5min', '8min', '10min', '15min', '20min', '30min', '45min', '1h', '1.5h', '2h', '3h', '6h'] },
+    moldarAgua: { coluna: 'Litros', valores: ['1L', '5L', '10L', '20L', '35L', '50L', '75L', '100L', '150L', '200L', '300L', '500L', '750L', '1000L', '2000L'] },
+    nevoeiro: { coluna: 'Raio / Penalidade', valores: ['2m / -1', '3m / -1', '4m / -2', '5m / -2', '6m / -3', '8m / -3', '10m / -4', '12m / -4', '15m / -5', '18m / -5', '20m / -6', '25m / -6', '30m / -7', '40m / -7', '50m / -8'] },
+    armaCongelante: { coluna: 'Dano / Duração', valores: ['+0 / 30s', '+1 / 1min', '+1 / 2min', '+2 / 2min', '+2 / 3min', '+3 / 3min', '+3 / 4min', '+4 / 4min', '+4 / 5min', '+5 / 5min', '+5 / 6min', '+6 / 6min', '+6 / 7min', '+7 / 7min', '+8 / 10min'] },
+    cortinaDagua: { coluna: 'Tamanho / RD / Duração', valores: ['2x2m / RD2 / 2s', '3x2m / RD3 / 2s', '3x3m / RD4 / 3s', '4x3m / RD5 / 3s', '4x4m / RD6 / 4s', '5x4m / RD7 / 4s', '5x5m / RD8 / 5s', '6x5m / RD9 / 5s', '6x6m / RD10 / 6s', '7x6m / RD12 / 6s', '7x7m / RD14 / 7s', '8x7m / RD16 / 7s', '8x8m / RD18 / 8s', '9x8m / RD20 / 8s', '10x10m / RD25 / 10s'] },
+    jatoDeAgua: { coluna: 'Dano / Alcance / Empurra', valores: ['1d-2 / 5m / 1m', '1d-1 / 7m / 1m', '1d / 10m / 2m', '1d+1 / 12m / 2m', '1d+2 / 15m / 3m', '2d-1 / 18m / 3m', '2d / 20m / 4m', '2d+1 / 22m / 4m', '2d+2 / 25m / 5m', '3d-1 / 30m / 5m', '3d / 35m / 6m', '3d+1 / 40m / 6m', '3d+2 / 45m / 7m', '4d-1 / 50m / 8m', '4d / 60m / 10m'] },
+    ondaExpulsora: { coluna: 'Dano / Cone / Empurra', valores: ['1d-2 / 3m / 1m', '1d-1 / 4m / 1m', '1d / 5m / 2m', '1d+1 / 6m / 2m', '1d+2 / 7m / 3m', '2d-1 / 8m / 3m', '2d / 9m / 4m', '2d+1 / 10m / 4m', '2d+2 / 12m / 5m', '3d-1 / 14m / 5m', '3d / 16m / 6m', '3d+1 / 18m / 6m', '3d+2 / 20m / 7m', '4d-1 / 25m / 8m', '4d / 30m / 10m'] },
+    tempestadeDeGelo: { coluna: 'Dano em Área', valores: ['1d-2', '1d-1', '1d', '1d+1', '1d+2', '2d-1', '2d', '2d+1', '2d+2', '3d-1', '3d', '3d+1', '3d+2', '4d-1', '4d'] },
+    congelamento: { coluna: 'Duração / Chance', valores: ['1s / 10%', '2s / 15%', '3s / 20%', '4s / 25%', '5s / 30%', '6s / 35%', '7s / 40%', '8s / 45%', '9s / 50%', '10s / 55%', '12s / 60%', '15s / 65%', '20s / 70%', '30s / 75%', '1min / 80%'] }
+};
+
+// ============================================
+// TABELA DE DANO
+// ============================================
+const tabelaDano = {
+    9: "1d-1", 10: "1d", 11: "1d+1", 12: "1d+2",
+    13: "2d-1", 14: "2d", 15: "2d+1", 16: "2d+2",
+    17: "3d-1", 18: "3d", 19: "3d+1", 20: "3d+2"
+};
+
+// ============================================
+// ESTADO DO PERSONAGEM
+// ============================================
+let abaAtual = 'basicos';
+let pontosRestantes = 6;
+let fobiaSelecionada = null;
+let personagemTemp = null;
+let personagemId = null;
+let modoEdicao = false;
+const vantagensSelecionadas = new Set();
+const desvantagensSelecionadas = new Set();
+let pmDisponivel = 30;
+let pmGastoTotal = 0;
+let pericias = {};
+let periciaAtual = null;
+let dinheiroBase = 1000;
+let escudoPVAtual = 0;
+let escudoPVMax = 0;
+let autoSaveTimeout = null;
+let magiaSelecionada = null;
+let escolaSelecionada = 'agua';
+let esferasDesbloqueadas = 0;
+
+// ============================================
+// INVENTÁRIO E DINHEIRO
+// ============================================
+let inventario = {
+    corpo: [],
+    mochila: [],
+    deposito: []
+};
+
+let dinheiro = 0;
+
+// ============================================
+// ATRIBUTOS BASE
+// ============================================
+const atributos = {
+    st: { valor: 9, bolinhas: 0, base: 9 },
+    dx: { valor: 5, bolinhas: 0, base: 5 },
+    iq: { valor: 5, bolinhas: 0, base: 5 },
+    ht: { valor: 8, bolinhas: 0, base: 8 }
+};
+
+// ============================================
+// ESTRUTURA DE DADOS DAS VANTAGENS
+// ============================================
+const vantagensData = {
+    ambidistria: {
+        nome: 'Ambidestria',
+        descricao: 'Pode atacar duas vezes por turno com armas de uma mão. O adversário tem direito a duas defesas.',
+        tipo: 'permanente',
+        efeitos: {
+            ataquesPorTurno: 2,
+            requerArmaUmaMao: true,
+            defesasAdversario: 2
+        }
+    },
+    aptidaoMagica: {
+        nome: 'Aptidão Mágica',
+        descricao: 'Direito a ter magias. +1 em todas as magias (NH Mágico).',
+        tipo: 'permanente',
+        efeitos: {
+            nhMagia: 1,
+            desbloqueiaMagias: true
+        }
+    },
+    abascanto: {
+        nome: 'Abascanto +3',
+        descricao: 'Resistência a magia +3. RD +4 contra magias de projétil ou dano (acumulativo com RD normal).',
+        tipo: 'permanente',
+        efeitos: {
+            resistenciaMagia: 3,
+            rdContraMagias: 4
+        }
+    },
+    carisma: {
+        nome: 'Carisma +1',
+        descricao: '+1 em reações sociais. +1 em Persuasão e Lábia.',
+        tipo: 'permanente',
+        efeitos: {
+            reacao: 1,
+            bonusPericia: {
+                persuasao: 1,
+                labia: 1
+            }
+        }
+    },
+    destemor: {
+        nome: 'Destemor +2',
+        descricao: '+3 para resistir a Intimidação e Medo.',
+        tipo: 'permanente',
+        efeitos: {
+            resistenciaIntimidacao: 3,
+            resistenciaMedo: 3
+        }
+    },
+    duroDeMatar: {
+        nome: 'Duro de matar +2',
+        descricao: 'Quando atingir o limite de morte (×8 PV), faz teste de HT. Se passar, PV volta para ×6. Se falhar, PV volta para ×7 e desmaia. Apenas 1 vez por sessão.',
+        tipo: 'sessao',
+        usosPorSessao: 1,
+        efeitos: {
+            segundaChance: true
+        }
+    },
+    flexibilidade: {
+        nome: 'Flexibilidade',
+        descricao: '+2 em perícia de Fuga. -4 de dano em quedas. +1 em Furtividade.',
+        tipo: 'permanente',
+        efeitos: {
+            bonusPericia: {
+                fuga: 2,
+                furtividade: 1
+            },
+            reducaoDanoQueda: 4
+        }
+    },
+    intuicao: {
+        nome: 'Intuição',
+        descricao: '2 usos por sessão. Quando em dúvida sobre perigo, rola IQ+1. Se passar, GM dá a melhor decisão para sobrevivência.',
+        tipo: 'sessao',
+        usosPorSessao: 2,
+        efeitos: {
+            habilidadeEspecial: 'intuicao'
+        }
+    },
+    reflexoCombate: {
+        nome: 'Reflexo de combate',
+        descricao: '+1 em Esquiva, Aparar e Bloqueio. +2 em Iniciativa.',
+        tipo: 'permanente',
+        efeitos: {
+            esquiva: 1,
+            aparar: 1,
+            bloqueio: 1,
+            iniciativa: 2
+        }
+    },
+    regeneracao: {
+        nome: 'Regeneração',
+        descricao: 'Cura PV 3x mais rápido. Poções e primeiros socorros curam +50%.',
+        tipo: 'permanente',
+        efeitos: {
+            multiplicadorCura: 3,
+            bonusCuraPocao: 0.5
+        }
+    },
+    sentidosAgucados: {
+        nome: 'Sentidos aguçados +2',
+        descricao: '+2 em testes de Audição, Visão, Tato e Paladar. Redutor no escuro: -3 (outros têm -7).',
+        tipo: 'permanente',
+        efeitos: {
+            percepcao: 2,
+            redutorEscuro: -3
+        }
+    },
+    sorte: {
+        nome: 'Sorte',
+        descricao: '2 usos por sessão. Pode rerrolar qualquer jogada de dados.',
+        tipo: 'sessao',
+        usosPorSessao: 2,
+        efeitos: {
+            rerrolar: true
+        }
+    },
+    visaoNoturna: {
+        nome: 'Visão noturna',
+        descricao: 'Ataca em escuridão total sem redutor.',
+        tipo: 'permanente',
+        efeitos: {
+            redutorEscuro: 0
+        }
+    },
+    mestreArmas: {
+        nome: 'Mestre das armas',
+        descricao: '+1 de bônus no ataque. 2 ataques por turno. Com Ambidestria: máximo 3 ataques.',
+        tipo: 'permanente',
+        efeitos: {
+            bonusAtaque: 1,
+            ataquesPorTurno: 2
+        }
+    },
+    ataqueNoLimite: {
+        nome: 'Ataque no Limite',
+        descricao: 'Se concentra (sem defesa ativa). Ataques como dano crítico (dano ×2) por 2 turnos seguidos.',
+        tipo: 'sessao',
+        usosPorSessao: 1,
+        efeitos: {
+            multiplicadorDano: 2,
+            duracaoTurnos: 2,
+            semDefesa: true
+        }
+    },
+    forcaVontade: {
+        nome: 'Força de vontade +2',
+        descricao: '+2 em resistências que usam Força de Vontade.',
+        tipo: 'permanente',
+        efeitos: {
+            vontade: 2
+        }
+    },
+    fadigaExtra: {
+        nome: 'Fadiga extra +2',
+        descricao: '+10% de Fadiga.',
+        tipo: 'permanente',
+        efeitos: {
+            fadigaPercentual: 10
+        }
+    },
+    htExtra: {
+        nome: 'HT extra +5%',
+        descricao: '+5% de PV.',
+        tipo: 'permanente',
+        efeitos: {
+            pvPercentual: 5
+        }
+    },
+    atraente: {
+        nome: 'Atraente',
+        descricao: '+2 em reações.',
+        tipo: 'permanente',
+        efeitos: {
+            reacao: 2
+        }
+    },
+    rico: {
+        nome: 'Rico',
+        descricao: 'Começa com 5× o valor base de dinheiro.',
+        tipo: 'permanente',
+        efeitos: {
+            multiplicadorDinheiro: 5
+        }
+    }
+};
+// ============================================
+// FUNÇÕES UTILITÁRIAS
+// ============================================
 function showLoading() {
     loadingOverlay.classList.add('active');
 }
@@ -3370,6 +3595,9 @@ function triggerAutoSave() {
     }, 3000);
 }
 
+// ============================================
+// FUNÇÕES DE ATRIBUTOS
+// ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
     if (!container) return;
@@ -3422,11 +3650,25 @@ function calcularHT() {
 }
 
 function calcularPV() {
-    return calcularHT() * 8;
+    let pvBase = calcularHT() * 8;
+    
+    // Aplicar HT Extra (+5% PV)
+    if (vantagensSelecionadas.has('htExtra')) {
+        pvBase = Math.floor(pvBase * 1.05);
+    }
+    
+    return pvBase;
 }
 
 function calcularFadiga() {
-    return 8 + atributos.ht.bolinhas;
+    let fadigaBase = 8 + atributos.ht.bolinhas;
+    
+    // Aplicar Fadiga Extra (+10% Fadiga)
+    if (vantagensSelecionadas.has('fadigaExtra')) {
+        fadigaBase = Math.floor(fadigaBase * 1.1);
+    }
+    
+    return fadigaBase;
 }
 
 function calcularMana() {
@@ -3440,6 +3682,12 @@ function calcularDeslocamento() {
 function calcularEsquiva() {
     const carga = calcularCarga();
     let esquiva = Math.floor((atributos.dx.valor + calcularHT()) / 6) + 6;
+    
+    // Aplicar Reflexo de Combate (+1 Esquiva)
+    if (vantagensSelecionadas.has('reflexoCombate')) {
+        esquiva += 1;
+    }
+    
     return Math.max(0, esquiva - carga.reducaoEsquiva);
 }
 
@@ -3465,7 +3713,15 @@ function calcularAparar() {
     });
     if (!temArma) return 0;
     if (melhorNH === 0) melhorNH = atributos.dx.valor;
-    return Math.floor((melhorNH + atributos.dx.valor) / 4) + 6;
+    
+    let aparar = Math.floor((melhorNH + atributos.dx.valor) / 4) + 6;
+    
+    // Aplicar Reflexo de Combate (+1 Aparar)
+    if (vantagensSelecionadas.has('reflexoCombate')) {
+        aparar += 1;
+    }
+    
+    return aparar;
 }
 
 function calcularBloqueio() {
@@ -3486,9 +3742,238 @@ function calcularBloqueio() {
     });
     if (!temEscudo) return 0;
     if (melhorNH === 0) melhorNH = atributos.dx.valor;
-    return Math.floor((melhorNH + atributos.dx.valor) / 4) + 6 + bonusEscudo;
+    
+    let bloqueio = Math.floor((melhorNH + atributos.dx.valor) / 4) + 6 + bonusEscudo;
+    
+    // Aplicar Reflexo de Combate (+1 Bloqueio)
+    if (vantagensSelecionadas.has('reflexoCombate')) {
+        bloqueio += 1;
+    }
+    
+    return bloqueio;
 }
 
+function calcularVontade() {
+    let vontade = atributos.iq.valor;
+    
+    // Aplicar Força de Vontade (+2)
+    if (vantagensSelecionadas.has('forcaVontade')) {
+        vontade += 2;
+    }
+    
+    return vontade;
+}
+
+function calcularPercepcao() {
+    let percepcao = atributos.iq.valor;
+    
+    // Aplicar Sentidos Aguçados (+2 em testes sensoriais)
+    if (vantagensSelecionadas.has('sentidosAgucados')) {
+        percepcao += 2;
+    }
+    
+    return percepcao;
+}
+
+function calcularResistenciaMagia() {
+    let resistencia = 0;
+    
+    // Aplicar Abascanto (+3 resistência mágica)
+    if (vantagensSelecionadas.has('abascanto')) {
+        resistencia += 3;
+    }
+    
+    return resistencia;
+}
+
+function calcularRDContraMagias(rdNormal) {
+    // Aplicar Abascanto (RD +4 contra magias de dano)
+    if (vantagensSelecionadas.has('abascanto')) {
+        return rdNormal + 4;
+    }
+    return rdNormal;
+}
+
+function calcularReacao() {
+    let reacao = 0;
+    
+    // Aplicar Carisma (+1 reação)
+    if (vantagensSelecionadas.has('carisma')) {
+        reacao += 1;
+    }
+    
+    // Aplicar Atraente (+2 reação)
+    if (vantagensSelecionadas.has('atraente')) {
+        reacao += 2;
+    }
+    
+    return reacao;
+}
+
+function calcularBonusPericia(periciaId) {
+    let bonus = 0;
+    
+    // Carisma: +1 em Persuasão e Lábia
+    if (vantagensSelecionadas.has('carisma')) {
+        if (periciaId === 'persuasao' || periciaId === 'labia') {
+            bonus += 1;
+        }
+    }
+    
+    // Flexibilidade: +2 em Fuga, +1 em Furtividade
+    if (vantagensSelecionadas.has('flexibilidade')) {
+        if (periciaId === 'fuga') {
+            bonus += 2;
+        }
+        if (periciaId === 'furtividade') {
+            bonus += 1;
+        }
+    }
+    
+    return bonus;
+}
+
+function calcularReducaoDanoQueda() {
+    if (vantagensSelecionadas.has('flexibilidade')) {
+        return 4;
+    }
+    return 0;
+}
+
+function calcularRedutorEscuro() {
+    let redutorBase = -7;
+    
+    if (vantagensSelecionadas.has('sentidosAgucados')) {
+        redutorBase = -3;
+    }
+    
+    if (vantagensSelecionadas.has('visaoNoturna')) {
+        redutorBase = 0;
+    }
+    
+    return redutorBase;
+}
+
+function calcularIniciativa() {
+    let iniciativa = atributos.dx.valor;
+    
+    // Aplicar Reflexo de Combate (+2 Iniciativa)
+    if (vantagensSelecionadas.has('reflexoCombate')) {
+        iniciativa += 2;
+    }
+    
+    return iniciativa;
+}
+
+function calcularResistenciaIntimidacao() {
+    let resistencia = 0;
+    
+    // Aplicar Destemor (+3 contra Intimidação e Medo)
+    if (vantagensSelecionadas.has('destemor')) {
+        resistencia += 3;
+    }
+    
+    return resistencia;
+}
+
+function calcularBonusAtaque() {
+    let bonus = 0;
+    
+    // Aplicar Mestre das Armas (+1 ataque)
+    if (vantagensSelecionadas.has('mestreArmas')) {
+        bonus += 1;
+    }
+    
+    return bonus;
+}
+
+function calcularAtaquesPorTurno() {
+    let ataques = 1;
+    
+    if (vantagensSelecionadas.has('mestreArmas')) {
+        ataques = 2;
+    }
+    
+    if (vantagensSelecionadas.has('ambidistria')) {
+        ataques = Math.min(ataques + 1, 3);
+    }
+    
+    return ataques;
+}
+
+function calcularMultiplicadorCura() {
+    if (vantagensSelecionadas.has('regeneracao')) {
+        return 3;
+    }
+    return 1;
+}
+
+function calcularBonusCuraPocao() {
+    if (vantagensSelecionadas.has('regeneracao')) {
+        return 1.5; // +50%
+    }
+    return 1;
+}
+
+// ============================================
+// FUNÇÕES DE CARGA
+// ============================================
+function calcularCarga() {
+    const st = atributos.st.valor;
+    const leve = st * 2;
+    const media = st * 4;
+    const pesada = st * 8;
+    const limite = st * 12;
+    
+    let pesoTotal = 0;
+    
+    inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    
+    if (cargaAtual) cargaAtual.textContent = pesoTotal.toFixed(1);
+    if (cargaLeve) cargaLeve.textContent = leve;
+    if (cargaMedia) cargaMedia.textContent = media;
+    if (cargaPesada) cargaPesada.textContent = pesada;
+    if (cargaLimite) cargaLimite.textContent = limite;
+    
+    let percentual = (pesoTotal / limite) * 100;
+    if (percentual > 100) percentual = 100;
+    if (cargaBarra) cargaBarra.style.width = percentual + '%';
+    
+    let nivel = 'leve';
+    let penalidade = 'Nenhuma';
+    let reducaoEsquiva = 0;
+    
+    if (pesoTotal > pesada) {
+        nivel = 'limite';
+        penalidade = '-3 Esquiva';
+        reducaoEsquiva = 3;
+    } else if (pesoTotal > media) {
+        nivel = 'pesado';
+        penalidade = '-3 Esquiva';
+        reducaoEsquiva = 3;
+    } else if (pesoTotal > leve) {
+        nivel = 'medio';
+        penalidade = '-1 Esquiva';
+        reducaoEsquiva = 1;
+    }
+    
+    if (cargaNivel) {
+        cargaNivel.textContent = nivel.charAt(0).toUpperCase() + nivel.slice(1);
+        cargaNivel.className = `carga-nivel ${nivel}`;
+    }
+    if (cargaPenalidade) cargaPenalidade.textContent = penalidade;
+    
+    let pesoMochilaTotal = 0;
+    inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
+    if (pesoMochila) pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
+    
+    return { nivel, reducaoEsquiva };
+}
+
+// ============================================
+// FUNÇÕES DE COMBATE
+// ============================================
 function calcularRD() {
     let rdCorpo = 0, rdCabeca = 0, rdMembros = 0;
     inventario.corpo.forEach(item => {
@@ -3554,6 +4039,10 @@ function atualizarCombate() {
     const esquiva = calcularEsquiva();
     const aparar = calcularAparar();
     const bloqueio = calcularBloqueio();
+    const vontade = calcularVontade();
+    const percepcao = calcularPercepcao();
+    const iniciativa = calcularIniciativa();
+    const resistenciaIntimidacao = calcularResistenciaIntimidacao();
     const rd = calcularRD();
     
     if (combatePV) combatePV.textContent = pv;
@@ -3613,7 +4102,7 @@ function atualizarInterface() {
     
     if (document.getElementById('stDano')) document.getElementById('stDano').textContent = dano;
     if (document.getElementById('dxEsquiva')) document.getElementById('dxEsquiva').textContent = `Esquiva ${esquiva}`;
-    if (document.getElementById('iqVontade')) document.getElementById('iqVontade').textContent = `Vontade ${atributos.iq.valor}`;
+    if (document.getElementById('iqVontade')) document.getElementById('iqVontade').textContent = `Vontade ${calcularVontade()}`;
     if (document.getElementById('htVida')) document.getElementById('htVida').textContent = `Vida ${pv}`;
     if (document.getElementById('htFadiga')) document.getElementById('htFadiga').textContent = `Fadiga ${fadiga}`;
     if (document.getElementById('statusVida')) document.getElementById('statusVida').textContent = pv;
@@ -3624,15 +4113,15 @@ function atualizarInterface() {
     if (document.getElementById('statusDeslocamento')) document.getElementById('statusDeslocamento').textContent = deslocamento.toFixed(1);
     
     atualizarCombate();
-    
-    // NOVO: Atualizar NH das magias
     atualizarNHMagias();
     
     if (abaAtual === 'pericias') renderizarPericiasAdquiridas();
     if (abaAtual === 'magias') renderizarEsferas();
 }
 
-// NOVA FUNÇÃO: Atualizar NH das magias
+// ============================================
+// FUNÇÕES DE NH DAS MAGIAS
+// ============================================
 function atualizarNHMagias() {
     if (!magiaNH_IQ || !magiaNH_Aptidao || !magiaNH_Total || !magiaRequisitoContainer) return;
     
@@ -3645,7 +4134,6 @@ function atualizarNHMagias() {
     magiaNH_Aptidao.textContent = temAptidao ? '+1' : '+0';
     magiaNH_Total.textContent = nhTotal;
     
-    // Mostrar alerta se não tiver Aptidão Mágica
     if (!temAptidao) {
         magiaRequisitoContainer.innerHTML = `
             <div class="magia-requisito-alerta">
@@ -3663,85 +4151,35 @@ function atualizarNHMagias() {
     }
 }
 
-// CORREÇÃO: Função para calcular dinheiro inicial APENAS para personagem novo
+// ============================================
+// FUNÇÕES DE DINHEIRO
+// ============================================
 function calcularDinheiroInicial() {
     const base = parseInt(dinheiroBaseInput?.value) || 1000;
     const riquezaSelect = document.getElementById('riqueza');
     const riqueza = riquezaSelect?.value || 'medio';
     
-    // Só calcula se for personagem novo (sem ID) e dinheiro ainda não foi definido
-    if (!personagemId && dinheiro === 0) {
-        if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
-            return Math.floor(base / 2);
-        } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
-            return base * 5;
-        } else {
-            return base;
-        }
+    let multiplicador = 1;
+    
+    // Aplicar Rico (5×)
+    if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
+        multiplicador = 5;
     }
     
-    // Se já tem personagem, retorna o valor atual (não recalcula)
-    return dinheiro;
+    // Aplicar Pobre (0.5×)
+    if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
+        multiplicador = 0.5;
+    }
+    
+    return Math.floor(base * multiplicador);
 }
 
-// CORREÇÃO: Apenas atualiza o display, não recalcula o dinheiro
 function atualizarDinheiroDisplay() {
     if (dinheiroSaldo) dinheiroSaldo.textContent = dinheiro;
 }
-
-function calcularCarga() {
-    const st = atributos.st.valor;
-    const leve = st * 2;
-    const media = st * 4;
-    const pesada = st * 8;
-    const limite = st * 12;
-    
-    let pesoTotal = 0;
-    
-    inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-    inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-    
-    if (cargaAtual) cargaAtual.textContent = pesoTotal.toFixed(1);
-    if (cargaLeve) cargaLeve.textContent = leve;
-    if (cargaMedia) cargaMedia.textContent = media;
-    if (cargaPesada) cargaPesada.textContent = pesada;
-    if (cargaLimite) cargaLimite.textContent = limite;
-    
-    let percentual = (pesoTotal / limite) * 100;
-    if (percentual > 100) percentual = 100;
-    if (cargaBarra) cargaBarra.style.width = percentual + '%';
-    
-    let nivel = 'leve';
-    let penalidade = 'Nenhuma';
-    let reducaoEsquiva = 0;
-    
-    if (pesoTotal > pesada) {
-        nivel = 'limite';
-        penalidade = '-3 Esquiva';
-        reducaoEsquiva = 3;
-    } else if (pesoTotal > media) {
-        nivel = 'pesado';
-        penalidade = '-3 Esquiva';
-        reducaoEsquiva = 3;
-    } else if (pesoTotal > leve) {
-        nivel = 'medio';
-        penalidade = '-1 Esquiva';
-        reducaoEsquiva = 1;
-    }
-    
-    if (cargaNivel) {
-        cargaNivel.textContent = nivel.charAt(0).toUpperCase() + nivel.slice(1);
-        cargaNivel.className = `carga-nivel ${nivel}`;
-    }
-    if (cargaPenalidade) cargaPenalidade.textContent = penalidade;
-    
-    let pesoMochilaTotal = 0;
-    inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
-    if (pesoMochila) pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
-    
-    return { nivel, reducaoEsquiva };
-}
-
+// ============================================
+// FUNÇÕES DE PERÍCIAS
+// ============================================
 function carregarPericias() {
     renderizarCatalogoPericias('todas');
     renderizarPericiasAdquiridas();
@@ -3752,13 +4190,18 @@ function renderizarCatalogoPericias(filtro = 'todas') {
     
     const periciasFiltradas = catalogoPericias.filter(p => filtro === 'todas' || p.tipo === filtro);
     
-    listaPericias.innerHTML = periciasFiltradas.map(pericia => `
-        <div class="pericia-card" data-pericia-id="${pericia.id}">
-            <h4>${pericia.nome} <span class="tipo ${pericia.tipo}">${pericia.tipo === 'mental' ? 'IQ' : pericia.tipo === 'fisica' ? 'DX' : 'HT'}</span></h4>
-            <div class="descricao">${pericia.descricao}</div>
-            <div class="atributo">Atributo: ${pericia.atributo.toUpperCase()}</div>
-        </div>
-    `).join('');
+    listaPericias.innerHTML = periciasFiltradas.map(pericia => {
+        const bonus = calcularBonusPericia(pericia.id);
+        const bonusTexto = bonus > 0 ? ` (+${bonus} da vantagem)` : '';
+        
+        return `
+            <div class="pericia-card" data-pericia-id="${pericia.id}">
+                <h4>${pericia.nome} <span class="tipo ${pericia.tipo}">${pericia.tipo === 'mental' ? 'IQ' : pericia.tipo === 'fisica' ? 'DX' : 'HT'}</span></h4>
+                <div class="descricao">${pericia.descricao}</div>
+                <div class="atributo">Atributo: ${pericia.atributo.toUpperCase()} ${bonsoTexto}</div>
+            </div>
+        `;
+    }).join('');
     
     document.querySelectorAll('.pericia-card').forEach(card => {
         card.addEventListener('click', () => abrirModalPericia(card.dataset.periciaId));
@@ -3778,6 +4221,7 @@ function renderizarPericiasAdquiridas() {
     listaPericiasAdquiridas.innerHTML = periciasArray.map(([id, dados]) => {
         const pericia = catalogoPericias.find(p => p.id === id);
         const bonus = dados.nivel === 1 ? 0 : dados.nivel - 1;
+        const bonusVantagem = calcularBonusPericia(id);
         
         let atributoBase = 0;
         if (pericia?.atributo === 'st') atributoBase = atributos.st.valor;
@@ -3785,14 +4229,14 @@ function renderizarPericiasAdquiridas() {
         else if (pericia?.atributo === 'iq') atributoBase = atributos.iq.valor;
         else if (pericia?.atributo === 'ht') atributoBase = 8;
         
-        const nh = atributoBase + bonus;
+        const nh = atributoBase + bonus + bonusVantagem;
         
         return `
             <div class="pericia-adquirida" data-pericia-id="${id}">
                 <div class="pericia-adquirida-info">
                     <h4>${pericia?.nome || id}</h4>
-                    <div class="nivel">Nível ${dados.nivel} <span class="bonus">(Bônus ${bonus > 0 ? '+' : ''}${bonus})</span></div>
-                    <div class="nh">NH: <span>${nh}</span> (${pericia?.atributo.toUpperCase()} ${atributoBase} + ${bonus})</div>
+                    <div class="nivel">Nível ${dados.nivel} <span class="bonus">(Bônus ${bonus > 0 ? '+' : ''}${bonus}${bonusVantagem > 0 ? ` +${bonusVantagem} vantagem` : ''})</span></div>
+                    <div class="nh">NH: <span>${nh}</span> (${pericia?.atributo.toUpperCase()} ${atributoBase} + ${bonus} + ${bonusVantagem})</div>
                 </div>
                 <div class="pericia-adquirida-acoes">
                     <button class="btn-pericia btn-aumentar-pericia" data-pericia-id="${id}" ${pmGastoTotal >= pmDisponivel ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
@@ -3949,6 +4393,9 @@ function diminuirPericia(periciaId) {
     triggerAutoSave();
 }
 
+// ============================================
+// FUNÇÕES DE MAGIAS
+// ============================================
 function custoNivelMagia(nivelAtual) {
     const novoNivel = nivelAtual + 1;
     if (novoNivel <= 5) return 2;
@@ -3959,7 +4406,6 @@ function custoNivelMagia(nivelAtual) {
 function renderizarEsferas() {
     if (!esferasGrid) return;
     
-    // Ordenar magias pela ordem definida
     const magiasLista = Object.entries(escolas.agua.magias).sort((a, b) => a[1].ordem - b[1].ordem);
     let html = '';
     
@@ -3974,7 +4420,6 @@ function renderizarEsferas() {
         if (magia.desbloqueada) {
             classeEsfera = 'desbloqueada';
         } else if (numero <= esferasDesbloqueadas + 1) {
-            // Só pode comprar se tiver Aptidão Mágica
             if (temAptidao) {
                 classeEsfera = 'disponivel';
                 const custo = custoNivelMagia(0);
@@ -4063,7 +4508,6 @@ function abrirDetalheMagia(magiaId) {
     detalheMagiaTitulo.textContent = nomesMagia[magiaId] || magiaId;
     detalheMagiaInfo.textContent = `${magia.atributo} | Tipo: ${magia.tipo}`;
     
-    // NOVO: Mostrar NH da magia no modal
     const iq = atributos.iq.valor;
     const temAptidao = vantagensSelecionadas.has('aptidaoMagica');
     const aptidaoBonus = temAptidao ? 1 : 0;
@@ -4086,6 +4530,9 @@ function abrirDetalheMagia(magiaId) {
     detalheMagiaModal.classList.add('active');
 }
 
+// ============================================
+// FUNÇÕES DE INVENTÁRIO
+// ============================================
 function renderizarInventario() {
     if (!inventarioCorpo) return;
     
@@ -4297,7 +4744,9 @@ function salvarInventario() {
         sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
     }
 }
-
+// ============================================
+// FUNÇÕES DE VANTAGENS E DESVANTAGENS
+// ============================================
 function selecionarVantagem(card) {
     const vantagemId = card.dataset.vantagem;
     
@@ -4308,26 +4757,48 @@ function selecionarVantagem(card) {
         if (vantagensSelecionadas.size < 3) {
             vantagensSelecionadas.add(vantagemId);
             card.classList.add('selecionada');
+            
+            // Mostrar descrição da vantagem
+            const vantagem = vantagensData[vantagemId];
+            if (vantagem) {
+                adicionarLog(`✨ Vantagem selecionada: ${vantagem.nome} - ${vantagem.descricao}`, 'sucesso');
+            }
         } else { 
             alert('Você já selecionou 3 vantagens!'); 
             return; 
         }
     }
     
+    // Verificar conflitos
     if (vantagemId === 'rico') {
         if (desvantagensSelecionadas.has('pobre')) {
             desvantagensSelecionadas.delete('pobre');
             document.querySelector('[data-desvantagem="pobre"]')?.classList.remove('selecionada');
+            adicionarLog('⚠️ Rico e Pobre não podem coexistir. Pobre removido.', 'info');
         }
     }
     
-    // NOVO: Atualizar NH das magias quando aptidão for selecionada/removida
+    if (vantagemId === 'ambidistria' && vantagensSelecionadas.has('mestreArmas')) {
+        const ataques = calcularAtaquesPorTurno();
+        adicionarLog(`⚔️ Com Ambidestria + Mestre das Armas, você terá ${ataques} ataques por turno!`, 'sucesso');
+    }
+    
     if (vantagemId === 'aptidaoMagica') {
         atualizarNHMagias();
-        renderizarEsferas(); // Re-renderizar esferas para atualizar disponibilidade
+        renderizarEsferas();
+        adicionarLog('🔮 Aptidão Mágica ativada! Você pode desbloquear magias.', 'sucesso');
+    }
+    
+    if (vantagemId === 'reflexoCombate') {
+        adicionarLog('⚡ Reflexos de Combate: +1 em todas as defesas, +2 em iniciativa!', 'sucesso');
+    }
+    
+    if (vantagemId === 'mestreArmas') {
+        adicionarLog('⚔️ Mestre das Armas: +1 ataque, 2 ataques por turno!', 'sucesso');
     }
     
     atualizarContadoresAbas();
+    atualizarInterface();
     triggerAutoSave();
 }
 
@@ -4351,6 +4822,7 @@ function selecionarDesvantagem(card) {
         if (vantagensSelecionadas.has('rico')) {
             vantagensSelecionadas.delete('rico');
             document.querySelector('[data-vantagem="rico"]')?.classList.remove('selecionada');
+            adicionarLog('⚠️ Rico e Pobre não podem coexistir. Rico removido.', 'info');
         }
     }
     
@@ -4358,6 +4830,9 @@ function selecionarDesvantagem(card) {
     triggerAutoSave();
 }
 
+// ============================================
+// FUNÇÕES DE INTERFACE
+// ============================================
 function carregarResumoPersonagem() {
     if (!personagemTemp) return;
     
@@ -4447,12 +4922,12 @@ function mudarAba(abaId) {
         btnProximo.style.display = 'none';
         btnFinalizar.style.display = 'inline-flex';
         renderizarEsferas();
-        atualizarNHMagias(); // NOVO: Atualizar NH ao entrar na aba
+        atualizarNHMagias();
     } else if (abaId === 'equipamentos') {
         btnAnterior.style.display = 'inline-flex';
         btnProximo.style.display = 'none';
         btnFinalizar.style.display = 'inline-flex';
-        atualizarDinheiroDisplay(); // CORREÇÃO: APENAS atualiza o display, não recalcula
+        atualizarDinheiroDisplay();
         renderizarInventario();
         renderizarTabelas('armas_ca');
     }
@@ -4480,7 +4955,6 @@ function salvarDadosBasicos() {
     const fadiga = calcularFadiga();
     const mana = calcularMana();
     
-    // CORREÇÃO: Só recalcula o dinheiro se for personagem novo
     if (!personagemId && dinheiro === 0) {
         dinheiro = calcularDinheiroInicial();
     }
@@ -4503,13 +4977,47 @@ function salvarDadosBasicos() {
         escolas: escolas,
         esferasDesbloqueadas: esferasDesbloqueadas,
         pmDisponivel: pmDisponivel,
-        pmGasto: pmGastoTotal
+        pmGasto: pmGastoTotal,
+        
+        // NOVO: Dados das vantagens para uso na sala de aventura
+        vantagensData: {
+            usosSessao: {
+                intuicao: vantagensSelecionadas.has('intuicao') ? 2 : 0,
+                sorte: vantagensSelecionadas.has('sorte') ? 2 : 0,
+                duroDeMatar: vantagensSelecionadas.has('duroDeMatar') ? 1 : 0,
+                ataqueNoLimite: vantagensSelecionadas.has('ataqueNoLimite') ? 1 : 0
+            },
+            multiplicadorCura: calcularMultiplicadorCura(),
+            bonusCuraPocao: calcularBonusCuraPocao(),
+            ataquesPorTurno: calcularAtaquesPorTurno(),
+            bonusAtaque: calcularBonusAtaque(),
+            resistenciaIntimidacao: calcularResistenciaIntimidacao(),
+            resistenciaMagia: calcularResistenciaMagia(),
+            rdContraMagias: calcularRDContraMagias(0),
+            reacao: calcularReacao(),
+            iniciativa: calcularIniciativa(),
+            redutorEscuro: calcularRedutorEscuro(),
+            reducaoDanoQueda: calcularReducaoDanoQueda(),
+            bonusPericias: {}
+        }
     };
+    
+    // Adicionar bônus de perícias
+    const periciasComBonus = ['persuasao', 'labia', 'fuga', 'furtividade'];
+    periciasComBonus.forEach(periciaId => {
+        const bonus = calcularBonusPericia(periciaId);
+        if (bonus > 0) {
+            personagemTemp.vantagensData.bonusPericias[periciaId] = bonus;
+        }
+    });
     
     sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
     return personagemTemp;
 }
 
+// ============================================
+// FUNÇÕES DE SALVAMENTO
+// ============================================
 async function salvarPersonagem(finalizar = false) {
     try {
         setAutoSaveIndicator('saving');
@@ -4536,6 +5044,7 @@ async function salvarPersonagem(finalizar = false) {
         if (vantagensSelecionadas.has('atraente')) reacaoBase += 2;
         if (desvantagensSelecionadas.has('feio')) reacaoBase -= 2;
         
+        // Calcular todos os derivados das vantagens
         const personagemData = {
             nome: dadosBasicos.nome,
             classe: dadosBasicos.classe,
@@ -4577,13 +5086,21 @@ async function salvarPersonagem(finalizar = false) {
                 esquiva: calcularEsquiva(),
                 aparar: calcularAparar(),
                 bloqueio: calcularBloqueio(),
-                vontade: atributos.iq.valor,
-                percepcao: atributos.iq.valor,
+                vontade: calcularVontade(),
+                percepcao: calcularPercepcao(),
                 deslocamento: calcularDeslocamento().toFixed(1),
-                rd: calcularRD()
+                rd: calcularRD(),
+                resistenciaMagia: calcularResistenciaMagia(),
+                rdContraMagias: calcularRDContraMagias(0),
+                iniciativa: calcularIniciativa(),
+                reacao: calcularReacao(),
+                redutorEscuro: calcularRedutorEscuro(),
+                reducaoDanoQueda: calcularReducaoDanoQueda(),
+                ataquesPorTurno: calcularAtaquesPorTurno(),
+                bonusAtaque: calcularBonusAtaque(),
+                multiplicadorCura: calcularMultiplicadorCura(),
+                bonusCuraPocao: calcularBonusCuraPocao()
             },
-            
-            reacao: { base: reacaoBase, total: reacaoBase },
             
             pericias: pericias,
             escolas: escolas,
@@ -4593,7 +5110,15 @@ async function salvarPersonagem(finalizar = false) {
             pmGasto: pmGastoTotal,
             
             inventario: inventario,
-            dinheiro: dinheiro // CORREÇÃO: Salva o dinheiro atual
+            dinheiro: dinheiro,
+            
+            vantagensUsos: {
+                intuicao: vantagensSelecionadas.has('intuicao') ? 2 : 0,
+                sorte: vantagensSelecionadas.has('sorte') ? 2 : 0,
+                duroDeMatar: vantagensSelecionadas.has('duroDeMatar') ? 1 : 0,
+                ataqueNoLimite: vantagensSelecionadas.has('ataqueNoLimite') ? 1 : 0,
+                duroDeMatarUsado: false
+            }
         };
         
         let docRef;
@@ -4631,6 +5156,13 @@ async function salvarRascunho() {
     await salvarPersonagem(false);
 }
 
+function adicionarLog(mensagem, tipo = 'info') {
+    console.log(`[${tipo.toUpperCase()}] ${mensagem}`);
+}
+
+// ============================================
+// FUNÇÕES DE CARREGAMENTO
+// ============================================
 async function carregarPersonagem(id) {
     try {
         showLoading();
@@ -4709,11 +5241,9 @@ async function carregarPersonagem(id) {
             inventario = data.inventario;
         }
         
-        // CORREÇÃO: Carrega o dinheiro salvo, NÃO recalcula
         if (data.dinheiro !== undefined) {
             dinheiro = data.dinheiro;
         } else {
-            // Se não tiver dinheiro salvo (personagem antigo), calcula o inicial
             dinheiro = calcularDinheiroInicial();
         }
         
@@ -4731,10 +5261,9 @@ async function carregarPersonagem(id) {
         if (pageTitle) pageTitle.textContent = `Editando Personagem: ${data.nome}`;
         if (personagemIdHidden) personagemIdHidden.value = id;
         
-        // NOVO: Atualizar NH das magias
         atualizarNHMagias();
-        
         atualizarContadoresAbas();
+        atualizarInterface();
         
     } catch (error) {
         alert('Erro ao carregar personagem!');
@@ -4743,6 +5272,96 @@ async function carregarPersonagem(id) {
     }
 }
 
+function carregarDadosSalvos() {
+    try {
+        const salvos = sessionStorage.getItem('personagemTemp');
+        if (salvos) {
+            personagemTemp = JSON.parse(salvos);
+            
+            if (document.getElementById('nomePersonagem')) 
+                document.getElementById('nomePersonagem').value = personagemTemp.nome || '';
+            if (document.getElementById('classePersonagem')) 
+                document.getElementById('classePersonagem').value = personagemTemp.classe || 'guerreiro';
+            if (document.getElementById('idadePersonagem') && personagemTemp.idade)
+                document.getElementById('idadePersonagem').value = personagemTemp.idade;
+            if (document.getElementById('alturaPersonagem') && personagemTemp.altura)
+                document.getElementById('alturaPersonagem').value = personagemTemp.altura;
+            if (document.getElementById('pesoPersonagem') && personagemTemp.peso)
+                document.getElementById('pesoPersonagem').value = personagemTemp.peso;
+            if (document.getElementById('aparencia')) 
+                document.getElementById('aparencia').value = personagemTemp.aparencia || 'normal';
+            if (document.getElementById('riqueza')) 
+                document.getElementById('riqueza').value = personagemTemp.riqueza || 'medio';
+            if (document.getElementById('peculiaridades')) 
+                document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
+            if (personagemTemp.dinheiroBase && document.getElementById('dinheiroBase')) {
+                document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase;
+            }
+            if (personagemTemp.fotoURL) {
+                previewImage.src = personagemTemp.fotoURL;
+                previewArea.style.display = 'block';
+                uploadArea.style.display = 'none';
+            }
+            
+            if (personagemTemp.atributos) {
+                atributos.st = personagemTemp.atributos.st || { valor: 9, bolinhas: 0, base: 9 };
+                atributos.dx = personagemTemp.atributos.dx || { valor: 5, bolinhas: 0, base: 5 };
+                atributos.iq = personagemTemp.atributos.iq || { valor: 5, bolinhas: 0, base: 5 };
+                atributos.ht = personagemTemp.atributos.ht || { valor: 8, bolinhas: 0, base: 8 };
+                
+                pontosRestantes = 6 - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
+                atualizarInterface();
+            }
+            
+            if (personagemTemp.vantagens) {
+                personagemTemp.vantagens.forEach(v => vantagensSelecionadas.add(v));
+            }
+            
+            if (personagemTemp.desvantagens) {
+                personagemTemp.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
+            }
+            
+            if (personagemTemp.fobia) {
+                fobiaSelecionada = personagemTemp.fobia;
+                if (fobiaEscolhida) {
+                    fobiaEscolhida.style.display = 'inline-block';
+                    fobiaEscolhida.textContent = personagemTemp.fobia;
+                }
+                if (cardFobia) cardFobia.classList.add('selecionada');
+            }
+            
+            if (personagemTemp.pericias) {
+                pericias = personagemTemp.pericias;
+            }
+            
+            if (personagemTemp.inventario) {
+                inventario = personagemTemp.inventario;
+            }
+            
+            if (personagemTemp.dinheiro !== undefined) {
+                dinheiro = personagemTemp.dinheiro;
+            }
+            
+            if (personagemTemp.pmDisponivel !== undefined) {
+                pmDisponivel = personagemTemp.pmDisponivel;
+                pmInicial.value = pmDisponivel;
+            }
+            
+            if (personagemTemp.pmGasto !== undefined) {
+                pmGastoTotal = personagemTemp.pmGasto;
+                pmGasto.textContent = pmGastoTotal;
+                pmRestante.textContent = pmDisponivel - pmGastoTotal;
+            }
+            
+            atualizarNHMagias();
+            atualizarContadoresAbas();
+        }
+    } catch (e) {}
+}
+
+// ============================================
+// FUNÇÕES DE EXPORTAÇÃO E EXCLUSÃO
+// ============================================
 async function excluirPersonagem() {
     if (!personagemId) {
         alert('Nenhum personagem para excluir');
@@ -4761,7 +5380,6 @@ async function excluirPersonagem() {
         }
         
         const docRef = doc(db, "personagens", personagemId);
-        
         const docSnap = await getDoc(docRef);
         
         if (!docSnap.exists()) {
@@ -4779,9 +5397,7 @@ async function excluirPersonagem() {
         }
         
         await deleteDoc(docRef);
-        
         sessionStorage.removeItem('personagemTemp');
-        
         window.location.href = 'personagens.html';
         
     } catch (error) {
@@ -4886,23 +5502,70 @@ async function exportarPDF() {
         pdf.setFontSize(14);
         pdf.setTextColor(0, 0, 0);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('Combate', 20, yPos);
+        pdf.text('Vantagens', 20, yPos);
         yPos += 7;
         
-        pdf.setFontSize(11);
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(0, 0, 0);
         
-        const rdCorpoValor = document.getElementById('rdCorpo')?.textContent || '0';
-        const rdCabecaValor = document.getElementById('rdCabeca')?.textContent || '0';
-        const rdMembrosValor = document.getElementById('rdMembros')?.textContent || '0';
+        const vantagensList = Array.from(vantagensSelecionadas);
+        if (vantagensList.length > 0) {
+            vantagensList.forEach(vantagemId => {
+                const vantagem = vantagensData[vantagemId];
+                if (vantagem) {
+                    pdf.text(`• ${vantagem.nome}: ${vantagem.descricao}`, 25, yPos);
+                    yPos += 5;
+                } else {
+                    pdf.text(`• ${vantagemId}`, 25, yPos);
+                    yPos += 5;
+                }
+                
+                if (yPos > 280) {
+                    pdf.addPage();
+                    yPos = 20;
+                }
+            });
+        } else {
+            pdf.text('Nenhuma vantagem selecionada', 25, yPos);
+            yPos += 5;
+        }
+        yPos += 5;
         
-        pdf.text(`RD Corpo: ${rdCorpoValor} | RD Cabeça: ${rdCabecaValor} | RD Membros: ${rdMembrosValor}`, 25, yPos);
-        yPos += 6;
+        if (yPos > 280) {
+            pdf.addPage();
+            yPos = 20;
+        }
         
-        const armaEquipada = armaNome?.textContent || 'Nenhuma';
-        const armaDanoValor = armaDano?.textContent || '-';
-        pdf.text(`Arma: ${armaEquipada} (Dano: ${armaDanoValor})`, 25, yPos);
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Derivados das Vantagens', 20, yPos);
+        yPos += 7;
+        
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
+        
+        pdf.text(`• Ataques por turno: ${calcularAtaquesPorTurno()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Bônus de ataque: +${calcularBonusAtaque()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Iniciativa: ${calcularIniciativa()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Reação: ${calcularReacao() > 0 ? '+' : ''}${calcularReacao()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Resistência a Medo/Intimidação: +${calcularResistenciaIntimidacao()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Resistência Mágica: +${calcularResistenciaMagia()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Redução de dano em queda: -${calcularReducaoDanoQueda()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Redutor no escuro: ${calcularRedutorEscuro()}`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Multiplicador de cura: ${calcularMultiplicadorCura()}x`, 25, yPos);
+        yPos += 4;
+        pdf.text(`• Bônus em poções: +${(calcularBonusCuraPocao() - 1) * 100}%`, 25, yPos);
         yPos += 10;
         
         if (Object.keys(pericias).length > 0) {
@@ -4926,6 +5589,7 @@ async function exportarPDF() {
                 const pericia = catalogoPericias.find(p => p.id === id);
                 const nomePericia = pericia?.nome || id;
                 const bonus = dados.nivel === 1 ? 0 : dados.nivel - 1;
+                const bonusVantagem = calcularBonusPericia(id);
                 
                 let atributoBase = 0;
                 if (pericia?.atributo === 'st') atributoBase = atributos.st.valor;
@@ -4933,7 +5597,7 @@ async function exportarPDF() {
                 else if (pericia?.atributo === 'iq') atributoBase = atributos.iq.valor;
                 else atributoBase = 8;
                 
-                const nh = atributoBase + bonus;
+                const nh = atributoBase + bonus + bonusVantagem;
                 
                 pdf.text(`${nomePericia}: Nv ${dados.nivel} (NH ${nh})`, 25, yPos);
                 yPos += 5;
@@ -4946,220 +5610,6 @@ async function exportarPDF() {
             yPos += 5;
         }
         
-        const magiasDesbloqueadas = Object.entries(escolas.agua.magias).filter(([_, m]) => m.desbloqueada);
-        if (magiasDesbloqueadas.length > 0) {
-            if (yPos > 250) {
-                pdf.addPage();
-                yPos = 20;
-            }
-            
-            pdf.setFontSize(14);
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Magias', 20, yPos);
-            yPos += 7;
-            
-            pdf.setFontSize(9);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(0, 0, 0);
-            
-            const nomesMagia = {
-                localizarAgua: 'Localizar Água', purificarAgua: 'Purificar Água', criarAgua: 'Criar Água',
-                dissiparAgua: 'Dissipar Água', adagaDeGelo: 'Adaga de Gelo', respirarNaAgua: 'Respirar na Água',
-                moldarAgua: 'Moldar Água', nevoeiro: 'Nevoeiro', armaCongelante: 'Arma Congelante',
-                cortinaDagua: 'Cortina D\'água', jatoDeAgua: 'Jato de Água', ondaExpulsora: 'Onda Expulsora',
-                tempestadeDeGelo: 'Tempestade de Gelo', congelamento: 'Congelamento'
-            };
-            
-            // NOVO: Mostrar NH das magias no PDF
-            const iq = atributos.iq.valor;
-            const temAptidao = vantagensSelecionadas.has('aptidaoMagica');
-            const aptidaoBonus = temAptidao ? 1 : 0;
-            const nhTotal = iq + aptidaoBonus;
-            
-            pdf.text(`NH Mágico: ${iq} + ${aptidaoBonus} = ${nhTotal}`, 25, yPos);
-            yPos += 5;
-            
-            magiasDesbloqueadas.forEach(([id, magia]) => {
-                pdf.text(`${nomesMagia[id] || id}: Nv ${magia.nivel} (${magia.tipo})`, 25, yPos);
-                yPos += 5;
-                
-                if (yPos > 280) {
-                    pdf.addPage();
-                    yPos = 20;
-                }
-            });
-            yPos += 5;
-        }
-        
-        if (inventario.corpo.length > 0 || inventario.mochila.length > 0 || inventario.deposito.length > 0) {
-            if (yPos > 250) {
-                pdf.addPage();
-                yPos = 20;
-            }
-            
-            pdf.setFontSize(14);
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Equipamentos', 20, yPos);
-            yPos += 7;
-            
-            if (inventario.corpo.length > 0) {
-                pdf.setFontSize(10);
-                pdf.setTextColor(0, 0, 0);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('Equipado:', 25, yPos);
-                yPos += 5;
-                
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setTextColor(0, 0, 0);
-                inventario.corpo.forEach(item => {
-                    pdf.text(`• ${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''} - ${item.peso}kg`, 30, yPos);
-                    yPos += 5;
-                    
-                    if (yPos > 280) {
-                        pdf.addPage();
-                        yPos = 20;
-                    }
-                });
-            }
-            
-            if (inventario.mochila.length > 0) {
-                if (yPos > 260) {
-                    pdf.addPage();
-                    yPos = 20;
-                }
-                
-                pdf.setFontSize(10);
-                pdf.setTextColor(0, 0, 0);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('Mochila:', 25, yPos);
-                yPos += 5;
-                
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setTextColor(0, 0, 0);
-                inventario.mochila.slice(0, 15).forEach(item => {
-                    pdf.text(`• ${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''} - ${item.peso}kg`, 30, yPos);
-                    yPos += 5;
-                    
-                    if (yPos > 280) {
-                        pdf.addPage();
-                        yPos = 20;
-                    }
-                });
-            }
-            
-            if (inventario.deposito.length > 0 && yPos < 260) {
-                pdf.setFontSize(10);
-                pdf.setTextColor(0, 0, 0);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('Depósito (Selecionado):', 25, yPos);
-                yPos += 5;
-                
-                pdf.setFontSize(9);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setTextColor(0, 0, 0);
-                inventario.deposito.slice(0, 10).forEach(item => {
-                    pdf.text(`• ${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}`, 30, yPos);
-                    yPos += 5;
-                    
-                    if (yPos > 280) {
-                        pdf.addPage();
-                        yPos = 20;
-                    }
-                });
-            }
-            yPos += 5;
-        }
-        
-        if (yPos > 260) {
-            pdf.addPage();
-            yPos = 20;
-        }
-        
-        pdf.setFontSize(14);
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Vantagens', 20, yPos);
-        yPos += 7;
-        
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(0, 0, 0);
-        const vantagensList = Array.from(vantagensSelecionadas).join(', ') || 'Nenhuma';
-        const linhasVantagens = pdf.splitTextToSize(vantagensList, 170);
-        linhasVantagens.forEach(linha => {
-            pdf.text(linha, 25, yPos);
-            yPos += 5;
-            
-            if (yPos > 280) {
-                pdf.addPage();
-                yPos = 20;
-            }
-        });
-        yPos += 5;
-        
-        if (yPos > 260) {
-            pdf.addPage();
-            yPos = 20;
-        }
-        
-        pdf.setFontSize(14);
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Desvantagens', 20, yPos);
-        yPos += 7;
-        
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(0, 0, 0);
-        
-        let desvantagensList = Array.from(desvantagensSelecionadas).join(', ') || 'Nenhuma';
-        if (fobiaSelecionada) {
-            desvantagensList += `, Fobia: ${fobiaSelecionada}`;
-        }
-        const linhasDesvantagens = pdf.splitTextToSize(desvantagensList, 170);
-        linhasDesvantagens.forEach(linha => {
-            pdf.text(linha, 25, yPos);
-            yPos += 5;
-            
-            if (yPos > 280) {
-                pdf.addPage();
-                yPos = 20;
-            }
-        });
-        yPos += 5;
-        
-        const peculiaridades = document.getElementById('peculiaridades')?.value || '';
-        if (peculiaridades) {
-            if (yPos > 260) {
-                pdf.addPage();
-                yPos = 20;
-            }
-            
-            pdf.setFontSize(14);
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Peculiaridades', 20, yPos);
-            yPos += 7;
-            
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(0, 0, 0);
-            const linhasPeculiaridades = pdf.splitTextToSize(peculiaridades, 170);
-            linhasPeculiaridades.forEach(linha => {
-                pdf.text(linha, 25, yPos);
-                yPos += 5;
-                
-                if (yPos > 280) {
-                    pdf.addPage();
-                    yPos = 20;
-                }
-            });
-        }
-        
         pdf.save(`ficha_${nome.replace(/\s+/g, '_')}.pdf`);
         
     } catch (error) {
@@ -5168,7 +5618,9 @@ async function exportarPDF() {
         hideLoading();
     }
 }
-
+// ============================================
+// FUNÇÕES DE TABELAS DE ITENS
+// ============================================
 function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
     
@@ -5584,96 +6036,9 @@ function atualizarContadoresAbas() {
     atualizarDinheiroDisplay();
 }
 
-function carregarDadosSalvos() {
-    try {
-        const salvos = sessionStorage.getItem('personagemTemp');
-        if (salvos) {
-            personagemTemp = JSON.parse(salvos);
-            
-            if (document.getElementById('nomePersonagem')) 
-                document.getElementById('nomePersonagem').value = personagemTemp.nome || '';
-            if (document.getElementById('classePersonagem')) 
-                document.getElementById('classePersonagem').value = personagemTemp.classe || 'guerreiro';
-            if (document.getElementById('idadePersonagem') && personagemTemp.idade)
-                document.getElementById('idadePersonagem').value = personagemTemp.idade;
-            if (document.getElementById('alturaPersonagem') && personagemTemp.altura)
-                document.getElementById('alturaPersonagem').value = personagemTemp.altura;
-            if (document.getElementById('pesoPersonagem') && personagemTemp.peso)
-                document.getElementById('pesoPersonagem').value = personagemTemp.peso;
-            if (document.getElementById('aparencia')) 
-                document.getElementById('aparencia').value = personagemTemp.aparencia || 'normal';
-            if (document.getElementById('riqueza')) 
-                document.getElementById('riqueza').value = personagemTemp.riqueza || 'medio';
-            if (document.getElementById('peculiaridades')) 
-                document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
-            if (personagemTemp.dinheiroBase && document.getElementById('dinheiroBase')) {
-                document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase;
-            }
-            if (personagemTemp.fotoURL) {
-                previewImage.src = personagemTemp.fotoURL;
-                previewArea.style.display = 'block';
-                uploadArea.style.display = 'none';
-            }
-            
-            if (personagemTemp.atributos) {
-                atributos.st = personagemTemp.atributos.st || { valor: 9, bolinhas: 0, base: 9 };
-                atributos.dx = personagemTemp.atributos.dx || { valor: 5, bolinhas: 0, base: 5 };
-                atributos.iq = personagemTemp.atributos.iq || { valor: 5, bolinhas: 0, base: 5 };
-                atributos.ht = personagemTemp.atributos.ht || { valor: 8, bolinhas: 0, base: 8 };
-                
-                pontosRestantes = 6 - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
-                atualizarInterface();
-            }
-            
-            if (personagemTemp.vantagens) {
-                personagemTemp.vantagens.forEach(v => vantagensSelecionadas.add(v));
-            }
-            
-            if (personagemTemp.desvantagens) {
-                personagemTemp.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
-            }
-            
-            if (personagemTemp.fobia) {
-                fobiaSelecionada = personagemTemp.fobia;
-                if (fobiaEscolhida) {
-                    fobiaEscolhida.style.display = 'inline-block';
-                    fobiaEscolhida.textContent = personagemTemp.fobia;
-                }
-                if (cardFobia) cardFobia.classList.add('selecionada');
-            }
-            
-            if (personagemTemp.pericias) {
-                pericias = personagemTemp.pericias;
-            }
-            
-            if (personagemTemp.inventario) {
-                inventario = personagemTemp.inventario;
-            }
-            
-            // CORREÇÃO: Carrega o dinheiro salvo
-            if (personagemTemp.dinheiro !== undefined) {
-                dinheiro = personagemTemp.dinheiro;
-            }
-            
-            if (personagemTemp.pmDisponivel !== undefined) {
-                pmDisponivel = personagemTemp.pmDisponivel;
-                pmInicial.value = pmDisponivel;
-            }
-            
-            if (personagemTemp.pmGasto !== undefined) {
-                pmGastoTotal = personagemTemp.pmGasto;
-                pmGasto.textContent = pmGastoTotal;
-                pmRestante.textContent = pmDisponivel - pmGastoTotal;
-            }
-            
-            // NOVO: Atualizar NH das magias
-            atualizarNHMagias();
-            
-            atualizarContadoresAbas();
-        }
-    } catch (e) {}
-}
-
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 document.addEventListener('DOMContentLoaded', () => {
     criarBolinhas('st');
     criarBolinhas('dx');
@@ -5697,7 +6062,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     atualizarDinheiroDisplay();
     atualizarCombate();
-    atualizarNHMagias(); // NOVO: Inicializar NH das magias
+    atualizarNHMagias();
     
     const camposAutoSave = [
         'nomePersonagem', 'classePersonagem', 'idadePersonagem', 'alturaPersonagem', 
@@ -6011,6 +6376,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ============================================
+// AUTENTICAÇÃO
+// ============================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         const docRef = doc(db, "usuarios", user.uid);
