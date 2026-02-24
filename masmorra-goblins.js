@@ -1,4 +1,3 @@
-// masmorra-goblins.js
 window.AVENTURA = {
     nome: "A Menina Elfa Raptada",
     descricao: "Uma aventura clássica começando em uma taverna.",
@@ -58,8 +57,8 @@ window.AVENTURA = {
                         },
                         {
                             texto: "👀 Observar o ambiente enquanto bebe",
-                            resposta: "Você pede uma cerveja e observa calmamente o movimento da taverna...",
-                            acao: "iniciar_timer"
+                            acao: "observar_ambiente",  // AÇÃO ESPECÍFICA
+                            resposta: "Você pede uma cerveja e observa calmamente o movimento da taverna..."
                         },
                         {
                             texto: "🚪 Sair da taverna",
