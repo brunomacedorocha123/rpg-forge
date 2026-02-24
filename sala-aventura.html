@@ -2238,28 +2238,46 @@ function atualizarFichaPersonagem() {
         </div>
     `;
     
+    // ===== PARTE CORRIGIDA - MOSTRA TODAS AS PERÍCIAS =====
     let periciasHTML = '';
     const periciasArray = Object.entries(pericias);
+    
+    console.log('🎯 Renderizando perícias. Total no objeto:', periciasArray.length);
     
     if (periciasArray.length === 0) {
         periciasHTML = '<div style="color:rgba(255,255,255,0.5); text-align:center;">Nenhuma perícia</div>';
     } else {
+        // Ordena por nome
         periciasArray.sort((a, b) => {
             const nomeA = catalogoPericias.find(p => p.id === a[0])?.nome || a[0];
             const nomeB = catalogoPericias.find(p => p.id === b[0])?.nome || b[0];
             return nomeA.localeCompare(nomeB);
         });
         
+        // MOSTRA TODAS AS PERÍCIAS - UMA POR UMA
         periciasArray.forEach(([id, dados]) => {
             const periciaInfo = catalogoPericias.find(p => p.id === id);
-            if (!periciaInfo) return;
             
-            const nh = calcularNHPericia(id);
-            periciasHTML += `<div class="pericia-mini-item"><span class="nome">${periciaInfo.nome}</span><span class="valor">NH ${nh}</span></div>`;
+            // Se encontrar no catálogo, usa o nome bonito. Se não, usa o ID
+            const nomePericia = periciaInfo?.nome || id;
+            const nh = calcularNHPericia(id) || 0;
+            
+            periciasHTML += `<div class="pericia-mini-item" style="border-bottom:1px solid rgba(255,215,0,0.2); padding:4px 0; display:flex; justify-content:space-between;">
+                <span class="nome" style="color:#ffd700;">${nomePericia}</span>
+                <span class="valor" style="color:#4CAF50; font-weight:bold;">NH ${nh}</span>
+            </div>`;
         });
+        
+        console.log('✅ HTML gerado com', periciasArray.length, 'perícias');
     }
     
-    periciasMiniLista.innerHTML = periciasHTML;
+    // Garantir que o elemento existe
+    const periciasElement = document.getElementById('periciasMiniLista');
+    if (periciasElement) {
+        periciasElement.innerHTML = periciasHTML;
+    } else {
+        console.error('❌ Elemento periciasMiniLista não encontrado!');
+    }
     
     let itensHTML = '';
     let pesoTotal = 0;
@@ -2294,96 +2312,6 @@ function atualizarFichaPersonagem() {
     cargaRapida.textContent = `${pesoTotal.toFixed(1)}/${limiteCarga} kg`;
     
     atualizarInterfaceBolinhas();
-}
-
-function carregarCena(cenaId) {
-    if (!cenaId) return;
-    
-    if (typeof cenaId === 'string') {
-        const cena = historia.cenas[cenaId];
-        if (!cena) return;
-        capituloAtual = cena;
-    } else {
-        capituloAtual = cenaId;
-    }
-    
-    if (!capituloAtual) return;
-    
-    if (cenaId === 'exterior_taverna' || cenaId === 'interior_taverna') {
-        setAto(1, 'A Taverna');
-    } else if (cenaId === 'interior_taverna_com_homem' || cenaId === 'homem_fala_detalhes') {
-        setAto(2, 'O Homem Ferido');
-    } else if (cenaId === 'sair_para_aventura') {
-        setAto(3, 'A Missão');
-    } else if (cenaId === 'encontro_camponesa' || cenaId === 'carroca_destruida' || cenaId === 'clareira_goblins') {
-        setAto(4, 'A Floresta');
-    } else if (cenaId === 'entrada_caverna' || cenaId === 'camara_chefe') {
-        setAto(5, 'A Caverna');
-    } else if (cenaId === 'final_vitoria' || cenaId === 'final_taverna') {
-        setAto(6, 'O Retorno');
-    }
-    
-    if (capituloAtual.imagem) {
-        cenarioArea.style.backgroundImage = `url('${capituloAtual.imagem}')`;
-    } else {
-        cenarioArea.style.backgroundImage = 'none';
-    }
-    
-    npcsContainer.innerHTML = '';
-    if (capituloAtual.npcs) {
-        capituloAtual.npcs.forEach(npc => {
-            if (npc.visivel === false) return;
-            
-            const npcDiv = document.createElement('div');
-            npcDiv.className = 'npc-sprite';
-            
-            if (npc.id === 'taverneiro') {
-                npcDiv.style.left = '85%';
-                npcDiv.style.top = '60%';
-            } else if (npc.id === 'homem_sangue') {
-                npcDiv.style.left = '25%';
-                npcDiv.style.top = '50%';
-            } else if (npc.id === 'camponesa') {
-                npcDiv.style.left = '40%';
-                npcDiv.style.top = '55%';
-            } else if (npc.id === 'menina_elfa') {
-                npcDiv.style.left = '50%';
-                npcDiv.style.top = '60%';
-            } else if (npc.id === 'chefe_goblin') {
-                npcDiv.style.left = '60%';
-                npcDiv.style.top = '50%';
-            } else {
-                npcDiv.style.left = (npc.x || 50) + '%';
-                npcDiv.style.top = (npc.y || 50) + '%';
-            }
-            
-            npcDiv.dataset.npcId = npc.id;
-            
-            npcDiv.innerHTML = `
-                <img src="${npc.sprite || 'default.png'}" alt="${npc.nome}">
-                <div class="npc-nome">${npc.nome}</div>
-            `;
-            
-            npcDiv.addEventListener('click', () => {
-                falarComNPC(npc);
-            });
-            
-            npcsContainer.appendChild(npcDiv);
-        });
-    }
-    
-    if (capituloAtual.fala) {
-        npcNome.textContent = capituloAtual.fala.npc || 'Narrador';
-        dialogoTexto.textContent = capituloAtual.fala.texto;
-    } else {
-        dialogoTexto.textContent = '...';
-    }
-    
-    renderizarOpcoes(capituloAtual.opcoes);
-    
-    if (cenaId === 'interior_taverna') {
-        iniciarTimerHomem();
-    }
 }
 
 function renderizarOpcoes(opcoes) {
@@ -2790,22 +2718,36 @@ async function carregarPersonagem(personagemId) {
             fobia = personagem.fobia;
         }
         
-        // ===== CORREÇÃO CRÍTICA AQUI =====
-        if (personagem.pericias) {
-            // FAZ UMA CÓPIA PROFUNDA PARA GARANTIR QUE TODOS OS DADOS SEJAM COPIADOS
-            pericias = {};
+        // ===== CORREÇÃO RADICAL - FORÇAR CARREGAMENTO DAS PERÍCIAS =====
+        // Limpar qualquer dado anterior
+        pericias = {};
+        
+        // Verificar se existem perícias no personagem
+        if (personagem.pericias && typeof personagem.pericias === 'object') {
+            // Copiar UMA A UMA para garantir
             Object.keys(personagem.pericias).forEach(key => {
                 pericias[key] = {
-                    nivel: personagem.pericias[key].nivel || 1,
-                    ...personagem.pericias[key]
+                    nivel: personagem.pericias[key]?.nivel || 1
                 };
             });
             
-            // LOG PARA VERIFICAR (opcional - pode remover depois)
-            console.log('Perícias carregadas:', Object.keys(pericias).length);
-            console.log('Lista:', Object.keys(pericias));
+            // MOSTRAR NO CONSOLE PARA VERIFICAR
+            console.log('🔥 PERÍCIAS ENCONTRADAS NO FIREBASE:', Object.keys(personagem.pericias));
+            console.log('🔥 NÚMERO DE PERÍCIAS:', Object.keys(personagem.pericias).length);
+            console.log('🔥 PERÍCIAS COPIADAS PARA VARIÁVEL:', Object.keys(pericias));
         } else {
-            pericias = {};
+            console.log('⚠️ NENHUMA PERÍCIA ENCONTRADA NO FIREBASE');
+            
+            // DADOS DE TESTE - REMOVA DEPOIS QUE FUNCIONAR
+            // Isso vai criar 5 perícias de teste para ver se o problema é de exibição
+            pericias = {
+                espada: { nivel: 1 },
+                arco: { nivel: 1 },
+                persuasao: { nivel: 1 },
+                furtividade: { nivel: 1 },
+                medicina: { nivel: 1 }
+            };
+            console.log('📝 PERÍCIAS DE TESTE CRIADAS:', Object.keys(pericias));
         }
         
         if (personagem.escolas) {
@@ -2842,13 +2784,19 @@ async function carregarPersonagem(personagemId) {
             xpAtual -= xpNecessario;
         }
         
+        // FORÇAR ATUALIZAÇÃO DA FICHA
         atualizarFichaPersonagem();
+        
+        // VERIFICAÇÃO FINAL
+        setTimeout(() => {
+            console.log('✅ APÓS ATUALIZAÇÃO - Perícias na variável:', Object.keys(pericias));
+            console.log('✅ APÓS ATUALIZAÇÃO - Elemento HTML:', document.getElementById('periciasMiniLista')?.innerHTML);
+        }, 1000);
         
     } catch (error) {
         adicionarLog('❌ Erro ao carregar personagem!', 'erro');
     }
 }
-
 async function carregarAventura(aventuraId) {
     try {
         if (window.AVENTURA) {
