@@ -3338,8 +3338,6 @@ const corpoTabelaArmasDist = document.getElementById('corpoTabelaArmasDist');
 const corpoTabelaArmaduras = document.getElementById('corpoTabelaArmaduras');
 const corpoTabelaEscudos = document.getElementById('corpoTabelaEscudos');
 const corpoTabelaItensGerais = document.getElementById('corpoTabelaItensGerais');
-
-// Elementos para NH das magias
 const magiaNH_IQ = document.getElementById('magiaNH_IQ');
 const magiaNH_Aptidao = document.getElementById('magiaNH_Aptidao');
 const magiaNH_Total = document.getElementById('magiaNH_Total');
@@ -3668,7 +3666,7 @@ function calcularFadigaComVantagens() {
 }
 
 // ============================================
-// FUNÇÕES DE UTILIDADE (ORIGINAIS PRESERVADAS)
+// FUNÇÕES DE UTILIDADE
 // ============================================
 
 function showLoading() {
@@ -4015,21 +4013,25 @@ function atualizarNHMagias() {
     }
 }
 
+// ============================================
+// FUNÇÃO CORRIGIDA DE DINHEIRO
+// ============================================
 function calcularDinheiroInicial() {
     const base = parseInt(dinheiroBaseInput?.value) || 1000;
     const riquezaSelect = document.getElementById('riqueza');
     const riqueza = riquezaSelect?.value || 'medio';
     
-    let multiplicador = 1;
-    if (vantagensSelecionadas.has('rico')) {
-        multiplicador = 5;
-    } else if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
-        multiplicador = 0.5;
-    } else if (riqueza === 'rico') {
-        multiplicador = 5;
-    }
+    // POBRE = metade do base (500)
+    // RICO = 5x o base (5000)
+    // MÉDIO = base (1000)
     
-    return Math.floor(base * multiplicador);
+    if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
+        return Math.floor(base / 2);
+    } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
+        return base * 5;
+    } else {
+        return base;
+    }
 }
 
 function atualizarDinheiroDisplay() {
@@ -4645,7 +4647,7 @@ function salvarInventario() {
 }
 
 // ============================================
-// FUNÇÃO DE SELEÇÃO DE VANTAGENS (MODIFICADA)
+// FUNÇÃO DE SELEÇÃO DE VANTAGENS
 // ============================================
 function selecionarVantagem(card) {
     const vantagemId = card.dataset.vantagem;
@@ -4657,11 +4659,6 @@ function selecionarVantagem(card) {
         if (vantagensSelecionadas.size < 3) {
             vantagensSelecionadas.add(vantagemId);
             card.classList.add('selecionada');
-            
-            const vantagem = vantagensData[vantagemId];
-            if (vantagem) {
-                console.log(`✨ Vantagem selecionada: ${vantagem.nome}`);
-            }
         } else { 
             alert('Você já selecionou 3 vantagens!'); 
             return; 
