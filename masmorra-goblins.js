@@ -259,7 +259,7 @@ window.AVENTURA = {
         clareira_goblins: {
             id: "clareira_goblins",
             nome: "Clareira na Floresta",
-            imagem: "clareira-globlins.jpg",
+            imagem: "clareira-goblins.jpg",
             fala: {
                 npc: "Narrador",
                 texto: "Você encontra uma clareira onde vários goblins estão acampados perto de uma fogueira."
