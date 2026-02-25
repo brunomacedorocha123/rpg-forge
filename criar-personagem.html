@@ -4975,36 +4975,27 @@ async function salvarPersonagem(finalizar = false) {
             return false;
         }
         
-        // ===== PARTE CORRIGIDA DO UPLOAD DA IMAGEM =====
+        // ===== PARTE SIMPLIFICADA DO UPLOAD DA IMAGEM =====
         let fotoURL = dadosBasicos.fotoURL;
         
         // Verificar se é uma imagem base64 (nova foto)
         if (fotoURL && fotoURL.startsWith('data:image')) {
             try {
-                showLoading();
-                
-                // Criar referência única para a foto
+                // Upload sem loading
                 const fileName = `personagens/${user.uid}/${Date.now()}_foto.jpg`;
                 const storageRef = ref(storage, fileName);
-                
-                // Fazer upload da imagem base64
                 await uploadString(storageRef, fotoURL, 'data_url');
-                
-                // Obter URL de download
                 fotoURL = await getDownloadURL(storageRef);
-                
             } catch (uploadError) {
                 console.error('Erro no upload da foto:', uploadError);
-                alert('Erro ao fazer upload da imagem. A foto não será salva.');
-                fotoURL = ''; // Limpa a URL com erro para não salvar base64
-            } finally {
-                hideLoading(); // SEMPRE esconde o loading, mesmo com erro
+                // Se falhar, mantém a foto antiga ou vazio
+                fotoURL = personagemTemp?.fotoURL || '';
             }
         } else if (!fotoURL && personagemTemp?.fotoURL) {
             // Se não tem nova foto mas tinha foto antiga, mantém a antiga
             fotoURL = personagemTemp.fotoURL;
         }
-        // ===== FIM DA PARTE CORRIGIDA =====
+        // ===== FIM DA PARTE SIMPLIFICADA =====
         
         const pv = calcularPV();
         const fadiga = calcularFadiga();
@@ -5084,18 +5075,16 @@ async function salvarPersonagem(finalizar = false) {
             await setDoc(docRef, personagemData);
         }
         
-        // ===== ATUALIZAÇÕES PÓS-SALVAMENTO =====
-        // Atualizar a URL da foto no preview se foi feito upload
+        // Atualizar o preview se mudou
         if (fotoURL && fotoURL !== previewImage.src) {
             previewImage.src = fotoURL;
         }
         
-        // Atualizar o personagemTemp com a nova URL
+        // Atualizar o personagemTemp
         if (personagemTemp) {
             personagemTemp.fotoURL = fotoURL;
             sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
         }
-        // ===== FIM DAS ATUALIZAÇÕES =====
         
         if (personagemIdHidden) personagemIdHidden.value = personagemId;
         if (breadcrumbCurrent) breadcrumbCurrent.textContent = `Editando: ${dadosBasicos.nome}`;
@@ -5113,175 +5102,7 @@ async function salvarPersonagem(finalizar = false) {
         console.error('Erro ao salvar:', error);
         setAutoSaveIndicator('error');
         alert('Erro ao salvar personagem: ' + error.message);
-        hideLoading(); // Garantir que loading seja removido em caso de erro
         return false;
-    }
-}
-
-async function salvarRascunho() {
-    if (!auth.currentUser) return;
-    await salvarPersonagem(false);
-}
-
-async function carregarPersonagem(id) {
-    try {
-        showLoading();
-        
-        const docRef = doc(db, "personagens", id);
-        const docSnap = await getDoc(docRef);
-        
-        if (!docSnap.exists()) {
-            alert('Personagem não encontrado!');
-            window.location.href = 'personagens.html';
-            return;
-        }
-        
-        const data = docSnap.data();
-        
-        if (data.userId !== auth.currentUser?.uid) {
-            alert('Você não tem permissão para editar este personagem!');
-            window.location.href = 'personagens.html';
-            return;
-        }
-        
-        personagemId = id;
-        modoEdicao = true;
-        
-        document.getElementById('nomePersonagem').value = data.nome || '';
-        document.getElementById('classePersonagem').value = data.classe || 'guerreiro';
-        document.getElementById('idadePersonagem').value = data.idade || 25;
-        document.getElementById('alturaPersonagem').value = data.altura || 170;
-        document.getElementById('pesoPersonagem').value = data.peso || 70;
-        document.getElementById('aparencia').value = data.aparencia || 'normal';
-        document.getElementById('riqueza').value = data.riqueza || 'medio';
-        document.getElementById('dinheiroBase').value = data.dinheiroBase || 1000;
-        document.getElementById('peculiaridades').value = data.peculiaridades || '';
-        
-        if (data.fotoURL) {
-            previewImage.src = data.fotoURL;
-            previewArea.style.display = 'block';
-            uploadArea.style.display = 'none';
-            
-            // Guardar no personagemTemp
-            if (!personagemTemp) personagemTemp = {};
-            personagemTemp.fotoURL = data.fotoURL;
-        }
-        
-        if (data.atributos) {
-            atributos.st = data.atributos.st || { valor: 8, bolinhas: 0, base: 8 };
-            atributos.dx = data.atributos.dx || { valor: 5, bolinhas: 0, base: 5 };
-            atributos.iq = data.atributos.iq || { valor: 5, bolinhas: 0, base: 5 };
-            atributos.ht = data.atributos.ht || { valor: 8, bolinhas: 0, base: 8 };
-            
-            pontosRestantes = 6 - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
-            atualizarInterface();
-        }
-        
-        if (data.vantagens) {
-            data.vantagens.forEach(v => vantagensSelecionadas.add(v));
-        }
-        if (data.desvantagens) {
-            data.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
-        }
-        if (data.fobia) {
-            fobiaSelecionada = data.fobia;
-            if (fobiaEscolhida) {
-                fobiaEscolhida.style.display = 'inline-block';
-                fobiaEscolhida.textContent = data.fobia;
-            }
-            if (cardFobia) cardFobia.classList.add('selecionada');
-        }
-        
-        if (data.pericias) {
-            pericias = data.pericias;
-        }
-        
-        if (data.escolas) {
-            escolas.agua = data.escolas.agua || escolas.agua;
-            esferasDesbloqueadas = data.esferasDesbloqueadas || 0;
-        }
-        
-        if (data.inventario) {
-            inventario = data.inventario;
-        }
-        
-        if (data.dinheiro !== undefined) {
-            dinheiro = data.dinheiro;
-        } else {
-            dinheiro = calcularDinheiroInicial();
-        }
-        
-        if (data.pmDisponivel !== undefined) {
-            pmDisponivel = data.pmDisponivel;
-            pmInicial.value = pmDisponivel;
-        }
-        if (data.pmGasto !== undefined) {
-            pmGastoTotal = data.pmGasto;
-            pmGasto.textContent = pmGastoTotal;
-            pmRestante.textContent = pmDisponivel - pmGastoTotal;
-        }
-        
-        if (breadcrumbCurrent) breadcrumbCurrent.textContent = `Editando: ${data.nome}`;
-        if (pageTitle) pageTitle.textContent = `Editando Personagem: ${data.nome}`;
-        if (personagemIdHidden) personagemIdHidden.value = id;
-        
-        atualizarNHMagias();
-        atualizarContadoresAbas();
-        
-        hideLoading(); // Garantir que loading seja removido
-        
-    } catch (error) {
-        console.error('Erro ao carregar:', error);
-        alert('Erro ao carregar personagem!');
-        hideLoading(); // Garantir que loading seja removido em caso de erro
-    }
-}
-
-async function excluirPersonagem() {
-    if (!personagemId) {
-        alert('Nenhum personagem para excluir');
-        modalConfirmarExclusao.classList.remove('active');
-        return;
-    }
-    
-    try {
-        showLoading();
-        
-        const user = auth.currentUser;
-        if (!user) {
-            alert('Usuário não autenticado!');
-            window.location.href = 'index.html';
-            return;
-        }
-        
-        const docRef = doc(db, "personagens", personagemId);
-        
-        const docSnap = await getDoc(docRef);
-        
-        if (!docSnap.exists()) {
-            alert('Personagem não encontrado no banco de dados!');
-            modalConfirmarExclusao.classList.remove('active');
-            hideLoading();
-            return;
-        }
-        
-        if (docSnap.data().userId !== user.uid) {
-            alert('Você não tem permissão para excluir este personagem!');
-            modalConfirmarExclusao.classList.remove('active');
-            hideLoading();
-            return;
-        }
-        
-        await deleteDoc(docRef);
-        
-        sessionStorage.removeItem('personagemTemp');
-        
-        window.location.href = 'personagens.html';
-        
-    } catch (error) {
-        console.error('Erro ao excluir:', error);
-        alert('Erro ao excluir personagem: ' + error.message);
-        hideLoading();
     }
 }
 async function exportarPDF() {
