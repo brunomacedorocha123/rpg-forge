@@ -5018,6 +5018,37 @@ function criarItemPersonalizado() {
 // ============================================
 // FUNÇÕES DE SALVAMENTO E CARREGAMENTO
 // ============================================
+
+async function uploadParaImgur(base64Image) {
+    try {
+        const CLIENT_ID = '546c25a59c58ad7';
+        const base64Data = base64Image.split(',')[1];
+        
+        const formData = new FormData();
+        formData.append('image', base64Data);
+        formData.append('type', 'base64');
+        
+        const resposta = await fetch('https://api.imgur.com/3/image', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Client-ID ${CLIENT_ID}`
+            },
+            body: formData
+        });
+        
+        const dados = await resposta.json();
+        
+        if (!dados.success) {
+            return null;
+        }
+        
+        return dados.data.link;
+        
+    } catch (erro) {
+        return null;
+    }
+}
+
 function coletarDadosBasicos() {
     return {
         nome: document.getElementById('nomePersonagem')?.value || '',
@@ -5081,39 +5112,21 @@ async function salvarPersonagem(finalizar = false) {
             return false;
         }
         
-        // Upload da foto se existir
-        let fotoURL = dadosBasicos.fotoURL;
+        let fotoURL = dadosBasicos.fotoURL || '';
+        
         if (fotoURL && fotoURL.startsWith('data:image')) {
-            try {
-                console.log('Fazendo upload da imagem...');
-                
-                const timestamp = Date.now();
-                const randomString = Math.random().toString(36).substring(2, 15);
-                const caminhoArquivo = `personagens/${user.uid}/${timestamp}_${randomString}.jpg`;
-                const storageRef = ref(storage, caminhoArquivo);
-                
-                // Extrair base64 puro
-                const base64Data = fotoURL.split(',')[1];
-                
-                // Upload
-                await uploadString(storageRef, base64Data, 'base64', { contentType: 'image/jpeg' });
-                fotoURL = await getDownloadURL(storageRef);
-                
-                console.log('Upload concluído:', fotoURL);
-            } catch (uploadError) {
-                console.error('Erro no upload:', uploadError);
-                fotoURL = '';
+            const imagemUrl = await uploadParaImgur(fotoURL);
+            if (imagemUrl) {
+                fotoURL = imagemUrl;
             }
         }
         
-        // Calcular valores
         const pv = calcularPV();
         const fadiga = calcularFadiga();
         const mana = calcularMana();
         const ht = calcularHTComVantagens();
         const reacaoBase = calcularReacao();
         
-        // Preparar dados para salvar
         const personagemData = {
             nome: dadosBasicos.nome,
             classe: dadosBasicos.classe,
@@ -5172,12 +5185,10 @@ async function salvarPersonagem(finalizar = false) {
             dinheiro: dinheiro || 0
         };
         
-        // Adicionar createdAt apenas se for novo
         if (!personagemId) {
             personagemData.createdAt = new Date();
         }
         
-        // Salvar no Firestore
         let docRef;
         if (personagemId) {
             docRef = doc(db, "personagens", personagemId);
@@ -5207,7 +5218,6 @@ async function salvarPersonagem(finalizar = false) {
         return true;
         
     } catch (error) {
-        console.error('Erro ao salvar:', error);
         setAutoSaveIndicator('error');
         alert('Erro ao salvar personagem: ' + error.message);
         return false;
@@ -5243,7 +5253,6 @@ async function carregarPersonagem(id) {
         personagemId = id;
         modoEdicao = true;
         
-        // Preencher campos básicos
         document.getElementById('nomePersonagem').value = data.nome || '';
         document.getElementById('classePersonagem').value = data.classe || 'guerreiro';
         document.getElementById('idadePersonagem').value = data.idade || 25;
@@ -5260,7 +5269,6 @@ async function carregarPersonagem(id) {
             elements.uploadArea.style.display = 'none';
         }
         
-        // Carregar atributos
         if (data.atributos) {
             atributos.st = data.atributos.st || { valor: 8, bolinhas: 0, base: 8 };
             atributos.dx = data.atributos.dx || { valor: 5, bolinhas: 0, base: 5 };
@@ -5271,7 +5279,6 @@ async function carregarPersonagem(id) {
             atualizarInterface();
         }
         
-        // Carregar vantagens/desvantagens
         if (data.vantagens) {
             data.vantagens.forEach(v => vantagensSelecionadas.add(v));
             document.querySelectorAll('.vantagem-card').forEach(card => {
@@ -5297,17 +5304,14 @@ async function carregarPersonagem(id) {
             elements.cardFobia.classList.add('selecionada');
         }
         
-        // Carregar perícias
         if (data.pericias) {
             pericias = data.pericias;
         }
         
-        // Carregar magias
         if (data.esferasDesbloqueadas !== undefined) {
             esferasDesbloqueadas = data.esferasDesbloqueadas;
         }
         
-        // Carregar inventário
         if (data.inventario) {
             inventario = data.inventario;
         }
@@ -5318,7 +5322,6 @@ async function carregarPersonagem(id) {
             dinheiro = calcularDinheiroInicial();
         }
         
-        // Carregar PMs
         if (data.pmDisponivel !== undefined) {
             pmDisponivel = data.pmDisponivel;
             if (elements.pmInicial) elements.pmInicial.value = pmDisponivel;
@@ -5339,7 +5342,6 @@ async function carregarPersonagem(id) {
         hideLoading();
         
     } catch (error) {
-        console.error('Erro ao carregar personagem:', error);
         alert('Erro ao carregar personagem!');
         hideLoading();
     }
@@ -5384,7 +5386,6 @@ async function excluirPersonagem() {
         window.location.href = 'personagens.html';
         
     } catch (error) {
-        console.error('Erro ao excluir:', error);
         alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
@@ -5396,7 +5397,6 @@ function carregarDadosSalvos() {
         if (salvos) {
             personagemTemp = JSON.parse(salvos);
             
-            // Preencher campos básicos
             if (document.getElementById('nomePersonagem')) 
                 document.getElementById('nomePersonagem').value = personagemTemp.nome || '';
             if (document.getElementById('classePersonagem')) 
@@ -5417,14 +5417,12 @@ function carregarDadosSalvos() {
                 document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase;
             }
             
-            // Carregar foto
             if (personagemTemp.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
                 elements.previewImage.src = personagemTemp.fotoURL;
                 elements.previewArea.style.display = 'block';
                 elements.uploadArea.style.display = 'none';
             }
             
-            // Carregar atributos
             if (personagemTemp.atributos) {
                 atributos.st = personagemTemp.atributos.st || { valor: 8, bolinhas: 0, base: 8 };
                 atributos.dx = personagemTemp.atributos.dx || { valor: 5, bolinhas: 0, base: 5 };
@@ -5435,7 +5433,6 @@ function carregarDadosSalvos() {
                 atualizarInterface();
             }
             
-            // Carregar vantagens
             if (personagemTemp.vantagens) {
                 personagemTemp.vantagens.forEach(v => vantagensSelecionadas.add(v));
                 document.querySelectorAll('.vantagem-card').forEach(card => {
@@ -5445,7 +5442,6 @@ function carregarDadosSalvos() {
                 });
             }
             
-            // Carregar desvantagens
             if (personagemTemp.desvantagens) {
                 personagemTemp.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
                 document.querySelectorAll('.desvantagem-card').forEach(card => {
@@ -5455,7 +5451,6 @@ function carregarDadosSalvos() {
                 });
             }
             
-            // Carregar fobia
             if (personagemTemp.fobia && elements.fobiaEscolhida && elements.cardFobia) {
                 fobiaSelecionada = personagemTemp.fobia;
                 elements.fobiaEscolhida.style.display = 'inline-block';
@@ -5463,24 +5458,20 @@ function carregarDadosSalvos() {
                 elements.cardFobia.classList.add('selecionada');
             }
             
-            // Carregar perícias
             if (personagemTemp.pericias) {
                 pericias = personagemTemp.pericias;
             }
             
-            // Carregar inventário
             if (personagemTemp.inventario) {
                 inventario = personagemTemp.inventario;
             }
             
-            // Carregar dinheiro
             if (personagemTemp.dinheiro !== undefined) {
                 dinheiro = personagemTemp.dinheiro;
             } else {
                 dinheiro = calcularDinheiroInicial();
             }
             
-            // Carregar PMs
             if (personagemTemp.pmDisponivel !== undefined) {
                 pmDisponivel = personagemTemp.pmDisponivel;
                 if (elements.pmInicial) elements.pmInicial.value = pmDisponivel;
@@ -5492,7 +5483,6 @@ function carregarDadosSalvos() {
                 if (elements.pmRestante) elements.pmRestante.textContent = pmDisponivel - pmGastoTotal;
             }
             
-            // Carregar magias
             if (personagemTemp.esferasDesbloqueadas !== undefined) {
                 esferasDesbloqueadas = personagemTemp.esferasDesbloqueadas;
             }
@@ -5601,7 +5591,6 @@ async function exportarPDF() {
         pdf.save(`ficha_${nome.replace(/\s+/g, '_')}.pdf`);
         
     } catch (error) {
-        console.error('Erro ao gerar PDF:', error);
         alert('Erro ao gerar PDF');
     } finally {
         hideLoading();
@@ -5612,7 +5601,6 @@ async function exportarPDF() {
 // INICIALIZAÇÃO E EVENT LISTENERS
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Elementos DOM
     window.elements = {
         displayIdPc: document.getElementById('displayIdPc'),
         displayNickname: document.getElementById('displayNickname'),
@@ -5755,16 +5743,13 @@ document.addEventListener('DOMContentLoaded', () => {
         resumoFoto2: document.getElementById('resumoFoto2')
     };
     
-    // Atribuir à variável global para acesso
     window.elementsRef = elements;
     
-    // Criar bolinhas
     criarBolinhas('st');
     criarBolinhas('dx');
     criarBolinhas('iq');
     criarBolinhas('ht');
     
-    // Configurar pontos iniciais
     if (elements.pontosIniciaisInput) {
         elements.pontosIniciaisInput.addEventListener('change', () => {
             const novosPontos = parseInt(elements.pontosIniciaisInput.value) || 6;
@@ -5774,11 +5759,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Inicializar dinheiro
     dinheiro = calcularDinheiroInicial();
     atualizarDinheiroDisplay();
     
-    // Verificar se é edição
     const urlParams = new URLSearchParams(window.location.search);
     const idParaEditar = urlParams.get('id');
     
@@ -5794,7 +5777,6 @@ document.addEventListener('DOMContentLoaded', () => {
         carregarDadosSalvos();
     }
     
-    // Auto-save em campos
     const camposAutoSave = [
         'nomePersonagem', 'classePersonagem', 'idadePersonagem', 'alturaPersonagem', 
         'pesoPersonagem', 'aparencia', 'riqueza', 'dinheiroBase', 'peculiaridades'
@@ -5822,7 +5804,6 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerAutoSave();
     });
     
-    // Navegação por abas
     elements.abas.forEach(aba => {
         aba.addEventListener('click', () => {
             if (['combate', 'vantagens', 'desvantagens', 'pericias', 'magias', 'equipamentos'].includes(aba.dataset.aba)) {
@@ -5832,13 +5813,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Upload de foto
     if (elements.uploadArea && elements.fotoInput) {
         elements.uploadArea.addEventListener('click', () => elements.fotoInput.click());
     }
     
     if (elements.fotoInput) {
-        elements.fotoInput.addEventListener('change', (e) => {
+        elements.fotoInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
@@ -5846,9 +5826,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (elements.previewImage) elements.previewImage.src = e.target.result;
                     if (elements.previewArea) elements.previewArea.style.display = 'block';
                     if (elements.uploadArea) elements.uploadArea.style.display = 'none';
-                    triggerAutoSave();
                 };
                 reader.readAsDataURL(file);
+                
+                if (personagemTemp) {
+                    personagemTemp.fotoURL = elements.previewImage.src;
+                    sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
+                }
+                triggerAutoSave();
             }
         });
     }
@@ -5859,21 +5844,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements.uploadArea) elements.uploadArea.style.display = 'block';
             if (elements.fotoInput) elements.fotoInput.value = '';
             if (elements.previewImage) elements.previewImage.src = '';
+            
+            if (personagemTemp) {
+                personagemTemp.fotoURL = '';
+                sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
+            }
             triggerAutoSave();
         });
     }
 
-    // Vantagens
     document.querySelectorAll('.vantagem-card').forEach(card => {
         card.addEventListener('click', () => selecionarVantagem(card));
     });
     
-    // Desvantagens
     document.querySelectorAll('.desvantagem-card:not(#cardFobia)').forEach(card => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
 
-    // Fobia
     if (elements.cardFobia && elements.modalFobias) {
         elements.cardFobia.addEventListener('click', () => elements.modalFobias.classList.add('active'));
     }
@@ -5914,7 +5901,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Perícias - filtros
     document.querySelectorAll('.filtro-pericia').forEach(filtro => {
         filtro.addEventListener('click', () => {
             document.querySelectorAll('.filtro-pericia').forEach(f => f.classList.remove('ativo'));
@@ -5923,7 +5909,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Modal de perícia
     if (elements.modalPericiaMais) {
         elements.modalPericiaMais.addEventListener('click', () => {
             if (periciaAtual) { 
@@ -5954,7 +5939,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.modalPericiaConfirmar.addEventListener('click', confirmarPericia);
     }
 
-    // PM inicial
     if (elements.pmInicial) {
         elements.pmInicial.addEventListener('change', () => {
             pmDisponivel = parseInt(elements.pmInicial.value) || 30;
@@ -5963,7 +5947,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Modal de magia
     if (elements.fecharDetalheMagia && elements.detalheMagiaModal) {
         elements.fecharDetalheMagia.addEventListener('click', () => elements.detalheMagiaModal.classList.remove('active'));
     }
@@ -6011,7 +5994,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Catálogo de itens - abas
     document.querySelectorAll('.catalogo-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.catalogo-tab').forEach(t => t.classList.remove('ativo'));
@@ -6020,7 +6002,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Criar item personalizado
     if (elements.btnCriarItem && elements.modalCriarItem) {
         elements.btnCriarItem.addEventListener('click', () => {
             configurarCamposItemPersonalizado();
@@ -6042,7 +6023,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.confirmarCriarItem.addEventListener('click', criarItemPersonalizado);
     }
 
-    // Navegação entre abas
     if (elements.btnAnterior) {
         elements.btnAnterior.addEventListener('click', () => {
             if (abaAtual === 'combate') mudarAba('basicos');
@@ -6105,7 +6085,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Botões de ação
     if (elements.btnSalvarPersonagem) {
         elements.btnSalvarPersonagem.addEventListener('click', async () => {
             await salvarPersonagem(false);
@@ -6172,7 +6151,6 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// Botão sair
 if (elements.btnSair) {
     elements.btnSair.addEventListener('click', async () => {
         try { 
@@ -6186,7 +6164,6 @@ if (elements.btnSair) {
     });
 }
 
-// Inicializar contadores
 atualizarContadoresAbas();
 
 // ============================================
