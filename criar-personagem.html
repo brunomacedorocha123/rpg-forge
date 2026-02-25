@@ -4979,11 +4979,18 @@ async function salvarPersonagem(finalizar = false) {
         let fotoURL = dadosBasicos.fotoURL;
         if (fotoURL && fotoURL.startsWith('data:image')) {
             try {
-                const storageRef = ref(storage, `personagens/${user.uid}/${Date.now()}_foto.jpg`);
+                // Criar nome único para evitar conflitos
+                const timestamp = Date.now();
+                const randomString = Math.random().toString(36).substring(2, 15);
+                const caminhoArquivo = `personagens/${user.uid}/${timestamp}_${randomString}.jpg`;
+                const storageRef = ref(storage, caminhoArquivo);
+                
                 await uploadString(storageRef, fotoURL, 'data_url');
                 fotoURL = await getDownloadURL(storageRef);
+                
             } catch (uploadError) {
-                console.error('Erro no upload da foto:', uploadError);
+                // Se falhar o upload, limpa a URL para não salvar base64
+                fotoURL = '';
             }
         }
         
@@ -5065,13 +5072,17 @@ async function salvarPersonagem(finalizar = false) {
             await setDoc(docRef, personagemData);
         }
         
-        // ===== LINHA CRÍTICA ADICIONADA =====
         setAutoSaveIndicator('saved');
-        // ===== FIM DA LINHA CRÍTICA =====
         
         if (personagemIdHidden) personagemIdHidden.value = personagemId;
         if (breadcrumbCurrent) breadcrumbCurrent.textContent = `Editando: ${dadosBasicos.nome}`;
         if (pageTitle) pageTitle.textContent = `Editando Personagem: ${dadosBasicos.nome}`;
+        
+        // Atualizar sessionStorage com a URL correta da imagem
+        if (personagemTemp) {
+            personagemTemp.fotoURL = fotoURL;
+            sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
+        }
         
         if (finalizar) {
             modalSalvarSucesso.style.display = 'flex';
@@ -5080,7 +5091,6 @@ async function salvarPersonagem(finalizar = false) {
         return true;
         
     } catch (error) {
-        console.error('Erro ao salvar:', error);
         setAutoSaveIndicator('error');
         alert('Erro ao salvar personagem: ' + error.message);
         return false;
@@ -5196,7 +5206,6 @@ async function carregarPersonagem(id) {
         hideLoading();
         
     } catch (error) {
-        console.error('Erro ao carregar:', error);
         alert('Erro ao carregar personagem!');
         hideLoading();
     }
@@ -5220,7 +5229,6 @@ async function excluirPersonagem() {
         }
         
         const docRef = doc(db, "personagens", personagemId);
-        
         const docSnap = await getDoc(docRef);
         
         if (!docSnap.exists()) {
@@ -5238,13 +5246,10 @@ async function excluirPersonagem() {
         }
         
         await deleteDoc(docRef);
-        
         sessionStorage.removeItem('personagemTemp');
-        
         window.location.href = 'personagens.html';
         
     } catch (error) {
-        console.error('Erro ao excluir:', error);
         alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
