@@ -3218,10 +3218,10 @@ const vantagensData = {
     },
     htExtra: {
         nome: 'HT extra +5%',
-        descricao: '+5% de PV.',
+        descricao: 'Aumenta o HT em 5% para cálculo de PV.',
         tipo: 'permanente',
         efeitos: {
-            pvPercentual: 5
+            htPercentual: 5
         }
     },
     atraente: {
@@ -3682,11 +3682,13 @@ function calcularBonusCuraPocao() {
 }
 
 function calcularPVComVantagens() {
-    let pvBase = calcularHT() * 8;
+    let ht = calcularHT();
+    
     if (vantagensSelecionadas.has('htExtra')) {
-        pvBase = Math.floor(pvBase * 1.05);
+        ht = Math.floor(ht * 1.05);
     }
-    return pvBase;
+    
+    return ht * 8;
 }
 
 function calcularFadigaComVantagens() {
@@ -4059,7 +4061,7 @@ function atualizarNHMagias() {
 }
 
 // ============================================
-// FUNÇÃO CORRIGIDA DE DINHEIRO
+// FUNÇÃO DE DINHEIRO
 // ============================================
 function calcularDinheiroInicial() {
     const base = parseInt(dinheiroBaseInput?.value) || 1000;
@@ -4129,7 +4131,7 @@ function calcularCarga() {
     }
     if (cargaPenalidade) cargaPenalidade.textContent = penalidade;
     
-    let pesoMochilaTotal = 0;
+       let pesoMochilaTotal = 0;
     inventario.mochila.forEach(item => pesoMochilaTotal += (item.peso * (item.quantidade || 1)));
     if (pesoMochila) pesoMochila.textContent = `(${pesoMochilaTotal.toFixed(1)} kg)`;
     
@@ -4479,6 +4481,35 @@ function abrirDetalheMagia(magiaId) {
     detalheMagiaModal.classList.add('active');
 }
 
+// ============================================
+// FUNÇÕES DE INVENTÁRIO CORRIGIDAS
+// ============================================
+
+function comprarItem(item) {
+    const preco = item.preco;
+    
+    if (dinheiro < preco) {
+        alert(`Dinheiro insuficiente! Você tem $${dinheiro} e o item custa $${preco}`);
+        return;
+    }
+    
+    dinheiro -= preco;
+    atualizarDinheiroDisplay();
+    
+    // Garantir que cada item comprado seja único
+    const novoItem = {
+        ...item,
+        id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        quantidade: 1
+    };
+    
+    inventario.deposito.push(novoItem);
+    
+    renderizarInventario();
+    salvarInventario();
+    triggerAutoSave();
+}
+
 function renderizarInventario() {
     if (!inventarioCorpo) return;
     
@@ -4524,74 +4555,91 @@ function renderizarInventario() {
         </div>
     `).join('') || '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">Depósito vazio</div>';
     
-    adicionarEventosInventario();
+    // Remover listeners antigos antes de adicionar novos
+    document.querySelectorAll('.btn-mover-deposito').forEach(btn => {
+        btn.removeEventListener('click', moverParaDepositoHandler);
+        btn.addEventListener('click', moverParaDepositoHandler);
+    });
+    
+    document.querySelectorAll('.btn-equipar').forEach(btn => {
+        btn.removeEventListener('click', equiparItemHandler);
+        btn.addEventListener('click', equiparItemHandler);
+    });
+    
+    document.querySelectorAll('.btn-guardar').forEach(btn => {
+        btn.removeEventListener('click', guardarItemHandler);
+        btn.addEventListener('click', guardarItemHandler);
+    });
+    
+    document.querySelectorAll('.btn-pegar').forEach(btn => {
+        btn.removeEventListener('click', pegarItemHandler);
+        btn.addEventListener('click', pegarItemHandler);
+    });
+    
+    document.querySelectorAll('.btn-vender, .btn-vender-deposito').forEach(btn => {
+        btn.removeEventListener('click', venderItemHandler);
+        btn.addEventListener('click', venderItemHandler);
+    });
+    
+    document.querySelectorAll('.btn-descartar').forEach(btn => {
+        btn.removeEventListener('click', descartarItemHandler);
+        btn.addEventListener('click', descartarItemHandler);
+    });
+    
     calcularCarga();
     atualizarCombate();
 }
 
-function adicionarEventosInventario() {
-    document.querySelectorAll('.btn-mover-deposito').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = btn.closest('.item-card');
-            const itemId = card.dataset.itemId;
-            const local = card.dataset.local;
-            moverParaDeposito(itemId, local);
-            triggerAutoSave();
-        });
-    });
-    
-    document.querySelectorAll('.btn-equipar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = btn.closest('.item-card');
-            const itemId = card.dataset.itemId;
-            equiparItem(itemId);
-            triggerAutoSave();
-        });
-    });
-    
-    document.querySelectorAll('.btn-guardar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = btn.closest('.item-card');
-            const itemId = card.dataset.itemId;
-            guardarItem(itemId);
-            triggerAutoSave();
-        });
-    });
-    
-    document.querySelectorAll('.btn-pegar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = btn.closest('.item-card');
-            const itemId = card.dataset.itemId;
-            pegarItem(itemId);
-            triggerAutoSave();
-        });
-    });
-    
-    document.querySelectorAll('.btn-vender, .btn-vender-deposito').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = btn.closest('.item-card');
-            const itemId = card.dataset.itemId;
-            const local = card.dataset.local;
-            venderItem(itemId, local);
-            triggerAutoSave();
-        });
-    });
-    
-    document.querySelectorAll('.btn-descartar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = btn.closest('.item-card');
-            const itemId = card.dataset.itemId;
-            const local = card.dataset.local;
-            descartarItem(itemId, local);
-            triggerAutoSave();
-        });
-    });
+// Handlers separados para evitar recriação de funções
+function moverParaDepositoHandler(e) {
+    e.stopPropagation();
+    const card = e.target.closest('.item-card');
+    const itemId = card.dataset.itemId;
+    const local = card.dataset.local;
+    moverParaDeposito(itemId, local);
+    triggerAutoSave();
+}
+
+function equiparItemHandler(e) {
+    e.stopPropagation();
+    const card = e.target.closest('.item-card');
+    const itemId = card.dataset.itemId;
+    equiparItem(itemId);
+    triggerAutoSave();
+}
+
+function guardarItemHandler(e) {
+    e.stopPropagation();
+    const card = e.target.closest('.item-card');
+    const itemId = card.dataset.itemId;
+    guardarItem(itemId);
+    triggerAutoSave();
+}
+
+function pegarItemHandler(e) {
+    e.stopPropagation();
+    const card = e.target.closest('.item-card');
+    const itemId = card.dataset.itemId;
+    pegarItem(itemId);
+    triggerAutoSave();
+}
+
+function venderItemHandler(e) {
+    e.stopPropagation();
+    const card = e.target.closest('.item-card');
+    const itemId = card.dataset.itemId;
+    const local = card.dataset.local;
+    venderItem(itemId, local);
+    triggerAutoSave();
+}
+
+function descartarItemHandler(e) {
+    e.stopPropagation();
+    const card = e.target.closest('.item-card');
+    const itemId = card.dataset.itemId;
+    const local = card.dataset.local;
+    descartarItem(itemId, local);
+    triggerAutoSave();
 }
 
 function moverParaDeposito(itemId, local) {
@@ -4881,10 +4929,6 @@ function coletarDadosBasicos() {
 function salvarDadosBasicos() {
     const dados = coletarDadosBasicos();
     
-    const pv = calcularPV();
-    const fadiga = calcularFadiga();
-    const mana = calcularMana();
-    
     if (!personagemId && dinheiro === 0) {
         dinheiro = calcularDinheiroInicial();
     }
@@ -4895,9 +4939,8 @@ function salvarDadosBasicos() {
             st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 8 },
             dx: { bolinhas: atributos.dx.bolinhas, valor: atributos.dx.valor, base: 5 },
             iq: { bolinhas: atributos.iq.bolinhas, valor: atributos.iq.valor, base: 5 },
-            ht: { bolinhas: atributos.ht.bolinhas, valor: 8, base: 8 }
+            ht: { bolinhas: atributos.ht.bolinhas, valor: 8 + atributos.ht.bolinhas, base: 8 }
         },
-        status: { vidaMax: pv, fadigaMax: fadiga, manaMax: mana },
         inventario: inventario,
         dinheiro: dinheiro,
         vantagens: Array.from(vantagensSelecionadas),
@@ -4932,7 +4975,6 @@ async function salvarPersonagem(finalizar = false) {
             return false;
         }
         
-        // Upload da foto se existir e for base64
         let fotoURL = dadosBasicos.fotoURL;
         if (fotoURL && fotoURL.startsWith('data:image')) {
             try {
@@ -4941,13 +4983,13 @@ async function salvarPersonagem(finalizar = false) {
                 fotoURL = await getDownloadURL(storageRef);
             } catch (uploadError) {
                 console.error('Erro no upload da foto:', uploadError);
-                // Continua mesmo sem foto
             }
         }
         
         const pv = calcularPV();
         const fadiga = calcularFadiga();
         const mana = calcularMana();
+        const ht = calcularHT();
         
         let reacaoBase = calcularReacao();
         
@@ -4975,7 +5017,7 @@ async function salvarPersonagem(finalizar = false) {
                 st: atributos.st,
                 dx: atributos.dx,
                 iq: atributos.iq,
-                ht: { ...atributos.ht, valor: 8 }
+                ht: { ...atributos.ht, valor: ht }
             },
             
             statusCombate: {
@@ -5470,7 +5512,7 @@ async function exportarPDF() {
                 pdf.setFontSize(10);
                 pdf.setTextColor(0, 0, 0);
                 pdf.setFont('helvetica', 'bold');
-                pdf.text('Depósito (Selecionado):', 25, yPos);
+                pdf.text('Depósito:', 25, yPos);
                 yPos += 5;
                 
                 pdf.setFontSize(9);
@@ -5748,49 +5790,29 @@ function renderizarTabelaItensGerais() {
 
 function adicionarEventosCompra() {
     document.querySelectorAll('.btn-comprar-tabela').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            
-            const tipo = btn.dataset.tipo;
-            const indice = parseInt(btn.dataset.indice);
-            
-            let item = null;
-            if (tipo === 'armas_ca') item = catalogoItensData.armas_ca[indice];
-            else if (tipo === 'armas_dist') item = catalogoItensData.armas_dist[indice];
-            else if (tipo === 'armaduras') item = catalogoItensData.armaduras[indice];
-            else if (tipo === 'escudos') item = catalogoItensData.escudos[indice];
-            else if (tipo === 'itens_gerais') item = catalogoItensData.itens_gerais[indice];
-            
-            if (item) {
-                comprarItem(item);
-                triggerAutoSave();
-            }
-        });
+        btn.removeEventListener('click', comprarItemHandler);
+        btn.addEventListener('click', comprarItemHandler);
     });
 }
 
-function comprarItem(item) {
-    const preco = item.preco;
+function comprarItemHandler(e) {
+    e.stopPropagation();
     
-    if (dinheiro < preco) {
-        alert(`Dinheiro insuficiente! Você tem $${dinheiro} e o item custa $${preco}`);
-        return;
+    const btn = e.currentTarget;
+    const tipo = btn.dataset.tipo;
+    const indice = parseInt(btn.dataset.indice);
+    
+    let item = null;
+    if (tipo === 'armas_ca') item = catalogoItensData.armas_ca[indice];
+    else if (tipo === 'armas_dist') item = catalogoItensData.armas_dist[indice];
+    else if (tipo === 'armaduras') item = catalogoItensData.armaduras[indice];
+    else if (tipo === 'escudos') item = catalogoItensData.escudos[indice];
+    else if (tipo === 'itens_gerais') item = catalogoItensData.itens_gerais[indice];
+    
+    if (item) {
+        comprarItem(item);
+        triggerAutoSave();
     }
-    
-    dinheiro -= preco;
-    atualizarDinheiroDisplay();
-    
-    const novoItem = {
-        ...item,
-        id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        quantidade: 1
-    };
-    
-    inventario.deposito.push(novoItem);
-    
-    renderizarInventario();
-    salvarInventario();
-    setAutoSaveIndicator('saved');
 }
 
 function configurarCamposItemPersonalizado() {
@@ -5914,7 +5936,7 @@ function criarItemPersonalizado() {
     atualizarDinheiroDisplay();
     
     const itemBase = {
-        id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
         nome: nome,
         tipo: tipo,
         preco: preco,
