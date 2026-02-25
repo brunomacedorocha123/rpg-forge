@@ -57,7 +57,7 @@ window.AVENTURA = {
                         },
                         {
                             texto: "👀 Observar o ambiente enquanto bebe",
-                            acao: "observar_ambiente",  // AÇÃO ESPECÍFICA
+                            acao: "observar_ambiente",
                             resposta: "Você pede uma cerveja e observa calmamente o movimento da taverna..."
                         },
                         {
