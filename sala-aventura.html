@@ -1423,7 +1423,7 @@
     <script src="masmorra-goblins.js"></script>
 
     <!-- 3. Finalmente, o script principal da sala de aventura (type="module") -->
-   <script type="module">
+  <script type="module">
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc, collection, setDoc, updateDoc } from "firebase/firestore";
@@ -1531,7 +1531,6 @@ let sessaoId = null;
 let turnoAtual = 'jogador';
 let inimigoSelecionado = null;
 let armaSelecionada = null;
-let timerHomem = null;
 let atoAtual = 1;
 
 let pvAtual = 0;
@@ -1575,7 +1574,6 @@ let escolas = {
         }
     }
 };
-let esferasDesbloqueadas = 0;
 let inventario = { corpo: [], mochila: [], deposito: [] };
 let dinheiro = 0;
 
@@ -2297,7 +2295,6 @@ function renderizarOpcoes(opcoes) {
         btnSair.className = 'opcao-btn';
         btnSair.textContent = 'Sair da taverna';
         btnSair.addEventListener('click', () => {
-            if (timerHomem) clearTimeout(timerHomem);
             carregarCena('exterior_taverna');
         });
         opcoesDialogo.appendChild(btnSair);
@@ -2310,24 +2307,26 @@ function renderizarOpcoes(opcoes) {
         btn.textContent = opcao.texto;
         
         btn.addEventListener('click', () => {
-            if (timerHomem && opcao.proximo !== 'interior_taverna') {
-                clearTimeout(timerHomem);
-                timerHomem = null;
+            if (opcao.resposta) {
+                dialogoTexto.textContent = opcao.resposta;
             }
             
-            if (opcao.proximo) {
-                carregarCena(opcao.proximo);
-            } else if (opcao.acao === 'iniciar_combate') {
-                iniciarCombate(opcao.inimigos || []);
-            } else if (opcao.resposta) {
-                dialogoTexto.textContent = opcao.resposta;
-                if (opcao.proximo_apos_resposta) {
-                    setTimeout(() => carregarCena(opcao.proximo_apos_resposta), 2000);
-                }
-            } else if (opcao.acao === 'iniciar_timer') {
-                dialogoTexto.textContent = opcao.resposta || 'Você observa o ambiente...';
-                iniciarTimerHomem();
-            } else if (opcao.tipo === 'pagar') {
+            if (opcao.acao === 'observar_ambiente') {
+                setTimeout(() => {
+                    adicionarLog('🚪 A porta se abre violentamente! Um homem ensanguentado entra cambaleando!', 'dano');
+                    carregarCena('interior_taverna_com_homem');
+                }, 1500);
+            }
+            else if (opcao.proximo) {
+                setTimeout(() => carregarCena(opcao.proximo), 1000);
+            }
+            else if (opcao.acao === 'iniciar_combate') {
+                setTimeout(() => iniciarCombate(opcao.inimigos || []), 1000);
+            }
+            else if (opcao.proximo_apos_resposta) {
+                setTimeout(() => carregarCena(opcao.proximo_apos_resposta), 2000);
+            }
+            else if (opcao.tipo === 'pagar') {
                 if (personagem.dinheiro >= opcao.valor) {
                     personagem.dinheiro -= opcao.valor;
                     dialogoTexto.textContent = opcao.sucesso || 'Negócio feito!';
@@ -2336,7 +2335,8 @@ function renderizarOpcoes(opcoes) {
                 } else {
                     dialogoTexto.textContent = opcao.falha || 'Você não tem dinheiro suficiente!';
                 }
-            } else if (opcao.item) {
+            }
+            else if (opcao.item) {
                 if (!personagem.inventario.mochila) personagem.inventario.mochila = [];
                 personagem.inventario.mochila.push({
                     id: opcao.item.id,
@@ -2348,7 +2348,8 @@ function renderizarOpcoes(opcoes) {
                 });
                 adicionarLog(`📦 Você pegou: ${opcao.item.nome}`, 'sucesso');
                 dialogoTexto.textContent = opcao.resposta || `Você pegou ${opcao.item.nome}.`;
-            } else if (opcao.acao === 'finalizar_aventura') {
+            }
+            else if (opcao.acao === 'finalizar_aventura') {
                 adicionarLog('🎉 Aventura concluída! Parabéns!', 'sucesso');
                 setTimeout(() => {
                     window.location.href = 'aventura-solo.html';
@@ -2372,17 +2373,6 @@ function falarComNPC(npc) {
     } else {
         renderizarOpcoes([]);
     }
-}
-
-function iniciarTimerHomem() {
-    if (timerHomem) clearTimeout(timerHomem);
-    adicionarLog('⏳ Você observa o ambiente...', 'info');
-    
-    timerHomem = setTimeout(() => {
-        adicionarLog('🚪 A porta se abre violentamente! Um homem ensanguentado entra cambaleando!', 'dano');
-        carregarCena('interior_taverna_com_homem');
-        timerHomem = null;
-    }, 40000);
 }
 
 function iniciarCombate(inimigosIds) {
