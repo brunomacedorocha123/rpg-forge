@@ -2415,6 +2415,18 @@
             <div class="card">
                 <div class="card-section">
                     <h2><i class="fas fa-user"></i> Dados Básicos</h2>
+                    
+                    <!-- NOVA SEÇÃO: Configuração do GM -->
+                    <div class="form-group" style="margin-bottom: 20px; background: rgba(255, 215, 0, 0.1); padding: 15px; border-radius: 15px; border: 1px solid #ffd700;">
+                        <label for="pontosIniciais" style="color: #ffd700; font-weight: bold;">
+                            <i class="fas fa-crown"></i> Configuração do GM - Pontos de Atributo Iniciais:
+                        </label>
+                        <input type="number" id="pontosIniciais" min="1" max="100" value="6" style="background: rgba(0,0,0,0.5); border: 2px solid #ffd700; color: #ffd700; font-weight: bold; font-size: 1.2rem; text-align: center;">
+                        <small style="color: rgba(255,215,0,0.8); display: block; margin-top: 5px;">
+                            <i class="fas fa-info-circle"></i> O GM define quantos pontos (bolinhas) os personagens iniciam. Padrão: 6
+                        </small>
+                    </div>
+                    
                     <div class="form-row">
                         <div class="form-group">
                             <label for="nomePersonagem">Nome do Personagem</label>
@@ -2499,9 +2511,16 @@
                 </div>
 
                 <div class="card-section">
-                    <h2><i class="fas fa-chart-bar"></i> Atributos</h2>
+                    <h2><i class="fas fa-chart-bar"></i> Atributos e Nível do Personagem</h2>
+                    
+                    <!-- NOVO: Exibição do Nível do Personagem -->
+                    <div class="pontos-restantes" style="background: linear-gradient(45deg, #4a6da8, #2a4a8a); margin-bottom: 20px;">
+                        <span><i class="fas fa-level-up-alt"></i> Nível do Personagem:</span>
+                        <span class="valor" id="nivelPersonagem">1</span>
+                    </div>
+                    
                     <div class="pontos-restantes">
-                        <span>Pontos para distribuir:</span>
+                        <span>Pontos para distribuir (bolinhas):</span>
                         <span class="valor" id="pontosRestantes">6</span>
                     </div>
                     
@@ -2702,7 +2721,7 @@
                     <div class="contador"><span><i class="fas fa-check-circle"></i> Vantagens selecionadas:</span><span id="contadorVantagens">0/3</span></div>
                     <div class="vantagens-grid" id="vantagensGrid">
                         <div class="vantagem-card" data-vantagem="aliado"><h3>Aliado <span class="check"><i class="fas fa-check-circle"></i></span></h3><p class="resumo">Um companheiro fiel</p></div>
-                        <div class="vantagem-card" data-vantagem="ambidestria"><h3>Ambidestria <span class="check"><i class="fas fa-check-circle"></i></span></h3><p class="resumo">Usa ambas as mãos sem penalidade</p></div>
+                        <div class="vantagem-card" data-vantagem="ambidistria"><h3>Ambidestria <span class="check"><i class="fas fa-check-circle"></i></span></h3><p class="resumo">Usa ambas as mãos sem penalidade</p></div>
                         <div class="vantagem-card" data-vantagem="aptidaoMagica"><h3>Aptidão mágica +1 <span class="check"><i class="fas fa-check-circle"></i></span></h3><p class="resumo">Bônus em magias</p></div>
                         <div class="vantagem-card" data-vantagem="abascanto"><h3>Abascanto +3 <span class="check"><i class="fas fa-check-circle"></i></span></h3><p class="resumo">Resistência a magia +3</p></div>
                         <div class="vantagem-card" data-vantagem="carisma"><h3>Carisma +1 <span class="check"><i class="fas fa-check-circle"></i></span></h3><p class="resumo">Persuasão, liderança</p></div>
@@ -3241,6 +3260,7 @@ const previewArea = document.getElementById('previewArea');
 const previewImage = document.getElementById('previewImage');
 const removeFoto = document.getElementById('removeFoto');
 const pontosRestantesSpan = document.getElementById('pontosRestantes');
+const nivelPersonagemSpan = document.getElementById('nivelPersonagem');
 const modalFobias = document.getElementById('modalFobias');
 const fecharModalFobias = document.getElementById('fecharModalFobias');
 const fobiaEscolhida = document.getElementById('fobiaEscolhida');
@@ -3342,6 +3362,7 @@ const magiaNH_Aptidao = document.getElementById('magiaNH_Aptidao');
 const magiaNH_Total = document.getElementById('magiaNH_Total');
 const magiaRequisitoContainer = document.getElementById('magiaRequisitoContainer');
 const detalheMagiaNH = document.getElementById('detalheMagiaNH');
+const pontosIniciaisInput = document.getElementById('pontosIniciais');
 
 // Catálogo de itens
 const catalogoItensData = {
@@ -3379,7 +3400,7 @@ const catalogoItensData = {
 };
 
 let abaAtual = 'basicos';
-let pontosRestantes = 6;
+let pontosRestantes = 6; // Será atualizado pelo campo do GM
 let fobiaSelecionada = null;
 let personagemTemp = null;
 let personagemId = null;
@@ -3725,6 +3746,7 @@ function criarBolinhas(atributoId) {
                 pontosRestantes++;
             }
             atualizarInterface();
+            atualizarNivelPersonagem();
             triggerAutoSave();
         });
         container.appendChild(bolinha);
@@ -3943,6 +3965,20 @@ function atualizarCombate() {
     }
 }
 
+function atualizarNivelPersonagem() {
+    if (!nivelPersonagemSpan) return;
+    
+    // O nível é baseado na quantidade total de bolinhas gastas + 1
+    // Cada atributo pode ter bolinhas, e o total define o nível
+    const totalBolinhas = atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas;
+    
+    // Nível = total de bolinhas + 1 (se tiver pelo menos 1 bolinha)
+    // Se não tiver bolinhas, nível 1
+    const nivel = totalBolinhas > 0 ? totalBolinhas + 1 : 1;
+    
+    nivelPersonagemSpan.textContent = nivel;
+}
+
 function atualizarInterface() {
     if (document.getElementById('stValor')) document.getElementById('stValor').textContent = atributos.st.valor;
     if (document.getElementById('dxValor')) document.getElementById('dxValor').textContent = atributos.dx.valor;
@@ -3956,6 +3992,8 @@ function atualizarInterface() {
     atualizarBolinhas('dx');
     atualizarBolinhas('iq');
     atualizarBolinhas('ht');
+    
+    atualizarNivelPersonagem();
     
     const dano = tabelaDano[atributos.st.valor] || "1d-1";
     const esquiva = calcularEsquiva();
@@ -4071,7 +4109,7 @@ function calcularCarga() {
         nivel = 'pesado';
         penalidade = '-3 Esquiva';
         reducaoEsquiva = 3;
-    } else if (pesoTotal > leve) {
+       } else if (pesoTotal > leve) {
         nivel = 'medio';
         penalidade = '-1 Esquiva';
         reducaoEsquiva = 1;
@@ -6036,6 +6074,17 @@ document.addEventListener('DOMContentLoaded', () => {
     criarBolinhas('iq');
     criarBolinhas('ht');
     
+    // Configurar o campo de pontos iniciais do GM
+    if (pontosIniciaisInput) {
+        pontosIniciaisInput.addEventListener('change', () => {
+            const novosPontos = parseInt(pontosIniciaisInput.value) || 6;
+            const diferenca = novosPontos - (6 - pontosRestantes);
+            pontosRestantes = novosPontos;
+            pontosRestantesSpan.textContent = pontosRestantes;
+            triggerAutoSave();
+        });
+    }
+    
     const urlParams = new URLSearchParams(window.location.search);
     const idParaEditar = urlParams.get('id');
     
@@ -6406,4 +6455,3 @@ atualizarContadoresAbas();
 </script>
 </body>
 </html>
-
