@@ -4979,6 +4979,7 @@ async function salvarPersonagem(finalizar = false) {
         let fotoURL = dadosBasicos.fotoURL;
         if (fotoURL && fotoURL.startsWith('data:image')) {
             try {
+                // Criar nome único para evitar conflitos
                 const timestamp = Date.now();
                 const randomString = Math.random().toString(36).substring(2, 15);
                 const caminhoArquivo = `personagens/${user.uid}/${timestamp}_${randomString}.jpg`;
@@ -4988,6 +4989,7 @@ async function salvarPersonagem(finalizar = false) {
                 fotoURL = await getDownloadURL(storageRef);
                 
             } catch (uploadError) {
+                // Se falhar o upload, limpa a URL para não salvar base64
                 fotoURL = '';
             }
         }
@@ -5076,6 +5078,7 @@ async function salvarPersonagem(finalizar = false) {
         if (breadcrumbCurrent) breadcrumbCurrent.textContent = `Editando: ${dadosBasicos.nome}`;
         if (pageTitle) pageTitle.textContent = `Editando Personagem: ${dadosBasicos.nome}`;
         
+        // Atualizar sessionStorage com a URL correta da imagem
         if (personagemTemp) {
             personagemTemp.fotoURL = fotoURL;
             sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
@@ -5098,6 +5101,7 @@ async function salvarRascunho() {
     if (!auth.currentUser) return;
     await salvarPersonagem(false);
 }
+
 async function carregarPersonagem(id) {
     try {
         showLoading();
@@ -5633,6 +5637,7 @@ async function exportarPDF() {
         hideLoading();
     }
 }
+
 function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
     
@@ -5816,30 +5821,6 @@ function comprarItemHandler(e) {
         comprarItem(item);
         triggerAutoSave();
     }
-}
-
-function comprarItem(item) {
-    const preco = item.preco;
-    
-    if (dinheiro < preco) {
-        alert(`Dinheiro insuficiente! Você tem $${dinheiro} e o item custa $${preco}`);
-        return;
-    }
-    
-    dinheiro -= preco;
-    atualizarDinheiroDisplay();
-    
-    const novoItem = {
-        ...item,
-        id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        quantidade: 1
-    };
-    
-    inventario.deposito.push(novoItem);
-    
-    renderizarInventario();
-    salvarInventario();
-    triggerAutoSave();
 }
 
 function configurarCamposItemPersonalizado() {
@@ -6150,6 +6131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pontosIniciaisInput) {
         pontosIniciaisInput.addEventListener('change', () => {
             const novosPontos = parseInt(pontosIniciaisInput.value) || 6;
+            const diferenca = novosPontos - (6 - pontosRestantes);
             pontosRestantes = novosPontos;
             pontosRestantesSpan.textContent = pontosRestantes;
             triggerAutoSave();
