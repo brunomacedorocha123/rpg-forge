@@ -3042,7 +3042,6 @@
             <button type="button" class="btn-primary" id="btnFinalizar" style="display: none;"><i class="fas fa-save"></i> Finalizar Personagem</button>
         </div>
     </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -3400,7 +3399,7 @@ const catalogoItensData = {
 };
 
 let abaAtual = 'basicos';
-let pontosRestantes = 6; // Será atualizado pelo campo do GM
+let pontosRestantes = 6;
 let fobiaSelecionada = null;
 let personagemTemp = null;
 let personagemId = null;
@@ -3968,14 +3967,8 @@ function atualizarCombate() {
 function atualizarNivelPersonagem() {
     if (!nivelPersonagemSpan) return;
     
-    // O nível é baseado na quantidade total de bolinhas gastas + 1
-    // Cada atributo pode ter bolinhas, e o total define o nível
     const totalBolinhas = atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas;
-    
-    // Nível = total de bolinhas + 1 (se tiver pelo menos 1 bolinha)
-    // Se não tiver bolinhas, nível 1
     const nivel = totalBolinhas > 0 ? totalBolinhas + 1 : 1;
-    
     nivelPersonagemSpan.textContent = nivel;
 }
 
@@ -4058,17 +4051,17 @@ function calcularDinheiroInicial() {
     const riquezaSelect = document.getElementById('riqueza');
     const riqueza = riquezaSelect?.value || 'medio';
     
-    // POBRE = metade do base (500)
-    // RICO = 5x o base (5000)
-    // MÉDIO = base (1000)
+    let valorInicial = base;
     
     if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
-        return Math.floor(base / 2);
+        valorInicial = Math.floor(base / 2);
     } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
-        return base * 5;
+        valorInicial = base * 5;
     } else {
-        return base;
+        valorInicial = base;
     }
+    
+    return valorInicial;
 }
 
 function atualizarDinheiroDisplay() {
@@ -4109,7 +4102,7 @@ function calcularCarga() {
         nivel = 'pesado';
         penalidade = '-3 Esquiva';
         reducaoEsquiva = 3;
-       } else if (pesoTotal > leve) {
+    } else if (pesoTotal > leve) {
         nivel = 'medio';
         penalidade = '-1 Esquiva';
         reducaoEsquiva = 1;
@@ -4644,7 +4637,7 @@ function venderItem(itemId, local) {
         const item = inventario[local][index];
         const valorVenda = Math.floor(item.preco * 0.5 * (item.quantidade || 1));
         dinheiro += valorVenda;
-        dinheiroSaldo.textContent = dinheiro;
+        atualizarDinheiroDisplay();
         
         if (item.quantidade > 1) {
             item.quantidade--;
@@ -5758,7 +5751,7 @@ function comprarItem(item) {
     }
     
     dinheiro -= preco;
-    dinheiroSaldo.textContent = dinheiro;
+    atualizarDinheiroDisplay();
     
     const novoItem = {
         ...item,
@@ -5891,7 +5884,7 @@ function criarItemPersonalizado() {
     }
     
     dinheiro -= preco * quantidade;
-    dinheiroSaldo.textContent = dinheiro;
+    atualizarDinheiroDisplay();
     
     const itemBase = {
         id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -6046,6 +6039,8 @@ function carregarDadosSalvos() {
             
             if (personagemTemp.dinheiro !== undefined) {
                 dinheiro = personagemTemp.dinheiro;
+            } else {
+                dinheiro = calcularDinheiroInicial();
             }
             
             if (personagemTemp.pmDisponivel !== undefined) {
@@ -6074,7 +6069,6 @@ document.addEventListener('DOMContentLoaded', () => {
     criarBolinhas('iq');
     criarBolinhas('ht');
     
-    // Configurar o campo de pontos iniciais do GM
     if (pontosIniciaisInput) {
         pontosIniciaisInput.addEventListener('change', () => {
             const novosPontos = parseInt(pontosIniciaisInput.value) || 6;
@@ -6084,6 +6078,9 @@ document.addEventListener('DOMContentLoaded', () => {
             triggerAutoSave();
         });
     }
+    
+    dinheiro = calcularDinheiroInicial();
+    atualizarDinheiroDisplay();
     
     const urlParams = new URLSearchParams(window.location.search);
     const idParaEditar = urlParams.get('id');
@@ -6115,6 +6112,18 @@ document.addEventListener('DOMContentLoaded', () => {
             el.addEventListener('input', triggerAutoSave);
             el.addEventListener('change', triggerAutoSave);
         }
+    });
+    
+    dinheiroBaseInput?.addEventListener('change', () => {
+        dinheiro = calcularDinheiroInicial();
+        atualizarDinheiroDisplay();
+        triggerAutoSave();
+    });
+    
+    document.getElementById('riqueza')?.addEventListener('change', () => {
+        dinheiro = calcularDinheiroInicial();
+        atualizarDinheiroDisplay();
+        triggerAutoSave();
     });
     
     abas.forEach(aba => {
