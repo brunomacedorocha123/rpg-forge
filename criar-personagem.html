@@ -4975,16 +4975,36 @@ async function salvarPersonagem(finalizar = false) {
             return false;
         }
         
+        // ===== PARTE CORRIGIDA DO UPLOAD DA IMAGEM =====
         let fotoURL = dadosBasicos.fotoURL;
+        
+        // Verificar se é uma imagem base64 (nova foto)
         if (fotoURL && fotoURL.startsWith('data:image')) {
             try {
-                const storageRef = ref(storage, `personagens/${user.uid}/${Date.now()}_foto.jpg`);
+                showLoading();
+                
+                // Criar referência única para a foto
+                const fileName = `personagens/${user.uid}/${Date.now()}_foto.jpg`;
+                const storageRef = ref(storage, fileName);
+                
+                // Fazer upload da imagem base64
                 await uploadString(storageRef, fotoURL, 'data_url');
+                
+                // Obter URL de download
                 fotoURL = await getDownloadURL(storageRef);
+                
+                hideLoading();
             } catch (uploadError) {
                 console.error('Erro no upload da foto:', uploadError);
+                hideLoading();
+                alert('Erro ao fazer upload da imagem. A foto não será salva.');
+                fotoURL = ''; // Limpa a URL com erro para não salvar base64
             }
+        } else if (!fotoURL && personagemTemp?.fotoURL) {
+            // Se não tem nova foto mas tinha foto antiga, mantém a antiga
+            fotoURL = personagemTemp.fotoURL;
         }
+        // ===== FIM DA PARTE CORRIGIDA =====
         
         const pv = calcularPV();
         const fadiga = calcularFadiga();
@@ -5064,6 +5084,19 @@ async function salvarPersonagem(finalizar = false) {
             await setDoc(docRef, personagemData);
         }
         
+        // ===== ATUALIZAÇÕES PÓS-SALVAMENTO =====
+        // Atualizar a URL da foto no preview se foi feito upload
+        if (fotoURL && fotoURL !== previewImage.src) {
+            previewImage.src = fotoURL;
+        }
+        
+        // Atualizar o personagemTemp com a nova URL
+        if (personagemTemp) {
+            personagemTemp.fotoURL = fotoURL;
+            sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
+        }
+        // ===== FIM DAS ATUALIZAÇÕES =====
+        
         if (personagemIdHidden) personagemIdHidden.value = personagemId;
         if (breadcrumbCurrent) breadcrumbCurrent.textContent = `Editando: ${dadosBasicos.nome}`;
         if (pageTitle) pageTitle.textContent = `Editando Personagem: ${dadosBasicos.nome}`;
@@ -5127,6 +5160,10 @@ async function carregarPersonagem(id) {
             previewImage.src = data.fotoURL;
             previewArea.style.display = 'block';
             uploadArea.style.display = 'none';
+            
+            // Guardar no personagemTemp
+            if (!personagemTemp) personagemTemp = {};
+            personagemTemp.fotoURL = data.fotoURL;
         }
         
         if (data.atributos) {
@@ -5245,7 +5282,6 @@ async function excluirPersonagem() {
         hideLoading();
     }
 }
-
 async function exportarPDF() {
     try {
         showLoading();
