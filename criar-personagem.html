@@ -3704,11 +3704,11 @@ function calcularFadigaComVantagens() {
 // ============================================
 
 function showLoading() {
-    loadingOverlay.classList.add('active');
+    if (loadingOverlay) loadingOverlay.classList.add('active');
 }
 
 function hideLoading() {
-    loadingOverlay.classList.remove('active');
+    if (loadingOverlay) loadingOverlay.classList.remove('active');
 }
 
 function setAutoSaveIndicator(state) {
@@ -4922,14 +4922,27 @@ async function salvarPersonagem(finalizar = false) {
         if (!user) {
             alert('Usuário não autenticado!');
             window.location.href = 'index.html';
-            return;
+            return false;
         }
         
         const dadosBasicos = coletarDadosBasicos();
         if (!dadosBasicos.nome.trim()) {
             alert('Digite um nome para o personagem');
             setAutoSaveIndicator('error');
-            return;
+            return false;
+        }
+        
+        // Upload da foto se existir e for base64
+        let fotoURL = dadosBasicos.fotoURL;
+        if (fotoURL && fotoURL.startsWith('data:image')) {
+            try {
+                const storageRef = ref(storage, `personagens/${user.uid}/${Date.now()}_foto.jpg`);
+                await uploadString(storageRef, fotoURL, 'data_url');
+                fotoURL = await getDownloadURL(storageRef);
+            } catch (uploadError) {
+                console.error('Erro no upload da foto:', uploadError);
+                // Continua mesmo sem foto
+            }
         }
         
         const pv = calcularPV();
@@ -4944,7 +4957,7 @@ async function salvarPersonagem(finalizar = false) {
             idade: dadosBasicos.idade,
             altura: dadosBasicos.altura,
             peso: dadosBasicos.peso,
-            fotoURL: dadosBasicos.fotoURL,
+            fotoURL: fotoURL || '',
             aparencia: dadosBasicos.aparencia,
             riqueza: dadosBasicos.riqueza,
             dinheiroBase: dadosBasicos.dinheiroBase,
@@ -5022,8 +5035,9 @@ async function salvarPersonagem(finalizar = false) {
         return true;
         
     } catch (error) {
+        console.error('Erro ao salvar:', error);
         setAutoSaveIndicator('error');
-        alert('Erro ao salvar personagem');
+        alert('Erro ao salvar personagem: ' + error.message);
         return false;
     }
 }
@@ -5135,6 +5149,7 @@ async function carregarPersonagem(id) {
         atualizarContadoresAbas();
         
     } catch (error) {
+        console.error('Erro ao carregar:', error);
         alert('Erro ao carregar personagem!');
     } finally {
         hideLoading();
@@ -5183,6 +5198,7 @@ async function excluirPersonagem() {
         window.location.href = 'personagens.html';
         
     } catch (error) {
+        console.error('Erro ao excluir:', error);
         alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
@@ -5565,6 +5581,7 @@ async function exportarPDF() {
         pdf.save(`ficha_${nome.replace(/\s+/g, '_')}.pdf`);
         
     } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
         alert('Erro ao gerar PDF');
     } finally {
         hideLoading();
@@ -5730,11 +5747,6 @@ function renderizarTabelaItensGerais() {
 }
 
 function adicionarEventosCompra() {
-    document.querySelectorAll('.btn-comprar-tabela').forEach(btn => {
-        const novoBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(novoBtn, btn);
-    });
-    
     document.querySelectorAll('.btn-comprar-tabela').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -5980,8 +5992,8 @@ function atualizarContadoresAbas() {
     
     if (pmMagiasSpan) pmMagiasSpan.textContent = pmMagias;
     
-    pmGasto.textContent = pmGastoTotal;
-    pmRestante.textContent = pmDisponivel - pmGastoTotal;
+    if (pmGasto) pmGasto.textContent = pmGastoTotal;
+    if (pmRestante) pmRestante.textContent = pmDisponivel - pmGastoTotal;
     
     atualizarDinheiroDisplay();
 }
@@ -6072,7 +6084,9 @@ function carregarDadosSalvos() {
             atualizarNHMagias();
             atualizarContadoresAbas();
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('Erro ao carregar dados salvos:', e);
+    }
 }
 
 // ============================================
@@ -6442,22 +6456,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        const docRef = doc(db, "usuarios", user.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-            const userData = docSnap.data();
-            if (displayIdPc) displayIdPc.textContent = userData.id_pc || '--------';
-            if (displayNickname) displayNickname.textContent = userData.nickname || 'Aventureiro';
+        try {
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                if (displayIdPc) displayIdPc.textContent = userData.id_pc || '--------';
+                if (displayNickname) displayNickname.textContent = userData.nickname || 'Aventureiro';
+            }
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.get('id') && !personagemTemp) {
+                setTimeout(() => {
+                    salvarRascunho();
+                }, 5000);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar usuário:', error);
         }
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        if (!urlParams.get('id') && !personagemTemp) {
-            setTimeout(() => {
-                salvarRascunho();
-            }, 5000);
-        }
-        
     } else {
         window.location.href = 'index.html';
     }
@@ -6470,6 +6487,7 @@ if (btnSair) {
             await signOut(auth); 
             window.location.href = 'index.html'; 
         } catch (error) { 
+            console.error('Erro ao sair:', error);
             hideLoading(); 
         }
     });
