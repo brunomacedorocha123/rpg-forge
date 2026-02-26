@@ -3758,7 +3758,7 @@ window.AVENTURA = {
         {
             id: "camponesa",
             nome: "Elara",
-            sprite: "camponesa.png",
+            sprite: "camponesa.png",  // caminho direto, sem /
             x: 50,
             y: 60,
             visivel: true
@@ -3817,44 +3817,55 @@ window.AVENTURA = {
         reacao: null,
         flerteTentado: false,
         infoRevelada: false,
-        aguardandoReacao: true
+        interacaoIniciada: false
     },
     
     // ===== FUNÇÃO PRINCIPAL RENDERIZAR =====
     renderizar: function() {
         const cenaAtual = this;
         
-        // Se ainda está aguardando a reação, mostra a descrição inicial
-        if (this.estado.aguardandoReacao) {
-            // Já tem a fala do narrador do array fala
+        // Se a interação já foi iniciada, não mostra os botões iniciais novamente
+        if (this.estado.interacaoIniciada) {
+            return;
+        }
+        
+        // Mostrar fala do narrador
+        if (dialogoTexto) {
+            dialogoTexto.textContent = this.fala.texto;
+        }
+        if (npcNome) {
+            npcNome.textContent = this.fala.npc;
+        }
+        
+        // Criar botões iniciais
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
             
-            // Criar botão para iniciar interação
-            if (opcoesDialogo) {
-                opcoesDialogo.innerHTML = '';
-                
-                const btnAproximar = document.createElement('button');
-                btnAproximar.className = 'opcao-btn';
-                btnAproximar.textContent = "👋 Aproximar-se da camponesa";
-                btnAproximar.addEventListener('click', () => {
-                    cenaAtual.iniciarInteracao();
-                });
-                opcoesDialogo.appendChild(btnAproximar);
-                
-                const btnIgnorar = document.createElement('button');
-                btnIgnorar.className = 'opcao-btn';
-                btnIgnorar.textContent = "➡️ Seguir caminho sem interagir";
-                btnIgnorar.addEventListener('click', () => {
-                    dialogoTexto.textContent = "Você decide não perturbar a camponesa e continua sua jornada.";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
-                });
-                opcoesDialogo.appendChild(btnIgnorar);
-            }
+            const btnAproximar = document.createElement('button');
+            btnAproximar.className = 'opcao-btn';
+            btnAproximar.textContent = "👋 Aproximar-se da camponesa";
+            btnAproximar.addEventListener('click', () => {
+                cenaAtual.iniciarInteracao();
+            });
+            opcoesDialogo.appendChild(btnAproximar);
+            
+            const btnIgnorar = document.createElement('button');
+            btnIgnorar.className = 'opcao-btn';
+            btnIgnorar.textContent = "➡️ Seguir caminho sem interagir";
+            btnIgnorar.addEventListener('click', () => {
+                dialogoTexto.textContent = "Você decide não perturbar a camponesa e continua sua jornada.";
+                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+            });
+            opcoesDialogo.appendChild(btnIgnorar);
         }
     },
     
     // ===== INICIAR INTERAÇÃO =====
     iniciarInteracao: function() {
         const cenaAtual = this;
+        
+        // Marcar que a interação foi iniciada
+        this.estado.interacaoIniciada = true;
         
         // Mudar nome para Elara
         if (npcNome) {
@@ -3904,7 +3915,6 @@ window.AVENTURA = {
         const reacao = SistemaSocial.testarReacao(this.npcData, window.personagem);
         adicionarLog(`🎭 REAÇÃO DA CAMPONESA: ${reacao.classificacao.toUpperCase()} (${reacao.valor})`, 'info');
         adicionarLog(`   Rolagem: ${reacao.rolagem} | Bônus: +${reacao.bonusAparencia + reacao.bonusCarisma}`, 'info');
-        this.reacaoAtual = reacao;
         return reacao;
     },
     
@@ -3912,13 +3922,12 @@ window.AVENTURA = {
     criarOpcoes: function(reacaoClass) {
         const opcoesBase = [];
         
-        // Verificar se tem Persuasão (perícia social principal)
+        // Verificar se tem Persuasão
         const temPersuasao = window.personagem?.pericias?.persuasao?.nivel > 0;
         const nhPersuasao = temPersuasao ? 
             SistemaSocial.calcularNHPericia('persuasao', window.personagem) : 0;
         
         if (reacaoClass === 'ruim') {
-            // Opção de persuasão só aparece se tiver a perícia
             if (temPersuasao) {
                 opcoesBase.push(
                     {
@@ -3926,13 +3935,11 @@ window.AVENTURA = {
                         acao: "testeSocial",
                         tipo: "acalmar",
                         dificuldade: 12,
-                        pericia: "persuasao",
                         nh: nhPersuasao
                     }
                 );
             }
             
-            // Opções não-sociais sempre disponíveis
             opcoesBase.push(
                 {
                     texto: "🚶 Se afastar lentamente",
@@ -3950,7 +3957,6 @@ window.AVENTURA = {
         }
         
         if (reacaoClass === 'normal') {
-            // Opções de informação sempre disponíveis
             opcoesBase.push(
                 {
                     texto: "🗺️ Perguntar sobre a região",
@@ -3969,19 +3975,16 @@ window.AVENTURA = {
                 }
             );
             
-            // Opção de flerte só se tiver Persuasão
             if (temPersuasao) {
                 opcoesBase.push(
                     {
                         texto: `🌸 Elogiar suas flores (Persuasão NH ${nhPersuasao})`,
                         acao: "flerte",
-                        pericia: "persuasao",
                         nh: nhPersuasao
                     }
                 );
             }
             
-            // Sair sempre disponível
             opcoesBase.push(
                 {
                     texto: "➡️ Se despedir e seguir viagem",
@@ -3992,7 +3995,6 @@ window.AVENTURA = {
         }
         
         if (reacaoClass === 'otima') {
-            // Opções de informação avançada
             opcoesBase.push(
                 {
                     texto: "👧 Perguntar sobre a menina raptada",
@@ -4011,25 +4013,21 @@ window.AVENTURA = {
                 }
             );
             
-            // Opções de flerte só se tiver Persuasão
             if (temPersuasao) {
                 opcoesBase.push(
                     {
                         texto: `😍 Elogiar seus olhos (Persuasão NH ${nhPersuasao})`,
                         acao: "flerte",
-                        pericia: "persuasao",
                         nh: nhPersuasao
                     },
                     {
                         texto: `🏠 Oferecer companhia até sua cabana (Persuasão NH ${nhPersuasao})`,
                         acao: "flerte_avancado",
-                        pericia: "persuasao",
                         nh: nhPersuasao
                     }
                 );
             }
             
-            // Sair sempre disponível
             opcoesBase.push(
                 {
                     texto: "➡️ Seguir viagem (prometendo voltar)",
@@ -4083,21 +4081,22 @@ window.AVENTURA = {
                 if (opcao.mensagem && dialogoTexto) {
                     dialogoTexto.textContent = opcao.mensagem;
                     
-                    // Transição narrativa para a carroça
-                    if (opcao.proximo === 'carroca_destruida') {
-                        setTimeout(() => {
-                            if (opcao.texto.includes("Se despedir") || opcao.texto.includes("Seguir")) {
-                                dialogoTexto.textContent = "Você continua pela estrada, os pensamentos ainda na conversa. O sol filtra pelas árvores quando algo chama sua atenção à frente...";
+                    setTimeout(() => {
+                        if (opcao.proximo === 'carroca_destruida') {
+                            let textoTransicao = "Você segue viagem pela estrada. Após alguns minutos, avista algo à frente...";
+                            
+                            if (opcao.texto.includes("Se despedir")) {
+                                textoTransicao = "Você se despede e continua seu caminho. A estrada serpenteia pela floresta até que algo chama sua atenção...";
                             } else if (opcao.texto.includes("afastar")) {
-                                dialogoTexto.textContent = "Depois de se afastar, você retoma seu caminho. A floresta parece mais silenciosa agora. Alguns minutos depois, avista algo na estrada...";
-                            } else {
-                                dialogoTexto.textContent = "Você segue viagem, processando o encontro. A estrada se estende à frente e logo você encontra algo inesperado...";
+                                textoTransicao = "Depois de se afastar, você retoma seu caminho. Alguns minutos depois, avista algo na estrada...";
                             }
+                            
+                            dialogoTexto.textContent = textoTransicao;
                             setTimeout(() => carregarCena(opcao.proximo), 2000);
-                        }, 2000);
-                    } else {
-                        setTimeout(() => carregarCena(opcao.proximo), 2000);
-                    }
+                        } else {
+                            carregarCena(opcao.proximo);
+                        }
+                    }, 2000);
                 } else {
                     carregarCena(opcao.proximo);
                 }
@@ -4105,9 +4104,8 @@ window.AVENTURA = {
         }
     },
     
-    // ===== TESTE SOCIAL (Persuasão) =====
+    // ===== TESTE SOCIAL =====
     realizarTesteSocial: function(opcao) {
-        // Usa o NH real da perícia Persuasão
         const nhJogador = opcao.nh;
         const dificuldade = opcao.dificuldade;
         
@@ -4129,23 +4127,25 @@ window.AVENTURA = {
                 this.estado.reacao.classificacao = 'normal';
             }
             
-            setTimeout(() => this.renderizar(), 2000);
+            // Renderizar novamente com a nova reação
+            setTimeout(() => {
+                const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
+                this.renderizarOpcoes(opcoes, this);
+            }, 2000);
             
         } else {
             if (resultado.falhaCritica) {
                 adicionarLog(`💥 FALHA CRÍTICA!`, 'erro');
                 dialogoTexto.textContent = "Suas palavras saem completamente erradas! Ela grita e sai correndo floresta adentro, deixando o cesto para trás.";
                 
-                // Transição narrativa
                 setTimeout(() => {
-                    dialogoTexto.textContent = "Você suspira, frustrado com o fracasso. Continuando pela estrada, logo encontra vestígios de violência...";
+                    dialogoTexto.textContent = "Você suspira, frustrado. Continuando pela estrada, logo encontra vestígios de violência...";
                     setTimeout(() => carregarCena('carroca_destruida'), 2000);
                 }, 2000);
             } else {
                 adicionarLog(`❌ FALHA!`, 'erro');
                 dialogoTexto.textContent = "Ela não parece confiar em você. 'Achei melhor ir embora...' Ela se afasta rapidamente.";
                 
-                // Transição narrativa
                 setTimeout(() => {
                     dialogoTexto.textContent = "Você a observa desaparecer na floresta. Retomando seu caminho, alguns minutos depois avista algo estranho na estrada...";
                     setTimeout(() => carregarCena('carroca_destruida'), 2000);
@@ -4167,19 +4167,19 @@ window.AVENTURA = {
             } else if (tipo === 'estranho') {
                 info = "Só esses barulhos na floresta mesmo... e uns mercadores que passaram apressados ontem.";
             }
-            adicionarLog(`ℹ️ Informação obtida (Reação Normal)`, 'info');
+            adicionarLog(`ℹ️ Informação obtida`, 'info');
         }
         
         if (reacaoClass === 'otima') {
             if (tipo === 'menina') {
                 info = this.informacoes.otima[0];
-                adicionarLog(`🔍 INFORMAÇÃO IMPORTANTE: Localização da menina!`, 'sucesso');
+                adicionarLog(`🔍 Informação sobre a menina!`, 'sucesso');
                 
                 if (!this.estado.infoRevelada) {
                     this.estado.infoRevelada = true;
                     
                     setTimeout(() => {
-                        if (confirm("Elara hesita... 'Olha, não conte a ninguém, mas posso te dar um amuleto de proteção. Minha avó disse que traz sorte.'")) {
+                        if (confirm("Elara hesita... 'Posso te dar um amuleto de proteção.'")) {
                             if (!window.personagem.inventario.mochila) window.personagem.inventario.mochila = [];
                             window.personagem.inventario.mochila.push({
                                 id: "amuleto_elara",
@@ -4193,10 +4193,10 @@ window.AVENTURA = {
                 }
             } else if (tipo === 'tesouro') {
                 info = this.informacoes.otima[1];
-                adicionarLog(`💰 Informação de tesouro obtida!`, 'sucesso');
+                adicionarLog(`💰 Informação de tesouro!`, 'sucesso');
             } else if (tipo === 'goblins_avancado') {
                 info = "Eles estão acampados perto da Caverna dos Esquecidos. Dizem que têm um chefe grande e forte. Cuidado!";
-                adicionarLog(`⚔️ Informação avançada sobre os goblins!`, 'sucesso');
+                adicionarLog(`⚔️ Informação avançada!`, 'sucesso');
             }
         }
         
@@ -4204,7 +4204,11 @@ window.AVENTURA = {
             dialogoTexto.textContent = info;
         }
         
-        setTimeout(() => this.renderizar(), 4000);
+        // Voltar às opções normais após a informação
+        setTimeout(() => {
+            const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
+            this.renderizarOpcoes(opcoes, this);
+        }, 4000);
     },
     
     // ===== INICIAR FLERTE =====
@@ -4212,22 +4216,17 @@ window.AVENTURA = {
         if (this.estado.flerteTentado) {
             dialogoTexto.textContent = "Ela ri, corando. 'Outra hora, talvez... Vá, sua aventura te espera.'";
             
-            // Transição narrativa
             setTimeout(() => {
-                dialogoTexto.textContent = "Você sorri e se despede. Seguindo pela estrada, logo encontra os destroços de uma carroça...";
+                dialogoTexto.textContent = "Você sorri e se despede. Seguindo pela estrada, logo encontra algo...";
                 setTimeout(() => carregarCena('carroca_destruida'), 2000);
             }, 2000);
             return;
         }
         
         this.estado.flerteTentado = true;
-        
-        // Usa o NH real da perícia vindo da opção
         const nhFlerte = opcao.nh;
         
-        adicionarLog(`💘 INICIANDO FLERTE...`, 'info');
-        adicionarLog(`   NH: ${nhFlerte}`, 'info');
-        
+        adicionarLog(`💘 INICIANDO FLERTE... NH: ${nhFlerte}`, 'info');
         dialogoTexto.textContent = "Você comenta que as flores que ela colhe são bonitas, e que combinam com seus olhos. Ela cora levemente.";
         
         setTimeout(() => {
@@ -4238,11 +4237,11 @@ window.AVENTURA = {
                     nh: nhFlerte
                 },
                 {
-                    texto: "😅 Recuar educadamente: 'Foi só um elogio, não se preocupe'",
+                    texto: "😅 Recuar educadamente",
                     acao: "sairFlerte"
                 },
                 {
-                    texto: "🗣️ Mudar de assunto (voltar às perguntas)",
+                    texto: "🗣️ Mudar de assunto",
                     acao: "voltarInfo"
                 }
             ];
@@ -4267,15 +4266,15 @@ window.AVENTURA = {
                 if (opcao.acao === 'testeFlerte') {
                     cenaAtual.testeFlerte(opcao.nh);
                 } else if (opcao.acao === 'sairFlerte') {
-                    dialogoTexto.textContent = "Ela sorri, aliviada. 'Foi bom te conhecer. Boa sorte na sua jornada!'";
+                    dialogoTexto.textContent = "Ela sorri, aliviada. 'Foi bom te conhecer.'";
                     
-                    // Transição narrativa
                     setTimeout(() => {
-                        dialogoTexto.textContent = "Você se despede e continua seu caminho. A estrada segue serpenteando pela floresta até que algo chama sua atenção...";
+                        dialogoTexto.textContent = "Você se despede e continua. Algo chama sua atenção na estrada...";
                         setTimeout(() => carregarCena('carroca_destruida'), 2000);
                     }, 2000);
                 } else if (opcao.acao === 'voltarInfo') {
-                    cenaAtual.renderizar();
+                    const opcoesNormais = cenaAtual.criarOpcoes(cenaAtual.estado.reacao.classificacao);
+                    cenaAtual.renderizarOpcoes(opcoesNormais, cenaAtual);
                 }
             });
             
@@ -4288,95 +4287,76 @@ window.AVENTURA = {
         const resultado = SistemaSocial.testeSocial(nh, 12);
         
         adicionarLog(`💘 TESTE DE FLERTE:`, 'info');
-        adicionarLog(`   NH: ${nh} vs Vontade dela: 12`, 'info');
+        adicionarLog(`   NH: ${nh} vs 12`, 'info');
         adicionarLog(`   Rolagem: ${resultado.rolagem}`, 'info');
         adicionarLog(`   Margem: ${resultado.margem}`, 'info');
         
         if (resultado.sucesso) {
             if (resultado.critico) {
-                adicionarLog(`✨ SUCESSO CRÍTICO! Ela se encantou!`, 'sucesso');
-                dialogoTexto.textContent = "Ela cora intensamente e sorri. 'Você é diferente... Sim, adoraria te ver de novo. Volte quando sua missão acabar, prometo estar aqui.' Ela te dá uma flor como lembrança.";
+                adicionarLog(`✨ SUCESSO CRÍTICO!`, 'sucesso');
+                dialogoTexto.textContent = "Ela cora intensamente. 'Volte quando sua missão acabar.' Ela te dá uma flor.";
                 
                 if (!window.personagem.inventario.mochila) window.personagem.inventario.mochila = [];
                 window.personagem.inventario.mochila.push({
                     id: "flor_elara",
                     nome: "Flor de Elara",
-                    descricao: "Uma flor silvestre que ela te deu. Ainda tem seu perfume.",
+                    descricao: "Uma flor silvestre que ela te deu.",
                     peso: 0.01
                 });
-                adicionarLog(`🌸 Você ganhou: Flor de Elara`, 'sucesso');
-                
-                // Transição narrativa
-                setTimeout(() => {
-                    dialogoTexto.textContent = "Com o coração mais leve, você continua sua jornada. A estrada o leva adiante, até que avista algo peculiar...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
-                }, 3000);
+                adicionarLog(`🌸 Flor de Elara`, 'sucesso');
             } else {
-                adicionarLog(`✅ Sucesso no flerte!`, 'sucesso');
-                dialogoTexto.textContent = "Ela sorri, meio sem graça. 'Quem sabe... quando você voltar da sua missão, podemos conversar mais. Agora vai, eles precisam de você.'";
-                
-                // Transição narrativa
-                setTimeout(() => {
-                    dialogoTexto.textContent = "Você se despede com um aceno. Seguindo pela estrada, logo encontra os vestígios de um ataque recente...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
-                }, 3000);
+                adicionarLog(`✅ Sucesso!`, 'sucesso');
+                dialogoTexto.textContent = "Ela sorri, meio sem graça. 'Quando voltar, podemos conversar.'";
             }
+            
+            setTimeout(() => {
+                dialogoTexto.textContent = "Você se despede e segue. A estrada revela algo à frente...";
+                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+            }, 3000);
             
         } else {
             if (resultado.falhaCritica) {
-                adicionarLog(`💥 FALHA CRÍTICA! Ela ficou ofendida!`, 'erro');
-                dialogoTexto.textContent = "Ela parece ofendida. 'Isso é inapropriado! Adeus!' Ela se afasta rapidamente.";
-                
-                // Transição narrativa
-                setTimeout(() => {
-                    dialogoTexto.textContent = "Constrangido, você segue viagem. Mais adiante, avista uma carroça destruída na beira da estrada...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
-                }, 2000);
+                adicionarLog(`💥 FALHA CRÍTICA!`, 'erro');
+                dialogoTexto.textContent = "Ela parece ofendida. 'Isso é inapropriado! Adeus!'";
             } else {
-                adicionarLog(`❌ Falha no flerte. Ela não se interessou.`, 'erro');
-                dialogoTexto.textContent = "Ela parece desconfortável. 'Acho melhor você seguir seu caminho...' Ela se afasta, encerrando a conversa.";
-                
-                // Transição narrativa
-                setTimeout(() => {
-                    dialogoTexto.textContent = "Sem jeito, você continua pela estrada. O silêncio da floresta é interrompido quando você avista algo à frente...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
-                }, 2000);
+                adicionarLog(`❌ Falha.`, 'erro');
+                dialogoTexto.textContent = "Ela parece desconfortável. 'Acho melhor ir embora.'";
             }
+            
+            setTimeout(() => {
+                dialogoTexto.textContent = "Constrangido, você segue. Mais adiante, avista uma carroça destruída...";
+                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+            }, 2000);
         }
     },
     
     // ===== FLERTE AVANÇADO =====
     flerteAvancado: function(opcao) {
         if (this.estado.flerteTentado) {
-            dialogoTexto.textContent = "Ela sorri. 'Você é persistente... Gosto disso. Mas agora não é hora. Vá salvar aquela menina.'";
+            dialogoTexto.textContent = "Ela sorri. 'Gosto disso. Mas vá salvar a menina.'";
             
-            // Transição narrativa
             setTimeout(() => {
-                dialogoTexto.textContent = "Você acena, compreendendo. A estrada o chama e logo você encontra os vestígios do ataque...";
+                dialogoTexto.textContent = "Você acena e segue. Logo encontra vestígios do ataque...";
                 setTimeout(() => carregarCena('carroca_destruida'), 2000);
             }, 2000);
             return;
         }
         
         this.estado.flerteTentado = true;
-        
-        // Usa o NH real da perícia vindo da opção
         const nhFlerte = opcao.nh;
         
-        adicionarLog(`💘 FLERTE AVANÇADO...`, 'info');
-        adicionarLog(`   NH: ${nhFlerte}`, 'info');
-        
-        dialogoTexto.textContent = "'Oferecer companhia?' Ela ri suavemente. 'Você é gentil, mas conheço bem essa floresta. Mas... se quiser me fazer companhia quando voltar, adoraria.'";
+        adicionarLog(`💘 FLERTE AVANÇADO NH: ${nhFlerte}`, 'info');
+        dialogoTexto.textContent = "'Oferecer companhia?' Ela ri. 'Quando voltar, adoraria.'";
         
         setTimeout(() => {
             const opcoes = [
                 {
-                    texto: `💘 "Combinado então. Posso te dar algo quando voltar?" (NH ${nhFlerte})`,
+                    texto: `💘 "Combinado então." (NH ${nhFlerte})`,
                     acao: "testeFlerte",
                     nh: nhFlerte
                 },
                 {
-                    texto: "😊 'Então está combinado. Vou voltar assim que possível.'",
+                    texto: "😊 'Combinado.'",
                     acao: "sairFlerte"
                 }
             ];
