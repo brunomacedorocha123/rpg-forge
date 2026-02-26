@@ -2500,6 +2500,18 @@
 
                 <div class="card-section">
                     <h2><i class="fas fa-chart-bar"></i> Atributos</h2>
+                    
+                    <!-- CAMPO PARA O GM DEFINIR OS PONTOS INICIAIS -->
+                    <div class="form-group" style="margin-bottom: 20px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; border-left: 3px solid #ffd700;">
+                        <label for="pontosIniciais" style="color: #ffd700; font-weight: bold;">
+                            <i class="fas fa-dice-d20"></i> Pontos Iniciais para Atributos (definido pelo GM)
+                        </label>
+                        <input type="number" id="pontosIniciais" min="0" max="60" value="6" step="1" style="background: rgba(0,0,0,0.5); border: 2px solid #ffd700; color: #ffd700; font-weight: bold; font-size: 1.2rem;">
+                        <small style="color: rgba(255,255,255,0.5); font-size: 0.8rem; display: block; margin-top: 8px;">
+                            <i class="fas fa-info-circle"></i> Cada ponto investido aumenta o nível em 1. Nível final = Total de bolinhas + 1
+                        </small>
+                    </div>
+                    
                     <div class="pontos-restantes">
                         <span>Pontos para distribuir:</span>
                         <span class="valor" id="pontosRestantes">6</span>
@@ -2508,11 +2520,11 @@
                     <div class="atributo-row" data-atributo="st">
                         <div class="atributo-info">
                             <span class="atributo-nome">ST (Força)</span>
-                            <span class="atributo-valor" id="stValor">9</span>
+                            <span class="atributo-valor" id="stValor">8</span>
                         </div>
                         <div class="bolinhas-container" id="stBolinhas"></div>
                         <div class="atributo-detalhes">
-                            <span class="dano" id="stDano">1d-1</span>
+                            <span class="dano" id="stDano">1d-2</span>
                         </div>
                     </div>
 
@@ -2541,7 +2553,7 @@
                     <div class="atributo-row" data-atributo="ht">
                         <div class="atributo-info">
                             <span class="atributo-nome">HT (Vigor)</span>
-                            <span class="atributo-valor" id="htValor">48</span>
+                            <span class="atributo-valor" id="htValor">8</span>
                         </div>
                         <div class="bolinhas-container" id="htBolinhas"></div>
                         <div class="atributo-detalhes">
@@ -2566,7 +2578,7 @@
                     </div>
                     <div class="status-item">
                         <span class="label">Dano:</span>
-                        <span class="value" id="statusDano">1d-1</span>
+                        <span class="value" id="statusDano">1d-2</span>
                     </div>
                     <div class="status-item">
                         <span class="label">Esquiva:</span>
@@ -2575,6 +2587,11 @@
                     <div class="status-item">
                         <span class="label">Deslocamento:</span>
                         <span class="value" id="statusDeslocamento">12.2</span>
+                    </div>
+                    <!-- NOVO: Nível do Personagem -->
+                    <div class="status-item" style="background: linear-gradient(45deg, #4a2a6a, #2a1a4a); border: 1px solid #ffd700;">
+                        <span class="label">Nível:</span>
+                        <span class="value" id="nivelPersonagem">1</span>
                     </div>
                 </div>
             </div>
@@ -3314,6 +3331,7 @@ const catalogoItensData = {
 // VARIÁVEIS GLOBAIS
 // ============================================
 let abaAtual = 'basicos';
+let pontosIniciais = 6; // Valor padrão, pode ser alterado pelo GM
 let pontosRestantes = 6;
 let fobiaSelecionada = null;
 let personagemTemp = null;
@@ -3361,6 +3379,7 @@ const elements = {
     previewArea: document.getElementById('previewArea'),
     previewImage: document.getElementById('previewImage'),
     removeFoto: document.getElementById('removeFoto'),
+    pontosIniciaisInput: document.getElementById('pontosIniciais'),
     pontosRestantesSpan: document.getElementById('pontosRestantes'),
     nivelPersonagemSpan: document.getElementById('nivelPersonagem'),
     modalFobias: document.getElementById('modalFobias'),
@@ -3461,7 +3480,6 @@ const elements = {
     magiaNH_Total: document.getElementById('magiaNH_Total'),
     magiaRequisitoContainer: document.getElementById('magiaRequisitoContainer'),
     detalheMagiaNH: document.getElementById('detalheMagiaNH'),
-    pontosIniciaisInput: document.getElementById('pontosIniciais'),
     stValor: document.getElementById('stValor'),
     dxValor: document.getElementById('dxValor'),
     iqValor: document.getElementById('iqValor'),
@@ -3551,7 +3569,6 @@ function criarBolinhas(atributoId) {
                 pontosRestantes++;
             }
             atualizarInterface();
-            atualizarNivelPersonagem();
             triggerAutoSave();
         });
         container.appendChild(bolinha);
@@ -3743,9 +3760,12 @@ function calcularBonusPericia(periciaId) {
     return bonus;
 }
 
+// ============================================
+// NOVA FUNÇÃO: NÍVEL DO PERSONAGEM
+// ============================================
 function calcularNivelPersonagem() {
     const totalBolinhas = atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas;
-    return totalBolinhas > 0 ? totalBolinhas + 1 : 1;
+    return totalBolinhas + 1; // Nível 1 = 0 bolinhas
 }
 // ============================================
 // FUNÇÕES DE CARGA E INVENTÁRIO
@@ -4019,7 +4039,9 @@ function atualizarInterface() {
     atualizarBolinhas('ht');
     
     // ATUALIZA O NÍVEL DO PERSONAGEM
-    atualizarNivelPersonagem();
+    if (elements.nivelPersonagemSpan) {
+        elements.nivelPersonagemSpan.textContent = calcularNivelPersonagem();
+    }
     
     const dano = tabelaDano[atributos.st.valor] || "1d-2";
     const esquiva = calcularEsquiva();
@@ -4047,15 +4069,6 @@ function atualizarInterface() {
     if (abaAtual === 'magias' && elements.esferasGrid) renderizarEsferas();
 }
 
-// ============================================
-// FUNÇÃO: NÍVEL DO PERSONAGEM (SEM LOGS)
-// ============================================
-function atualizarNivelPersonagem() {
-    if (elements.nivelPersonagemSpan) {
-        const totalBolinhas = atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas;
-        elements.nivelPersonagemSpan.textContent = totalBolinhas + 1;
-    }
-} 
 // ============================================
 // FUNÇÕES DE COMBATE (inalteradas)
 // ============================================
@@ -5129,6 +5142,7 @@ function salvarDadosBasicos() {
     
     personagemTemp = {
         ...dados,
+        pontosIniciais: pontosIniciais,
         atributos: {
             st: { bolinhas: atributos.st.bolinhas, valor: atributos.st.valor, base: 8 },
             dx: { bolinhas: atributos.dx.bolinhas, valor: atributos.dx.valor, base: 5 },
@@ -5226,6 +5240,8 @@ async function salvarPersonagem(finalizar = false) {
             userId: user.uid,
             status: finalizar ? 'finalizado' : 'rascunho',
             updatedAt: new Date(),
+            
+            pontosIniciais: pontosIniciais,
             
             vantagens: Array.from(vantagensSelecionadas) || [],
             desvantagens: Array.from(desvantagensSelecionadas) || [],
@@ -5349,6 +5365,11 @@ async function carregarPersonagem(id) {
         document.getElementById('dinheiroBase').value = data.dinheiroBase || 1000;
         document.getElementById('peculiaridades').value = data.peculiaridades || '';
         
+        if (data.pontosIniciais !== undefined) {
+            pontosIniciais = data.pontosIniciais;
+            if (elements.pontosIniciaisInput) elements.pontosIniciaisInput.value = pontosIniciais;
+        }
+        
         if (data.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
             elements.previewImage.src = data.fotoURL;
             elements.previewArea.style.display = 'block';
@@ -5361,7 +5382,7 @@ async function carregarPersonagem(id) {
             atributos.iq = data.atributos.iq || { valor: 5, bolinhas: 0, base: 5 };
             atributos.ht = data.atributos.ht || { valor: 8, bolinhas: 0, base: 8 };
             
-            pontosRestantes = 6 - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
+            pontosRestantes = pontosIniciais - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
             atualizarInterface();
         }
         
@@ -5503,6 +5524,11 @@ function carregarDadosSalvos() {
                 document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase;
             }
             
+            if (personagemTemp.pontosIniciais !== undefined) {
+                pontosIniciais = personagemTemp.pontosIniciais;
+                if (elements.pontosIniciaisInput) elements.pontosIniciaisInput.value = pontosIniciais;
+            }
+            
             if (personagemTemp.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
                 elements.previewImage.src = personagemTemp.fotoURL;
                 elements.previewArea.style.display = 'block';
@@ -5515,7 +5541,7 @@ function carregarDadosSalvos() {
                 atributos.iq = personagemTemp.atributos.iq || { valor: 5, bolinhas: 0, base: 5 };
                 atributos.ht = personagemTemp.atributos.ht || { valor: 8, bolinhas: 0, base: 8 };
                 
-                pontosRestantes = 6 - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
+                pontosRestantes = pontosIniciais - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
                 atualizarInterface();
             }
             
@@ -5610,6 +5636,7 @@ async function exportarPDF() {
         const idade = document.getElementById('idadePersonagem')?.value || '25';
         const altura = document.getElementById('alturaPersonagem')?.value || '170';
         const peso = document.getElementById('pesoPersonagem')?.value || '70';
+        const nivel = elements.nivelPersonagemSpan?.textContent || '1';
         
         const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
         
@@ -5627,6 +5654,8 @@ async function exportarPDF() {
         pdf.text(`Classe: ${classes[classe] || classe}`, 25, yPos);
         yPos += 6;
         pdf.text(`Idade: ${idade} anos | Altura: ${altura} cm | Peso: ${peso} kg`, 25, yPos);
+        yPos += 6;
+        pdf.text(`Nível: ${nivel}`, 25, yPos);
         yPos += 10;
         
         pdf.setFontSize(14);
@@ -5695,9 +5724,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (elements.pontosIniciaisInput) {
         elements.pontosIniciaisInput.addEventListener('change', () => {
-            const novosPontos = parseInt(elements.pontosIniciaisInput.value) || 6;
-            pontosRestantes = novosPontos;
-            if (elements.pontosRestantesSpan) elements.pontosRestantesSpan.textContent = pontosRestantes;
+            pontosIniciais = parseInt(elements.pontosIniciaisInput.value) || 6;
+            pontosRestantes = pontosIniciais - (atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas);
+            if (elements.pontosRestantesSpan) {
+                elements.pontosRestantesSpan.textContent = pontosRestantes;
+            }
             triggerAutoSave();
         });
     }
@@ -6102,4 +6133,3 @@ atualizarContadoresAbas();
 </script>
 </body>
 </html>
-
