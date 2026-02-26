@@ -5209,14 +5209,14 @@ window.AVENTURA = {
     }
 },
         
-      // ============================================
-// CENA: CLAREIRA DOS GOBLINS (COMPLETA)
+     // ============================================
+// CENA: CLAREIRA DOS GOBLINS (COMPLETA E CORRIGIDA)
 // ============================================
 
 clareira_goblins: {
     id: "clareira_goblins",
     nome: "Clareira na Floresta",
-    imagem: "clareira-goblins.jpg",
+    imagem: "clareira-goblins.jpg", // Nome do arquivo da imagem de fundo
     
     // Estado da cena
     estado: {
@@ -5227,15 +5227,15 @@ clareira_goblins: {
         informacaoObtida: false
     },
     
-    // Dados dos inimigos (ATUALIZADO com seus stats)
+    // Dados dos inimigos
     dadosInimigos: {
         goblin_arqueiro: {
             id: "goblin_arqueiro",
             nome: "Goblin Arqueiro",
-            sprite: "goblin_arqueiro.png",
+            sprite: "goblin-arqueiro.png", // CORRIGIDO: hífen
             pv: 64,
             pv_max: 64,
-            defesa: 9,        // esquiva do computador
+            defesa: 9,
             dx: 12,
             nh_ataque: 12,
             dano: "2d-1",
@@ -5245,7 +5245,7 @@ clareira_goblins: {
         goblin_guerreiro: {
             id: "goblin_guerreiro",
             nome: "Goblin Guerreiro",
-            sprite: "goblin_guerreiro.png",
+            sprite: "goblin-guerreiro.png", // CORRIGIDO: hífen
             pv: 72,
             pv_max: 72,
             defesa: 9,
@@ -5276,7 +5276,7 @@ clareira_goblins: {
         {
             id: "goblin_arqueiro",
             nome: "Goblin Arqueiro",
-            sprite: "goblin_arqueiro.png",
+            sprite: "goblin-arqueiro.png", // CORRIGIDO
             pv: 64,
             pv_max: 64,
             defesa: 9,
@@ -5288,7 +5288,7 @@ clareira_goblins: {
         {
             id: "goblin_guerreiro",
             nome: "Goblin Guerreiro",
-            sprite: "goblin_guerreiro.png",
+            sprite: "goblin-guerreiro.png", // CORRIGIDO
             pv: 72,
             pv_max: 72,
             defesa: 9,
@@ -5312,19 +5312,30 @@ clareira_goblins: {
         }
     ],
     
-    // Fala inicial do narrador (MAIS DETALHADA)
+    // Fala inicial do narrador
     fala: {
         npc: "Narrador",
         texto: "Seguindo os rastros pela floresta densa, você finalmente chega a uma clareira. O cheiro de fumaça e carne queimada toma conta do ar. Escondido atrás de uma moita, você avista um acampamento goblin... Três deles estão ao redor de uma fogueira, um segurando um arco, outro com uma espada maior e um terceiro menor, aparentemente mais fraco."
     },
     
-    // Função RENDERIZAR (substitui o opcoes simples)
+    // ===== FUNÇÃO RENDERIZAR =====
     renderizar: function() {
         const cenaAtual = this;
+        
+        // Resetar estado da cena
+        this.estado = {
+            furtividadeTestada: false,
+            percepcaoTestada: false,
+            furtividadeSucesso: false,
+            inimigosAlertados: false,
+            informacaoObtida: false
+        };
         
         // Imagem de fundo
         if (window.cenarioArea) {
             window.cenarioArea.style.backgroundImage = "url('clareira-goblins.jpg')";
+            window.cenarioArea.style.backgroundSize = "cover";
+            window.cenarioArea.style.backgroundPosition = "center";
         }
         
         // Remover NPCs visuais (só inimigos em combate)
@@ -5337,13 +5348,14 @@ clareira_goblins: {
         if (window.npcAvatar) window.npcAvatar.style.display = 'none';
         if (window.dialogoTexto) window.dialogoTexto.textContent = this.fala.texto;
         
-        // Se já alertou os inimigos, mostra opção de combate direto
-        if (this.estado.inimigosAlertados) {
-            this.mostrarOpcoesCombate();
-            return;
-        }
+        // Mostrar opções iniciais
+        this.mostrarOpcoesIniciais();
+    },
+    
+    // ===== MOSTRAR OPÇÕES INICIAIS =====
+    mostrarOpcoesIniciais: function() {
+        const cenaAtual = this;
         
-        // Opções iniciais
         if (window.opcoesDialogo) {
             window.opcoesDialogo.innerHTML = '';
             
@@ -5390,12 +5402,12 @@ clareira_goblins: {
             window.dialogoTexto.textContent = "Você se agacha e começa a se mover silenciosamente entre as árvores, tentando se aproximar do acampamento sem ser notado...";
         }
         
-        // Remover botões
+        // Mostrar botão de processamento
         if (window.opcoesDialogo) {
             window.opcoesDialogo.innerHTML = '';
             const btnProcessando = document.createElement('button');
             btnProcessando.className = 'opcao-btn';
-            btnProcessando.textContent = "⏳ Aguardando resultado...";
+            btnProcessando.textContent = "⏳ Rolando dados...";
             btnProcessando.disabled = true;
             window.opcoesDialogo.appendChild(btnProcessando);
         }
@@ -5411,19 +5423,28 @@ clareira_goblins: {
             // Pega o valor da perícia Furtividade se existir
             if (personagem.pericias && personagem.pericias.furtividade) {
                 furtividade = personagem.pericias.furtividade.nh || 0;
+                if (window.adicionarLog) {
+                    window.adicionarLog(`📊 Usando perícia Furtividade: NH ${furtividade}`, 'info');
+                }
             } else {
                 // Fallback: DX + 3
-                furtividade = (personagem.atributos?.dx?.valor || 10) + 3;
+                const dx = personagem.atributos?.dx?.valor || 10;
+                furtividade = dx + 3;
+                if (window.adicionarLog) {
+                    window.adicionarLog(`📊 Sem perícia, usando DX+3: ${dx}+3 = ${furtividade}`, 'info');
+                }
             }
             
             // Rola 2d10
-            const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+            const d1 = Math.floor(Math.random() * 10) + 1;
+            const d2 = Math.floor(Math.random() * 10) + 1;
+            const rolagem = d1 + d2;
             const sucesso = rolagem <= furtividade;
             
-            // Log
+            // Log no console
             if (window.adicionarLog) {
-                window.adicionarLog(`🥷 TESTE DE FURTIVIDADE`, 'info');
-                window.adicionarLog(`   NH: ${furtividade} | Rolagem: ${rolagem}`, 'info');
+                window.adicionarLog(`🎲 TESTE DE FURTIVIDADE: ${d1} + ${d2} = ${rolagem}`, 'info');
+                window.adicionarLog(`   NH: ${furtividade} | Resultado: ${rolagem}`, 'info');
                 window.adicionarLog(sucesso ? '   ✅ Sucesso!' : '   ❌ Falhou!', sucesso ? 'sucesso' : 'erro');
             }
             
@@ -5470,8 +5491,7 @@ clareira_goblins: {
             btnAtacar.innerHTML = '⚔️ Atacar de surpresa (bônus de +3)';
             btnAtacar.addEventListener('click', () => {
                 cenaAtual.estado.inimigosAlertados = true;
-                // Bônus de emboscada
-                cenaAtual.iniciarCombate(true);
+                cenaAtual.iniciarCombate(true); // true = emboscada
             });
             window.opcoesDialogo.appendChild(btnAtacar);
             
@@ -5499,7 +5519,7 @@ clareira_goblins: {
             window.dialogoTexto.textContent = "Você se concentra para ouvir o que os goblins estão falando...";
         }
         
-        // Remover botões
+        // Mostrar botão de processamento
         if (window.opcoesDialogo) {
             window.opcoesDialogo.innerHTML = '';
             const btnProcessando = document.createElement('button');
@@ -5514,17 +5534,24 @@ clareira_goblins: {
             
             // Calcula Percepção
             let percepcao = personagem.atributos?.iq?.valor || 10;
+            let bonusTexto = '';
+            
             if (personagem.vantagens && personagem.vantagens.includes('sentidosAgucados')) {
                 percepcao += 2;
+                bonusTexto = ' +2 Sentidos Aguçados';
             }
             
-            const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+            // Rola 2d10
+            const d1 = Math.floor(Math.random() * 10) + 1;
+            const d2 = Math.floor(Math.random() * 10) + 1;
+            const rolagem = d1 + d2;
             const sucesso = rolagem <= percepcao;
             const margem = percepcao - rolagem;
             
             if (window.adicionarLog) {
-                window.adicionarLog(`👂 TESTE DE PERCEPÇÃO`, 'info');
-                window.adicionarLog(`   NH: ${percepcao} | Rolagem: ${rolagem}`, 'info');
+                window.adicionarLog(`👂 TESTE DE PERCEPÇÃO: ${d1} + ${d2} = ${rolagem}`, 'info');
+                window.adicionarLog(`   NH: IQ ${personagem.atributos?.iq?.valor || 10}${bonusTexto} = ${percepcao}`, 'info');
+                window.adicionarLog(sucesso ? '   ✅ Sucesso!' : '   ❌ Falhou!', sucesso ? 'sucesso' : 'erro');
             }
             
             if (sucesso) {
@@ -5532,14 +5559,14 @@ clareira_goblins: {
                 cenaAtual.estado.informacaoObtida = true;
                 
                 let textoInfo = "Você escuta claramente a conversa:\n\n";
-                textoInfo += "'O chefe vai ficar contente!' diz o goblin arqueiro.\n";
-                textoInfo += "'A menina elfa de cabelo prateado vai render um bom resgate na caverna.'\n";
-                textoInfo += "'Cala a boca seu idiota!' responde o guerreiro, 'E se alguém estiver ouvindo?'\n\n";
+                textoInfo += "🏹 Goblin Arqueiro: 'O chefe vai ficar contente!'\n";
+                textoInfo += "⚔️ Goblin Guerreiro: 'A menina elfa de cabelo prateado vai render um bom resgate na caverna.'\n";
+                textoInfo += "👺 Goblin Normal: 'Cala a boca seu idiota! E se alguém estiver ouvindo?'\n\n";
                 
                 if (margem >= 3) {
-                    textoInfo += "Com sua percepção aguçada, você também percebe que eles estão de guarda baixa, distraídos com a conversa. Seria fácil atacá-los de surpresa.";
+                    textoInfo += "✨ Com sua percepção aguçada, você percebe que eles estão de guarda baixa, distraídos com a discussão. Seria fácil atacá-los de surpresa.";
                 } else {
-                    textoInfo += "Agora você sabe: a menina está em uma CAVERNA. Esses goblins são apenas um acampamento avançado.";
+                    textoInfo += "📝 Agora você sabe: a menina está em uma CAVERNA. Esses goblins são apenas um acampamento avançado.";
                 }
                 
                 if (window.dialogoTexto) {
@@ -5547,18 +5574,18 @@ clareira_goblins: {
                 }
                 
                 if (window.adicionarLog) {
-                    window.adicionarLog(`🔍 Informação: Lyra está na caverna!`, 'sucesso');
+                    window.adicionarLog(`🔍 INFORMAÇÃO OBTIDA: Lyra está na caverna!`, 'sucesso');
                 }
                 
                 // Mostrar opções pós-informação
                 setTimeout(() => {
                     cenaAtual.aposInformacao();
-                }, 4000);
+                }, 5000); // 5 segundos para ler o texto
                 
             } else {
                 // Falhou na percepção
                 if (window.dialogoTexto) {
-                    window.dialogoTexto.textContent = "Os goblins estão falando muito baixo. Você não consegue entender nada, apenas ouve risadas e 'menina', 'caverna'... Nada muito claro.";
+                    window.dialogoTexto.textContent = "Os goblins estão falando muito baixo. Você não consegue entender nada, apenas ouve palavras soltas como 'menina', 'caverna'... Nada muito claro.";
                 }
                 
                 if (window.adicionarLog) {
@@ -5603,7 +5630,7 @@ clareira_goblins: {
             });
             window.opcoesDialogo.appendChild(btnSeguir);
             
-            // Opção: Voltar
+            // Opção: Voltar para a floresta
             const btnVoltar = document.createElement('button');
             btnVoltar.className = 'opcao-btn';
             btnVoltar.innerHTML = '👣 Voltar para a floresta';
@@ -5616,6 +5643,11 @@ clareira_goblins: {
     
     // ===== INICIAR COMBATE =====
     iniciarCombate: function(emboscada = false) {
+        // Se for emboscada, adiciona bônus no log
+        if (emboscada && window.adicionarLog) {
+            window.adicionarLog(`🎯 ATAQUE SURPRESA! Bônus de +3 na iniciativa!`, 'sucesso');
+        }
+        
         // Prepara os inimigos para o combate
         const inimigosCombate = this.inimigos.map(inimigo => ({
             ...inimigo,
