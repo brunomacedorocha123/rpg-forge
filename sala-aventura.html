@@ -3753,6 +3753,24 @@ window.AVENTURA = {
     nome: "Estrada Norte - Encontro com a Camponesa",
     imagem: "estrada-norte.jpg",
     
+    // NPC aparece no cenário (apenas visual)
+    npcs: [
+        {
+            id: "camponesa",
+            nome: "Elara",
+            sprite: "camponesa.png",
+            x: 50,
+            y: 60,
+            visivel: true
+        }
+    ],
+    
+    // Fala inicial do narrador
+    fala: {
+        npc: "Narrador",
+        texto: "Uma jovem camponesa colhe flores à beira da estrada. Seu cesto está cheio de lírios silvestres. Ela ainda não notou sua presença."
+    },
+    
     // Dados da NPC para o sistema social
     npcData: {
         nome: "Elara",
@@ -3760,15 +3778,6 @@ window.AVENTURA = {
         iq: 12,
         reacaoBase: 10,
         personalidade: "curiosa mas cautelosa"
-    },
-    
-    // Função especial que será chamada ao entrar na cena
-    aoEntrar: function() {
-        const reacao = SistemaSocial.testarReacao(this.npcData, window.personagem);
-        adicionarLog(`🎭 REAÇÃO DA CAMPONESA: ${reacao.classificacao.toUpperCase()} (${reacao.valor})`, 'info');
-        adicionarLog(`   Rolagem: ${reacao.rolagem} | Bônus: +${reacao.bonusAparencia + reacao.bonusCarisma}`, 'info');
-        this.reacaoAtual = reacao;
-        return reacao;
     },
     
     // Diálogos baseados na reação
@@ -3807,35 +3816,96 @@ window.AVENTURA = {
     estado: {
         reacao: null,
         flerteTentado: false,
-        infoRevelada: false
+        infoRevelada: false,
+        aguardandoReacao: true
     },
     
     // ===== FUNÇÃO PRINCIPAL RENDERIZAR =====
     renderizar: function() {
-        // Guarda referência da cena para usar dentro dos eventos
         const cenaAtual = this;
         
-        // Testar reação se não tiver feito ainda
-        if (!this.estado.reacao) {
-            this.estado.reacao = this.aoEntrar();
+        // Se ainda está aguardando a reação, mostra a descrição inicial
+        if (this.estado.aguardandoReacao) {
+            // Já tem a fala do narrador do array fala
+            
+            // Criar botão para iniciar interação
+            if (opcoesDialogo) {
+                opcoesDialogo.innerHTML = '';
+                
+                const btnAproximar = document.createElement('button');
+                btnAproximar.className = 'opcao-btn';
+                btnAproximar.textContent = "👋 Aproximar-se da camponesa";
+                btnAproximar.addEventListener('click', () => {
+                    cenaAtual.iniciarInteracao();
+                });
+                opcoesDialogo.appendChild(btnAproximar);
+                
+                const btnIgnorar = document.createElement('button');
+                btnIgnorar.className = 'opcao-btn';
+                btnIgnorar.textContent = "➡️ Seguir caminho sem interagir";
+                btnIgnorar.addEventListener('click', () => {
+                    dialogoTexto.textContent = "Você decide não perturbar a camponesa e continua sua jornada.";
+                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                });
+                opcoesDialogo.appendChild(btnIgnorar);
+            }
         }
+    },
+    
+    // ===== INICIAR INTERAÇÃO =====
+    iniciarInteracao: function() {
+        const cenaAtual = this;
         
-        const reacaoClass = this.estado.reacao.classificacao;
-        const dialogoAtual = this.dialogo[reacaoClass];
-        
-        // Atualizar interface
-        if (dialogoTexto) {
-            dialogoTexto.textContent = dialogoAtual.texto;
-        }
+        // Mudar nome para Elara
         if (npcNome) {
             npcNome.textContent = this.npcData.nome;
         }
         
-        // Criar opções baseadas na reação
-        const opcoes = this.criarOpcoes(reacaoClass);
+        // Mostrar "processando"
+        if (dialogoTexto) {
+            dialogoTexto.textContent = "Você se aproxima... Ela levanta os olhos e nota sua presença.";
+        }
         
-        // Renderizar opções (passando o contexto)
-        this.renderizarOpcoes(opcoes, cenaAtual);
+        // Remover botões
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            const btnProcessando = document.createElement('button');
+            btnProcessando.className = 'opcao-btn';
+            btnProcessando.textContent = "⏳ Aguardando reação...";
+            btnProcessando.disabled = true;
+            opcoesDialogo.appendChild(btnProcessando);
+        }
+        
+        // Processar reação após 2 segundos
+        setTimeout(() => {
+            // Testar reação
+            if (!cenaAtual.estado.reacao) {
+                cenaAtual.estado.reacao = cenaAtual.aoEntrar();
+            }
+            
+            const reacaoClass = cenaAtual.estado.reacao.classificacao;
+            const dialogoAtual = cenaAtual.dialogo[reacaoClass];
+            
+            // Mostrar reação
+            if (dialogoTexto) {
+                dialogoTexto.textContent = dialogoAtual.texto;
+            }
+            
+            // Criar opções baseadas na reação
+            const opcoes = cenaAtual.criarOpcoes(reacaoClass);
+            cenaAtual.renderizarOpcoes(opcoes, cenaAtual);
+            
+        }, 2000);
+    },
+    
+    // ===== FUNÇÃO ESPECIAL QUE SERÁ CHAMADA AO ENTRAR NA CENA =====
+    aoEntrar: function() {
+        const reacao = SistemaSocial.testarReacao(this.npcData, window.personagem);
+        adicionarLog(`🎭 REAÇÃO DA CAMPONESA: ${reacao.classificacao.toUpperCase()} (${reacao.valor})`, 'info');
+        adicionarLog(`   Rolagem: ${reacao.rolagem} | Bônus: +${reacao.bonusAparencia + reacao.bonusCarisma}`, 'info');
+        this.reacaoAtual = reacao;
+        return reacao;
     },
     
     // ===== CRIAR OPÇÕES BASEADAS NA REAÇÃO =====
