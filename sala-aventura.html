@@ -3786,9 +3786,7 @@ window.AVENTURA = {
             ]
         },
         
-       // Dentro de window.AVENTURA.cenas, substituir "encontro_camponesa" por:
-
-encontro_camponesa: {
+     encontro_camponesa: {
     id: "encontro_camponesa",
     nome: "Estrada Norte - Encontro com a Camponesa",
     imagem: "estrada-norte.jpg",
@@ -3797,22 +3795,16 @@ encontro_camponesa: {
     npcData: {
         nome: "Elara",
         genero: "feminino",
-        iq: 12, // Para testes de resistência
+        iq: 12,
         reacaoBase: 10,
         personalidade: "curiosa mas cautelosa"
     },
     
     // Função especial que será chamada ao entrar na cena
     aoEntrar: function() {
-        // Testar reação da camponesa
         const reacao = SistemaSocial.testarReacao(this.npcData, personagem);
-        
-        // Log para debug (remover em produção)
         console.log('🎭 Reação da camponesa:', reacao);
-        
-        // Salvar no estado da cena
         this.reacaoAtual = reacao;
-        
         return reacao;
     },
     
@@ -3832,7 +3824,7 @@ encontro_camponesa: {
         }
     },
     
-    // Informações que ela pode dar (diferentes níveis)
+    // Informações que ela pode dar
     informacoes: {
         normal: [
             "Ultimamente tenho ouvido uivos estranhos vindo da floresta à noite. Meu pai disse para eu não me afastar muito de casa.",
@@ -3855,8 +3847,11 @@ encontro_camponesa: {
         infoRevelada: false
     },
     
-    // Função para renderizar a cena
+    // ===== FUNÇÃO PRINCIPAL RENDERIZAR (CORRIGIDA) =====
     renderizar: function() {
+        // Guarda referência da cena para usar dentro dos eventos
+        const cenaAtual = this;
+        
         // Testar reação se não tiver feito ainda
         if (!this.estado.reacao) {
             this.estado.reacao = this.aoEntrar();
@@ -3876,15 +3871,14 @@ encontro_camponesa: {
         // Criar opções baseadas na reação
         const opcoes = this.criarOpcoes(reacaoClass);
         
-        // Renderizar opções
-        this.renderizarOpcoes(opcoes);
+        // Renderizar opções (passando o contexto)
+        this.renderizarOpcoes(opcoes, cenaAtual);
     },
     
     // Criar opções dinamicamente
     criarOpcoes: function(reacaoClass) {
         const opcoesBase = [];
         
-        // Opções comuns a todas as reações
         if (reacaoClass === 'ruim') {
             opcoesBase.push(
                 {
@@ -3893,7 +3887,7 @@ encontro_camponesa: {
                     tipo: "acalmar",
                     nhBase: SistemaSocial.calcularNHPericia('labia', personagem) || 
                             SistemaSocial.calcularNHPericia('persuasao', personagem) || 8,
-                    dificuldade: 12 // IQ dela
+                    dificuldade: 12
                 },
                 {
                     texto: "Se afastar lentamente",
@@ -3978,8 +3972,8 @@ encontro_camponesa: {
         return opcoesBase;
     },
     
-    // Renderizar opções
-    renderizarOpcoes: function(opcoes) {
+    // ===== RENDERIZAR OPÇÕES (CORRIGIDO) =====
+    renderizarOpcoes: function(opcoes, cenaAtual) {
         if (!opcoesDialogo) return;
         opcoesDialogo.innerHTML = '';
         
@@ -3989,7 +3983,7 @@ encontro_camponesa: {
             btn.textContent = opcao.texto;
             
             btn.addEventListener('click', () => {
-                this.processarAcao(opcao);
+                cenaAtual.processarAcao(opcao);
             });
             
             opcoesDialogo.appendChild(btn);
@@ -4026,26 +4020,24 @@ encontro_camponesa: {
         }
     },
     
-    // Realizar teste social (Lábia/Persuasão)
+    // Realizar teste social
     realizarTesteSocial: function(opcao) {
         const nhJogador = opcao.nhBase;
         const dificuldade = opcao.dificuldade;
         
         const resultado = SistemaSocial.testeSocial(nhJogador, dificuldade);
         
-        // Log para o jogador ver
         adicionarLog(`🎭 Teste de ${opcao.tipo}: ${resultado.rolagem} vs NH ${nhJogador}`, 'info');
         
         if (resultado.sucesso) {
             if (resultado.critico) {
                 dialogoTexto.textContent = "Suas palavras são tão convincentes que ela relaxa completamente. 'Desculpe meu medo... você parece ser uma boa pessoa. Como posso ajudar?'";
-                this.estado.reacao.classificacao = 'otima'; // Melhora a reação
+                this.estado.reacao.classificacao = 'otima';
             } else {
                 dialogoTexto.textContent = "Ela parece se acalmar um pouco. 'Tudo bem... acho que me assustei à toa. Viajantes normalmente são pacíficos.'";
-                this.estado.reacao.classificacao = 'normal'; // Melhora para normal
+                this.estado.reacao.classificacao = 'normal';
             }
             
-            // Recriar opções com nova reação
             setTimeout(() => this.renderizar(), 2000);
             
         } else {
@@ -4059,7 +4051,7 @@ encontro_camponesa: {
         }
     },
     
-    // Fornecer informação baseada no tipo
+    // Fornecer informação
     fornecerInfo: function(tipo) {
         const reacaoClass = this.estado.reacao.classificacao;
         let info = "";
@@ -4078,11 +4070,9 @@ encontro_camponesa: {
             if (tipo === 'menina') {
                 info = this.informacoes.otima[0];
                 
-                // Dar a boneca se tiver (conexão com a cena anterior)
                 if (!this.estado.infoRevelada) {
                     this.estado.infoRevelada = true;
                     
-                    // Oferecer item depois da informação
                     setTimeout(() => {
                         if (confirm("Elara hesita... 'Olha, não conte a ninguém, mas posso te dar um amuleto de proteção. Minha avó disse que traz sorte.'")) {
                             if (!personagem.inventario.mochila) personagem.inventario.mochila = [];
@@ -4107,7 +4097,6 @@ encontro_camponesa: {
             dialogoTexto.textContent = info;
         }
         
-        // Manter opções após a informação
         setTimeout(() => this.renderizar(), 4000);
     },
     
@@ -4123,7 +4112,7 @@ encontro_camponesa: {
         
         const nhLabia = SistemaSocial.calcularNHPericia('labia', personagem);
         const nhPersuasao = SistemaSocial.calcularNHPericia('persuasao', personagem);
-        const nhFlerte = Math.max(nhLabia, nhPersuasao, 8); // Mínimo 8
+        const nhFlerte = Math.max(nhLabia, nhPersuasao, 8);
         
         dialogoTexto.textContent = "Você comenta que as flores que ela colhe são bonitas, e que combinam com seus olhos. Ela cora levemente.";
         
@@ -4150,6 +4139,9 @@ encontro_camponesa: {
     
     // Renderizar opções de flerte
     renderizarOpcoesFlerte: function(opcoes) {
+        if (!opcoesDialogo) return;
+        
+        const cenaAtual = this;
         opcoesDialogo.innerHTML = '';
         
         opcoes.forEach(opcao => {
@@ -4159,12 +4151,12 @@ encontro_camponesa: {
             
             btn.addEventListener('click', () => {
                 if (opcao.acao === 'testeFlerte') {
-                    this.testeFlerte(opcao.nh);
+                    cenaAtual.testeFlerte(opcao.nh);
                 } else if (opcao.acao === 'sairFlerte') {
                     dialogoTexto.textContent = "Ela sorri, aliviada. 'Foi bom te conhecer. Boa sorte na sua jornada!'";
                     setTimeout(() => carregarCena('carroca_destruida'), 2000);
                 } else if (opcao.acao === 'voltarInfo') {
-                    this.renderizar(); // Volta às opções normais
+                    cenaAtual.renderizar();
                 }
             });
             
@@ -4174,7 +4166,7 @@ encontro_camponesa: {
     
     // Teste de flerte
     testeFlerte: function(nh) {
-        const resultado = SistemaSocial.testeSocial(nh, 12); // IQ dela 12
+        const resultado = SistemaSocial.testeSocial(nh, 12);
         
         adicionarLog(`💘 Teste de flerte: ${resultado.rolagem} vs NH ${nh}`, 'info');
         
@@ -4182,7 +4174,6 @@ encontro_camponesa: {
             if (resultado.critico) {
                 dialogoTexto.textContent = "Ela cora intensamente e sorri. 'Você é diferente... Sim, adoraria te ver de novo. Volte quando sua missão acabar, prometo estar aqui.' Ela te dá uma flor como lembrança.";
                 
-                // Dar item especial
                 if (!personagem.inventario.mochila) personagem.inventario.mochila = [];
                 personagem.inventario.mochila.push({
                     id: "flor_elara",
@@ -4203,7 +4194,7 @@ encontro_camponesa: {
         }
     },
     
-    // Flerte avançado (reação ótima)
+    // Flerte avançado
     flerteAvancado: function() {
         if (this.estado.flerteTentado) {
             dialogoTexto.textContent = "Ela sorri. 'Você é persistente... Gosto disso. Mas agora não é hora. Vá salvar aquela menina.'";
@@ -4235,8 +4226,7 @@ encontro_camponesa: {
             this.renderizarOpcoesFlerte(opcoes);
         }, 2000);
     }
-},
-        
+}, 
         carroca_destruida: {
             id: "carroca_destruida",
             nome: "Local do Ataque",
