@@ -3838,20 +3838,32 @@ window.AVENTURA = {
         this.renderizarOpcoes(opcoes, cenaAtual);
     },
     
-    // Criar opções dinamicamente
+    // ===== CRIAR OPÇÕES BASEADAS NA REAÇÃO =====
     criarOpcoes: function(reacaoClass) {
         const opcoesBase = [];
         
+        // Verificar se tem Persuasão (perícia social principal)
+        const temPersuasao = window.personagem?.pericias?.persuasao?.nivel > 0;
+        const nhPersuasao = temPersuasao ? 
+            SistemaSocial.calcularNHPericia('persuasao', window.personagem) : 0;
+        
         if (reacaoClass === 'ruim') {
+            // Opção de persuasão só aparece se tiver a perícia
+            if (temPersuasao) {
+                opcoesBase.push(
+                    {
+                        texto: `🎭 Tentar acalmá-la (Persuasão NH ${nhPersuasao})`,
+                        acao: "testeSocial",
+                        tipo: "acalmar",
+                        dificuldade: 12,
+                        pericia: "persuasao",
+                        nh: nhPersuasao
+                    }
+                );
+            }
+            
+            // Opções não-sociais sempre disponíveis
             opcoesBase.push(
-                {
-                    texto: "🎭 Tentar acalmá-la (Lábia/Persuasão)",
-                    acao: "testeSocial",
-                    tipo: "acalmar",
-                    nhBase: SistemaSocial.calcularNHPericia('labia', window.personagem) || 
-                            SistemaSocial.calcularNHPericia('persuasao', window.personagem) || 8,
-                    dificuldade: 12
-                },
                 {
                     texto: "🚶 Se afastar lentamente",
                     acao: "sair",
@@ -3868,6 +3880,7 @@ window.AVENTURA = {
         }
         
         if (reacaoClass === 'normal') {
+            // Opções de informação sempre disponíveis
             opcoesBase.push(
                 {
                     texto: "🗺️ Perguntar sobre a região",
@@ -3883,12 +3896,23 @@ window.AVENTURA = {
                     texto: "👀 Perguntar se viu algo estranho",
                     acao: "info",
                     tipo: "estranho"
-                },
-                {
-                    texto: "🌸 Elogiar suas flores (quem sabe...)",
-                    acao: "flerte",
-                    disponivel: true
-                },
+                }
+            );
+            
+            // Opção de flerte só se tiver Persuasão
+            if (temPersuasao) {
+                opcoesBase.push(
+                    {
+                        texto: `🌸 Elogiar suas flores (Persuasão NH ${nhPersuasao})`,
+                        acao: "flerte",
+                        pericia: "persuasao",
+                        nh: nhPersuasao
+                    }
+                );
+            }
+            
+            // Sair sempre disponível
+            opcoesBase.push(
                 {
                     texto: "➡️ Se despedir e seguir viagem",
                     acao: "sair",
@@ -3898,6 +3922,7 @@ window.AVENTURA = {
         }
         
         if (reacaoClass === 'otima') {
+            // Opções de informação avançada
             opcoesBase.push(
                 {
                     texto: "👧 Perguntar sobre a menina raptada",
@@ -3913,17 +3938,29 @@ window.AVENTURA = {
                     texto: "👺 Perguntar sobre os goblins (detalhado)",
                     acao: "info",
                     tipo: "goblins_avancado"
-                },
-                {
-                    texto: "😍 Elogiar seus olhos (flertar abertamente)",
-                    acao: "flerte",
-                    disponivel: true
-                },
-                {
-                    texto: "🏠 Oferecer companhia até sua cabana",
-                    acao: "flerte_avancado",
-                    disponivel: true
-                },
+                }
+            );
+            
+            // Opções de flerte só se tiver Persuasão
+            if (temPersuasao) {
+                opcoesBase.push(
+                    {
+                        texto: `😍 Elogiar seus olhos (Persuasão NH ${nhPersuasao})`,
+                        acao: "flerte",
+                        pericia: "persuasao",
+                        nh: nhPersuasao
+                    },
+                    {
+                        texto: `🏠 Oferecer companhia até sua cabana (Persuasão NH ${nhPersuasao})`,
+                        acao: "flerte_avancado",
+                        pericia: "persuasao",
+                        nh: nhPersuasao
+                    }
+                );
+            }
+            
+            // Sair sempre disponível
+            opcoesBase.push(
                 {
                     texto: "➡️ Seguir viagem (prometendo voltar)",
                     acao: "sair",
@@ -3965,11 +4002,11 @@ window.AVENTURA = {
                 break;
                 
             case 'flerte':
-                this.iniciarFlerte();
+                this.iniciarFlerte(opcao);
                 break;
                 
             case 'flerte_avancado':
-                this.flerteAvancado();
+                this.flerteAvancado(opcao);
                 break;
                 
             case 'sair':
@@ -3979,7 +4016,7 @@ window.AVENTURA = {
                     // Transição narrativa para a carroça
                     if (opcao.proximo === 'carroca_destruida') {
                         setTimeout(() => {
-                            if (opcao.texto.includes("Se despedir") || opcao.texto.includes("Seguir viagem")) {
+                            if (opcao.texto.includes("Se despedir") || opcao.texto.includes("Seguir")) {
                                 dialogoTexto.textContent = "Você continua pela estrada, os pensamentos ainda na conversa. O sol filtra pelas árvores quando algo chama sua atenção à frente...";
                             } else if (opcao.texto.includes("afastar")) {
                                 dialogoTexto.textContent = "Depois de se afastar, você retoma seu caminho. A floresta parece mais silenciosa agora. Alguns minutos depois, avista algo na estrada...";
@@ -3998,14 +4035,15 @@ window.AVENTURA = {
         }
     },
     
-    // ===== TESTE SOCIAL (Lábia/Persuasão) =====
+    // ===== TESTE SOCIAL (Persuasão) =====
     realizarTesteSocial: function(opcao) {
-        const nhJogador = opcao.nhBase;
+        // Usa o NH real da perícia Persuasão
+        const nhJogador = opcao.nh;
         const dificuldade = opcao.dificuldade;
         
         const resultado = SistemaSocial.testeSocial(nhJogador, dificuldade);
         
-        adicionarLog(`🎲 TESTE DE ${opcao.tipo.toUpperCase()}:`, 'info');
+        adicionarLog(`🎲 TESTE DE PERSUASÃO:`, 'info');
         adicionarLog(`   NH: ${nhJogador} vs Dificuldade ${dificuldade}`, 'info');
         adicionarLog(`   Rolagem: ${resultado.rolagem}`, 'info');
         adicionarLog(`   Margem: ${resultado.margem}`, 'info');
@@ -4100,7 +4138,7 @@ window.AVENTURA = {
     },
     
     // ===== INICIAR FLERTE =====
-    iniciarFlerte: function() {
+    iniciarFlerte: function(opcao) {
         if (this.estado.flerteTentado) {
             dialogoTexto.textContent = "Ela ri, corando. 'Outra hora, talvez... Vá, sua aventura te espera.'";
             
@@ -4114,12 +4152,11 @@ window.AVENTURA = {
         
         this.estado.flerteTentado = true;
         
-        const nhLabia = SistemaSocial.calcularNHPericia('labia', window.personagem);
-        const nhPersuasao = SistemaSocial.calcularNHPericia('persuasao', window.personagem);
-        const nhFlerte = Math.max(nhLabia, nhPersuasao, 8);
+        // Usa o NH real da perícia vindo da opção
+        const nhFlerte = opcao.nh;
         
         adicionarLog(`💘 INICIANDO FLERTE...`, 'info');
-        adicionarLog(`   NH para flerte: ${nhFlerte}`, 'info');
+        adicionarLog(`   NH: ${nhFlerte}`, 'info');
         
         dialogoTexto.textContent = "Você comenta que as flores que ela colhe são bonitas, e que combinam com seus olhos. Ela cora levemente.";
         
@@ -4239,7 +4276,7 @@ window.AVENTURA = {
     },
     
     // ===== FLERTE AVANÇADO =====
-    flerteAvancado: function() {
+    flerteAvancado: function(opcao) {
         if (this.estado.flerteTentado) {
             dialogoTexto.textContent = "Ela sorri. 'Você é persistente... Gosto disso. Mas agora não é hora. Vá salvar aquela menina.'";
             
@@ -4253,9 +4290,8 @@ window.AVENTURA = {
         
         this.estado.flerteTentado = true;
         
-        const nhLabia = SistemaSocial.calcularNHPericia('labia', window.personagem);
-        const nhPersuasao = SistemaSocial.calcularNHPericia('persuasao', window.personagem);
-        const nhFlerte = Math.max(nhLabia, nhPersuasao, 8);
+        // Usa o NH real da perícia vindo da opção
+        const nhFlerte = opcao.nh;
         
         adicionarLog(`💘 FLERTE AVANÇADO...`, 'info');
         adicionarLog(`   NH: ${nhFlerte}`, 'info');
