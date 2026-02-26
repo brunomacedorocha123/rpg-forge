@@ -2787,13 +2787,16 @@ function atualizarFichaPersonagem() {
     atualizarNivelNaTela();
 }
 
-// ===== FUNÇÕES DE CENA E AVENTURA =====
+// ===== FUNÇÃO CORRIGIDA DE CARREGAR CENA COM SUPORTE AO SISTEMA SOCIAL =====
 function carregarCena(cenaId) {
     if (!cenaId) return;
     
     if (typeof cenaId === 'string') {
         const cena = historia.cenas[cenaId];
-        if (!cena) return;
+        if (!cena) {
+            console.error('Cena não encontrada:', cenaId);
+            return;
+        }
         capituloAtual = cena;
     } else {
         capituloAtual = cenaId;
@@ -2801,6 +2804,30 @@ function carregarCena(cenaId) {
     
     if (!capituloAtual) return;
     
+    // VERIFICAR SE A CENA TEM MÉTODO RENDERIZAR (para cenas sociais complexas)
+    if (capituloAtual.renderizar && typeof capituloAtual.renderizar === 'function') {
+        console.log('🎭 Renderizando cena social complexa:', cenaId);
+        
+        // Atualiza a imagem de fundo
+        if (capituloAtual.imagem && cenarioArea) {
+            cenarioArea.style.backgroundImage = `url('${capituloAtual.imagem}')`;
+        }
+        
+        // Limpa NPCs (a cena social vai gerenciar isso)
+        if (npcsContainer) npcsContainer.innerHTML = '';
+        
+        // Chama o método renderizar da cena
+        capituloAtual.renderizar();
+        
+        // Atualiza o ato baseado na cena
+        if (cenaId === 'encontro_camponesa') {
+            setAto(4, 'A Floresta - Encontro com Elara');
+        }
+        
+        return; // IMPORTANTE: Sai da função para não executar o código padrão
+    }
+    
+    // CÓDIGO EXISTENTE PARA CENAS PADRÃO (mantido igual)
     if (cenaId === 'exterior_taverna' || cenaId === 'interior_taverna') {
         setAto(1, 'A Taverna');
     } else if (cenaId === 'interior_taverna_com_homem' || cenaId === 'homem_fala_detalhes') {
@@ -2815,12 +2842,14 @@ function carregarCena(cenaId) {
         setAto(6, 'O Retorno');
     }
     
+    // Imagem de fundo
     if (capituloAtual.imagem && cenarioArea) {
         cenarioArea.style.backgroundImage = `url('${capituloAtual.imagem}')`;
     } else if (cenarioArea) {
         cenarioArea.style.backgroundImage = 'none';
     }
     
+    // NPCs
     if (npcsContainer) npcsContainer.innerHTML = '';
     if (capituloAtual.npcs && npcsContainer) {
         capituloAtual.npcs.forEach(npc => {
@@ -2855,6 +2884,7 @@ function carregarCena(cenaId) {
         });
     }
     
+    // Fala
     if (capituloAtual.fala) {
         if (npcNome) npcNome.textContent = capituloAtual.fala.npc || 'Narrador';
         if (capituloAtual.fala.avatar && npcAvatar) {
@@ -3556,7 +3586,7 @@ setInterval(() => {
         salvarProgresso();
     }
 }, 30000);
-
+</script>
 </script>
 
 <!-- AVENTURA COMPLETA -->
