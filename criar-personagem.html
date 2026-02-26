@@ -4001,7 +4001,7 @@ function salvarInventario() {
     }
 }
 // ============================================
-// FUNÇÕES DE INTERFACE
+// FUNÇÕES DE INTERFACE - COMPLETO E CORRIGIDO
 // ============================================
 
 function atualizarInterface() {
@@ -4048,216 +4048,14 @@ function atualizarInterface() {
 }
 
 // ============================================
-// FUNÇÃO: NÍVEL DO PERSONAGEM
+// FUNÇÃO: NÍVEL DO PERSONAGEM (SEM LOGS)
 // ============================================
 function atualizarNivelPersonagem() {
     if (elements.nivelPersonagemSpan) {
         const totalBolinhas = atributos.st.bolinhas + atributos.dx.bolinhas + atributos.iq.bolinhas + atributos.ht.bolinhas;
         elements.nivelPersonagemSpan.textContent = totalBolinhas + 1;
     }
-}
-
-function atualizarCombate() {
-    const ht = calcularHTComVantagens();
-    const pv = calcularPV();
-    const fadiga = calcularFadiga();
-    const mana = calcularMana();
-    const deslocamento = calcularDeslocamento();
-    const esquiva = calcularEsquiva();
-    const aparar = calcularAparar();
-    const bloqueio = calcularBloqueio();
-    const rd = calcularRD();
-    
-    if (elements.combatePV) elements.combatePV.textContent = pv;
-    if (elements.thresholdAtordoamento) elements.thresholdAtordoamento.textContent = 6 * ht;
-    if (elements.thresholdMorte) elements.thresholdMorte.textContent = 8 * ht;
-    if (elements.combateFadiga) elements.combateFadiga.textContent = fadiga;
-    if (elements.combateDeslocamento) elements.combateDeslocamento.textContent = deslocamento.toFixed(1);
-    if (elements.defesaEsquiva) elements.defesaEsquiva.textContent = esquiva;
-    if (elements.defesaAparar) elements.defesaAparar.textContent = aparar;
-    if (elements.defesaBloqueio) elements.defesaBloqueio.textContent = bloqueio;
-    if (elements.rdCorpo) elements.rdCorpo.textContent = rd.corpo;
-    if (elements.rdCabeca) elements.rdCabeca.textContent = rd.cabeca;
-    if (elements.rdMembros) elements.rdMembros.textContent = rd.membros;
-    
-    atualizarArmaEquipada();
-    atualizarEscudoPV();
-}
-
-function atualizarArmaEquipada() {
-    if (!elements.armaNome || !elements.armaDano || !elements.armaTipo || !elements.armaAlcance) return;
-    
-    let arma = null;
-    if (inventario.corpo && inventario.corpo.length > 0) {
-        inventario.corpo.forEach(item => {
-            if (item.dano && item.tipo !== 'escudo') arma = item;
-        });
-    }
-    
-    if (arma) {
-        elements.armaNome.textContent = arma.nome;
-        elements.armaDano.textContent = arma.dano;
-        elements.armaTipo.textContent = arma.tipoDano || '-';
-        elements.armaAlcance.textContent = arma.alcance ? arma.alcance.toString() : '-';
-    } else {
-        elements.armaNome.textContent = 'Nenhuma';
-        elements.armaDano.textContent = '-';
-        elements.armaTipo.textContent = '-';
-        elements.armaAlcance.textContent = '-';
-    }
-}
-
-function atualizarEscudoPV() {
-    if (!elements.escudoPVContainer || !elements.escudoPVTexto || !elements.escudoPVBarra) return;
-    
-    let escudo = null;
-    if (inventario.corpo && inventario.corpo.length > 0) {
-        inventario.corpo.forEach(item => {
-            if (item.tipo === 'escudo' || (item.nome && item.nome.toLowerCase().includes('escudo'))) escudo = item;
-        });
-    }
-    
-    if (escudo && escudo.ve) {
-        const partes = escudo.ve.split('/');
-        if (partes.length === 2) {
-            escudoPVMax = parseInt(partes[1]) || 30;
-            if (escudoPVAtual === 0) escudoPVAtual = escudoPVMax;
-            elements.escudoPVContainer.style.display = 'block';
-            elements.escudoPVTexto.textContent = `${escudoPVAtual}/${escudoPVMax}`;
-            const percentual = (escudoPVAtual / escudoPVMax) * 100;
-            elements.escudoPVBarra.style.width = percentual + '%';
-        }
-    } else {
-        elements.escudoPVContainer.style.display = 'none';
-    }
-}
-
-function atualizarNHMagias() {
-    if (!elements.magiaNH_IQ || !elements.magiaNH_Aptidao || !elements.magiaNH_Total || !elements.magiaRequisitoContainer) return;
-    
-    const iq = atributos.iq.valor;
-    const temAptidao = vantagensSelecionadas.has('aptidaoMagica');
-    const aptidaoBonus = temAptidao ? 1 : 0;
-    const nhTotal = iq + aptidaoBonus;
-    
-    elements.magiaNH_IQ.textContent = iq;
-    elements.magiaNH_Aptidao.textContent = temAptidao ? '+1' : '+0';
-    elements.magiaNH_Total.textContent = nhTotal;
-    
-    if (!temAptidao) {
-        elements.magiaRequisitoContainer.innerHTML = `
-            <div class="magia-requisito-alerta">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span>Requer Aptidão Mágica para desbloquear magias</span>
-            </div>
-        `;
-    } else {
-        elements.magiaRequisitoContainer.innerHTML = `
-            <div class="magia-requisito-atendido">
-                <i class="fas fa-check-circle"></i>
-                <span>Aptidão Mágica ativa (+1 nas magias)</span>
-            </div>
-        `;
-    }
-}
-
-function atualizarDinheiroDisplay() {
-    if (elements.dinheiroSaldo) elements.dinheiroSaldo.textContent = dinheiro;
-}
-
-function atualizarContadoresAbas() {
-    if (elements.contadorVantagensAba) elements.contadorVantagensAba.textContent = `${vantagensSelecionadas.size}/3`;
-    if (elements.contadorDesvantagensAba) elements.contadorDesvantagensAba.textContent = `${desvantagensSelecionadas.size}/4`;
-    if (elements.contadorVantagensSpan) elements.contadorVantagensSpan.textContent = `${vantagensSelecionadas.size}/3`;
-    if (elements.contadorDesvantagensSpan) elements.contadorDesvantagensSpan.textContent = `${desvantagensSelecionadas.size}/4`;
-    
-    if (elements.contadorPericiasAba) elements.contadorPericiasAba.textContent = `${pmGastoTotal} PM`;
-    
-    const magiasDesbloqueadas = Object.values(escolas.agua.magias).filter(m => m.desbloqueada).length;
-    if (elements.contadorMagiasAba) elements.contadorMagiasAba.textContent = `${magiasDesbloqueadas}/14`;
-    if (elements.esferasDesbloqueadasSpan) elements.esferasDesbloqueadasSpan.textContent = esferasDesbloqueadas;
-    
-    const aptidao = vantagensSelecionadas.has('aptidaoMagica') ? 1 : 0;
-    if (elements.aptidaoMagicaValor) elements.aptidaoMagicaValor.textContent = `+${aptidao}`;
-    
-    if (elements.pmGasto) elements.pmGasto.textContent = pmGastoTotal;
-    if (elements.pmRestante) elements.pmRestante.textContent = pmDisponivel - pmGastoTotal;
-    
-    atualizarDinheiroDisplay();
-}
-
-function calcularDinheiroInicial() {
-    const base = parseInt(elements.dinheiroBaseInput?.value) || 1000;
-    const riquezaSelect = document.getElementById('riqueza');
-    const riqueza = riquezaSelect?.value || 'medio';
-    
-    let valorInicial = base;
-    
-    if (desvantagensSelecionadas.has('pobre') || riqueza === 'pobre') {
-        valorInicial = Math.floor(base / 2);
-    } else if (vantagensSelecionadas.has('rico') || riqueza === 'rico') {
-        valorInicial = base * 5;
-    }
-    
-    return valorInicial;
-}
-
-function mudarAba(abaId) {
-    elements.abas.forEach(aba => {
-        if (aba.dataset.aba === abaId) aba.classList.add('ativa');
-        else aba.classList.remove('ativa');
-    });
-    
-    elements.conteudos.forEach(conteudo => {
-        if (conteudo.id === `aba${abaId.charAt(0).toUpperCase() + abaId.slice(1)}`) {
-            conteudo.classList.add('ativa');
-        } else {
-            conteudo.classList.remove('ativa');
-        }
-    });
-    
-    abaAtual = abaId;
-    
-    if (abaId === 'basicos') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'inline-flex';
-        elements.btnFinalizar.style.display = 'none';
-    } else if (abaId === 'combate') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'inline-flex';
-        elements.btnFinalizar.style.display = 'none';
-        atualizarCombate();
-    } else if (abaId === 'vantagens') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'inline-flex';
-        elements.btnFinalizar.style.display = 'none';
-        carregarResumoPersonagem();
-    } else if (abaId === 'desvantagens') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'inline-flex';
-        elements.btnFinalizar.style.display = 'none';
-        carregarResumoPersonagem2();
-    } else if (abaId === 'pericias') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'none';
-        elements.btnFinalizar.style.display = 'inline-flex';
-        renderizarCatalogoPericias('todas');
-        renderizarPericiasAdquiridas();
-    } else if (abaId === 'magias') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'none';
-        elements.btnFinalizar.style.display = 'inline-flex';
-        renderizarEsferas();
-        atualizarNHMagias();
-    } else if (abaId === 'equipamentos') {
-        elements.btnAnterior.style.display = 'inline-flex';
-        elements.btnProximo.style.display = 'none';
-        elements.btnFinalizar.style.display = 'inline-flex';
-        atualizarDinheiroDisplay();
-        renderizarInventario();
-        renderizarTabelas('armas_ca');
-    }
-}
+} 
 // ============================================
 // FUNÇÕES DE COMBATE (inalteradas)
 // ============================================
