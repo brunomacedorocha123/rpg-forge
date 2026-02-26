@@ -4372,32 +4372,257 @@ window.AVENTURA = {
         }, 2000);
     }
 },
-        carroca_destruida: {
-            id: "carroca_destruida",
-            nome: "Local do Ataque",
-            imagem: "carroca.jpg",
-            fala: {
-                npc: "Narrador",
-                texto: "Você encontra uma carroça destruída na estrada. Manchas de sangue se espalham pela madeira. Uma boneca de pano está caída na lama."
-            },
-            npcs: [],
-            opcoes: [
-                {
-                    texto: "Pegar a boneca (será importante)",
-                    item: {
-                        id: "boneca_lyra",
-                        nome: "Boneca de Lyra",
-                        descricao: "Uma boneca suja, provavelmente da menina.",
-                        peso: 0.2
-                    },
-                    resposta: "Você guarda a boneca. Pode ser importante."
-                },
-                {
-                    texto: "Seguir os rastros dos goblins",
-                    proximo: "clareira_goblins"
+       carroca_destruida: {
+    id: "carroca_destruida",
+    nome: "Local do Ataque",
+    imagem: "carroca.jpg",
+    
+    // Estado da cena
+    estado: {
+        percepcaoTestada: false,
+        bonecaEncontrada: false,
+        rastrosEncontrados: false,
+        testeRealizado: false
+    },
+    
+    // Fala inicial (sem detalhes)
+    fala: {
+        npc: "Narrador",
+        texto: "A estrada à frente está silenciosa... quieta demais. Conforme você se aproxima, avista algo estranho no caminho."
+    },
+    
+    // ===== FUNÇÃO RENDERIZAR =====
+    renderizar: function() {
+        const cenaAtual = this;
+        
+        // Resetar estado
+        this.estado = {
+            percepcaoTestada: false,
+            bonecaEncontrada: false,
+            rastrosEncontrados: false,
+            testeRealizado: false
+        };
+        
+        // Imagem de fundo
+        if (cenarioArea) {
+            cenarioArea.style.backgroundImage = "url('carroca.jpg')";
+        }
+        
+        // Fala inicial do narrador
+        if (npcNome) npcNome.textContent = "Narrador";
+        if (npcAvatar) npcAvatar.style.display = 'none';
+        if (dialogoTexto) dialogoTexto.textContent = this.fala.texto;
+        
+        // Botão para se aproximar
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            const btnAproximar = document.createElement('button');
+            btnAproximar.className = 'opcao-btn';
+            btnAproximar.textContent = "🔍 Se aproximar para investigar";
+            btnAproximar.addEventListener('click', () => {
+                cenaAtual.iniciarInvestigacao();
+            });
+            opcoesDialogo.appendChild(btnAproximar);
+        }
+    },
+    
+    // ===== INICIAR INVESTIGAÇÃO =====
+    iniciarInvestigacao: function() {
+        const cenaAtual = this;
+        
+        // Primeira visão - descrição inicial
+        if (dialogoTexto) {
+            dialogoTexto.textContent = "Ao se aproximar, você vê os destroços de uma carroça. Madeira partida, mercadorias espalhadas... e manchas de sangue no chão. Parece que o ataque foi recente.";
+        }
+        
+        // Botões de ação
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            const btnObservar = document.createElement('button');
+            btnObservar.className = 'opcao-btn';
+            btnObservar.textContent = "👀 Observar atentamente (Teste de Percepção)";
+            btnObservar.addEventListener('click', () => {
+                cenaAtual.realizarTestePercepcao();
+            });
+            opcoesDialogo.appendChild(btnObservar);
+            
+            const btnSeguir = document.createElement('button');
+            btnSeguir.className = 'opcao-btn';
+            btnSeguir.textContent = "➡️ Seguir caminho (ignorar)";
+            btnSeguir.addEventListener('click', () => {
+                if (dialogoTexto) {
+                    dialogoTexto.textContent = "Você decide não perder tempo e continua pela estrada.";
                 }
-            ]
-        },
+                setTimeout(() => carregarCena('clareira_goblins'), 2000);
+            });
+            opcoesDialogo.appendChild(btnSeguir);
+        }
+    },
+    
+    // ===== TESTE DE PERCEPÇÃO =====
+    realizarTestePercepcao: function() {
+        const cenaAtual = this;
+        
+        // Calcular Percepção do personagem
+        const iq = getValorAtributoReal('iq');
+        const temSentidos = window.personagem?.vantagens?.includes('sentidosAgucados');
+        const bonusVantagem = temSentidos ? 2 : 0;
+        
+        const percepcao = iq + bonusVantagem;
+        
+        adicionarLog(`🔍 TESTE DE PERCEPÇÃO`, 'info');
+        adicionarLog(`   IQ: ${iq} + ${bonusVantagem} (Sentidos Aguçados) = ${percepcao}`, 'info');
+        
+        // Rolar 2d10
+        const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+        const resultado = rolagem;
+        const margem = percepcao - resultado;
+        
+        adicionarLog(`   Rolagem: ${rolagem}`, 'info');
+        adicionarLog(`   Margem: ${margem}`, 'info');
+        
+        // Verificar resultado
+        const sucesso = resultado <= percepcao;
+        
+        if (!sucesso) {
+            // FALHA - Não percebe nada além do óbvio
+            adicionarLog(`❌ Falha na Percepção!`, 'erro');
+            if (dialogoTexto) {
+                dialogoTexto.textContent = "Você examina a área, mas não encontra nada além dos destroços óbvios. Talvez os goblins já tenham levado tudo de valor.";
+            }
+            
+            // Apenas opção de seguir
+            if (opcoesDialogo) {
+                opcoesDialogo.innerHTML = '';
+                const btnSeguir = document.createElement('button');
+                btnSeguir.className = 'opcao-btn';
+                btnSeguir.textContent = "➡️ Seguir para a floresta";
+                btnSeguir.addEventListener('click', () => carregarCena('clareira_goblins'));
+                opcoesDialogo.appendChild(btnSeguir);
+            }
+            return;
+        }
+        
+        // SUCESSO - Encontra a boneca
+        adicionarLog(`✅ Sucesso na Percepção!`, 'sucesso');
+        this.estado.bonecaEncontrada = true;
+        
+        let textoDescoberta = "Examinando cuidadosamente, você nota algo enterrado na lama perto de uma moita, a alguns metros da carroça. É uma boneca de pano, suja, mas intacta.";
+        
+        // Se margem >= 2, encontra também rastros
+        if (margem >= 2) {
+            adicionarLog(`✨ Sucesso por margem ${margem}! Encontra rastros!`, 'sucesso');
+            this.estado.rastrosEncontrados = true;
+            textoDescoberta += " Além disso, você percebe pegadas frescas levando para o norte, na direção da floresta. São pegadas de criaturas pequenas... goblins! E algumas são mais fundas, como se estivessem carregando algo pesado.";
+        } else {
+            textoDescoberta += " Não há outros sinais além dos destroços da carroça.";
+        }
+        
+        if (dialogoTexto) {
+            dialogoTexto.textContent = textoDescoberta;
+        }
+        
+        // Opções pós-descoberta
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            // Opção de pegar a boneca
+            const btnPegar = document.createElement('button');
+            btnPegar.className = 'opcao-btn';
+            btnPegar.textContent = "🧸 Pegar a boneca";
+            btnPegar.addEventListener('click', () => {
+                cenaAtual.pegarBoneca();
+            });
+            opcoesDialogo.appendChild(btnPegar);
+            
+            // Opção de seguir rastros (se encontrou)
+            if (this.estado.rastrosEncontrados) {
+                const btnRastros = document.createElement('button');
+                btnRastros.className = 'opcao-btn';
+                btnRastros.textContent = "👣 Seguir os rastros dos goblins";
+                btnRastros.addEventListener('click', () => {
+                    if (dialogoTexto) {
+                        dialogoTexto.textContent = "Você segue as pegadas pela floresta. Elas levam para o norte, cada vez mais fundo na mata fechada...";
+                    }
+                    setTimeout(() => carregarCena('clareira_goblins'), 2000);
+                });
+                opcoesDialogo.appendChild(btnRastros);
+            } else {
+                // Se não encontrou rastros, opção genérica
+                const btnSeguir = document.createElement('button');
+                btnSeguir.className = 'opcao-btn';
+                btnSeguir.textContent = "➡️ Seguir para a floresta";
+                btnSeguir.addEventListener('click', () => {
+                    if (dialogoTexto) {
+                        dialogoTexto.textContent = "Sem pistas claras, você decide seguir para a floresta. Algo lhe diz que os goblins foram por ali...";
+                    }
+                    setTimeout(() => carregarCena('clareira_goblins'), 2000);
+                });
+                opcoesDialogo.appendChild(btnSeguir);
+            }
+            
+            // Opção de ignorar
+            const btnIgnorar = document.createElement('button');
+            btnIgnorar.className = 'opcao-btn';
+            btnIgnorar.textContent = "🚶 Ignorar e seguir caminho";
+            btnIgnorar.addEventListener('click', () => {
+                if (dialogoTexto) {
+                    dialogoTexto.textContent = "Você decide não se envolver mais e continua sua jornada.";
+                }
+                setTimeout(() => carregarCena('clareira_goblins'), 2000);
+            });
+            opcoesDialogo.appendChild(btnIgnorar);
+        }
+    },
+    
+    // ===== PEGAR BONECA =====
+    pegarBoneca: function() {
+        if (!window.personagem.inventario.mochila) {
+            window.personagem.inventario.mochila = [];
+        }
+        
+        window.personagem.inventario.mochila.push({
+            id: "boneca_lyra_" + Date.now(),
+            nome: "Boneca de Lyra",
+            descricao: "Uma boneca de pano suja, provavelmente da menina raptada. Pode ser importante para convencê-la de que você veio para ajudar.",
+            peso: 0.2
+        });
+        
+        adicionarLog(`🧸 Você pegou: Boneca de Lyra`, 'sucesso');
+        
+        if (dialogoTexto) {
+            dialogoTexto.textContent = "Você guarda a boneca com cuidado. Quem quer que tenha perdido isso deve estar desesperado.";
+        }
+        
+        // Voltar às opções (sem a boneca novamente)
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            if (this.estado.rastrosEncontrados) {
+                const btnRastros = document.createElement('button');
+                btnRastros.className = 'opcao-btn';
+                btnRastros.textContent = "👣 Seguir os rastros dos goblins";
+                btnRastros.addEventListener('click', () => {
+                    if (dialogoTexto) {
+                        dialogoTexto.textContent = "Você segue as pegadas pela floresta. Elas levam para o norte, cada vez mais fundo na mata fechada...";
+                    }
+                    setTimeout(() => carregarCena('clareira_goblins'), 2000);
+                });
+                opcoesDialogo.appendChild(btnRastros);
+            } else {
+                const btnSeguir = document.createElement('button');
+                btnSeguir.className = 'opcao-btn';
+                btnSeguir.textContent = "➡️ Seguir para a floresta";
+                btnSeguir.addEventListener('click', () => {
+                    setTimeout(() => carregarCena('clareira_goblins'), 2000);
+                });
+                opcoesDialogo.appendChild(btnSeguir);
+            }
+        }
+    }
+},
         
         clareira_goblins: {
             id: "clareira_goblins",
