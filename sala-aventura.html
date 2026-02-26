@@ -1778,6 +1778,579 @@ const SistemaSocial = {
     }
 };
 </script>
+<script>
+    // ============================================
+// sistema-combate.js - SISTEMA DE COMBATE RPGForce
+// ============================================
+
+const SistemaCombate = {
+    
+    // ============================================
+    // 1. INICIATIVA
+    // ============================================
+    calcularIniciativa: function(personagem, inimigos, emboscada = null) {
+        // Iniciativa do PC
+        let pcIniciativa = personagem.atributos.dx.valor || 10;
+        
+        // Vantagem Reflexo de Combate
+        if (personagem.vantagens && personagem.vantagens.includes('reflexoCombate')) {
+            pcIniciativa += 2;
+        }
+        
+        // Média da iniciativa dos inimigos
+        let somaDx = 0;
+        inimigos.forEach(inimigo => {
+            somaDx += inimigo.dx || 10;
+        });
+        let inimigosIniciativa = somaDx / inimigos.length;
+        
+        // Bônus de emboscada
+        if (emboscada === 'pc') {
+            pcIniciativa += 3;
+        } else if (emboscada === 'inimigos') {
+            inimigosIniciativa += 3;
+        }
+        
+        const pcComeca = pcIniciativa >= inimigosIniciativa;
+        
+        return {
+            quemComeca: pcComeca ? 'pc' : 'inimigos',
+            pc: pcIniciativa,
+            inimigos: inimigosIniciativa,
+            texto: pcComeca ? 
+                '🎲 Você age primeiro!' : 
+                '🎲 Os inimigos agem primeiro!'
+        };
+    },
+    
+    // ============================================
+    // 2. ROLAGENS
+    // ============================================
+    rolar2d10: function() {
+        const d1 = Math.floor(Math.random() * 10) + 1;
+        const d2 = Math.floor(Math.random() * 10) + 1;
+        const total = d1 + d2;
+        
+        return {
+            total: total,
+            dados: [d1, d2],
+            texto: `${d1} + ${d2} = ${total}`,
+            isCritico: total <= 4,
+            isFalhaCritica: total >= 18
+        };
+    },
+    
+    rolarDados: function(expressao) {
+        // Converte "1d+2" para número
+        // Formatos suportados: "1d-2", "1d", "1d+1", "2d", "2d+2", etc
+        const match = expressao.match(/(\d+)d([+-]\d+)?/);
+        if (!match) return 0;
+        
+        const qtd = parseInt(match[1]) || 1;
+        const mod = match[2] ? parseInt(match[2]) : 0;
+        
+        let total = 0;
+        for (let i = 0; i < qtd; i++) {
+            total += Math.floor(Math.random() * 6) + 1;
+        }
+        total += mod;
+        
+        return Math.max(0, total);
+    },
+    
+    // ============================================
+    // 3. NH DE ATAQUE (das perícias)
+    // ============================================
+    getNHAtaque: function(personagem, arma) {
+        if (!personagem || !arma) return 10;
+        
+        // Mapear arma para perícia correspondente
+        let periciaId = 'espada'; // padrão
+        const nome = arma.nome.toLowerCase();
+        
+        if (nome.includes('machado')) periciaId = 'machado';
+        else if (nome.includes('arco')) periciaId = 'arco';
+        else if (nome.includes('besta')) periciaId = 'besta';
+        else if (nome.includes('espada')) periciaId = 'espada';
+        else if (nome.includes('maca')) periciaId = 'maca';
+        else if (nome.includes('rapieira')) periciaId = 'esgrima';
+        
+        // Pega NH da perícia (já calculado no personagem)
+        if (personagem.pericias && personagem.pericias[periciaId]) {
+            return personagem.pericias[periciaId].nh || personagem.atributos.dx.valor;
+        }
+        
+        // Fallback: DX + 3 (igual ao código antigo)
+        return (personagem.atributos.dx.valor || 10) + 3;
+    },
+    
+    // ============================================
+    // 4. ATAQUE SIMPLES
+    // ============================================
+    atacar: function(atacante, alvo, arma) {
+        const nh = this.getNHAtaque(atacante, arma);
+        const rolagem = this.rolar2d10();
+        
+        // Resultado base
+        const resultado = {
+            acertou: rolagem.total <= nh,
+            critico: rolagem.isCritico,
+            falhaCritica: rolagem.isFalhaCritica,
+            rolagem: rolagem,
+            nh: nh,
+            arma: arma,
+            dano: 0,
+            texto: ''
+        };
+        
+        // Se for falha crítica, já trata aqui
+        if (rolagem.isFalhaCritica) {
+            resultado.texto = `💥 FALHA CRÍTICA! (${rolagem.texto})`;
+            resultado.perdeDefesa = true; // Perde defesa no próximo turno
+            return resultado;
+        }
+        
+        // Se acertou, calcula dano
+        if (rolagem.total <= nh) {
+            let dano = this.rolarDados(arma.dano);
+            
+            // Crítico = dano dobrado
+            if (rolagem.isCritico) {
+                dano *= 2;
+                resultado.texto = `✨ ATAQUE CRÍTICO! (${rolagem.texto})`;
+            } else {
+                resultado.texto = `✅ Acertou! (${rolagem.texto})`;
+            }
+            
+            // Bônus de 50% para armas de corte/perfuração
+            if (arma.tipoDano === 'Corte' || arma.tipoDano === 'Perfuração') {
+                dano = Math.floor(dano * 1.5);
+                resultado.texto += ` +50% (${arma.tipoDano})`;
+            }
+            
+            resultado.dano = dano;
+            resultado.danoOriginal = dano;
+        } else {
+            resultado.texto = `❌ Errou! (${rolagem.texto})`;
+        }
+        
+        return resultado;
+    },
+    
+    // ============================================
+    // 5. ATAQUE DUPLO (Ambidestria)
+    // ============================================
+    ataqueDuplo: function(atacante, alvo1, alvo2, arma1, arma2) {
+        // Verifica se tem ambidestria
+        if (!atacante.vantagens || !atacante.vantagens.includes('ambidestria')) {
+            return { erro: 'Você não possui Ambidestria!' };
+        }
+        
+        const ataque1 = this.atacar(atacante, alvo1, arma1);
+        const ataque2 = this.atacar(atacante, alvo2, arma2);
+        
+        return {
+            tipo: 'duplo',
+            ataques: [ataque1, ataque2],
+            texto: `⚔️ Ataque Duplo!`
+        };
+    },
+    
+    // ============================================
+    // 6. ARMAS DE LONGO ALCANCE
+    // ============================================
+    armasLongoAlcance: {
+        // Estado das armas (precisa recarregar)
+        estado: {},
+        
+        // Iniciar combate - reseta estados
+        reset: function() {
+            this.estado = {};
+        },
+        
+        // Atacar com arco/besta
+        atacar: function(atacante, alvo, arma, turnoPreparacao = false) {
+            const armaId = arma.id || 'arco';
+            
+            // Se não existe no estado, inicializa
+            if (!this.estado[armaId]) {
+                this.estado[armaId] = {
+                    carregada: true,
+                    turnosMirando: 0
+                };
+            }
+            
+            const estadoArma = this.estado[armaId];
+            
+            // Se não está carregada, precisa recarregar
+            if (!estadoArma.carregada) {
+                return {
+                    podeAtacar: false,
+                    texto: '🏹 Arma descarregada! Precisa recarregar (1 turno)'
+                };
+            }
+            
+            // Se passou um turno mirando, ganha +1 de bônus
+            const bonusMirar = estadoArma.turnosMirando > 0 ? 1 : 0;
+            
+            // Executa ataque com bônus de mirar
+            const nh = this.getNHAtaque(atacante, arma) + bonusMirar;
+            
+            // Simula ataque (adaptado da função atacar)
+            const rolagem = this.rolar2d10();
+            const acertou = rolagem.total <= nh;
+            
+            let dano = 0;
+            if (acertou) {
+                dano = this.rolarDados(arma.dano);
+                if (arma.tipoDano === 'Perfuração') {
+                    dano = Math.floor(dano * 1.5);
+                }
+            }
+            
+            // Após atirar, arca descarrega
+            estadoArma.carregada = false;
+            estadoArma.turnosMirando = 0;
+            
+            return {
+                podeAtacar: true,
+                acertou: acertou,
+                dano: dano,
+                bonusMirar: bonusMirar,
+                nh: nh,
+                rolagem: rolagem,
+                texto: acertou ? 
+                    `🏹 Acertou! (bônus de mirar: +${bonusMirar})` : 
+                    `🏹 Errou...`
+            };
+        },
+        
+        // Ação de recarregar
+        recarregar: function(armaId) {
+            if (!this.estado[armaId]) {
+                this.estado[armaId] = { carregada: true, turnosMirando: 0 };
+            }
+            this.estado[armaId].carregada = true;
+            this.estado[armaId].turnosMirando = 0;
+            
+            return { texto: '🏹 Arma recarregada!' };
+        },
+        
+        // Ação de mirar (passar um turno mirando)
+        mirar: function(armaId) {
+            if (!this.estado[armaId]) {
+                this.estado[armaId] = { carregada: true, turnosMirando: 0 };
+            }
+            
+            if (!this.estado[armaId].carregada) {
+                return { texto: '🏹 Arma descarregada! Recarregue primeiro.' };
+            }
+            
+            this.estado[armaId].turnosMirando++;
+            
+            return { 
+                texto: `🎯 Mirando... (+${this.estado[armaId].turnosMirando} no próximo ataque)`
+            };
+        },
+        
+        // Passar turno (para todas as armas)
+        passarTurno: function() {
+            // Apenas mantém o estado atual
+        }
+    },
+    
+    // ============================================
+    // 7. DEFESA ATIVA
+    // ============================================
+    defender: function(defensor, tipoDefesa, ataque, estadoDefesa = {}) {
+        // Verifica se pode defender (se não perdeu defesa por falha crítica)
+        if (estadoDefesa.perdeuDefesa) {
+            return {
+                sucesso: false,
+                motivo: 'Você perdeu a defesa neste turno (falha crítica)!',
+                danoFinal: ataque.dano || 0,
+                texto: '💥 Sem defesa!'
+            };
+        }
+        
+        // Obtém valores das defesas
+        const esquiva = defensor.derivados?.esquiva || 8;
+        const aparar = defensor.derivados?.aparar || 0;
+        const bloqueio = defensor.derivados?.bloqueio || 0;
+        
+        // Mapa de defesas disponíveis
+        const defesasDisponiveis = {
+            esquiva: { nh: esquiva, disponivel: true, usado: false },
+            aparar: { nh: aparar, disponivel: aparar > 0, usado: false },
+            bloqueio: { nh: bloqueio, disponivel: bloqueio > 0, usado: false }
+        };
+        
+        // Verifica se a defesa escolhida está disponível
+        if (!defesasDisponiveis[tipoDefesa] || !defesasDisponiveis[tipoDefesa].disponivel) {
+            return {
+                sucesso: false,
+                motivo: `Não pode usar ${tipoDefesa}`,
+                danoFinal: ataque.dano || 0
+            };
+        }
+        
+        // Se for aparar, verifica se já usou no turno (só pode uma vez)
+        if (tipoDefesa === 'aparar' && estadoDefesa.usouAparar) {
+            return {
+                sucesso: false,
+                motivo: 'Aparar já foi usado neste turno!',
+                danoFinal: ataque.dano || 0
+            };
+        }
+        
+        const nh = defesasDisponiveis[tipoDefesa].nh;
+        const rolagem = this.rolar2d10();
+        const sucesso = rolagem.total <= nh;
+        
+        let danoFinal = ataque.dano || 0;
+        let texto = '';
+        
+        if (sucesso) {
+            // Defesa bem sucedida = zero dano
+            danoFinal = 0;
+            texto = `✅ ${tipoDefesa} bem sucedida! (${rolagem.texto})`;
+            
+            // Se for bloqueio com escudo, consumir PV do escudo
+            if (tipoDefesa === 'bloqueio' && defensor.escudoPV) {
+                // Lógica de dano no escudo (implementar depois)
+            }
+        } else {
+            // Falhou na defesa - aplica RD da armadura
+            const rd = defensor.derivados?.rd?.corpo || 0;
+            danoFinal = Math.max(0, danoFinal - rd);
+            texto = `❌ Falhou na ${tipoDefesa}! (${rolagem.texto}) RD reduziu para ${danoFinal}`;
+        }
+        
+        // Atualiza estado da defesa
+        if (tipoDefesa === 'aparar' && sucesso) {
+            estadoDefesa.usouAparar = true;
+        }
+        
+        return {
+            sucesso: sucesso,
+            tipo: tipoDefesa,
+            rolagem: rolagem,
+            nh: nh,
+            danoFinal: danoFinal,
+            texto: texto,
+            novoEstado: estadoDefesa
+        };
+    },
+    
+    // ============================================
+    // 8. MAGIAS
+    // ============================================
+    magias: {
+        // Catálogo de magias (baseado nos dadosMagias)
+        catalogo: {
+            adagaDeGelo: {
+                nome: 'Adaga de Gelo',
+                tipo: 'Ataque',
+                icone: 'fa-knife',
+                custoPM: 2,
+                tempoConjuracao: 1, // turnos
+                efeito: function(nivel) {
+                    const danos = {
+                        1: '1d-3', 2: '1d-2', 3: '1d-1', 4: '1d', 5: '1d+1',
+                        6: '1d+2', 7: '2d-2', 8: '2d-1', 9: '2d', 10: '2d+1',
+                        11: '2d+2', 12: '3d-2', 13: '3d-1', 14: '3d', 15: '3d+1'
+                    };
+                    return danos[nivel] || '1d';
+                }
+            },
+            // Outras magias...
+        },
+        
+        // Estado das magias em concentração
+        estado: {},
+        
+        // Iniciar concentração
+        concentrar: function(magiaId, personagem) {
+            const magia = this.catalogo[magiaId];
+            if (!magia) return { erro: 'Magia não encontrada' };
+            
+            // Verifica se tem PM suficiente
+            if ((personagem.pmDisponivel - personagem.pmGasto) < magia.custoPM) {
+                return { erro: 'PM insuficiente' };
+            }
+            
+            this.estado[magiaId] = {
+                magiaId: magiaId,
+                turnosConcentrando: 0,
+                turnosNecessarios: magia.tempoConjuracao
+            };
+            
+            return {
+                sucesso: true,
+                texto: `🔮 Concentrando para ${magia.nome}... (${magia.tempoConjuracao} turnos)`
+            };
+        },
+        
+        // Lançar magia (após concentração)
+        lancar: function(magiaId, personagem, alvo) {
+            const magia = this.catalogo[magiaId];
+            const estado = this.estado[magiaId];
+            
+            if (!estado || estado.turnosConcentrando < estado.turnosNecessarios) {
+                return { erro: 'Magia não está pronta!' };
+            }
+            
+            // Gasta PM
+            personagem.pmGasto += magia.custoPM;
+            
+            // Calcula NH da magia (IQ + aptidão)
+            const iq = personagem.atributos.iq.valor;
+            const temAptidao = personagem.vantagens?.includes('aptidaoMagica');
+            const nh = iq + (temAptidao ? 1 : 0);
+            
+            const rolagem = this.rolar2d10();
+            const sucesso = rolagem.total <= nh;
+            
+            let resultado = {
+                magia: magia.nome,
+                nh: nh,
+                rolagem: rolagem,
+                sucesso: sucesso
+            };
+            
+            if (sucesso) {
+                // Pega nível da magia do personagem
+                const nivel = personagem.escolas?.agua?.magias[magiaId]?.nivel || 1;
+                const expressaoDano = magia.efeito(nivel);
+                
+                let dano = this.rolarDados(expressaoDano);
+                
+                // Crítico em magia
+                if (rolagem.isCritico) dano *= 2;
+                
+                resultado.dano = dano;
+                resultado.texto = `✨ ${magia.nome} causou ${dano} de dano!`;
+            } else {
+                resultado.texto = `❌ Falhou ao lançar ${magia.nome}!`;
+            }
+            
+            // Remove do estado
+            delete this.estado[magiaId];
+            
+            return resultado;
+        },
+        
+        // Passar turno (mantém concentração)
+        passarTurno: function() {
+            Object.keys(this.estado).forEach(magiaId => {
+                this.estado[magiaId].turnosConcentrando++;
+            });
+        }
+    },
+    
+    // ============================================
+    // 9. FADIGA
+    // ============================================
+    fadiga: {
+        contadorTurnos: 0,
+        
+        iniciarCombate: function() {
+            this.contadorTurnos = 0;
+        },
+        
+        passarTurno: function(personagem) {
+            this.contadorTurnos++;
+            
+            // A cada 5 turnos, perde 1 PF
+            if (this.contadorTurnos % 5 === 0) {
+                personagem.statusCombate.fadigaAtual--;
+                
+                // Verifica se chegou a zero
+                if (personagem.statusCombate.fadigaAtual <= 0) {
+                    return {
+                        perdeuFadiga: true,
+                        fadigaAtual: 0,
+                        penalidade: true,
+                        texto: '😮‍💨 FADIGA ZERO! Todas as habilidades reduzidas pela metade!'
+                    };
+                }
+                
+                return {
+                    perdeuFadiga: true,
+                    fadigaAtual: personagem.statusCombate.fadigaAtual,
+                    texto: `😮‍💨 Perdeu 1 PF (restante: ${personagem.statusCombate.fadigaAtual})`
+                };
+            }
+            
+            return { perdeuFadiga: false };
+        },
+        
+        reset: function() {
+            this.contadorTurnos = 0;
+        }
+    },
+    
+    // ============================================
+    // 10. GERENCIADOR DE TURNOS
+    // ============================================
+    turno: {
+        atual: 'pc', // 'pc' ou 'inimigos'
+        numero: 1,
+        estadoDefesa: {
+            perdeuDefesa: false,
+            usouAparar: false
+        },
+        
+        iniciarCombate: function(quemComeca) {
+            this.atual = quemComeca;
+            this.numero = 1;
+            this.estadoDefesa = {
+                perdeuDefesa: false,
+                usouAparar: false
+            };
+            SistemaCombate.fadiga.iniciarCombate();
+            SistemaCombate.armasLongoAlcance.reset();
+        },
+        
+        passarTurno: function(personagem) {
+            // Verifica fadiga
+            const fadigaResult = SistemaCombate.fadiga.passarTurno(personagem);
+            
+            // Passa turno para magias em concentração
+            SistemaCombate.magias.passarTurno();
+            
+            // Passa turno para armas de longo alcance
+            SistemaCombate.armasLongoAlcance.passarTurno();
+            
+            // Reseta estado de defesa (exceto perdeuDefesa que é temporário)
+            this.estadoDefesa.usouAparar = false;
+            
+            // Se tinha perdido defesa, agora recupera
+            if (this.estadoDefesa.perdeuDefesa) {
+                this.estadoDefesa.perdeuDefesa = false;
+            }
+            
+            // Alterna turno
+            this.atual = this.atual === 'pc' ? 'inimigos' : 'pc';
+            this.numero++;
+            
+            return {
+                turno: this.atual,
+                numero: this.numero,
+                fadiga: fadigaResult
+            };
+        },
+        
+        // Marcar que perdeu defesa (falha crítica)
+        perderDefesa: function() {
+            this.estadoDefesa.perdeuDefesa = true;
+        }
+    }
+};
+
+// Exportar para uso global
+window.SistemaCombate = SistemaCombate;
+</script>
     <script type="module">
 // ============================================
 // IMPORTAÇÕES FIREBASE
@@ -4636,47 +5209,444 @@ window.AVENTURA = {
     }
 },
         
-        clareira_goblins: {
-            id: "clareira_goblins",
-            nome: "Clareira na Floresta",
-            imagem: "clareira-globlins.jpg",
-            fala: {
-                npc: "Narrador",
-                texto: "Você encontra uma clareira onde vários goblins estão acampados perto de uma fogueira."
-            },
-            inimigos: [
-                {
-                    id: "goblin1",
-                    nome: "Goblin",
-                    sprite: "goblin.jpg",
-                    pv: 58,
-                    pv_max: 58,
-                    esquiva: 7,
-                    nh_ataque: 8,
-                    dano: "1d-2",
-                    xp: 25
-                },
-                {
-                    id: "goblin2",
-                    nome: "Goblin",
-                    sprite: "goblin.png",
-                    pv: 58,
-                    pv_max: 58,
-                    esquiva: 7,
-                    nh_ataque: 8,
-                    dano: "1d-2",
-                    xp: 25
-                }
-            ],
-            opcoes: [
-                {
-                    texto: "Atacar os goblins",
-                    acao: "iniciar_combate",
-                    inimigos: ["goblin1", "goblin2"],
-                    ao_vencer: "entrada_caverna"
-                }
-            ]
+      // ============================================
+// CENA: CLAREIRA DOS GOBLINS (COMPLETA)
+// ============================================
+
+clareira_goblins: {
+    id: "clareira_goblins",
+    nome: "Clareira na Floresta",
+    imagem: "clareira-goblins.jpg",
+    
+    // Estado da cena
+    estado: {
+        furtividadeTestada: false,
+        percepcaoTestada: false,
+        furtividadeSucesso: false,
+        inimigosAlertados: false,
+        informacaoObtida: false
+    },
+    
+    // Dados dos inimigos (ATUALIZADO com seus stats)
+    dadosInimigos: {
+        goblin_arqueiro: {
+            id: "goblin_arqueiro",
+            nome: "Goblin Arqueiro",
+            sprite: "goblin_arqueiro.png",
+            pv: 64,
+            pv_max: 64,
+            defesa: 9,        // esquiva do computador
+            dx: 12,
+            nh_ataque: 12,
+            dano: "2d-1",
+            xp: 30,
+            tipo: "arqueiro"
         },
+        goblin_guerreiro: {
+            id: "goblin_guerreiro",
+            nome: "Goblin Guerreiro",
+            sprite: "goblin_guerreiro.png",
+            pv: 72,
+            pv_max: 72,
+            defesa: 9,
+            dx: 11,
+            nh_ataque: 11,
+            dano: "2d",
+            rd: 2,
+            xp: 40,
+            tipo: "guerreiro"
+        },
+        goblin_normal: {
+            id: "goblin_normal",
+            nome: "Goblin",
+            sprite: "goblin.png",
+            pv: 56,
+            pv_max: 56,
+            defesa: 9,
+            dx: 10,
+            nh_ataque: 10,
+            dano: "1d+1",
+            xp: 25,
+            tipo: "normal"
+        }
+    },
+    
+    // Lista de inimigos na cena (3 goblins)
+    inimigos: [
+        {
+            id: "goblin_arqueiro",
+            nome: "Goblin Arqueiro",
+            sprite: "goblin_arqueiro.png",
+            pv: 64,
+            pv_max: 64,
+            defesa: 9,
+            dx: 12,
+            nh_ataque: 12,
+            dano: "2d-1",
+            xp: 30
+        },
+        {
+            id: "goblin_guerreiro",
+            nome: "Goblin Guerreiro",
+            sprite: "goblin_guerreiro.png",
+            pv: 72,
+            pv_max: 72,
+            defesa: 9,
+            dx: 11,
+            nh_ataque: 11,
+            dano: "2d",
+            rd: 2,
+            xp: 40
+        },
+        {
+            id: "goblin_normal",
+            nome: "Goblin",
+            sprite: "goblin.png",
+            pv: 56,
+            pv_max: 56,
+            defesa: 9,
+            dx: 10,
+            nh_ataque: 10,
+            dano: "1d+1",
+            xp: 25
+        }
+    ],
+    
+    // Fala inicial do narrador (MAIS DETALHADA)
+    fala: {
+        npc: "Narrador",
+        texto: "Seguindo os rastros pela floresta densa, você finalmente chega a uma clareira. O cheiro de fumaça e carne queimada toma conta do ar. Escondido atrás de uma moita, você avista um acampamento goblin... Três deles estão ao redor de uma fogueira, um segurando um arco, outro com uma espada maior e um terceiro menor, aparentemente mais fraco."
+    },
+    
+    // Função RENDERIZAR (substitui o opcoes simples)
+    renderizar: function() {
+        const cenaAtual = this;
+        
+        // Imagem de fundo
+        if (window.cenarioArea) {
+            window.cenarioArea.style.backgroundImage = "url('clareira-goblins.jpg')";
+        }
+        
+        // Remover NPCs visuais (só inimigos em combate)
+        if (window.npcsContainer) {
+            window.npcsContainer.innerHTML = '';
+        }
+        
+        // Mostrar fala inicial
+        if (window.npcNome) window.npcNome.textContent = "Narrador";
+        if (window.npcAvatar) window.npcAvatar.style.display = 'none';
+        if (window.dialogoTexto) window.dialogoTexto.textContent = this.fala.texto;
+        
+        // Se já alertou os inimigos, mostra opção de combate direto
+        if (this.estado.inimigosAlertados) {
+            this.mostrarOpcoesCombate();
+            return;
+        }
+        
+        // Opções iniciais
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
+            
+            // Opção 1: Tentar furtividade
+            const btnFurtividade = document.createElement('button');
+            btnFurtividade.className = 'opcao-btn';
+            btnFurtividade.innerHTML = '🥷 Tentar se aproximar furtivamente';
+            btnFurtividade.addEventListener('click', () => {
+                cenaAtual.tentarFurtividade();
+            });
+            window.opcoesDialogo.appendChild(btnFurtividade);
+            
+            // Opção 2: Atacar diretamente
+            const btnAtacar = document.createElement('button');
+            btnAtacar.className = 'opcao-btn';
+            btnAtacar.innerHTML = '⚔️ Atacar os goblins diretamente';
+            btnAtacar.addEventListener('click', () => {
+                cenaAtual.estado.inimigosAlertados = true;
+                cenaAtual.iniciarCombate();
+            });
+            window.opcoesDialogo.appendChild(btnAtacar);
+            
+            // Opção 3: Voltar (fugir)
+            const btnVoltar = document.createElement('button');
+            btnVoltar.className = 'opcao-btn';
+            btnVoltar.innerHTML = '👣 Voltar para a floresta';
+            btnVoltar.addEventListener('click', () => {
+                if (window.dialogoTexto) {
+                    window.dialogoTexto.textContent = "Você decide recuar e pensar em outra estratégia...";
+                }
+                setTimeout(() => {
+                    window.carregarCena('carroca_destruida');
+                }, 2000);
+            });
+            window.opcoesDialogo.appendChild(btnVoltar);
+        }
+    },
+    
+    // ===== FUNÇÃO: TESTAR FURTIVIDADE =====
+    tentarFurtividade: function() {
+        const cenaAtual = this;
+        
+        if (window.dialogoTexto) {
+            window.dialogoTexto.textContent = "Você se agacha e começa a se mover silenciosamente entre as árvores, tentando se aproximar do acampamento sem ser notado...";
+        }
+        
+        // Remover botões
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
+            const btnProcessando = document.createElement('button');
+            btnProcessando.className = 'opcao-btn';
+            btnProcessando.textContent = "⏳ Aguardando resultado...";
+            btnProcessando.disabled = true;
+            window.opcoesDialogo.appendChild(btnProcessando);
+        }
+        
+        // Processar após 2 segundos
+        setTimeout(() => {
+            // Pega o personagem
+            const personagem = window.personagem;
+            
+            // Calcula Furtividade
+            let furtividade = 0;
+            
+            // Pega o valor da perícia Furtividade se existir
+            if (personagem.pericias && personagem.pericias.furtividade) {
+                furtividade = personagem.pericias.furtividade.nh || 0;
+            } else {
+                // Fallback: DX + 3
+                furtividade = (personagem.atributos?.dx?.valor || 10) + 3;
+            }
+            
+            // Rola 2d10
+            const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+            const sucesso = rolagem <= furtividade;
+            
+            // Log
+            if (window.adicionarLog) {
+                window.adicionarLog(`🥷 TESTE DE FURTIVIDADE`, 'info');
+                window.adicionarLog(`   NH: ${furtividade} | Rolagem: ${rolagem}`, 'info');
+                window.adicionarLog(sucesso ? '   ✅ Sucesso!' : '   ❌ Falhou!', sucesso ? 'sucesso' : 'erro');
+            }
+            
+            if (sucesso) {
+                cenaAtual.estado.furtividadeSucesso = true;
+                cenaAtual.aposFurtividadeSucesso();
+            } else {
+                // Falhou - inimigos alertados!
+                cenaAtual.estado.inimigosAlertados = true;
+                if (window.dialogoTexto) {
+                    window.dialogoTexto.textContent = "CRAC! Você pisa em um galho seco. Os goblins viram rapidamente, empunhando suas armas! 'INTRUSO!'";
+                }
+                setTimeout(() => {
+                    cenaAtual.iniciarCombate();
+                }, 2000);
+            }
+        }, 2000);
+    },
+    
+    // ===== APÓS FURTIVIDADE BEM SUCEDIDA =====
+    aposFurtividadeSucesso: function() {
+        const cenaAtual = this;
+        
+        if (window.dialogoTexto) {
+            window.dialogoTexto.textContent = "Você consegue se aproximar bem perto do acampamento, escondido atrás de uma rocha. Agora pode ouvir a conversa dos goblins...";
+        }
+        
+        // Opções após furtividade
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
+            
+            // Opção: Ouvir conversa (Percepção)
+            const btnOuvir = document.createElement('button');
+            btnOuvir.className = 'opcao-btn';
+            btnOuvir.innerHTML = '👂 Escutar a conversa (Percepção)';
+            btnOuvir.addEventListener('click', () => {
+                cenaAtual.testarPercepcao();
+            });
+            window.opcoesDialogo.appendChild(btnOuvir);
+            
+            // Opção: Atacar de surpresa
+            const btnAtacar = document.createElement('button');
+            btnAtacar.className = 'opcao-btn';
+            btnAtacar.innerHTML = '⚔️ Atacar de surpresa (bônus de +3)';
+            btnAtacar.addEventListener('click', () => {
+                cenaAtual.estado.inimigosAlertados = true;
+                // Bônus de emboscada
+                cenaAtual.iniciarCombate(true);
+            });
+            window.opcoesDialogo.appendChild(btnAtacar);
+            
+            // Opção: Voltar
+            const btnVoltar = document.createElement('button');
+            btnVoltar.className = 'opcao-btn';
+            btnVoltar.innerHTML = '👣 Voltar para a floresta';
+            btnVoltar.addEventListener('click', () => {
+                if (window.dialogoTexto) {
+                    window.dialogoTexto.textContent = "Você decide não arriscar e volta para a floresta...";
+                }
+                setTimeout(() => {
+                    window.carregarCena('carroca_destruida');
+                }, 2000);
+            });
+            window.opcoesDialogo.appendChild(btnVoltar);
+        }
+    },
+    
+    // ===== TESTAR PERCEPÇÃO =====
+    testarPercepcao: function() {
+        const cenaAtual = this;
+        
+        if (window.dialogoTexto) {
+            window.dialogoTexto.textContent = "Você se concentra para ouvir o que os goblins estão falando...";
+        }
+        
+        // Remover botões
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
+            const btnProcessando = document.createElement('button');
+            btnProcessando.className = 'opcao-btn';
+            btnProcessando.textContent = "⏳ Aguardando resultado...";
+            btnProcessando.disabled = true;
+            window.opcoesDialogo.appendChild(btnProcessando);
+        }
+        
+        setTimeout(() => {
+            const personagem = window.personagem;
+            
+            // Calcula Percepção
+            let percepcao = personagem.atributos?.iq?.valor || 10;
+            if (personagem.vantagens && personagem.vantagens.includes('sentidosAgucados')) {
+                percepcao += 2;
+            }
+            
+            const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+            const sucesso = rolagem <= percepcao;
+            const margem = percepcao - rolagem;
+            
+            if (window.adicionarLog) {
+                window.adicionarLog(`👂 TESTE DE PERCEPÇÃO`, 'info');
+                window.adicionarLog(`   NH: ${percepcao} | Rolagem: ${rolagem}`, 'info');
+            }
+            
+            if (sucesso) {
+                // INFORMAÇÃO OBTIDA!
+                cenaAtual.estado.informacaoObtida = true;
+                
+                let textoInfo = "Você escuta claramente a conversa:\n\n";
+                textoInfo += "'O chefe vai ficar contente!' diz o goblin arqueiro.\n";
+                textoInfo += "'A menina elfa de cabelo prateado vai render um bom resgate na caverna.'\n";
+                textoInfo += "'Cala a boca seu idiota!' responde o guerreiro, 'E se alguém estiver ouvindo?'\n\n";
+                
+                if (margem >= 3) {
+                    textoInfo += "Com sua percepção aguçada, você também percebe que eles estão de guarda baixa, distraídos com a conversa. Seria fácil atacá-los de surpresa.";
+                } else {
+                    textoInfo += "Agora você sabe: a menina está em uma CAVERNA. Esses goblins são apenas um acampamento avançado.";
+                }
+                
+                if (window.dialogoTexto) {
+                    window.dialogoTexto.textContent = textoInfo;
+                }
+                
+                if (window.adicionarLog) {
+                    window.adicionarLog(`🔍 Informação: Lyra está na caverna!`, 'sucesso');
+                }
+                
+                // Mostrar opções pós-informação
+                setTimeout(() => {
+                    cenaAtual.aposInformacao();
+                }, 4000);
+                
+            } else {
+                // Falhou na percepção
+                if (window.dialogoTexto) {
+                    window.dialogoTexto.textContent = "Os goblins estão falando muito baixo. Você não consegue entender nada, apenas ouve risadas e 'menina', 'caverna'... Nada muito claro.";
+                }
+                
+                if (window.adicionarLog) {
+                    window.adicionarLog(`❌ Não conseguiu entender a conversa`, 'erro');
+                }
+                
+                setTimeout(() => {
+                    cenaAtual.aposFurtividadeSucesso(); // Volta para opções anteriores
+                }, 3000);
+            }
+        }, 2000);
+    },
+    
+    // ===== APÓS OBTER INFORMAÇÃO =====
+    aposInformacao: function() {
+        const cenaAtual = this;
+        
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
+            
+            // Opção: Atacar os goblins
+            const btnAtacar = document.createElement('button');
+            btnAtacar.className = 'opcao-btn';
+            btnAtacar.innerHTML = '⚔️ Atacar os goblins (eliminar a ameaça)';
+            btnAtacar.addEventListener('click', () => {
+                cenaAtual.estado.inimigosAlertados = true;
+                cenaAtual.iniciarCombate();
+            });
+            window.opcoesDialogo.appendChild(btnAtacar);
+            
+            // Opção: Ignorar e seguir para caverna
+            const btnSeguir = document.createElement('button');
+            btnSeguir.className = 'opcao-btn';
+            btnSeguir.innerHTML = '➡️ Ignorar e seguir para a caverna';
+            btnSeguir.addEventListener('click', () => {
+                if (window.dialogoTexto) {
+                    window.dialogoTexto.textContent = "Você decide não perder tempo com esses goblins. A menina está na caverna, e é para lá que você vai.";
+                }
+                setTimeout(() => {
+                    window.carregarCena('entrada_caverna');
+                }, 2000);
+            });
+            window.opcoesDialogo.appendChild(btnSeguir);
+            
+            // Opção: Voltar
+            const btnVoltar = document.createElement('button');
+            btnVoltar.className = 'opcao-btn';
+            btnVoltar.innerHTML = '👣 Voltar para a floresta';
+            btnVoltar.addEventListener('click', () => {
+                window.carregarCena('carroca_destruida');
+            });
+            window.opcoesDialogo.appendChild(btnVoltar);
+        }
+    },
+    
+    // ===== INICIAR COMBATE =====
+    iniciarCombate: function(emboscada = false) {
+        // Prepara os inimigos para o combate
+        const inimigosCombate = this.inimigos.map(inimigo => ({
+            ...inimigo,
+            pv: inimigo.pv_max,
+            pv_atual: inimigo.pv_max
+        }));
+        
+        // Chama a função global de iniciar combate
+        if (window.iniciarCombate) {
+            window.iniciarCombate(inimigosCombate, emboscada);
+        }
+        
+        // Define a cena após vitória
+        window.capituloAtual.ao_vencer = "entrada_caverna";
+    },
+    
+    // ===== MOSTRAR OPÇÕES DE COMBATE (quando já alertou) =====
+    mostrarOpcoesCombate: function() {
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
+            
+            const btnCombate = document.createElement('button');
+            btnCombate.className = 'opcao-btn';
+            btnCombate.innerHTML = '⚔️ Iniciar Combate';
+            btnCombate.addEventListener('click', () => {
+                this.iniciarCombate();
+            });
+            window.opcoesDialogo.appendChild(btnCombate);
+        }
+    }
+},
         
         entrada_caverna: {
             id: "entrada_caverna",
