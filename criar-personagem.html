@@ -5166,6 +5166,7 @@ function salvarDadosBasicos() {
 // ============================================
 // FUNÇÃO PRINCIPAL DE SALVAMENTO (adaptada à regra do Firebase)
 // ============================================
+
 async function salvarPersonagem(finalizar = false) {
     try {
         setAutoSaveIndicator('saving');
@@ -5226,6 +5227,53 @@ async function salvarPersonagem(finalizar = false) {
             }
         };
         
+        // ===== NOVO: Processar perícias com NH =====
+        const periciasComNH = {};
+        if (pericias) {
+            Object.entries(pericias).forEach(([id, dados]) => {
+                // Buscar info da perícia no catálogo
+                const periciaInfo = catalogoPericias.find(p => p.id === id);
+                
+                if (periciaInfo) {
+                    // Determinar atributo base
+                    let atributoBase = 0;
+                    if (periciaInfo.atributo === 'dx') atributoBase = atributos.dx.valor;
+                    else if (periciaInfo.atributo === 'iq') atributoBase = atributos.iq.valor;
+                    else if (periciaInfo.atributo === 'ht') atributoBase = calcularHT();
+                    
+                    // Bônus da perícia (nível 1 = +0, nível 2 = +1, etc)
+                    const bonusPericia = dados.nivel === 1 ? 0 : dados.nivel - 1;
+                    
+                    // Bônus de vantagens
+                    let bonusVantagem = 0;
+                    if (vantagensSelecionadas.has('carisma')) {
+                        if (id === 'persuasao' || id === 'labia' || id === 'intimidacao') bonusVantagem += 1;
+                    }
+                    if (vantagensSelecionadas.has('flexibilidade')) {
+                        if (id === 'fuga' || id === 'acrobacia') bonusVantagem += 2;
+                        if (id === 'furtividade') bonusVantagem += 1;
+                    }
+                    
+                    // NH TOTAL
+                    const nhTotal = atributoBase + bonusPericia + bonusVantagem;
+                    
+                    // Salvar com todos os dados
+                    periciasComNH[id] = {
+                        ...dados,
+                        nh: nhTotal,
+                        atributoUsado: periciaInfo.atributo,
+                        valorAtributo: atributoBase,
+                        bonusPericia: bonusPericia,
+                        bonusVantagem: bonusVantagem
+                    };
+                } else {
+                    // Se não encontrar no catálogo, mantém original
+                    periciasComNH[id] = dados;
+                }
+            });
+        }
+        // ===== FIM DO NOVO CÓDIGO =====
+        
         const personagemData = {
             nome: dadosBasicos.nome,
             classe: dadosBasicos.classe,
@@ -5276,7 +5324,9 @@ async function salvarPersonagem(finalizar = false) {
                 reacao: reacaoBase
             },
             
-            pericias: pericias || {},
+            // ===== LINHA MODIFICADA: agora usa periciasComNH =====
+            pericias: periciasComNH || {},
+            
             escolas: escolasParaSalvar,
             esferasDesbloqueadas: esferasDesbloqueadas || 0,
             
