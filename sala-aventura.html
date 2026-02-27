@@ -1663,18 +1663,55 @@
         </div>
     </div>
 <script>
-    // ============================================
+ // ============================================
 // SISTEMA DE COMBATE COMPLETO E CORRIGIDO
 // ============================================
 
-// ============================================
-// 1. SISTEMA COMBATE BASE (NÚCLEO)
-// ============================================
+let turnoAtual = 'pc';
+let inimigoSelecionado = null;
+let armaSelecionada = null;
+let ataqueAtual = null;
+
 const SistemaCombate = {
     
-    // ============================================
-    // INICIATIVA
-    // ============================================
+    turno: {
+        atual: 'pc',
+        numero: 1,
+        estadoDefesa: {
+            perdeuDefesa: false,
+            usouAparar: false
+        },
+        
+        iniciarCombate: function(quemComeca) {
+            this.atual = quemComeca;
+            this.numero = 1;
+            this.estadoDefesa = {
+                perdeuDefesa: false,
+                usouAparar: false
+            };
+        },
+        
+        passarTurno: function() {
+            this.estadoDefesa.usouAparar = false;
+            
+            if (this.estadoDefesa.perdeuDefesa) {
+                this.estadoDefesa.perdeuDefesa = false;
+            }
+            
+            this.atual = this.atual === 'pc' ? 'inimigos' : 'pc';
+            this.numero++;
+            
+            return {
+                turno: this.atual,
+                numero: this.numero
+            };
+        },
+        
+        perderDefesa: function() {
+            this.estadoDefesa.perdeuDefesa = true;
+        }
+    },
+    
     calcularIniciativa: function(personagem, inimigos, emboscada = null) {
         let pcIniciativa = personagem.atributos.dx.valor || 10;
         if (personagem.vantagens?.includes('reflexoCombate')) pcIniciativa += 2;
@@ -1692,13 +1729,10 @@ const SistemaCombate = {
             quemComeca: pcComeca ? 'pc' : 'inimigos',
             pc: pcIniciativa,
             inimigos: inimigosIniciativa,
-            texto: pcComeca ? '✅ Você age primeiro!' : '⚠️ Os inimigos agem primeiro!'
+            texto: pcComeca ? 'Você age primeiro!' : 'Os inimigos agem primeiro!'
         };
     },
     
-    // ============================================
-    // ROLAGEM 2D10
-    // ============================================
     rolar2d10: function() {
         const d1 = Math.floor(Math.random() * 10) + 1;
         const d2 = Math.floor(Math.random() * 10) + 1;
@@ -1706,31 +1740,26 @@ const SistemaCombate = {
         return {
             total: total,
             dados: [d1, d2],
-            texto: `${d1} + ${d2} = ${total}`,
+            texto: d1 + ' + ' + d2 + ' = ' + total,
             isCritico: total <= 4,
             isFalhaCritica: total >= 18
         };
     },
     
-    // ============================================
-    // ROLAR DADOS (INTERPRETADOR DE EXPRESSÕES)
-    // ============================================
     rolarDados: function(expressao) {
         if (!expressao) return 0;
         
-        // Se for número, retorna o número
         if (typeof expressao === 'number') return expressao;
         
-        // Se for string, processa
         if (typeof expressao === 'string') {
             expressao = expressao.trim().toLowerCase();
             
-            // Padrão: 2d6, 1d10, 1d+2, 2d-1, 1d6+3
+            // Formato: "XdY+Z" ou "XdY-Z"
             const match = expressao.match(/^(\d+)d(\d+)?([+-]\d+)?$/);
             
             if (match) {
                 const qtd = parseInt(match[1]) || 1;
-                const faces = match[2] ? parseInt(match[2]) : 10; // Se não tiver faces, é d10
+                const faces = match[2] ? parseInt(match[2]) : 10;
                 const mod = match[3] ? parseInt(match[3]) : 0;
                 
                 let total = 0;
@@ -1738,10 +1767,10 @@ const SistemaCombate = {
                     total += Math.floor(Math.random() * faces) + 1;
                 }
                 total += mod;
-                return Math.max(0, total);
+                return Math.max(1, total);
             }
             
-            // Se for só número
+            // Se for só um número
             const numero = parseInt(expressao);
             if (!isNaN(numero)) return numero;
         }
@@ -1749,9 +1778,7 @@ const SistemaCombate = {
         return 0;
     },
     
-    // ============================================
-    // DANO BASE POR ST (CÁLCULO REAL)
-    // ============================================
+    // ===== FUNÇÃO CORRIGIDA: dano base baseado no ST =====
     rolarDanoBase: function(personagem) {
         if (!personagem?.atributos) return 0;
         
@@ -1759,32 +1786,26 @@ const SistemaCombate = {
         
         // Tabela de dano base do GURPS
         if (st <= 9) {
-            // 1d-2 (0-4)
             const rolagem = Math.floor(Math.random() * 10) + 1;
-            return Math.max(0, rolagem - 2);
+            return Math.max(1, rolagem - 2);
         }
         if (st == 10) {
-            // 1d (1-10)
             return Math.floor(Math.random() * 10) + 1;
         }
         if (st == 11) {
-            // 1d+1 (2-11)
             return Math.floor(Math.random() * 10) + 2;
         }
         if (st == 12) {
-            // 1d+2 (3-12)
             return Math.floor(Math.random() * 10) + 3;
         }
         if (st == 13) {
-            // 2d-1 (1-19)
             let total = 0;
             for (let i = 0; i < 2; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
             }
-            return total - 1;
+            return Math.max(1, total - 1);
         }
         if (st == 14) {
-            // 2d (2-20)
             let total = 0;
             for (let i = 0; i < 2; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
@@ -1792,7 +1813,6 @@ const SistemaCombate = {
             return total;
         }
         if (st == 15) {
-            // 2d+1 (3-21)
             let total = 0;
             for (let i = 0; i < 2; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
@@ -1800,7 +1820,6 @@ const SistemaCombate = {
             return total + 1;
         }
         if (st == 16) {
-            // 2d+2 (4-22)
             let total = 0;
             for (let i = 0; i < 2; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
@@ -1808,15 +1827,13 @@ const SistemaCombate = {
             return total + 2;
         }
         if (st == 17) {
-            // 3d-1 (2-29)
             let total = 0;
             for (let i = 0; i < 3; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
             }
-            return total - 1;
+            return Math.max(1, total - 1);
         }
         if (st == 18) {
-            // 3d (3-30)
             let total = 0;
             for (let i = 0; i < 3; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
@@ -1824,7 +1841,6 @@ const SistemaCombate = {
             return total;
         }
         if (st == 19) {
-            // 3d+1 (4-31)
             let total = 0;
             for (let i = 0; i < 3; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
@@ -1832,7 +1848,6 @@ const SistemaCombate = {
             return total + 1;
         }
         if (st == 20) {
-            // 3d+2 (5-32)
             let total = 0;
             for (let i = 0; i < 3; i++) {
                 total += Math.floor(Math.random() * 10) + 1;
@@ -1840,7 +1855,7 @@ const SistemaCombate = {
             return total + 2;
         }
         
-        // Para ST > 20, usa fórmula simplificada
+        // Para ST acima de 20
         const numDados = Math.floor(st / 4);
         let total = 0;
         for (let i = 0; i < numDados; i++) {
@@ -1849,25 +1864,19 @@ const SistemaCombate = {
         return total;
     },
     
-    // ============================================
-    // DANO TOTAL (BASE + ARMA)
-    // ============================================
     rolarDanoTotal: function(personagem, arma) {
-        if (!personagem) return 0;
+        if (!personagem) return { total: 0, base: 0, arma: 0 };
         
-        // Dano base do personagem
         const danoBase = this.rolarDanoBase(personagem);
         
-        // Dano da arma
         let danoArma = 0;
         if (arma?.dano) {
             danoArma = this.rolarDados(arma.dano);
         }
         
-        // Soma
         let danoTotal = danoBase + danoArma;
         
-        // Modificador por tipo de dano
+        // Multiplicador para tipos especiais de dano
         if (arma?.tipoDano === 'Corte' || arma?.tipoDano === 'Perfuração') {
             danoTotal = Math.floor(danoTotal * 1.5);
         }
@@ -1875,18 +1884,13 @@ const SistemaCombate = {
         return {
             total: Math.max(1, danoTotal),
             base: danoBase,
-            arma: danoArma,
-            expressao: arma?.dano || '0'
+            arma: danoArma
         };
     },
     
-    // ============================================
-    // NH DE ATAQUE
-    // ============================================
     getNHAtaque: function(personagem, arma) {
         if (!personagem || !arma) return 10;
         
-        // Tenta identificar a perícia baseada na arma
         const nome = arma.nome?.toLowerCase() || '';
         let periciaId = 'espada';
         
@@ -1898,18 +1902,13 @@ const SistemaCombate = {
         else if (nome.includes('rapieira')) periciaId = 'esgrima';
         else if (nome.includes('adaga')) periciaId = 'adaga';
         
-        // Se tiver a perícia, usa o NH dela
         if (personagem.pericias?.[periciaId]) {
             return personagem.pericias[periciaId].nh || personagem.atributos.dx.valor;
         }
         
-        // Senão, usa DX
         return personagem.atributos.dx.valor || 10;
     },
     
-    // ============================================
-    // ATAQUE
-    // ============================================
     atacar: function(atacante, alvo, arma) {
         const nh = this.getNHAtaque(atacante, arma);
         const rolagem = this.rolar2d10();
@@ -1927,32 +1926,28 @@ const SistemaCombate = {
             texto: ''
         };
         
-        // Falha crítica
         if (rolagem.isFalhaCritica) {
-            resultado.texto = `💥 FALHA CRÍTICA! (${rolagem.texto})`;
+            resultado.texto = 'FALHA CRÍTICA! (' + rolagem.texto + ')';
             resultado.perdeDefesa = true;
             return resultado;
         }
         
-        // Verifica se acertou
-        if (rolagem.total <= nh) {
+        if (rolagem.total <= nh || rolagem.isCritico) {
             resultado.acertou = true;
             
-            // Calcula dano
             const danoCalculado = this.rolarDanoTotal(atacante, arma);
             resultado.danoBase = danoCalculado.base;
             resultado.danoArma = danoCalculado.arma;
             resultado.dano = danoCalculado.total;
             
-            // Crítico dobra dano
             if (rolagem.isCritico) {
                 resultado.dano *= 2;
-                resultado.texto = `✨ ATAQUE CRÍTICO! (${rolagem.texto})`;
+                resultado.texto = 'ATAQUE CRÍTICO! (' + rolagem.texto + ')';
             } else {
-                resultado.texto = `✅ Acertou! (${rolagem.texto})`;
+                resultado.texto = 'Acertou! (' + rolagem.texto + ')';
             }
         } else {
-            resultado.texto = `❌ Errou! (${rolagem.texto})`;
+            resultado.texto = 'Errou! (' + rolagem.texto + ')';
         }
         
         return resultado;
@@ -1960,10 +1955,9 @@ const SistemaCombate = {
 };
 
 // ============================================
-// 2. FUNÇÕES AUXILIARES DE COMBATE
+// FUNÇÕES DE COMBATE (CORRIGIDAS)
 // ============================================
 
-// Pegar armas equipadas
 function getArmasEquipadas() {
     if (!personagem?.inventario?.corpo) return [];
     
@@ -1977,7 +1971,6 @@ function getArmasEquipadas() {
     }));
 }
 
-// Renderizar inimigos na interface
 function renderizarInimigos() {
     if (!inimigosLista) return;
     
@@ -2005,30 +1998,25 @@ function renderizarInimigos() {
             <div style="font-size:0.7rem; color:#ff6b6b;">PV: ${inimigo.pv_atual}/${inimigo.pv_max}</div>
         `;
         
-        div.addEventListener('click', () => {
+        div.addEventListener('click', (e) => {
+            const idx = parseInt(e.currentTarget.dataset.index);
             document.querySelectorAll('.inimigo-mini').forEach(el => el.classList.remove('selecionado'));
-            div.classList.add('selecionado');
-            inimigoSelecionado = index;
+            e.currentTarget.classList.add('selecionado');
+            inimigoSelecionado = idx;
         });
         
         inimigosLista.appendChild(div);
     });
 }
 
-// ============================================
-// 3. FUNÇÕES PRINCIPAIS DE COMBATE
-// ============================================
-
-// EXECUTAR ATAQUE DO JOGADOR
+// ===== FUNÇÃO EXECUTAR ATAQUE CORRIGIDA =====
 function executarAtaque() {
-    // Verificar se é turno do jogador
-    if (window.turnoAtual !== 'pc') {
+    if (turnoAtual !== 'pc') {
         adicionarLog('❌ Não é seu turno!', 'erro');
         if (modalAtaque) modalAtaque.classList.remove('active');
         return;
     }
     
-    // Verificar arma
     if (armaSelecionada === null) {
         const armas = getArmasEquipadas();
         if (armas.length === 1) {
@@ -2039,14 +2027,12 @@ function executarAtaque() {
         }
     }
     
-    // Verificar inimigo
     if (inimigoSelecionado === null) {
         adicionarLog('❌ Selecione um inimigo!', 'erro');
         if (modalAtaque) modalAtaque.classList.remove('active');
         return;
     }
     
-    // Pegar dados
     const armas = getArmasEquipadas();
     const arma = armas[armaSelecionada];
     const inimigo = window.inimigos[inimigoSelecionado];
@@ -2057,22 +2043,21 @@ function executarAtaque() {
         return;
     }
     
-    // Fechar modal
     if (modalAtaque) modalAtaque.classList.remove('active');
     
-    // EXECUTAR ATAQUE
+    // Atacar usando o sistema de combate
     const resultado = SistemaCombate.atacar(window.personagem, inimigo, arma);
     
-    // LOG DO ATAQUE
     adicionarLog(`⚔️ Ataque contra ${inimigo.nome}:`, 'info');
     adicionarLog(resultado.texto, resultado.acertou ? 'sucesso' : 'erro');
     
     if (resultado.acertou) {
-        // Mostrar componentes do dano
-        adicionarLog(`   💪 Dano base (ST ${getValorAtributoReal('st')}): ${resultado.danoBase}`, 'info');
-        adicionarLog(`   ⚔️ Dano da arma (${arma.dano}): ${resultado.danoArma}`, 'info');
+        // CORRIGIDO: usar rolarDanoBase em vez de calcularDanoBase
+        const st = window.personagem.atributos.st?.valor || 10;
+        adicionarLog(`   Dano base (ST ${st}): ${resultado.danoBase}`, 'info');
+        adicionarLog(`   Dano da arma (${arma.dano}): ${resultado.danoArma}`, 'info');
         
-        let mensagemDano = `   💥 DANO TOTAL: ${resultado.danoBase} + ${resultado.danoArma}`;
+        let mensagemDano = `   DANO TOTAL: ${resultado.danoBase} + ${resultado.danoArma}`;
         if (arma.tipoDano === 'Corte' || arma.tipoDano === 'Perfuração') {
             mensagemDano += ` (x1.5) = ${resultado.dano}`;
         } else {
@@ -2080,287 +2065,76 @@ function executarAtaque() {
         }
         adicionarLog(mensagemDano, 'dano');
         
-        // Aplicar dano
         inimigo.pv_atual = Math.max(0, inimigo.pv_atual - resultado.dano);
         
-        // Verificar se morreu
         if (inimigo.pv_atual <= 0) {
-            adicionarLog(`   ☠️ ${inimigo.nome} foi derrotado!`, 'sucesso');
+            adicionarLog(`   ${inimigo.nome} foi derrotado!`, 'sucesso');
             
-            // Ganhar XP
             const xpGanho = inimigo.xp || 25;
             xpAtual += xpGanho;
             personagem.xp = xpAtual;
             adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
             verificarGanhoBolinha();
             
-            // Remover inimigo
             window.inimigos = window.inimigos.filter((_, i) => i !== inimigoSelecionado);
             inimigoSelecionado = null;
             armaSelecionada = null;
             
-            // Verificar vitória
             if (window.inimigos.length === 0) {
-                adicionarLog('🏆 VITÓRIA!', 'sucesso');
+                adicionarLog('   VITÓRIA!', 'sucesso');
                 if (inimigosContainer) inimigosContainer.style.display = 'none';
                 
-                // Ir para próxima cena
                 if (capituloAtual?.ao_vencer) {
-                    setTimeout(() => carregarCena(capituloAtual.ao_vencer), 1500);
+                    setTimeout(() => {
+                        carregarCena(capituloAtual.ao_vencer);
+                    }, 1500);
                 }
                 salvarProgresso();
                 return;
             }
         }
         
-        // Atualizar interface
         renderizarInimigos();
         atualizarFichaPersonagem();
         
-        // Verificar perda de defesa por falha crítica
-        if (resultado.falhaCritica) {
-            SistemaCombate.turno.perderDefesa();
-        }
-        
         // Passar turno
-        setTimeout(() => passarTurno(), 800);
-        
+        setTimeout(() => {
+            passarTurno();
+        }, 800);
     } else {
-        // Passar turno mesmo errando
-        setTimeout(() => passarTurno(), 800);
+        setTimeout(() => {
+            passarTurno();
+        }, 800);
     }
     
     salvarProgresso();
 }
 
-// PROCESSAR DEFESA
-function processarDefesa(tipo, inimigo, dano, escudoInfo = {}) {
-    // Calcular valores de defesa
-    const dx = getValorAtributoReal('dx');
-    const ht = getValorAtributoReal('ht');
-    
-    let nhDefesa = 0;
-    let nomeDefesa = '';
-    
-    switch(tipo) {
-        case 'esquiva':
-            nhDefesa = Math.floor((dx + ht) / 6) + 6;
-            nomeDefesa = 'Esquiva';
-            break;
-        case 'aparar':
-            nhDefesa = Math.floor((dx + dx) / 4) + 6;
-            nomeDefesa = 'Aparar';
-            break;
-        case 'bloqueio':
-            nhDefesa = Math.floor((dx + dx) / 4) + 6 + 2;
-            nomeDefesa = 'Bloqueio';
-            break;
-        default:
-            nhDefesa = Math.floor((dx + ht) / 6) + 6;
-            nomeDefesa = 'Esquiva';
-    }
-    
-    // Rolar defesa
-    const rolagem = SistemaCombate.rolar2d10();
-    const sucesso = rolagem.total <= nhDefesa;
-    
-    adicionarLog(`   🛡️ ${nomeDefesa}: ${rolagem.texto} (NH ${nhDefesa})`, 'info');
-    
-    let danoFinal = dano;
-    let mensagem = '';
-    
-    if (sucesso) {
-        if (tipo === 'bloqueio' && escudoInfo.escudoPV > 0) {
-            // Escudo absorve dano
-            const danoNoEscudo = Math.min(dano, escudoInfo.escudoPV);
-            danoFinal = Math.max(0, dano - escudoInfo.escudoPV - escudoInfo.escudoRD);
-            mensagem = `   🛡️ ${escudoInfo.escudoNome || 'Escudo'} absorveu ${danoNoEscudo} dano!`;
-        } else {
-            danoFinal = 0;
-        }
-        adicionarLog(`✅ ${nomeDefesa} bem sucedida!`, 'sucesso');
-        if (mensagem) adicionarLog(mensagem, 'sucesso');
-    } else {
-        // Falhou, aplicar RD
-        const rd = personagem.derivados?.rd?.corpo || 2;
-        danoFinal = Math.max(0, dano - rd);
-        adicionarLog(`❌ Falhou na ${nomeDefesa}! RD reduziu para ${danoFinal}`, 'erro');
-    }
-    
-    // Aplicar dano
-    if (danoFinal > 0) {
-        pvAtual = Math.max(0, pvAtual - danoFinal);
-        if (personagem.statusCombate) personagem.statusCombate.vidaAtual = pvAtual;
-        adicionarLog(`   💔 ${inimigo.nome} causou ${danoFinal} de dano!`, 'dano');
-        atualizarFichaPersonagem();
+// ===== FUNÇÃO PASSAR TURNO CORRIGIDA =====
+function passarTurno() {
+    if (turnoAtual === 'pc') {
+        turnoAtual = 'inimigos';
         
-        if (pvAtual <= 0) {
-            adicionarLog(`💀 VOCÊ MORREU!`, 'erro');
-            btnAtacar.disabled = true;
-            btnMagia.disabled = true;
-            if (btnDefender) btnDefender.disabled = true;
+        // CORRIGIDO: apenas chama a função, sem esperar retorno complexo
+        SistemaCombate.turno.passarTurno();
+        
+        if (turnoIndicator) {
+            turnoIndicator.className = 'turno-indicator inimigo';
+            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
         }
+        
+        btnAtacar.disabled = true;
+        btnMagia.disabled = true;
+        if (btnDefender) btnDefender.disabled = true;
+        
+        setTimeout(processarTurnoInimigos, 500);
     }
 }
 
-// ABRIR MODAL DE DEFESA
-function abrirModalDefesa(inimigo, dano, callback) {
-    if (!modalDefesa) {
-        // Fallback para esquiva
-        processarDefesa('esquiva', inimigo, dano);
-        if (callback) callback();
-        return;
-    }
-    
-    const defesaContexto = document.getElementById('defesaContexto');
-    const defesasLista = document.getElementById('defesasLista');
-    
-    if (!defesaContexto || !defesasLista) {
-        processarDefesa('esquiva', inimigo, dano);
-        if (callback) callback();
-        return;
-    }
-    
-    // Contexto
-    defesaContexto.innerHTML = `⚠️ ${inimigo.nome} causará ${dano} de dano! Escolha sua defesa:`;
-    
-    // Calcular valores
-    const dx = getValorAtributoReal('dx');
-    const ht = getValorAtributoReal('ht');
-    const esquiva = Math.floor((dx + ht) / 6) + 6;
-    
-    let aparar = 0;
-    let bloqueio = 0;
-    let escudoPV = 0;
-    let escudoRD = 0;
-    let escudoNome = '';
-    
-    // Verificar equipamentos
-    if (personagem?.inventario?.corpo) {
-        const temArma = personagem.inventario.corpo.some(item => item.dano);
-        if (temArma) aparar = Math.floor((dx + dx) / 4) + 6;
-        
-        const escudo = personagem.inventario.corpo.find(item => 
-            item.nome?.toLowerCase().includes('escudo') || item.tipo === 'escudo'
-        );
-        if (escudo) {
-            bloqueio = Math.floor((dx + dx) / 4) + 6 + 2;
-            escudoPV = escudo.pv || 10;
-            escudoRD = escudo.rd || 2;
-            escudoNome = escudo.nome || 'Escudo';
-        }
-    }
-    
-    // Montar lista de defesas
-    defesasLista.innerHTML = '';
-    
-    // Esquiva (sempre disponível)
-    const divEsquiva = document.createElement('div');
-    divEsquiva.className = 'defesa-card-modal';
-    divEsquiva.dataset.defesa = 'esquiva';
-    divEsquiva.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span><i class="fas fa-running"></i> Esquiva</span>
-            <span style="font-weight:bold; color:#4CAF50;">${esquiva}</span>
-        </div>
-        <div style="font-size:0.8rem;">Tentar desviar completamente</div>
-    `;
-    defesasLista.appendChild(divEsquiva);
-    
-    // Aparar (se tiver arma)
-    if (aparar > 0) {
-        const divAparar = document.createElement('div');
-        divAparar.className = 'defesa-card-modal';
-        divAparar.dataset.defesa = 'aparar';
-        divAparar.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span><i class="fas fa-sword"></i> Aparar</span>
-                <span style="font-weight:bold; color:#ffaa00;">${aparar}</span>
-            </div>
-            <div style="font-size:0.8rem;">Usar arma para bloquear</div>
-        `;
-        defesasLista.appendChild(divAparar);
-    }
-    
-    // Bloqueio (se tiver escudo)
-    if (bloqueio > 0) {
-        const divBloqueio = document.createElement('div');
-        divBloqueio.className = 'defesa-card-modal';
-        divBloqueio.dataset.defesa = 'bloqueio';
-        divBloqueio.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span><i class="fas fa-shield-alt"></i> Bloqueio</span>
-                <span style="font-weight:bold; color:#4a9fff;">${bloqueio}</span>
-            </div>
-            <div style="font-size:0.8rem;">
-                ${escudoNome} (PV: ${escudoPV} | RD: ${escudoRD})
-            </div>
-        `;
-        defesasLista.appendChild(divBloqueio);
-    }
-    
-    let defesaSelecionada = null;
-    
-    // Eventos dos cards
-    document.querySelectorAll('.defesa-card-modal').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('.defesa-card-modal').forEach(c => c.classList.remove('selecionada'));
-            card.classList.add('selecionada');
-            defesaSelecionada = card.dataset.defesa;
-            if (btnConfirmarDefesa) btnConfirmarDefesa.disabled = false;
-        });
-    });
-    
-    // Handler de confirmação
-    const confirmarHandler = () => {
-        if (!defesaSelecionada) defesaSelecionada = 'esquiva';
-        
-        modalDefesa.classList.remove('active');
-        
-        // Processar defesa
-        processarDefesa(defesaSelecionada, inimigo, dano, { escudoPV, escudoRD, escudoNome });
-        
-        // Remover listeners
-        btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
-        btnCancelarDefesa.removeEventListener('click', cancelarHandler);
-        
-        if (callback) callback();
-    };
-    
-    // Handler de cancelamento
-    const cancelarHandler = () => {
-        modalDefesa.classList.remove('active');
-        
-        // Usar esquiva como fallback
-        processarDefesa('esquiva', inimigo, dano, { escudoPV, escudoRD, escudoNome });
-        
-        btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
-        btnCancelarDefesa.removeEventListener('click', cancelarHandler);
-        
-        if (callback) callback();
-    };
-    
-    // Configurar botões
-    if (btnConfirmarDefesa) {
-        btnConfirmarDefesa.disabled = true;
-        btnConfirmarDefesa.addEventListener('click', confirmarHandler);
-    }
-    
-    if (btnCancelarDefesa) {
-        btnCancelarDefesa.addEventListener('click', cancelarHandler);
-    }
-    
-    modalDefesa.classList.add('active');
-}
-
-// ============================================
-// 4. GERENCIAMENTO DE TURNOS
-// ============================================
-
-// TURNO DOS INIMIGOS
+// ===== FUNÇÃO PROCESSAR TURNO INIMIGOS =====
 function processarTurnoInimigos() {
     if (!window.inimigos || window.inimigos.length === 0) {
-        window.turnoAtual = 'pc';
+        turnoAtual = 'pc';
         if (turnoIndicator) {
             turnoIndicator.className = 'turno-indicator jogador';
             turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
@@ -2368,25 +2142,22 @@ function processarTurnoInimigos() {
         btnAtacar.disabled = false;
         btnMagia.disabled = false;
         if (btnDefender) btnDefender.disabled = false;
-        adicionarLog('✅ Sua vez de agir!', 'sucesso');
+        adicionarLog('  ️ Sua vez de agir!', 'sucesso');
         return;
     }
     
-    adicionarLog(`⚔️ Turno dos inimigos!`, 'dano');
+    adicionarLog('   Turno dos inimigos!', 'dano');
     
-    // Desabilitar botões do jogador
     btnAtacar.disabled = true;
     btnMagia.disabled = true;
     if (btnDefender) btnDefender.disabled = true;
     
-    // Fila de ataques
     let index = 0;
     
     function atacarProximo() {
         if (index >= window.inimigos.length) {
-            // Todos atacaram, passar turno
             setTimeout(() => {
-                window.turnoAtual = 'pc';
+                turnoAtual = 'pc';
                 if (turnoIndicator) {
                     turnoIndicator.className = 'turno-indicator jogador';
                     turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
@@ -2394,7 +2165,7 @@ function processarTurnoInimigos() {
                 btnAtacar.disabled = false;
                 btnMagia.disabled = false;
                 if (btnDefender) btnDefender.disabled = false;
-                adicionarLog('✅ Sua vez de agir!', 'sucesso');
+                adicionarLog('  ️ Sua vez de agir!', 'sucesso');
                 salvarProgresso();
             }, 1000);
             return;
@@ -2403,16 +2174,13 @@ function processarTurnoInimigos() {
         const inimigo = window.inimigos[index];
         index++;
         
-        // Delay entre ataques
         setTimeout(() => {
-            // Rolar ataque do inimigo
             const rolagem = SistemaCombate.rolar2d10();
             const nhAtaque = inimigo.nh_ataque || 10;
             
             adicionarLog(`   ${inimigo.nome} ataca: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
             
             if (rolagem.total <= nhAtaque) {
-                // Calcular dano
                 let dano = 0;
                 if (inimigo.dano) {
                     dano = SistemaCombate.rolarDados(inimigo.dano);
@@ -2421,11 +2189,9 @@ function processarTurnoInimigos() {
                 }
                 dano = Math.max(1, dano);
                 
-                adicionarLog(`   💢 Dano potencial: ${dano}`, 'dano');
+                adicionarLog(`   Dano potencial: ${dano}`, 'dano');
                 
-                // Abrir modal de defesa
-                abrirModalDefesa(inimigo, dano, () => {
-                    // Após defender, próximo inimigo
+                abrirModalDefesa(inimigo, dano, function() {
                     atacarProximo();
                 });
             } else {
@@ -2435,110 +2201,12 @@ function processarTurnoInimigos() {
         }, 800);
     }
     
-    // Iniciar ataques
     atacarProximo();
 }
 
-// PASSAR TURNO
-function passarTurno() {
-    if (window.turnoAtual === 'pc') {
-        window.turnoAtual = 'inimigos';
-        
-        // Atualizar indicador
-        if (turnoIndicator) {
-            turnoIndicator.className = 'turno-indicator inimigo';
-            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
-        }
-        
-        // Desabilitar botões
-        btnAtacar.disabled = true;
-        btnMagia.disabled = true;
-        if (btnDefender) btnDefender.disabled = true;
-        
-        // Iniciar turno dos inimigos
-        setTimeout(processarTurnoInimigos, 500);
-    }
-}
-
-// ============================================
-// 5. INICIAR COMBATE
-// ============================================
-window.iniciarCombate = function(inimigosData, emboscada = false) {
-    console.log('⚔️ Iniciando combate...', inimigosData);
-    
-    // Preparar inimigos
-    if (Array.isArray(inimigosData) && inimigosData.length > 0) {
-        window.inimigos = inimigosData.map(inim => ({
-            id: inim.id || `inimigo_${Math.random()}`,
-            nome: inim.nome || 'Inimigo',
-            pv: inim.pv_max || inim.pv || 50,
-            pv_max: inim.pv_max || inim.pv || 50,
-            pv_atual: inim.pv_max || inim.pv || 50,
-            defesa: inim.defesa || 8,
-            dx: inim.dx || 10,
-            nh_ataque: inim.nh_ataque || 10,
-            dano: inim.dano || "1d6",
-            xp: inim.xp || 25
-        }));
-    } else {
-        adicionarLog('❌ Erro: Nenhum inimigo válido!', 'erro');
-        return;
-    }
-    
-    if (window.inimigos.length === 0) {
-        adicionarLog('❌ Erro: Lista de inimigos vazia!', 'erro');
-        return;
-    }
-    
-    // Calcular iniciativa
-    const iniciativa = SistemaCombate.calcularIniciativa(
-        window.personagem,
-        window.inimigos,
-        emboscada ? 'pc' : null
-    );
-    
-    adicionarLog(iniciativa.texto, 'info');
-    adicionarLog(`   Sua iniciativa: ${iniciativa.pc} | Inimigos: ${iniciativa.inimigos.toFixed(1)}`, 'info');
-    
-    // Definir quem começa
-    window.turnoAtual = iniciativa.quemComeca;
-    
-    // Mostrar interface de combate
-    if (inimigosContainer) inimigosContainer.style.display = 'block';
-    renderizarInimigos();
-    
-    // Configurar interface baseado em quem começa
-    if (window.turnoAtual === 'pc') {
-        if (turnoIndicator) {
-            turnoIndicator.className = 'turno-indicator jogador';
-            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-        }
-        btnAtacar.disabled = false;
-        btnMagia.disabled = false;
-        if (btnDefender) btnDefender.disabled = false;
-    } else {
-        if (turnoIndicator) {
-            turnoIndicator.className = 'turno-indicator inimigo';
-            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
-        }
-        btnAtacar.disabled = true;
-        btnMagia.disabled = true;
-        if (btnDefender) btnDefender.disabled = true;
-        
-        // Iniciar turno dos inimigos
-        setTimeout(processarTurnoInimigos, 1500);
-    }
-    
-    adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
-}
-
-// ============================================
-// 6. AÇÕES DO JOGADOR
-// ============================================
-
-// ABRIR MODAL DE ATAQUE
+// ===== FUNÇÃO ABRIR MODAL ATAQUE =====
 function abrirModalAtaque() {
-    if (window.turnoAtual !== 'pc') {
+    if (turnoAtual !== 'pc') {
         adicionarLog('❌ Não é seu turno!', 'erro');
         return;
     }
@@ -2560,14 +2228,12 @@ function abrirModalAtaque() {
         return;
     }
     
-    // Se só tem UMA arma, ataca direto
     if (armas.length === 1) {
         armaSelecionada = 0;
         executarAtaque();
         return;
     }
     
-    // Se tem várias armas, mostra modal
     armaSelecionada = null;
     if (btnConfirmarAtaque) btnConfirmarAtaque.disabled = true;
     
@@ -2583,12 +2249,11 @@ function abrirModalAtaque() {
         `).join('');
     }
     
-    // Eventos dos cards
     document.querySelectorAll('.arma-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', function(e) {
             document.querySelectorAll('.arma-card').forEach(c => c.classList.remove('selecionada'));
-            card.classList.add('selecionada');
-            armaSelecionada = parseInt(card.dataset.index);
+            e.currentTarget.classList.add('selecionada');
+            armaSelecionada = parseInt(e.currentTarget.dataset.index);
             if (btnConfirmarAtaque) btnConfirmarAtaque.disabled = false;
         });
     });
@@ -2596,67 +2261,90 @@ function abrirModalAtaque() {
     modalAtaque.classList.add('active');
 }
 
-// DEFENDER MANUALMENTE
-function defenderManual() {
-    if (window.turnoAtual !== 'pc') {
-        adicionarLog('❌ Não é seu turno!', 'erro');
+// ===== FUNÇÃO INICIAR COMBATE GLOBAL =====
+window.iniciarCombate = function(inimigosData, emboscada = false) {
+    if (!emboscada) emboscada = false;
+    
+    if (Array.isArray(inimigosData) && inimigosData.length > 0) {
+        window.inimigos = [];
+        for (let i = 0; i < inimigosData.length; i++) {
+            const inim = inimigosData[i];
+            window.inimigos.push({
+                id: inim.id || 'inimigo_' + Math.random(),
+                nome: inim.nome || 'Inimigo',
+                pv: inim.pv_max || inim.pv || 50,
+                pv_max: inim.pv_max || inim.pv || 50,
+                pv_atual: inim.pv_max || inim.pv || 50,
+                defesa: inim.defesa || 8,
+                dx: inim.dx || 10,
+                nh_ataque: inim.nh_ataque || 10,
+                dano: inim.dano || '1d6',
+                xp: inim.xp || 25
+            });
+        }
+    } else {
+        adicionarLog('❌ Erro: Nenhum inimigo válido!', 'erro');
         return;
     }
     
-    if (!window.inimigos || window.inimigos.length === 0) {
-        adicionarLog('❌ Não há inimigos para defender!', 'erro');
+    if (window.inimigos.length === 0) {
+        adicionarLog('❌ Erro: Lista de inimigos vazia!', 'erro');
         return;
     }
     
-    // Criar ataque fictício para treino
-    const inimigoFicticio = { nome: 'Posição defensiva' };
-    const danoFicticio = 0;
+    const iniciativa = SistemaCombate.calcularIniciativa(
+        window.personagem,
+        window.inimigos,
+        emboscada ? 'pc' : null
+    );
     
-    abrirModalDefesa(inimigoFicticio, danoFicticio, () => {
-        adicionarLog('🛡️ Posição de defesa preparada!', 'sucesso');
-        passarTurno();
-    });
-}
-
-// DESCANÇAR
-function descansar() {
-    pvAtual = Math.min(pvAtual + 5, pvMax);
-    manaAtual = Math.min(manaAtual + 3, manaMax);
-    fadigaAtual = Math.min(fadigaAtual + 2, fadigaMax);
+    adicionarLog(iniciativa.texto, 'info');
+    adicionarLog(`   Sua iniciativa: ${iniciativa.pc} | Inimigos: ${iniciativa.inimigos.toFixed(1)}`, 'info');
     
-    if (personagem && personagem.statusCombate) {
-        personagem.statusCombate = {
-            vidaAtual: pvAtual,
-            vidaMax: pvMax,
-            fadigaAtual: fadigaAtual,
-            fadigaMax: fadigaMax,
-            manaAtual: manaAtual,
-            manaMax: manaMax
-        };
+    turnoAtual = iniciativa.quemComeca;
+    
+    SistemaCombate.turno.iniciarCombate(iniciativa.quemComeca);
+    
+    if (inimigosContainer) inimigosContainer.style.display = 'block';
+    renderizarInimigos();
+    
+    if (turnoAtual === 'pc') {
+        if (turnoIndicator) {
+            turnoIndicator.className = 'turno-indicator jogador';
+            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        }
+        btnAtacar.disabled = false;
+        btnMagia.disabled = false;
+        if (btnDefender) btnDefender.disabled = false;
+    } else {
+        if (turnoIndicator) {
+            turnoIndicator.className = 'turno-indicator inimigo';
+            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+        }
+        btnAtacar.disabled = true;
+        btnMagia.disabled = true;
+        if (btnDefender) btnDefender.disabled = true;
+        
+        setTimeout(processarTurnoInimigos, 1500);
     }
     
-    atualizarFichaPersonagem();
-    salvarProgresso();
-    adicionarLog('💤 Você descansou e recuperou energia.', 'sucesso');
-    passarTurno();
-}
+    adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
+};
 
-// ============================================
-// 7. EXPOR FUNÇÕES GLOBAIS
-// ============================================
+// ===== EXPOR FUNÇÕES GLOBAIS =====
 window.SistemaCombate = SistemaCombate;
 window.getArmasEquipadas = getArmasEquipadas;
 window.renderizarInimigos = renderizarInimigos;
 window.executarAtaque = executarAtaque;
-window.processarDefesa = processarDefesa;
-window.abrirModalDefesa = abrirModalDefesa;
 window.processarTurnoInimigos = processarTurnoInimigos;
 window.passarTurno = passarTurno;
 window.abrirModalAtaque = abrirModalAtaque;
 window.defenderManual = defenderManual;
 window.descansar = descansar;
 
-console.log('✅ Sistema de combate carregado com sucesso!');
+window.turnoAtual = turnoAtual;
+window.inimigoSelecionado = inimigoSelecionado;
+window.armaSelecionada = armaSelecionada;
 </script>
 
 
@@ -4801,11 +4489,6 @@ let capituloAtual = null;
 let inimigos = [];
 let sessaoId = null;
 
-let turnoAtual = 'pc'; // 'pc' ou 'inimigos'
-let inimigoSelecionado = null;
-let armaSelecionada = null;
-let defesaSelecionada = null;
-let ataqueAtual = null;
 
 // Controle de tempo e eventos
 let timerHomem = null;
