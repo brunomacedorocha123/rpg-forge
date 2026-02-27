@@ -1665,7 +1665,7 @@
 
 <script>
 // ============================================
-// sistema-combate.js - SISTEMA DE COMBATE RPGForce (COMPLETO)
+// sistema-combate.js - SISTEMA DE COMBATE RPGForce (COMPLETO E CORRIGIDO)
 // ============================================
 
 const SistemaCombate = {
@@ -1709,7 +1709,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 2. ROLAGENS (AGORA USANDO D10)
+    // 2. ROLAGENS (USANDO D10)
     // ============================================
     rolar2d10: function() {
         const d1 = Math.floor(Math.random() * 10) + 1;
@@ -1726,49 +1726,73 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 3. CALCULAR DANO BASE DO PERSONAGEM
+    // 3. OBTER EXPRESSÃO DE DANO BASE POR ST
     // ============================================
-    calcularDanoBase: function(personagem) {
-        if (!personagem || !personagem.atributos) return 0;
-        
-        const st = personagem.atributos.st?.valor || 10;
-        
-        // Tabela de dano base baseada em ST
-        if (st <= 9) return 0;
-        if (st <= 10) return 0;
-        if (st <= 11) return 1;
-        if (st <= 12) return 2;
-        if (st <= 13) return 3;
-        if (st <= 14) return 4;
-        if (st <= 15) return 5;
-        if (st <= 16) return 6;
-        if (st <= 17) return 7;
-        if (st <= 18) return 8;
-        if (st <= 19) return 9;
-        if (st <= 20) return 10;
-        
-        return Math.floor((st - 10) / 2); // Para ST muito alto
+    getDanoBaseExpressao: function(st) {
+        // Tabela de dano base GURPS para d10
+        if (st <= 9) return "1d-2";
+        if (st == 10) return "1d";
+        if (st == 11) return "1d+1";
+        if (st == 12) return "1d+2";
+        if (st == 13) return "2d-1";
+        if (st == 14) return "2d";
+        if (st == 15) return "2d+1";
+        if (st == 16) return "2d+2";
+        if (st == 17) return "3d-1";
+        if (st == 18) return "3d";
+        if (st == 19) return "3d+1";
+        if (st == 20) return "3d+2";
+        if (st <= 22) return "4d";
+        if (st <= 24) return "5d";
+        if (st <= 26) return "6d";
+        if (st <= 28) return "7d";
+        if (st <= 30) return "8d";
+        return "10d";
     },
     
     // ============================================
-    // 4. ROLAR DADOS (COM INTERPRETAÇÃO MELHORADA)
+    // 4. ROLAR DANO BASE DO PERSONAGEM
     // ============================================
-    rolarDados: function(expressao, personagem = null) {
-        // Se for uma string com texto, tenta extrair o dado
+    rolarDanoBase: function(personagem) {
+        if (!personagem || !personagem.atributos) return 0;
+        
+        const st = personagem.atributos.st?.valor || 10;
+        const expressao = this.getDanoBaseExpressao(st);
+        
+        // Log da expressão (opcional)
+        if (window.adicionarLog) {
+            window.adicionarLog(`   Dano base ST${st}: ${expressao}`, 'info');
+        }
+        
+        return this.rolarDados(expressao);
+    },
+    
+    // ============================================
+    // 5. ROLAR DADOS (INTERPRETA EXPRESSÕES)
+    // ============================================
+    rolarDados: function(expressao) {
+        // Se for undefined ou null, retorna 0
+        if (!expressao) return 0;
+        
+        // Se for string com texto, extrai apenas o dado
         if (typeof expressao === 'string') {
-            // Remove qualquer texto após o dado (ex: "1d Corte" vira "1d")
             expressao = expressao.split(' ')[0];
         }
         
-        const match = expressao.match(/(\d+)d([+-]\d+)?/);
+        // Converte para string se necessário
+        const expr = String(expressao).trim();
+        
+        // Suporta formatos: "1d", "1d+1", "2d-1", "1d10", etc
+        const match = expr.match(/(\d+)d(?:(\d+))?([+-]\d+)?/);
         if (!match) return 0;
         
         const qtd = parseInt(match[1]) || 1;
-        const mod = match[2] ? parseInt(match[2]) : 0;
+        const faces = match[2] ? parseInt(match[2]) : 10; // Se não especificado, usa 10
+        const mod = match[3] ? parseInt(match[3]) : 0;
         
         let total = 0;
         for (let i = 0; i < qtd; i++) {
-            total += Math.floor(Math.random() * 10) + 1; // D10
+            total += Math.floor(Math.random() * faces) + 1;
         }
         total += mod;
         
@@ -1776,43 +1800,40 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 5. ROLAR DANO TOTAL (ARMA + BASE)
+    // 6. ROLAR DANO TOTAL (ARMA + BASE)
     // ============================================
     rolarDanoTotal: function(personagem, arma) {
         if (!personagem) return 0;
         
-        // Dano base do personagem (baseado em ST)
-        const danoBase = this.calcularDanoBase(personagem);
+        // Rola dano base baseado no ST
+        const danoBase = this.rolarDanoBase(personagem);
         
-        // Dano da arma
+        // Rola dano da arma
         let danoArma = 0;
         if (arma && arma.dano) {
-            danoArma = this.rolarDados(arma.dano, personagem);
-        } else {
-            // Se não tiver arma, usa apenas dano base reduzido
-            return Math.max(1, Math.floor(danoBase / 2));
+            danoArma = this.rolarDados(arma.dano);
         }
         
         // Soma os dois danos
         let danoTotal = danoBase + danoArma;
         
-        // Bônus de 50% para armas de corte/perfuração (aplica apenas no dano da arma, não no base)
+        // Bônus de 50% para armas de corte/perfuração
         if (arma && (arma.tipoDano === 'Corte' || arma.tipoDano === 'Perfuração')) {
-            danoTotal = Math.floor(danoBase + (danoArma * 1.5));
+            danoTotal = Math.floor(danoTotal * 1.5);
         }
         
         return Math.max(1, danoTotal);
     },
     
     // ============================================
-    // 6. NH DE ATAQUE (das perícias)
+    // 7. NH DE ATAQUE (das perícias)
     // ============================================
     getNHAtaque: function(personagem, arma) {
         if (!personagem || !arma) return 10;
         
         // Mapear arma para perícia correspondente
         let periciaId = 'espada'; // padrão
-        const nome = arma.nome.toLowerCase();
+        const nome = arma.nome?.toLowerCase() || '';
         
         if (nome.includes('machado')) periciaId = 'machado';
         else if (nome.includes('arco')) periciaId = 'arco';
@@ -1826,12 +1847,12 @@ const SistemaCombate = {
             return personagem.pericias[periciaId].nh || personagem.atributos.dx.valor;
         }
         
-        // Fallback: DX + 3
-        return (personagem.atributos.dx.valor || 10) + 3;
+        // Fallback: DX
+        return personagem.atributos.dx.valor || 10;
     },
     
     // ============================================
-    // 7. ATAQUE SIMPLES (AGORA USA DANO TOTAL)
+    // 8. ATAQUE SIMPLES
     // ============================================
     atacar: function(atacante, alvo, arma) {
         const nh = this.getNHAtaque(atacante, arma);
@@ -1849,36 +1870,40 @@ const SistemaCombate = {
             texto: ''
         };
         
-        // Se for falha crítica, já trata aqui
+        // Se for falha crítica
         if (rolagem.isFalhaCritica) {
             resultado.texto = `   FALHA CRÍTICA! (${rolagem.texto})`;
-            resultado.perdeDefesa = true; // Perde defesa no próximo turno
+            resultado.perdeDefesa = true;
             return resultado;
         }
         
-        // Se acertou, calcula dano total (arma + base)
+        // Se acertou, calcula dano
         if (rolagem.total <= nh) {
-            let dano = this.rolarDanoTotal(atacante, arma);
-            
-            // Mostrar no log os componentes do dano
-            const danoBase = this.calcularDanoBase(atacante);
+            // Calcula componentes do dano
+            const st = atacante.atributos?.st?.valor || 10;
+            const expressaoBase = this.getDanoBaseExpressao(st);
+            const danoBase = this.rolarDanoBase(atacante);
             const danoArma = this.rolarDados(arma.dano);
+            const danoTotal = this.rolarDanoTotal(atacante, arma);
             
-            // Log detalhado (se a função adicionarLog existir)
+            // Log detalhado
             if (window.adicionarLog) {
-                window.adicionarLog(`   Dano base (ST): ${danoBase} | Dano arma: ${danoArma} | Total: ${dano}`, 'info');
+                window.adicionarLog(`   Dano base ST${st} (${expressaoBase}): ${danoBase} | Arma (${arma.dano}): ${danoArma} | Total: ${danoTotal}`, 'info');
             }
             
-            // Crítico = dano dobrado
+            // Aplica crítico
             if (rolagem.isCritico) {
-                dano *= 2;
+                resultado.dano = danoTotal * 2;
                 resultado.texto = `✨ ATAQUE CRÍTICO! (${rolagem.texto})`;
+                if (window.adicionarLog) {
+                    window.adicionarLog(`   CRÍTICO! Dano dobrado: ${danoTotal} → ${resultado.dano}`, 'sucesso');
+                }
             } else {
+                resultado.dano = danoTotal;
                 resultado.texto = `✅ Acertou! (${rolagem.texto})`;
             }
             
-            resultado.dano = dano;
-            resultado.danoOriginal = dano;
+            resultado.danoOriginal = danoTotal;
         } else {
             resultado.texto = `❌ Errou! (${rolagem.texto})`;
         }
@@ -1887,10 +1912,9 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 8. ATAQUE DUPLO (Ambidestria)
+    // 9. ATAQUE DUPLO (Ambidestria)
     // ============================================
     ataqueDuplo: function(atacante, alvo1, alvo2, arma1, arma2) {
-        // Verifica se tem ambidestria
         if (!atacante.vantagens || !atacante.vantagens.includes('ambidestria')) {
             return { erro: 'Você não possui Ambidestria!' };
         }
@@ -1906,22 +1930,18 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 9. ARMAS DE LONGO ALCANCE
+    // 10. ARMAS DE LONGO ALCANCE
     // ============================================
     armasLongoAlcance: {
-        // Estado das armas (precisa recarregar)
         estado: {},
         
-        // Iniciar combate - reseta estados
         reset: function() {
             this.estado = {};
         },
         
-        // Atacar com arco/besta
-        atacar: function(atacante, alvo, arma, turnoPreparacao = false) {
+        atacar: function(atacante, alvo, arma) {
             const armaId = arma.id || 'arco';
             
-            // Se não existe no estado, inicializa
             if (!this.estado[armaId]) {
                 this.estado[armaId] = {
                     carregada: true,
@@ -1931,7 +1951,6 @@ const SistemaCombate = {
             
             const estadoArma = this.estado[armaId];
             
-            // Se não está carregada, precisa recarregar
             if (!estadoArma.carregada) {
                 return {
                     podeAtacar: false,
@@ -1939,13 +1958,8 @@ const SistemaCombate = {
                 };
             }
             
-            // Se passou um turno mirando, ganha +1 de bônus
             const bonusMirar = estadoArma.turnosMirando > 0 ? 1 : 0;
-            
-            // Executa ataque com bônus de mirar
             const nh = SistemaCombate.getNHAtaque(atacante, arma) + bonusMirar;
-            
-            // Simula ataque (adaptado da função atacar)
             const rolagem = SistemaCombate.rolar2d10();
             const acertou = rolagem.total <= nh;
             
@@ -1954,7 +1968,6 @@ const SistemaCombate = {
                 dano = SistemaCombate.rolarDanoTotal(atacante, arma);
             }
             
-            // Após atirar, arca descarrega
             estadoArma.carregada = false;
             estadoArma.turnosMirando = 0;
             
@@ -1971,18 +1984,15 @@ const SistemaCombate = {
             };
         },
         
-        // Ação de recarregar
         recarregar: function(armaId) {
             if (!this.estado[armaId]) {
                 this.estado[armaId] = { carregada: true, turnosMirando: 0 };
             }
             this.estado[armaId].carregada = true;
             this.estado[armaId].turnosMirando = 0;
-            
             return { texto: '   Arma recarregada!' };
         },
         
-        // Ação de mirar (passar um turno mirando)
         mirar: function(armaId) {
             if (!this.estado[armaId]) {
                 this.estado[armaId] = { carregada: true, turnosMirando: 0 };
@@ -1993,23 +2003,18 @@ const SistemaCombate = {
             }
             
             this.estado[armaId].turnosMirando++;
-            
             return { 
                 texto: `   Mirando... (+${this.estado[armaId].turnosMirando} no próximo ataque)`
             };
         },
         
-        // Passar turno (para todas as armas)
-        passarTurno: function() {
-            // Apenas mantém o estado atual
-        }
+        passarTurno: function() {}
     },
     
     // ============================================
-    // 10. DEFESA ATIVA
+    // 11. DEFESA ATIVA
     // ============================================
     defender: function(defensor, tipoDefesa, ataque, estadoDefesa = {}) {
-        // Verifica se pode defender (se não perdeu defesa por falha crítica)
         if (estadoDefesa.perdeuDefesa) {
             return {
                 sucesso: false,
@@ -2019,19 +2024,16 @@ const SistemaCombate = {
             };
         }
         
-        // Obtém valores das defesas
         const esquiva = defensor.derivados?.esquiva || 8;
         const aparar = defensor.derivados?.aparar || 0;
         const bloqueio = defensor.derivados?.bloqueio || 0;
         
-        // Mapa de defesas disponíveis
         const defesasDisponiveis = {
             esquiva: { nh: esquiva, disponivel: true, usado: false },
             aparar: { nh: aparar, disponivel: aparar > 0, usado: false },
             bloqueio: { nh: bloqueio, disponivel: bloqueio > 0, usado: false }
         };
         
-        // Verifica se a defesa escolhida está disponível
         if (!defesasDisponiveis[tipoDefesa] || !defesasDisponiveis[tipoDefesa].disponivel) {
             return {
                 sucesso: false,
@@ -2040,7 +2042,6 @@ const SistemaCombate = {
             };
         }
         
-        // Se for aparar, verifica se já usou no turno (só pode uma vez)
         if (tipoDefesa === 'aparar' && estadoDefesa.usouAparar) {
             return {
                 sucesso: false,
@@ -2057,22 +2058,14 @@ const SistemaCombate = {
         let texto = '';
         
         if (sucesso) {
-            // Defesa bem sucedida = zero dano
             danoFinal = 0;
             texto = `✅ ${tipoDefesa} bem sucedida! (${rolagem.texto})`;
-            
-            // Se for bloqueio com escudo, consumir PV do escudo
-            if (tipoDefesa === 'bloqueio' && defensor.escudoPV) {
-                // Lógica de dano no escudo (implementar depois)
-            }
         } else {
-            // Falhou na defesa - aplica RD da armadura
             const rd = defensor.derivados?.rd?.corpo || 0;
             danoFinal = Math.max(0, danoFinal - rd);
             texto = `❌ Falhou na ${tipoDefesa}! (${rolagem.texto}) RD reduziu para ${danoFinal}`;
         }
         
-        // Atualiza estado da defesa
         if (tipoDefesa === 'aparar' && sucesso) {
             estadoDefesa.usouAparar = true;
         }
@@ -2089,17 +2082,16 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 11. MAGIAS
+    // 12. MAGIAS
     // ============================================
     magias: {
-        // Catálogo de magias (baseado nos dadosMagias)
         catalogo: {
             adagaDeGelo: {
                 nome: 'Adaga de Gelo',
                 tipo: 'Ataque',
                 icone: 'fa-knife',
                 custoPM: 2,
-                tempoConjuracao: 1, // turnos
+                tempoConjuracao: 1,
                 efeito: function(nivel) {
                     const danos = {
                         1: '1d-3', 2: '1d-2', 3: '1d-1', 4: '1d', 5: '1d+1',
@@ -2108,19 +2100,15 @@ const SistemaCombate = {
                     };
                     return danos[nivel] || '1d';
                 }
-            },
-            // Outras magias...
+            }
         },
         
-        // Estado das magias em concentração
         estado: {},
         
-        // Iniciar concentração
         concentrar: function(magiaId, personagem) {
             const magia = this.catalogo[magiaId];
             if (!magia) return { erro: 'Magia não encontrada' };
             
-            // Verifica se tem PM suficiente
             if ((personagem.pmDisponivel - personagem.pmGasto) < magia.custoPM) {
                 return { erro: 'PM insuficiente' };
             }
@@ -2137,7 +2125,6 @@ const SistemaCombate = {
             };
         },
         
-        // Lançar magia (após concentração)
         lancar: function(magiaId, personagem, alvo) {
             const magia = this.catalogo[magiaId];
             const estado = this.estado[magiaId];
@@ -2146,10 +2133,8 @@ const SistemaCombate = {
                 return { erro: 'Magia não está pronta!' };
             }
             
-            // Gasta PM
             personagem.pmGasto += magia.custoPM;
             
-            // Calcula NH da magia (IQ + aptidão)
             const iq = personagem.atributos.iq.valor;
             const temAptidao = personagem.vantagens?.includes('aptidaoMagica');
             const nh = iq + (temAptidao ? 1 : 0);
@@ -2165,13 +2150,10 @@ const SistemaCombate = {
             };
             
             if (sucesso) {
-                // Pega nível da magia do personagem
                 const nivel = personagem.escolas?.agua?.magias[magiaId]?.nivel || 1;
                 const expressaoDano = magia.efeito(nivel);
+                let dano = SistemaCombate.rolarDados(expressaoDano);
                 
-                let dano = SistemaCombate.rolarDados(expressaoDano, personagem);
-                
-                // Crítico em magia
                 if (rolagem.isCritico) dano *= 2;
                 
                 resultado.dano = dano;
@@ -2180,13 +2162,10 @@ const SistemaCombate = {
                 resultado.texto = `❌ Falhou ao lançar ${magia.nome}!`;
             }
             
-            // Remove do estado
             delete this.estado[magiaId];
-            
             return resultado;
         },
         
-        // Passar turno (mantém concentração)
         passarTurno: function() {
             Object.keys(this.estado).forEach(magiaId => {
                 this.estado[magiaId].turnosConcentrando++;
@@ -2195,7 +2174,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 12. FADIGA
+    // 13. FADIGA
     // ============================================
     fadiga: {
         contadorTurnos: 0,
@@ -2207,11 +2186,9 @@ const SistemaCombate = {
         passarTurno: function(personagem) {
             this.contadorTurnos++;
             
-            // A cada 5 turnos, perde 1 PF
-            if (this.contadorTurnos % 5 === 0) {
-                personagem.statusCombate.fadigaAtual--;
+            if (this.contadorTurnos % 5 === 0 && personagem.statusCombate) {
+                personagem.statusCombate.fadigaAtual = (personagem.statusCombate.fadigaAtual || 10) - 1;
                 
-                // Verifica se chegou a zero
                 if (personagem.statusCombate.fadigaAtual <= 0) {
                     return {
                         perdeuFadiga: true,
@@ -2237,10 +2214,10 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 13. GERENCIADOR DE TURNOS
+    // 14. GERENCIADOR DE TURNOS
     // ============================================
     turno: {
-        atual: 'pc', // 'pc' ou 'inimigos'
+        atual: 'pc',
         numero: 1,
         estadoDefesa: {
             perdeuDefesa: false,
@@ -2259,24 +2236,16 @@ const SistemaCombate = {
         },
         
         passarTurno: function(personagem) {
-            // Verifica fadiga
             const fadigaResult = SistemaCombate.fadiga.passarTurno(personagem);
-            
-            // Passa turno para magias em concentração
             SistemaCombate.magias.passarTurno();
-            
-            // Passa turno para armas de longo alcance
             SistemaCombate.armasLongoAlcance.passarTurno();
             
-            // Reseta estado de defesa (exceto perdeuDefesa que é temporário)
             this.estadoDefesa.usouAparar = false;
             
-            // Se tinha perdido defesa, agora recupera
             if (this.estadoDefesa.perdeuDefesa) {
                 this.estadoDefesa.perdeuDefesa = false;
             }
             
-            // Alterna turno
             this.atual = this.atual === 'pc' ? 'inimigos' : 'pc';
             this.numero++;
             
@@ -2287,7 +2256,6 @@ const SistemaCombate = {
             };
         },
         
-        // Marcar que perdeu defesa (falha crítica)
         perderDefesa: function() {
             this.estadoDefesa.perdeuDefesa = true;
         }
@@ -2297,326 +2265,9 @@ const SistemaCombate = {
 // Exportar para uso global
 window.SistemaCombate = SistemaCombate;
 
-// ============================================
-// FUNÇÕES ADICIONAIS PARA MODAL DE DEFESA
-// ============================================
-
-// Função para abrir modal de defesa (deve ser chamada quando inimigo ataca)
-window.abrirModalDefesa = function(ataque, inimigo, callback) {
-    if (!window.modalDefesa) return;
-    
-    const defesaContexto = document.getElementById('defesaContexto');
-    const defesasLista = document.getElementById('defesasLista');
-    const btnConfirmarDefesa = document.getElementById('btnConfirmarDefesa');
-    const btnCancelarDefesa = document.getElementById('btnCancelarDefesa');
-    
-    if (!defesaContexto || !defesasLista) return;
-    
-    // Mostrar contexto do ataque
-    defesaContexto.innerHTML = `${inimigo.nome} está atacando com ${ataque.dano} de dano!`;
-    
-    // Obter valores das defesas do personagem
-    const personagem = window.personagem;
-    if (!personagem) return;
-    
-    const dx = personagem.atributos?.dx?.valor || 10;
-    const ht = personagem.atributos?.ht?.valor || 10;
-    
-    // Calcular defesas (pode vir dos derivados ou calcular na hora)
-    const esquiva = personagem.derivados?.esquiva || Math.floor((dx + ht) / 6) + 6;
-    
-    let aparar = 0;
-    if (personagem.inventario?.corpo) {
-        const temArma = personagem.inventario.corpo.some(item => item.dano);
-        if (temArma) aparar = personagem.derivados?.aparar || Math.floor((dx + dx) / 4) + 6;
-    }
-    
-    let bloqueio = 0;
-    if (personagem.inventario?.corpo) {
-        const temEscudo = personagem.inventario.corpo.some(item => 
-            item.tipo === 'escudo' || item.nome?.toLowerCase().includes('escudo')
-        );
-        if (temEscudo) bloqueio = personagem.derivados?.bloqueio || Math.floor((dx + dx) / 4) + 6 + 2;
-    }
-    
-    // Criar lista de defesas disponíveis
-    defesasLista.innerHTML = '';
-    
-    // Esquiva (sempre disponível)
-    const divEsquiva = document.createElement('div');
-    divEsquiva.className = 'defesa-card-modal';
-    divEsquiva.dataset.defesa = 'esquiva';
-    divEsquiva.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span><i class="fas fa-running"></i> Esquiva</span>
-            <span style="font-weight:bold; color:#4CAF50;">NH ${esquiva}</span>
-        </div>
-        <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:5px;">
-            Tentar desviar do ataque
-        </div>
-    `;
-    defesasLista.appendChild(divEsquiva);
-    
-    // Aparar (se tiver arma)
-    if (aparar > 0) {
-        const divAparar = document.createElement('div');
-        divAparar.className = 'defesa-card-modal';
-        divAparar.dataset.defesa = 'aparar';
-        divAparar.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span><i class="fas fa-sword"></i> Aparar</span>
-                <span style="font-weight:bold; color:#ffaa00;">NH ${aparar}</span>
-            </div>
-            <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:5px;">
-                Usar arma para bloquear (só 1 vez por turno)
-            </div>
-        `;
-        defesasLista.appendChild(divAparar);
-    }
-    
-    // Bloqueio (se tiver escudo)
-    if (bloqueio > 0) {
-        const divBloqueio = document.createElement('div');
-        divBloqueio.className = 'defesa-card-modal';
-        divBloqueio.dataset.defesa = 'bloqueio';
-        divBloqueio.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span><i class="fas fa-shield"></i> Bloqueio</span>
-                <span style="font-weight:bold; color:#4a9fff;">NH ${bloqueio}</span>
-            </div>
-            <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:5px;">
-                Usar escudo para absorver o golpe
-            </div>
-        `;
-        defesasLista.appendChild(divBloqueio);
-    }
-    
-    // Variável para armazenar defesa selecionada
-    let defesaSelecionada = null;
-    
-    // Adicionar eventos de clique
-    document.querySelectorAll('.defesa-card-modal').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('.defesa-card-modal').forEach(c => c.classList.remove('selecionada'));
-            card.classList.add('selecionada');
-            defesaSelecionada = card.dataset.defesa;
-            if (btnConfirmarDefesa) btnConfirmarDefesa.disabled = false;
-        });
-    });
-    
-    // Configurar botão confirmar
-    const confirmarHandler = () => {
-        if (!defesaSelecionada) return;
-        
-        // Fechar modal
-        window.modalDefesa.classList.remove('active');
-        
-        // Remover event listeners
-        if (btnConfirmarDefesa) btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
-        if (btnCancelarDefesa) btnCancelarDefesa.removeEventListener('click', cancelarHandler);
-        
-        // Chamar callback com a defesa escolhida
-        if (callback) callback(defesaSelecionada);
-    };
-    
-    const cancelarHandler = () => {
-        window.modalDefesa.classList.remove('active');
-        
-        // Remover event listeners
-        if (btnConfirmarDefesa) btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
-        if (btnCancelarDefesa) btnCancelarDefesa.removeEventListener('click', cancelarHandler);
-        
-        // Se cancelar, usa esquiva como padrão
-        if (callback) callback('esquiva');
-    };
-    
-    // Adicionar event listeners
-    if (btnConfirmarDefesa) {
-        btnConfirmarDefesa.disabled = true;
-        btnConfirmarDefesa.addEventListener('click', confirmarHandler);
-    }
-    
-    if (btnCancelarDefesa) {
-        btnCancelarDefesa.addEventListener('click', cancelarHandler);
-    }
-    
-    // Mostrar modal
-    window.modalDefesa.classList.add('active');
-};
-
-// Função para processar defesa (chamada pelo callback)
-window.processarDefesa = function(tipoDefesa, ataque, inimigo) {
-    const personagem = window.personagem;
-    if (!personagem) return;
-    
-    // Usar sistema de combate para calcular defesa
-    const estadoDefesa = SistemaCombate.turno?.estadoDefesa || { perdeuDefesa: false, usouAparar: false };
-    
-    const resultado = SistemaCombate.defender(
-        personagem,
-        tipoDefesa,
-        ataque,
-        estadoDefesa
-    );
-    
-    // Atualizar estado da defesa no sistema
-    if (SistemaCombate.turno && resultado.novoEstado) {
-        SistemaCombate.turno.estadoDefesa = resultado.novoEstado;
-    }
-    
-    // Aplicar dano
-    if (resultado.danoFinal > 0) {
-        window.pvAtual = Math.max(0, window.pvAtual - resultado.danoFinal);
-        if (personagem.statusCombate) personagem.statusCombate.vidaAtual = window.pvAtual;
-        
-        window.adicionarLog(`   ${inimigo.nome} causou ${resultado.danoFinal} de dano!`, 'dano');
-    }
-    
-    // Log do resultado
-    window.adicionarLog(resultado.texto, resultado.sucesso ? 'sucesso' : 'erro');
-    
-    // Atualizar ficha
-    if (window.atualizarFichaPersonagem) window.atualizarFichaPersonagem();
-    
-    return resultado;
-};
-
-// Função para simplificar ataque (quando só tem uma arma)
-window.atacarComArmaUnica = function() {
-    const armas = window.getArmasEquipadas ? window.getArmasEquipadas() : [];
-    if (armas.length === 0) {
-        window.adicionarLog('❌ Você não tem armas equipadas!', 'erro');
-        return false;
-    }
-    
-    if (window.inimigoSelecionado === null) {
-        window.adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
-        return false;
-    }
-    
-    // Usa a primeira arma
-    window.armaSelecionada = 0;
-    window.executarAtaque();
-    return true;
-};
-
-console.log('✅ Sistema de combate carregado com funções de defesa!');
-</script>
-<script>
-// ============================================
-// SISTEMA SOCIAL REUTILIZÁVEL - TESTES DE REAÇÃO E INTERAÇÃO
-// ============================================
-
-const SistemaSocial = {
-    // Calcula bônus de aparência do personagem
-    calcularBonusAparencia: function(personagem) {
-        let bonus = 0;
-        
-        if (personagem.vantagens && personagem.vantagens.includes('atraente')) {
-            bonus += 2;
-        }
-        if (personagem.desvantagens && personagem.desvantagens.includes('feio')) {
-            bonus -= 2;
-        }
-        
-        return bonus;
-    },
-    
-    // Calcula bônus de Carisma se existir
-    calcularBonusCarisma: function(personagem) {
-        if (personagem.vantagens && personagem.vantagens.includes('carisma')) {
-            return 1;
-        }
-        return 0;
-    },
-    
-    // Teste de reação 2d10
-    testarReacao: function(npc, jogador) {
-        const baseReacao = npc.reacaoBase || 10;
-        
-        const bonusAparencia = this.calcularBonusAparencia(jogador);
-        const bonusCarisma = this.calcularBonusCarisma(jogador);
-        const bonusTotal = bonusAparencia + bonusCarisma;
-        
-        const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
-        
-        const reacaoFinal = baseReacao + bonusTotal + (rolagem - 11);
-        
-        let classificacao = '';
-        if (reacaoFinal <= 7) classificacao = 'ruim';
-        else if (reacaoFinal <= 14) classificacao = 'normal';
-        else classificacao = 'otima';
-        
-        return {
-            valor: reacaoFinal,
-            rolagem: rolagem,
-            bonusAparencia: bonusAparencia,
-            bonusCarisma: bonusCarisma,
-            classificacao: classificacao,
-            descricao: this.getDescricaoReacao(classificacao, npc.genero || 'feminino')
-        };
-    },
-    
-    // Descrições genéricas baseadas na reação
-    getDescricaoReacao: function(classificacao, genero) {
-        const pronome = genero === 'feminino' ? 'ela' : 'ele';
-        
-        const descricoes = {
-            ruim: `${pronome} te olha com desconfiança, mantendo distância. Seu corpo está tenso, pronto para correr.`,
-            normal: `${pronome} parece neutra, te observando com curiosidade mas sem se aproximar muito.`,
-            otima: `${pronome} sorri abertamente, seus olhos brilhando com simpatia. Parece à vontade com sua presença.`
-        };
-        
-        return descricoes[classificacao];
-    },
-    
-    // Calcular NH de perícia social - VERSÃO DEFINITIVA
-    // Retorna o NH REAL da perícia (já calculado na ficha do personagem)
-    calcularNHPericia: function(periciaId, personagem) {
-        if (!personagem || !personagem.pericias || !personagem.pericias[periciaId]) {
-            return 0;
-        }
-        
-        const pericia = personagem.pericias[periciaId];
-        
-        // Retorna o NH real da perícia (inclui gasto de PM, bônus, etc)
-        return pericia.nh || 0;
-    },
-    
-    // Teste social (para flerte, persuasão, etc)
-    testeSocial: function(nhJogador, dificuldadeNpc, modificadores = 0) {
-        const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
-        const total = rolagem + modificadores;
-        
-        const sucesso = total <= nhJogador;
-        const margem = nhJogador - total;
-        
-        return {
-            sucesso: sucesso,
-            rolagem: rolagem,
-            total: total,
-            nh: nhJogador,
-            margem: margem,
-            critico: margem >= 5,
-            falhaCritica: total >= nhJogador + 5
-        };
-    },
-    
-    // Formatar mensagem de resultado
-    formatarResultadoTeste: function(resultado, tipoTeste) {
-        if (resultado.sucesso) {
-            if (resultado.critico) {
-                return `✨ Sucesso CRÍTICO em ${tipoTeste}!`;
-            }
-            return `✅ Sucesso em ${tipoTeste}!`;
-        } else {
-            if (resultado.falhaCritica) {
-                return `   Falha CRÍTICA em ${tipoTeste}!`;
-            }
-            return `❌ Falha em ${tipoTeste}!`;
-        }
-    }
-};
+console.log('✅ Sistema de combate carregado!');
+console.log('   - Dano base por ST: ST10 = 1d, ST11 = 1d+1, etc');
+console.log('   - Dano total = dano base + dano da arma');
 </script>
 <script>
 window.AVENTURA = {
