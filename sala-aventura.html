@@ -1779,8 +1779,8 @@ const SistemaSocial = {
 };
 </script>
 <script>
-    // ============================================
-// sistema-combate.js - SISTEMA DE COMBATE RPGForce
+// ============================================
+// sistema-combate.js - SISTEMA DE COMBATE RPGForce (COMPLETO)
 // ============================================
 
 const SistemaCombate = {
@@ -1880,7 +1880,7 @@ const SistemaCombate = {
             return personagem.pericias[periciaId].nh || personagem.atributos.dx.valor;
         }
         
-        // Fallback: DX + 3 (igual ao código antigo)
+        // Fallback: DX + 3
         return (personagem.atributos.dx.valor || 10) + 3;
     },
     
@@ -2351,7 +2351,8 @@ const SistemaCombate = {
 // Exportar para uso global
 window.SistemaCombate = SistemaCombate;
 </script>
-    <script type="module">
+   
+<script type="module">
 // ============================================
 // IMPORTAÇÕES FIREBASE
 // ============================================
@@ -2404,6 +2405,7 @@ const bolinhasSaldoContainer = document.getElementById('bolinhasSaldoContainer')
 const bolinhasSaldo = document.getElementById('bolinhasSaldo');
 const atoIndicator = document.getElementById('atoIndicator');
 const atoTexto = document.getElementById('atoTexto');
+const nivelPersonagem = document.getElementById('nivelPersonagem');
 
 // Botões de ficha
 const btnVerVantagens = document.getElementById('btnVerVantagens');
@@ -3524,27 +3526,20 @@ function iniciarTimerHomem() {
 }
 
 // ============================================
-// NOVA FUNÇÃO iniciarCombate (USANDO SistemaCombate)
+// FUNÇÃO DE COMBATE INTEGRADA COM SISTEMA DE COMBATE
 // ============================================
 function iniciarCombate(inimigosData, emboscada = false) {
-    // Log para debug
-    console.log('Iniciando combate com:', inimigosData);
+    console.log('🎯 Iniciando combate com:', inimigosData);
     
-    // Se for emboscada, mostra no log
-    if (emboscada) {
-        adicionarLog(`🎯 ATAQUE SURPRESA! Bônus de +3 na iniciativa!`, 'sucesso');
-    }
-    
-    // CASO 1: Recebeu array de objetos (formato novo da clareira)
-    if (Array.isArray(inimigosData) && inimigosData.length > 0 && inimigosData[0].pv_max) {
+    // Preparar inimigos
+    if (Array.isArray(inimigosData) && inimigosData.length > 0) {
         window.inimigos = inimigosData.map(inim => ({
             ...inim,
-            pv: inim.pv_max,
-            pv_atual: inim.pv_max
+            pv: inim.pv_max || inim.pv,
+            pv_atual: inim.pv_max || inim.pv,
+            pv_max: inim.pv_max || inim.pv
         }));
-    } 
-    // CASO 2: Recebeu array de IDs (formato antigo)
-    else if (capituloAtual && capituloAtual.inimigos) {
+    } else if (capituloAtual && capituloAtual.inimigos) {
         window.inimigos = [];
         inimigosData.forEach(id => {
             const inimigoData = capituloAtual.inimigos.find(i => i.id === id);
@@ -3552,18 +3547,18 @@ function iniciarCombate(inimigosData, emboscada = false) {
                 window.inimigos.push({
                     ...inimigoData,
                     pv: inimigoData.pv_max || inimigoData.pv,
-                    pv_atual: inimigoData.pv_max || inimigoData.pv
+                    pv_atual: inimigoData.pv_max || inimigoData.pv,
+                    pv_max: inimigoData.pv_max || inimigoData.pv
                 });
             }
         });
-    }
-    // CASO 3: Fallback
-    else {
+    } else {
         window.inimigos = inimigosData.map((inim, index) => ({
             id: inim.id || `inimigo_${index}`,
             nome: inim.nome || `Inimigo ${index + 1}`,
             pv: inim.pv || 20,
             pv_max: inim.pv_max || inim.pv || 20,
+            pv_atual: inim.pv_max || inim.pv || 20,
             defesa: inim.defesa || 8,
             dx: inim.dx || 10,
             nh_ataque: inim.nh_ataque || 10,
@@ -3572,51 +3567,79 @@ function iniciarCombate(inimigosData, emboscada = false) {
         }));
     }
     
-    // Verifica se tem inimigos
     if (!window.inimigos || window.inimigos.length === 0) {
         adicionarLog('❌ Erro: Nenhum inimigo encontrado!', 'erro');
         return;
     }
     
-    // Calcula INICIATIVA usando SistemaCombate
+    // USAR SISTEMA DE COMBATE
     const iniciativa = SistemaCombate.calcularIniciativa(
         window.personagem,
         window.inimigos,
         emboscada ? 'pc' : null
     );
     
-    // Mostra resultado da iniciativa
     adicionarLog(iniciativa.texto, 'info');
     adicionarLog(`🎲 Sua iniciativa: ${iniciativa.pc} | Inimigos: ${iniciativa.inimigos.toFixed(1)}`, 'info');
     
-    // Define quem começa
     window.turnoAtual = iniciativa.quemComeca;
     
-    // Mostra interface de combate
-    if (window.inimigosContainer) window.inimigosContainer.style.display = 'block';
+    // Iniciar no sistema de combate
+    SistemaCombate.turno.iniciarCombate(iniciativa.quemComeca);
+    
+    // Mostrar interface de combate
+    if (inimigosContainer) inimigosContainer.style.display = 'block';
     renderizarInimigos();
     
-    // Atualiza indicador de turno
-    if (window.turnoIndicator) {
-        if (window.turnoAtual === 'pc') {
-            window.turnoIndicator.className = 'turno-indicator jogador';
-            window.turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-            // Habilita botões
-            if (window.btnAtacar) window.btnAtacar.disabled = false;
-            if (window.btnMagia) window.btnMagia.disabled = false;
-        } else {
-            window.turnoIndicator.className = 'turno-indicator inimigo';
-            window.turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
-            // Desabilita botões
-            if (window.btnAtacar) window.btnAtacar.disabled = true;
-            if (window.btnMagia) window.btnMagia.disabled = true;
-            
-            // Se inimigos começam, processa turno deles
-            setTimeout(() => processarTurnoInimigos(), 1500);
-        }
+    if (window.turnoAtual === 'pc') {
+        turnoIndicator.className = 'turno-indicator jogador';
+        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        btnAtacar.disabled = false;
+        btnMagia.disabled = false;
+    } else {
+        turnoIndicator.className = 'turno-indicator inimigo';
+        turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+        btnAtacar.disabled = true;
+        btnMagia.disabled = true;
+        setTimeout(() => processarTurnoInimigos(), 1500);
     }
     
     adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
+}
+
+function renderizarInimigos() {
+    if (!inimigosLista) return;
+    
+    inimigosLista.innerHTML = '';
+    
+    if (!window.inimigos || window.inimigos.length === 0) {
+        inimigosContainer.style.display = 'none';
+        return;
+    }
+    
+    window.inimigos.forEach((inimigo, index) => {
+        const pvPercent = (inimigo.pv_atual / inimigo.pv_max) * 100;
+        
+        const div = document.createElement('div');
+        div.className = `inimigo-mini ${inimigoSelecionado === index ? 'selecionado' : ''}`;
+        div.dataset.index = index;
+        
+        div.innerHTML = `
+            <div class="inimigo-mini-nome">${inimigo.nome}</div>
+            <div class="inimigo-mini-pv">
+                <div class="inimigo-mini-pv-fill" style="width: ${pvPercent}%"></div>
+            </div>
+            <div style="font-size:0.7rem; color:#ff6b6b;">PV: ${inimigo.pv_atual}/${inimigo.pv_max}</div>
+        `;
+        
+        div.addEventListener('click', () => {
+            document.querySelectorAll('.inimigo-mini').forEach(el => el.classList.remove('selecionado'));
+            div.classList.add('selecionado');
+            inimigoSelecionado = index;
+        });
+        
+        inimigosLista.appendChild(div);
+    });
 }
 
 function getArmasEquipadas() {
@@ -3626,7 +3649,7 @@ function getArmasEquipadas() {
         id: item.id,
         nome: item.nome,
         dano: item.dano,
-        tipo: item.tipoDano || 'Desconhecido',
+        tipoDano: item.tipoDano || 'Contusão',
         alcance: item.alcance || 1,
         st: item.st || 8
     }));
@@ -3655,7 +3678,7 @@ function abrirModalAtaque() {
                 <div class="arma-nome">${arma.nome}</div>
                 <div class="arma-detalhes">
                     <span><i class="fas fa-tint"></i> Dano: ${arma.dano}</span>
-                    <span><i class="fas fa-ruler"></i> Alcance: ${arma.alcance}m</span>
+                    <span><i class="fas fa-shield-alt"></i> Tipo: ${arma.tipoDano}</span>
                 </div>
             </div>
         `).join('');
@@ -3674,39 +3697,40 @@ function abrirModalAtaque() {
 }
 
 function executarAtaque() {
-    if (armaSelecionada === null) return;
+    if (armaSelecionada === null) {
+        adicionarLog('❌ Selecione uma arma!', 'erro');
+        return;
+    }
+    
+    if (inimigoSelecionado === null) {
+        adicionarLog('❌ Selecione um inimigo!', 'erro');
+        if (modalAtaque) modalAtaque.classList.remove('active');
+        return;
+    }
     
     const armas = getArmasEquipadas();
     const arma = armas[armaSelecionada];
-    const inimigo = inimigos[inimigoSelecionado];
+    const inimigo = window.inimigos[inimigoSelecionado];
     
-    if (!arma || !inimigo) return;
+    if (!arma || !inimigo) {
+        adicionarLog('❌ Erro no ataque!', 'erro');
+        if (modalAtaque) modalAtaque.classList.remove('active');
+        return;
+    }
     
     if (modalAtaque) modalAtaque.classList.remove('active');
     
-    const rolagem = rolar2d10();
-    const dx = getValorAtributoReal('dx');
-    const nhAtaque = dx + 3;
+    // USAR SISTEMA DE COMBATE para atacar
+    const resultado = SistemaCombate.atacar(window.personagem, inimigo, arma);
     
-    adicionarLog(`🎯 Ataque: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
+    adicionarLog(`⚔️ Ataque contra ${inimigo.nome}:`, 'info');
+    adicionarLog(resultado.texto, resultado.acertou ? 'sucesso' : 'erro');
     
-    if (rolagem.total <= nhAtaque) {
-        let dano = 0;
-        if (arma.dano === "1d-2") dano = Math.max(0, Math.floor(Math.random() * 6) - 1);
-        else if (arma.dano === "1d-1") dano = Math.max(0, Math.floor(Math.random() * 6) - 0);
-        else if (arma.dano === "1d") dano = Math.floor(Math.random() * 6) + 1;
-        else if (arma.dano === "1d+1") dano = Math.floor(Math.random() * 6) + 2;
-        else if (arma.dano === "1d+2") dano = Math.floor(Math.random() * 6) + 3;
-        else if (arma.dano === "2d-2") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) - 2;
-        else if (arma.dano === "2d") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
-        else if (arma.dano === "2d+2") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 3;
-        else dano = Math.floor(Math.random() * 6) + 1;
+    if (resultado.acertou) {
+        inimigo.pv_atual = Math.max(0, inimigo.pv_atual - resultado.dano);
+        adicionarLog(`💥 Dano: ${resultado.dano}`, 'dano');
         
-        dano = Math.max(0, dano);
-        inimigo.pv -= dano;
-        adicionarLog(`✅ Acertou! Causou ${dano} de dano.`, 'dano');
-        
-        if (inimigo.pv <= 0) {
+        if (inimigo.pv_atual <= 0) {
             adicionarLog(`💀 ${inimigo.nome} foi derrotado!`, 'sucesso');
             
             const xpGanho = inimigo.xp || 25;
@@ -3715,25 +3739,33 @@ function executarAtaque() {
             adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
             verificarGanhoBolinha();
             
-            inimigos = inimigos.filter((_, i) => i !== inimigoSelecionado);
+            window.inimigos = window.inimigos.filter((_, i) => i !== inimigoSelecionado);
             inimigoSelecionado = null;
+            
+            if (window.inimigos.length === 0) {
+                adicionarLog('🎉 VITÓRIA!', 'sucesso');
+                if (inimigosContainer) inimigosContainer.style.display = 'none';
+                
+                if (capituloAtual.ao_vencer) {
+                    carregarCena(capituloAtual.ao_vencer);
+                }
+                salvarProgresso();
+                return;
+            }
         }
         
         renderizarInimigos();
         atualizarFichaPersonagem();
         
-        if (inimigos.length === 0) {
-            adicionarLog('🎉 VITÓRIA!', 'sucesso');
-            if (inimigosContainer) inimigosContainer.style.display = 'none';
-            
-            if (capituloAtual.ao_vencer) {
-                carregarCena(capituloAtual.ao_vencer);
-            }
-        } else {
-            passarTurno();
+        // Verificar perda de defesa por falha crítica
+        if (resultado.falhaCritica) {
+            SistemaCombate.turno.perderDefesa();
         }
+        
+        // Passar turno
+        passarTurno();
     } else {
-        adicionarLog(`❌ Errou!`, 'erro');
+        // Passar turno mesmo errando
         passarTurno();
     }
     
@@ -3741,73 +3773,118 @@ function executarAtaque() {
 }
 
 function passarTurno() {
-    if (turnoAtual === 'jogador') {
-        turnoAtual = 'inimigo';
-        if (turnoIndicator) {
-            turnoIndicator.className = 'turno-indicator inimigo';
-            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+    if (window.turnoAtual === 'pc') {
+        window.turnoAtual = 'inimigos';
+        
+        // Passar turno no sistema de combate
+        const resultadoTurno = SistemaCombate.turno.passarTurno(window.personagem);
+        
+        if (resultadoTurno.fadiga.perdeuFadiga) {
+            adicionarLog(resultadoTurno.fadiga.texto, 'info');
+            atualizarFichaPersonagem();
         }
         
-        if (btnAtacar) btnAtacar.disabled = true;
-        if (btnMagia) btnMagia.disabled = true;
+        turnoIndicator.className = 'turno-indicator inimigo';
+        turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
         
-        setTimeout(turnoInimigos, 1000);
+        btnAtacar.disabled = true;
+        btnMagia.disabled = true;
+        
+        setTimeout(processarTurnoInimigos, 1000);
     }
 }
 
-function turnoInimigos() {
-    if (inimigos.length === 0) {
-        turnoAtual = 'jogador';
-        if (turnoIndicator) {
-            turnoIndicator.className = 'turno-indicator jogador';
-            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-        }
-        if (btnAtacar) btnAtacar.disabled = false;
-        if (btnMagia) btnMagia.disabled = false;
+function processarTurnoInimigos() {
+    if (!window.inimigos || window.inimigos.length === 0) {
+        window.turnoAtual = 'pc';
+        turnoIndicator.className = 'turno-indicator jogador';
+        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        btnAtacar.disabled = false;
+        btnMagia.disabled = false;
         return;
     }
     
-    inimigos.forEach(inimigo => {
-        const rolagem = rolar2d10();
+    adicionarLog(`👾 Turno dos inimigos!`, 'dano');
+    
+    let ataqueRealizado = false;
+    
+    window.inimigos.forEach(inimigo => {
+        // Usar sistema de combate para rolar ataque do inimigo
+        const rolagem = SistemaCombate.rolar2d10();
+        const nhAtaque = inimigo.nh_ataque || 10;
         
-        if (rolagem.total <= (inimigo.nh_ataque || 10)) {
+        adicionarLog(`🎲 ${inimigo.nome} ataca: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
+        
+        if (rolagem.total <= nhAtaque) {
+            // Calcular dano
             let dano = 0;
-            if (inimigo.dano === "1d-2") dano = Math.max(0, Math.floor(Math.random() * 6) - 1);
-            else if (inimigo.dano === "1d-1") dano = Math.max(0, Math.floor(Math.random() * 6) - 0);
-            else if (inimigo.dano === "1d") dano = Math.floor(Math.random() * 6) + 1;
-            else if (inimigo.dano === "1d+1") dano = Math.floor(Math.random() * 6) + 2;
-            else if (inimigo.dano === "1d+2") dano = Math.floor(Math.random() * 6) + 3;
-            else if (inimigo.dano === "2d-2") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) - 2;
-            else if (inimigo.dano === "2d") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
-            else if (inimigo.dano === "2d+2") dano = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 3;
-            else dano = Math.floor(Math.random() * 6) + 1;
-            
-            dano = Math.max(0, dano);
-            pvAtual -= dano;
-            if (personagem && personagem.statusCombate) personagem.statusCombate.vidaAtual = pvAtual;
-            
-            adicionarLog(`👾 ${inimigo.nome} causou ${dano} de dano!`, 'dano');
-            
-            if (pvAtual <= 0) {
-                pvAtual = 0;
-                adicionarLog('💀 VOCÊ MORREU!', 'erro');
-                return;
+            if (inimigo.dano) {
+                dano = SistemaCombate.rolarDados(inimigo.dano);
+            } else {
+                dano = Math.floor(Math.random() * 6) + 1;
             }
             
-            atualizarFichaPersonagem();
+            dano = Math.max(1, dano);
+            
+            // Tentar defesa do personagem
+            const defesaResultado = SistemaCombate.defender(
+                window.personagem,
+                'esquiva',
+                { dano: dano },
+                SistemaCombate.turno.estadoDefesa
+            );
+            
+            if (defesaResultado.sucesso) {
+                adicionarLog(`🛡️ ${defesaResultado.texto}`, 'sucesso');
+                dano = 0;
+            } else {
+                dano = defesaResultado.danoFinal;
+                adicionarLog(defesaResultado.texto, 'dano');
+            }
+            
+            if (dano > 0) {
+                pvAtual = Math.max(0, pvAtual - dano);
+                if (personagem?.statusCombate) personagem.statusCombate.vidaAtual = pvAtual;
+                
+                adicionarLog(`💥 ${inimigo.nome} causou ${dano} de dano!`, 'dano');
+                atualizarFichaPersonagem();
+                ataqueRealizado = true;
+                
+                if (pvAtual <= 0) {
+                    adicionarLog(`💀 VOCÊ MORREU!`, 'erro');
+                    btnAtacar.disabled = true;
+                    btnMagia.disabled = true;
+                    return;
+                }
+            }
+        } else {
+            adicionarLog(`✅ ${inimigo.nome} errou!`, 'sucesso');
         }
     });
     
-    turnoAtual = 'jogador';
-    if (turnoIndicator) {
+    // Passar turno para o jogador
+    setTimeout(() => {
+        window.turnoAtual = 'pc';
+        
+        // Passar turno no sistema de combate
+        const resultadoTurno = SistemaCombate.turno.passarTurno(window.personagem);
+        
+        if (resultadoTurno.fadiga.perdeuFadiga) {
+            adicionarLog(resultadoTurno.fadiga.texto, 'info');
+            atualizarFichaPersonagem();
+        }
+        
         turnoIndicator.className = 'turno-indicator jogador';
         turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-    }
-    
-    if (btnAtacar) btnAtacar.disabled = false;
-    if (btnMagia) btnMagia.disabled = false;
-    
-    salvarProgresso();
+        btnAtacar.disabled = false;
+        btnMagia.disabled = false;
+        
+        if (ataqueRealizado) {
+            adicionarLog(`🛡️ Sua vez de agir!`, 'info');
+        }
+        
+        salvarProgresso();
+    }, 1000);
 }
 
 function descansar() {
@@ -4344,10 +4421,14 @@ window.AVENTURA = {
             ]
         },
         
-  encontro_camponesa: {
+  // ============================================
+// CENA: ENCONTRO COM A CAMPONESA (COMPLETA E CORRIGIDA)
+// ============================================
+
+encontro_camponesa: {
     id: "encontro_camponesa",
     nome: "Estrada Norte - Encontro com a Camponesa",
-    imagem: "estrada-norte.jpg",
+    imagem: "https://via.placeholder.com/1920x1080/2a5a2a/ffd700?text=Estrada+para+Floresta",
     
     // NPC aparece no cenário (apenas visual)
     npcs: [
@@ -4413,16 +4494,30 @@ window.AVENTURA = {
         reacao: null,
         flerteTentado: false,
         infoRevelada: false,
-        interacaoIniciada: false
+        interacaoIniciada: false,
+        processando: false,
+        aguardandoResposta: false
     },
     
     // ===== FUNÇÃO PRINCIPAL RENDERIZAR =====
     renderizar: function() {
         const cenaAtual = this;
         
+        // Resetar estado ao renderizar a cena
+        if (!this.estado.interacaoIniciada) {
+            this.estado = {
+                reacao: null,
+                flerteTentado: false,
+                infoRevelada: false,
+                interacaoIniciada: false,
+                processando: false,
+                aguardandoResposta: false
+            };
+        }
+        
         // ===== CRIAR NPC MANUALMENTE =====
-        if (npcsContainer) {
-            npcsContainer.innerHTML = '';
+        if (window.npcsContainer) {
+            window.npcsContainer.innerHTML = '';
             
             // Criar a camponesa
             const npcDiv = document.createElement('div');
@@ -4431,13 +4526,17 @@ window.AVENTURA = {
             npcDiv.style.top = '60%';
             npcDiv.dataset.npcId = 'camponesa';
             
+            // Fallback para imagem
+            const imgSrc = "camponesa.png";
+            const fallbackIcon = '<i class="fas fa-user" style="font-size: 80px; color: #ffd700;"></i>';
+            
             npcDiv.innerHTML = `
-                <img src="camponesa.png" alt="Elara">
+                <img src="${imgSrc}" alt="Elara" onerror="this.style.display='none'; this.parentNode.innerHTML += '${fallbackIcon}'">
                 <div class="npc-nome">Elara</div>
             `;
             
             // Apenas visual, sem evento de clique
-            npcsContainer.appendChild(npcDiv);
+            window.npcsContainer.appendChild(npcDiv);
         }
         
         // Se a interação já foi iniciada, não mostra os botões iniciais novamente
@@ -4446,33 +4545,37 @@ window.AVENTURA = {
         }
         
         // Mostrar fala do narrador
-        if (dialogoTexto) {
-            dialogoTexto.textContent = this.fala.texto;
+        if (window.dialogoTexto) {
+            window.dialogoTexto.textContent = this.fala.texto;
         }
-        if (npcNome) {
-            npcNome.textContent = this.fala.npc;
+        if (window.npcNome) {
+            window.npcNome.textContent = this.fala.npc;
         }
         
         // Criar botões iniciais
-        if (opcoesDialogo) {
-            opcoesDialogo.innerHTML = '';
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
             
             const btnAproximar = document.createElement('button');
             btnAproximar.className = 'opcao-btn';
             btnAproximar.textContent = "👋 Aproximar-se da camponesa";
             btnAproximar.addEventListener('click', () => {
-                cenaAtual.iniciarInteracao();
+                if (!cenaAtual.estado.processando) {
+                    cenaAtual.iniciarInteracao();
+                }
             });
-            opcoesDialogo.appendChild(btnAproximar);
+            window.opcoesDialogo.appendChild(btnAproximar);
             
             const btnIgnorar = document.createElement('button');
             btnIgnorar.className = 'opcao-btn';
             btnIgnorar.textContent = "➡️ Seguir caminho sem interagir";
             btnIgnorar.addEventListener('click', () => {
-                dialogoTexto.textContent = "Você decide não perturbar a camponesa e continua sua jornada.";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                if (!cenaAtual.estado.processando) {
+                    window.dialogoTexto.textContent = "Você decide não perturbar a camponesa e continua sua jornada.";
+                    setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
+                }
             });
-            opcoesDialogo.appendChild(btnIgnorar);
+            window.opcoesDialogo.appendChild(btnIgnorar);
         }
     },
     
@@ -4480,28 +4583,29 @@ window.AVENTURA = {
     iniciarInteracao: function() {
         const cenaAtual = this;
         
-        // Marcar que a interação foi iniciada
+        // Marcar que a interação foi iniciada e está processando
         this.estado.interacaoIniciada = true;
+        this.estado.processando = true;
         
         // Mudar nome para Elara
-        if (npcNome) {
-            npcNome.textContent = this.npcData.nome;
+        if (window.npcNome) {
+            window.npcNome.textContent = this.npcData.nome;
         }
         
         // Mostrar "processando"
-        if (dialogoTexto) {
-            dialogoTexto.textContent = "Você se aproxima... Ela levanta os olhos e nota sua presença.";
+        if (window.dialogoTexto) {
+            window.dialogoTexto.textContent = "Você se aproxima... Ela levanta os olhos e nota sua presença.";
         }
         
         // Remover botões
-        if (opcoesDialogo) {
-            opcoesDialogo.innerHTML = '';
+        if (window.opcoesDialogo) {
+            window.opcoesDialogo.innerHTML = '';
             
             const btnProcessando = document.createElement('button');
             btnProcessando.className = 'opcao-btn';
             btnProcessando.textContent = "⏳ Aguardando reação...";
             btnProcessando.disabled = true;
-            opcoesDialogo.appendChild(btnProcessando);
+            window.opcoesDialogo.appendChild(btnProcessando);
         }
         
         // Processar reação após 2 segundos
@@ -4515,22 +4619,36 @@ window.AVENTURA = {
             const dialogoAtual = cenaAtual.dialogo[reacaoClass];
             
             // Mostrar reação
-            if (dialogoTexto) {
-                dialogoTexto.textContent = dialogoAtual.texto;
+            if (window.dialogoTexto) {
+                window.dialogoTexto.textContent = dialogoAtual.texto;
             }
             
             // Criar opções baseadas na reação
             const opcoes = cenaAtual.criarOpcoes(reacaoClass);
             cenaAtual.renderizarOpcoes(opcoes, cenaAtual);
             
+            cenaAtual.estado.processando = false;
+            
         }, 2000);
     },
     
     // ===== FUNÇÃO ESPECIAL QUE SERÁ CHAMADA AO ENTRAR NA CENA =====
     aoEntrar: function() {
-        const reacao = SistemaSocial.testarReacao(this.npcData, window.personagem);
-        adicionarLog(`🎭 REAÇÃO DA CAMPONESA: ${reacao.classificacao.toUpperCase()} (${reacao.valor})`, 'info');
-        adicionarLog(`   Rolagem: ${reacao.rolagem} | Bônus: +${reacao.bonusAparencia + reacao.bonusCarisma}`, 'info');
+        if (!window.SistemaSocial || !window.personagem) {
+            // Fallback caso SistemaSocial não exista
+            window.adicionarLog("⚠️ Usando sistema de reação simplificado", "info");
+            return {
+                classificacao: "normal",
+                valor: 12,
+                rolagem: 11,
+                bonusAparencia: 0,
+                bonusCarisma: 0
+            };
+        }
+        
+        const reacao = window.SistemaSocial.testarReacao(this.npcData, window.personagem);
+        window.adicionarLog(`🎭 REAÇÃO DA CAMPONESA: ${reacao.classificacao.toUpperCase()} (${reacao.valor})`, 'info');
+        window.adicionarLog(`   Rolagem: ${reacao.rolagem} | Bônus: +${reacao.bonusAparencia + reacao.bonusCarisma}`, 'info');
         return reacao;
     },
     
@@ -4540,11 +4658,17 @@ window.AVENTURA = {
         
         // Verificar se tem Persuasão
         const temPersuasao = window.personagem?.pericias?.persuasao?.nivel > 0;
-        const nhPersuasao = temPersuasao ? 
-            SistemaSocial.calcularNHPericia('persuasao', window.personagem) : 0;
+        let nhPersuasao = 0;
+        
+        if (temPersuasao && window.SistemaSocial) {
+            nhPersuasao = window.SistemaSocial.calcularNHPericia('persuasao', window.personagem);
+        } else if (window.personagem) {
+            // Fallback: IQ como base
+            nhPersuasao = window.personagem.atributos?.iq?.valor || 10;
+        }
         
         if (reacaoClass === 'ruim') {
-            if (temPersuasao) {
+            if (temPersuasao && nhPersuasao > 0) {
                 opcoesBase.push(
                     {
                         texto: `🎭 Tentar acalmá-la (Persuasão NH ${nhPersuasao})`,
@@ -4591,7 +4715,7 @@ window.AVENTURA = {
                 }
             );
             
-            if (temPersuasao) {
+            if (temPersuasao && nhPersuasao > 0) {
                 opcoesBase.push(
                     {
                         texto: `🌸 Elogiar suas flores (Persuasão NH ${nhPersuasao})`,
@@ -4629,7 +4753,7 @@ window.AVENTURA = {
                 }
             );
             
-            if (temPersuasao) {
+            if (temPersuasao && nhPersuasao > 0) {
                 opcoesBase.push(
                     {
                         texto: `😍 Elogiar seus olhos (Persuasão NH ${nhPersuasao})`,
@@ -4658,8 +4782,8 @@ window.AVENTURA = {
     
     // ===== RENDERIZAR OPÇÕES =====
     renderizarOpcoes: function(opcoes, cenaAtual) {
-        if (!opcoesDialogo) return;
-        opcoesDialogo.innerHTML = '';
+        if (!window.opcoesDialogo) return;
+        window.opcoesDialogo.innerHTML = '';
         
         opcoes.forEach(opcao => {
             const btn = document.createElement('button');
@@ -4667,15 +4791,20 @@ window.AVENTURA = {
             btn.textContent = opcao.texto;
             
             btn.addEventListener('click', () => {
-                cenaAtual.processarAcao(opcao);
+                if (!cenaAtual.estado.processando && !cenaAtual.estado.aguardandoResposta) {
+                    cenaAtual.processarAcao(opcao);
+                }
             });
             
-            opcoesDialogo.appendChild(btn);
+            window.opcoesDialogo.appendChild(btn);
         });
     },
     
     // ===== PROCESSAR AÇÃO =====
     processarAcao: function(opcao) {
+        // Marcar como processando
+        this.estado.processando = true;
+        
         switch(opcao.acao) {
             case 'testeSocial':
                 this.realizarTesteSocial(opcao);
@@ -4694,8 +4823,8 @@ window.AVENTURA = {
                 break;
                 
             case 'sair':
-                if (opcao.mensagem && dialogoTexto) {
-                    dialogoTexto.textContent = opcao.mensagem;
+                if (opcao.mensagem && window.dialogoTexto) {
+                    window.dialogoTexto.textContent = opcao.mensagem;
                     
                     setTimeout(() => {
                         if (opcao.proximo === 'carroca_destruida') {
@@ -4707,14 +4836,14 @@ window.AVENTURA = {
                                 textoTransicao = "Depois de se afastar, você retoma seu caminho. Alguns minutos depois, avista algo na estrada...";
                             }
                             
-                            dialogoTexto.textContent = textoTransicao;
-                            setTimeout(() => carregarCena(opcao.proximo), 2000);
+                            window.dialogoTexto.textContent = textoTransicao;
+                            setTimeout(() => window.carregarCena(opcao.proximo), 2000);
                         } else {
-                            carregarCena(opcao.proximo);
+                            window.carregarCena(opcao.proximo);
                         }
                     }, 2000);
                 } else {
-                    carregarCena(opcao.proximo);
+                    window.carregarCena(opcao.proximo);
                 }
                 break;
         }
@@ -4722,49 +4851,64 @@ window.AVENTURA = {
     
     // ===== TESTE SOCIAL =====
     realizarTesteSocial: function(opcao) {
+        const cenaAtual = this;
         const nhJogador = opcao.nh;
         const dificuldade = opcao.dificuldade;
         
-        const resultado = SistemaSocial.testeSocial(nhJogador, dificuldade);
+        let resultado;
+        if (window.SistemaSocial) {
+            resultado = window.SistemaSocial.testeSocial(nhJogador, dificuldade);
+        } else {
+            // Fallback
+            const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+            resultado = {
+                sucesso: rolagem <= nhJogador,
+                critico: rolagem <= 4,
+                falhaCritica: rolagem >= 18,
+                rolagem: rolagem,
+                margem: nhJogador - rolagem
+            };
+        }
         
-        adicionarLog(`🎲 TESTE DE PERSUASÃO:`, 'info');
-        adicionarLog(`   NH: ${nhJogador} vs Dificuldade ${dificuldade}`, 'info');
-        adicionarLog(`   Rolagem: ${resultado.rolagem}`, 'info');
-        adicionarLog(`   Margem: ${resultado.margem}`, 'info');
+        window.adicionarLog(`🎲 TESTE DE PERSUASÃO:`, 'info');
+        window.adicionarLog(`   NH: ${nhJogador} vs Dificuldade ${dificuldade}`, 'info');
+        window.adicionarLog(`   Rolagem: ${resultado.rolagem}`, 'info');
+        window.adicionarLog(`   Margem: ${resultado.margem}`, 'info');
         
         if (resultado.sucesso) {
             if (resultado.critico) {
-                adicionarLog(`✨ SUCESSO CRÍTICO!`, 'sucesso');
-                dialogoTexto.textContent = "Suas palavras são tão convincentes que ela relaxa completamente. 'Desculpe meu medo... você parece ser uma boa pessoa. Como posso ajudar?'";
+                window.adicionarLog(`✨ SUCESSO CRÍTICO!`, 'sucesso');
+                window.dialogoTexto.textContent = "Suas palavras são tão convincentes que ela relaxa completamente. 'Desculpe meu medo... você parece ser uma boa pessoa. Como posso ajudar?'";
                 this.estado.reacao.classificacao = 'otima';
             } else {
-                adicionarLog(`✅ SUCESSO!`, 'sucesso');
-                dialogoTexto.textContent = "Ela parece se acalmar um pouco. 'Tudo bem... acho que me assustei à toa. Viajantes normalmente são pacíficos.'";
+                window.adicionarLog(`✅ SUCESSO!`, 'sucesso');
+                window.dialogoTexto.textContent = "Ela parece se acalmar um pouco. 'Tudo bem... acho que me assustei à toa. Viajantes normalmente são pacíficos.'";
                 this.estado.reacao.classificacao = 'normal';
             }
             
             // Renderizar novamente com a nova reação
             setTimeout(() => {
-                const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
-                this.renderizarOpcoes(opcoes, this);
+                const opcoes = cenaAtual.criarOpcoes(cenaAtual.estado.reacao.classificacao);
+                cenaAtual.renderizarOpcoes(opcoes, cenaAtual);
+                cenaAtual.estado.processando = false;
             }, 2000);
             
         } else {
             if (resultado.falhaCritica) {
-                adicionarLog(`💥 FALHA CRÍTICA!`, 'erro');
-                dialogoTexto.textContent = "Suas palavras saem completamente erradas! Ela grita e sai correndo floresta adentro, deixando o cesto para trás.";
+                window.adicionarLog(`💥 FALHA CRÍTICA!`, 'erro');
+                window.dialogoTexto.textContent = "Suas palavras saem completamente erradas! Ela grita e sai correndo floresta adentro, deixando o cesto para trás.";
                 
                 setTimeout(() => {
-                    dialogoTexto.textContent = "Você suspira, frustrado. Continuando pela estrada, logo encontra vestígios de violência...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                    window.dialogoTexto.textContent = "Você suspira, frustrado. Continuando pela estrada, logo encontra vestígios de violência...";
+                    setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
                 }, 2000);
             } else {
-                adicionarLog(`❌ FALHA!`, 'erro');
-                dialogoTexto.textContent = "Ela não parece confiar em você. 'Achei melhor ir embora...' Ela se afasta rapidamente.";
+                window.adicionarLog(`❌ FALHA!`, 'erro');
+                window.dialogoTexto.textContent = "Ela não parece confiar em você. 'Achei melhor ir embora...' Ela se afasta rapidamente.";
                 
                 setTimeout(() => {
-                    dialogoTexto.textContent = "Você a observa desaparecer na floresta. Retomando seu caminho, alguns minutos depois avista algo estranho na estrada...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                    window.dialogoTexto.textContent = "Você a observa desaparecer na floresta. Retomando seu caminho, alguns minutos depois avista algo estranho na estrada...";
+                    setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
                 }, 2000);
             }
         }
@@ -4772,6 +4916,7 @@ window.AVENTURA = {
     
     // ===== FORNECER INFORMAÇÃO =====
     fornecerInfo: function(tipo) {
+        const cenaAtual = this;
         const reacaoClass = this.estado.reacao.classificacao;
         let info = "";
         
@@ -4783,67 +4928,82 @@ window.AVENTURA = {
             } else if (tipo === 'estranho') {
                 info = "Só esses barulhos na floresta mesmo... e uns mercadores que passaram apressados ontem.";
             }
-            adicionarLog(`ℹ️ Informação obtida`, 'info');
+            window.adicionarLog(`ℹ️ Informação obtida`, 'info');
         }
         
         if (reacaoClass === 'otima') {
             if (tipo === 'menina') {
                 info = this.informacoes.otima[0];
-                adicionarLog(`🔍 Informação sobre a menina!`, 'sucesso');
+                window.adicionarLog(`🔍 Informação sobre a menina!`, 'sucesso');
                 
                 if (!this.estado.infoRevelada) {
                     this.estado.infoRevelada = true;
                     
                     setTimeout(() => {
-                        if (confirm("Elara hesita... 'Posso te dar um amuleto de proteção.'")) {
+                        if (confirm("Elara hesita... Ela oferece: 'Posso te dar um amuleto de proteção.' Aceitar?")) {
                             if (!window.personagem.inventario.mochila) window.personagem.inventario.mochila = [];
                             window.personagem.inventario.mochila.push({
-                                id: "amuleto_elara",
+                                id: "amuleto_elara_" + Date.now(),
                                 nome: "Amuleto de Elara",
                                 descricao: "Um pequeno amuleto de madeira com runas desgastadas.",
                                 peso: 0.1
                             });
-                            adicionarLog("📿 Você ganhou: Amuleto de Elara", "sucesso");
+                            window.adicionarLog("📿 Você ganhou: Amuleto de Elara", "sucesso");
+                            window.dialogoTexto.textContent = "Ela sorri e coloca o amuleto em suas mãos. 'Que os deuses te protejam.'";
+                        } else {
+                            window.dialogoTexto.textContent = "Ela guarda o amuleto de volta. 'Tudo bem, entendo.'";
                         }
                     }, 3000);
                 }
             } else if (tipo === 'tesouro') {
                 info = this.informacoes.otima[1];
-                adicionarLog(`💰 Informação de tesouro!`, 'sucesso');
+                window.adicionarLog(`💰 Informação de tesouro!`, 'sucesso');
             } else if (tipo === 'goblins_avancado') {
                 info = "Eles estão acampados perto da Caverna dos Esquecidos. Dizem que têm um chefe grande e forte. Cuidado!";
-                adicionarLog(`⚔️ Informação avançada!`, 'sucesso');
+                window.adicionarLog(`⚔️ Informação avançada!`, 'sucesso');
             }
         }
         
-        if (dialogoTexto) {
-            dialogoTexto.textContent = info;
+        if (window.dialogoTexto) {
+            window.dialogoTexto.textContent = info;
         }
+        
+        // Marcar como aguardando resposta
+        this.estado.aguardandoResposta = true;
         
         // Voltar às opções normais após a informação
         setTimeout(() => {
-            const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
-            this.renderizarOpcoes(opcoes, this);
+            const opcoes = cenaAtual.criarOpcoes(cenaAtual.estado.reacao.classificacao);
+            cenaAtual.renderizarOpcoes(opcoes, cenaAtual);
+            cenaAtual.estado.processando = false;
+            cenaAtual.estado.aguardandoResposta = false;
         }, 4000);
     },
     
     // ===== INICIAR FLERTE =====
     iniciarFlerte: function(opcao) {
+        const cenaAtual = this;
+        
         if (this.estado.flerteTentado) {
-            dialogoTexto.textContent = "Ela ri, corando. 'Outra hora, talvez... Vá, sua aventura te espera.'";
+            window.dialogoTexto.textContent = "Ela ri, corando. 'Outra hora, talvez... Vá, sua aventura te espera.'";
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Você sorri e se despede. Seguindo pela estrada, logo encontra algo...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                window.dialogoTexto.textContent = "Você sorri e se despede. Seguindo pela estrada, logo encontra algo...";
+                setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
             }, 2000);
+            
+            this.estado.processando = false;
             return;
         }
         
         this.estado.flerteTentado = true;
         const nhFlerte = opcao.nh;
         
-        adicionarLog(`💘 INICIANDO FLERTE... NH: ${nhFlerte}`, 'info');
-        dialogoTexto.textContent = "Você comenta que as flores que ela colhe são bonitas, e que combinam com seus olhos. Ela cora levemente.";
+        window.adicionarLog(`💘 INICIANDO FLERTE... NH: ${nhFlerte}`, 'info');
+        window.dialogoTexto.textContent = "Você comenta que as flores que ela colhe são bonitas, e que combinam com seus olhos. Ela cora levemente.";
+        
+        // Marcar como aguardando resposta
+        this.estado.aguardandoResposta = true;
         
         setTimeout(() => {
             const opcoesFlerte = [
@@ -4862,16 +5022,18 @@ window.AVENTURA = {
                 }
             ];
             
-            this.renderizarOpcoesFlerte(opcoesFlerte);
+            cenaAtual.renderizarOpcoesFlerte(opcoesFlerte);
+            cenaAtual.estado.aguardandoResposta = false;
+            
         }, 2000);
     },
     
     // ===== RENDERIZAR OPÇÕES DE FLERTE =====
     renderizarOpcoesFlerte: function(opcoes) {
-        if (!opcoesDialogo) return;
+        if (!window.opcoesDialogo) return;
         
         const cenaAtual = this;
-        opcoesDialogo.innerHTML = '';
+        window.opcoesDialogo.innerHTML = '';
         
         opcoes.forEach(opcao => {
             const btn = document.createElement('button');
@@ -4879,90 +5041,111 @@ window.AVENTURA = {
             btn.textContent = opcao.texto;
             
             btn.addEventListener('click', () => {
-                if (opcao.acao === 'testeFlerte') {
-                    cenaAtual.testeFlerte(opcao.nh);
-                } else if (opcao.acao === 'sairFlerte') {
-                    dialogoTexto.textContent = "Ela sorri, aliviada. 'Foi bom te conhecer.'";
+                if (!cenaAtual.estado.processando && !cenaAtual.estado.aguardandoResposta) {
+                    cenaAtual.estado.processando = true;
                     
-                    setTimeout(() => {
-                        dialogoTexto.textContent = "Você se despede e continua. Algo chama sua atenção na estrada...";
-                        setTimeout(() => carregarCena('carroca_destruida'), 2000);
-                    }, 2000);
-                } else if (opcao.acao === 'voltarInfo') {
-                    const opcoesNormais = cenaAtual.criarOpcoes(cenaAtual.estado.reacao.classificacao);
-                    cenaAtual.renderizarOpcoes(opcoesNormais, cenaAtual);
+                    if (opcao.acao === 'testeFlerte') {
+                        cenaAtual.testeFlerte(opcao.nh);
+                    } else if (opcao.acao === 'sairFlerte') {
+                        cenaAtual.sairFlerte();
+                    } else if (opcao.acao === 'voltarInfo') {
+                        cenaAtual.voltarInfo();
+                    }
                 }
             });
             
-            opcoesDialogo.appendChild(btn);
+            window.opcoesDialogo.appendChild(btn);
         });
     },
     
     // ===== TESTE DE FLERTE =====
     testeFlerte: function(nh) {
-        const resultado = SistemaSocial.testeSocial(nh, 12);
+        const cenaAtual = this;
         
-        adicionarLog(`💘 TESTE DE FLERTE:`, 'info');
-        adicionarLog(`   NH: ${nh} vs 12`, 'info');
-        adicionarLog(`   Rolagem: ${resultado.rolagem}`, 'info');
-        adicionarLog(`   Margem: ${resultado.margem}`, 'info');
+        let resultado;
+        if (window.SistemaSocial) {
+            resultado = window.SistemaSocial.testeSocial(nh, 12);
+        } else {
+            // Fallback
+            const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+            resultado = {
+                sucesso: rolagem <= nh,
+                critico: rolagem <= 4,
+                falhaCritica: rolagem >= 18,
+                rolagem: rolagem
+            };
+        }
+        
+        window.adicionarLog(`💘 TESTE DE FLERTE:`, 'info');
+        window.adicionarLog(`   NH: ${nh} vs 12`, 'info');
+        window.adicionarLog(`   Rolagem: ${resultado.rolagem}`, 'info');
+        window.adicionarLog(`   Margem: ${resultado.margem}`, 'info');
         
         if (resultado.sucesso) {
             if (resultado.critico) {
-                adicionarLog(`✨ SUCESSO CRÍTICO!`, 'sucesso');
-                dialogoTexto.textContent = "Ela cora intensamente. 'Volte quando sua missão acabar.' Ela te dá uma flor.";
+                window.adicionarLog(`✨ SUCESSO CRÍTICO!`, 'sucesso');
+                window.dialogoTexto.textContent = "Ela cora intensamente. 'Volte quando sua missão acabar.' Ela te dá uma flor.";
                 
                 if (!window.personagem.inventario.mochila) window.personagem.inventario.mochila = [];
                 window.personagem.inventario.mochila.push({
-                    id: "flor_elara",
+                    id: "flor_elara_" + Date.now(),
                     nome: "Flor de Elara",
                     descricao: "Uma flor silvestre que ela te deu.",
                     peso: 0.01
                 });
-                adicionarLog(`🌸 Flor de Elara`, 'sucesso');
+                window.adicionarLog(`🌸 Flor de Elara`, 'sucesso');
             } else {
-                adicionarLog(`✅ Sucesso!`, 'sucesso');
-                dialogoTexto.textContent = "Ela sorri, meio sem graça. 'Quando voltar, podemos conversar.'";
+                window.adicionarLog(`✅ Sucesso!`, 'sucesso');
+                window.dialogoTexto.textContent = "Ela sorri, meio sem graça. 'Quando voltar, podemos conversar.'";
             }
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Você se despede e segue. A estrada revela algo à frente...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                window.dialogoTexto.textContent = "Você se despede e segue. A estrada revela algo à frente...";
+                setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
             }, 3000);
             
         } else {
             if (resultado.falhaCritica) {
-                adicionarLog(`💥 FALHA CRÍTICA!`, 'erro');
-                dialogoTexto.textContent = "Ela parece ofendida. 'Isso é inapropriado! Adeus!'";
+                window.adicionarLog(`💥 FALHA CRÍTICA!`, 'erro');
+                window.dialogoTexto.textContent = "Ela parece ofendida. 'Isso é inapropriado! Adeus!'";
             } else {
-                adicionarLog(`❌ Falha.`, 'erro');
-                dialogoTexto.textContent = "Ela parece desconfortável. 'Acho melhor ir embora.'";
+                window.adicionarLog(`❌ Falha.`, 'erro');
+                window.dialogoTexto.textContent = "Ela parece desconfortável. 'Acho melhor ir embora.'";
             }
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Constrangido, você segue. Mais adiante, avista uma carroça destruída...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                window.dialogoTexto.textContent = "Constrangido, você segue. Mais adiante, avista uma carroça destruída...";
+                setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
             }, 2000);
         }
+        
+        cenaAtual.estado.processando = false;
     },
     
     // ===== FLERTE AVANÇADO =====
     flerteAvancado: function(opcao) {
+        const cenaAtual = this;
+        
         if (this.estado.flerteTentado) {
-            dialogoTexto.textContent = "Ela sorri. 'Gosto disso. Mas vá salvar a menina.'";
+            window.dialogoTexto.textContent = "Ela sorri. 'Gosto disso. Mas vá salvar a menina.'";
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Você acena e segue. Logo encontra vestígios do ataque...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                window.dialogoTexto.textContent = "Você acena e segue. Logo encontra vestígios do ataque...";
+                setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
             }, 2000);
+            
+            this.estado.processando = false;
             return;
         }
         
         this.estado.flerteTentado = true;
         const nhFlerte = opcao.nh;
         
-        adicionarLog(`💘 FLERTE AVANÇADO NH: ${nhFlerte}`, 'info');
-        dialogoTexto.textContent = "'Oferecer companhia?' Ela ri. 'Quando voltar, adoraria.'";
+        window.adicionarLog(`💘 FLERTE AVANÇADO NH: ${nhFlerte}`, 'info');
+        window.dialogoTexto.textContent = "'Oferecer companhia?' Ela ri. 'Quando voltar, adoraria.'";
+        
+        // Marcar como aguardando resposta
+        this.estado.aguardandoResposta = true;
         
         setTimeout(() => {
             const opcoes = [
@@ -4977,282 +5160,44 @@ window.AVENTURA = {
                 }
             ];
             
-            this.renderizarOpcoesFlerte(opcoes);
+            cenaAtual.renderizarOpcoesFlerte(opcoes);
+            cenaAtual.estado.aguardandoResposta = false;
+            
         }, 2000);
-    }
-},
-      carroca_destruida: {
-    id: "carroca_destruida",
-    nome: "Local do Ataque",
-    imagem: "carroca.jpg",
-    
-    // Estado da cena
-    estado: {
-        percepcaoTestada: false,
-        bonecaEncontrada: false,
-        rastrosEncontrados: false,
-        testeRealizado: false
     },
     
-    // Fala inicial (sem detalhes)
-    fala: {
-        npc: "Narrador",
-        texto: "A estrada à frente está silenciosa... quieta demais. Conforme você se aproxima, avista algo estranho no caminho."
-    },
-    
-    // ===== FUNÇÃO RENDERIZAR =====
-    renderizar: function() {
+    // ===== SAIR DO FLERTE =====
+    sairFlerte: function() {
         const cenaAtual = this;
         
-        // Resetar estado
-        this.estado = {
-            percepcaoTestada: false,
-            bonecaEncontrada: false,
-            rastrosEncontrados: false,
-            testeRealizado: false
-        };
+        window.dialogoTexto.textContent = "Ela sorri, aliviada. 'Foi bom te conhecer.'";
         
-        // Imagem de fundo
-        if (window.cenarioArea) {
-            window.cenarioArea.style.backgroundImage = "url('carroca.jpg')";
-        }
+        setTimeout(() => {
+            window.dialogoTexto.textContent = "Você se despede e continua. Algo chama sua atenção na estrada...";
+            setTimeout(() => window.carregarCena('carroca_destruida'), 2000);
+        }, 2000);
         
-        // Fala inicial do narrador
-        if (window.npcNome) window.npcNome.textContent = "Narrador";
-        if (window.npcAvatar) window.npcAvatar.style.display = 'none';
-        if (window.dialogoTexto) window.dialogoTexto.textContent = this.fala.texto;
-        
-        // Botão para se aproximar
-        if (window.opcoesDialogo) {
-            window.opcoesDialogo.innerHTML = '';
-            
-            const btnAproximar = document.createElement('button');
-            btnAproximar.className = 'opcao-btn';
-            btnAproximar.textContent = "🔍 Se aproximar para investigar";
-            btnAproximar.addEventListener('click', function() {
-                cenaAtual.iniciarInvestigacao();
-            });
-            window.opcoesDialogo.appendChild(btnAproximar);
-        }
+        this.estado.processando = false;
     },
     
-    // ===== INICIAR INVESTIGAÇÃO =====
-    iniciarInvestigacao: function() {
+    // ===== VOLTAR PARA INFORMAÇÕES =====
+    voltarInfo: function() {
         const cenaAtual = this;
         
-        // Primeira visão - descrição inicial
-        if (window.dialogoTexto) {
-            window.dialogoTexto.textContent = "Ao se aproximar, você vê os destroços de uma carroça. Madeira partida, mercadorias espalhadas... e manchas de sangue no chão. Parece que o ataque foi recente.";
-        }
-        
-        // Botões de ação
-        if (window.opcoesDialogo) {
-            window.opcoesDialogo.innerHTML = '';
-            
-            const btnObservar = document.createElement('button');
-            btnObservar.className = 'opcao-btn';
-            btnObservar.textContent = "👀 Observar atentamente (Teste de Percepção)";
-            btnObservar.addEventListener('click', function() {
-                cenaAtual.realizarTestePercepcao();
-            });
-            window.opcoesDialogo.appendChild(btnObservar);
-            
-            const btnSeguir = document.createElement('button');
-            btnSeguir.className = 'opcao-btn';
-            btnSeguir.textContent = "➡️ Seguir caminho (ignorar)";
-            btnSeguir.addEventListener('click', function() {
-                if (window.dialogoTexto) {
-                    window.dialogoTexto.textContent = "Você decide não perder tempo e continua pela estrada.";
-                }
-                setTimeout(function() { window.carregarCena('clareira_goblins'); }, 2000);
-            });
-            window.opcoesDialogo.appendChild(btnSeguir);
-        }
-    },
-    
-    // ===== TESTE DE PERCEPÇÃO =====
-    realizarTestePercepcao: function() {
-        const cenaAtual = this;
-        
-        // Calcular Percepção do personagem
-        let iq = 10; // valor padrão
-        try {
-            iq = window.getValorAtributoReal ? window.getValorAtributoReal('iq') : 10;
-        } catch(e) {
-            console.log('Erro ao pegar IQ, usando padrão 10');
-        }
-        
-        const temSentidos = window.personagem?.vantagens?.includes('sentidosAgucados');
-        const bonusVantagem = temSentidos ? 2 : 0;
-        
-        const percepcao = iq + bonusVantagem;
-        
-        if (window.adicionarLog) {
-            window.adicionarLog(`🔍 TESTE DE PERCEPÇÃO`, 'info');
-            window.adicionarLog(`   IQ: ${iq} + ${bonusVantagem} (Sentidos Aguçados) = ${percepcao}`, 'info');
-        }
-        
-        // Rolar 2d10
-        const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
-        const resultado = rolagem;
-        const margem = percepcao - resultado;
-        
-        if (window.adicionarLog) {
-            window.adicionarLog(`   Rolagem: ${rolagem}`, 'info');
-            window.adicionarLog(`   Margem: ${margem}`, 'info');
-        }
-        
-        // Verificar resultado
-        const sucesso = resultado <= percepcao;
-        
-        if (!sucesso) {
-            // FALHA - Não percebe nada além do óbvio
-            if (window.adicionarLog) window.adicionarLog(`❌ Falha na Percepção!`, 'erro');
-            if (window.dialogoTexto) {
-                window.dialogoTexto.textContent = "Você examina a área, mas não encontra nada além dos destroços óbvios. Talvez os goblins já tenham levado tudo de valor.";
-            }
-            
-            // Apenas opção de seguir
-            if (window.opcoesDialogo) {
-                window.opcoesDialogo.innerHTML = '';
-                const btnSeguir = document.createElement('button');
-                btnSeguir.className = 'opcao-btn';
-                btnSeguir.textContent = "➡️ Seguir para a floresta";
-                btnSeguir.addEventListener('click', function() {
-                    window.carregarCena('clareira_goblins');
-                });
-                window.opcoesDialogo.appendChild(btnSeguir);
-            }
-            return;
-        }
-        
-        // SUCESSO - Encontra a boneca
-        if (window.adicionarLog) window.adicionarLog(`✅ Sucesso na Percepção!`, 'sucesso');
-        this.estado.bonecaEncontrada = true;
-        
-        let textoDescoberta = "Examinando cuidadosamente, você nota algo enterrado na lama perto de uma moita, a alguns metros da carroça. É uma boneca de pano, suja, mas intacta.";
-        
-        // Se margem >= 2, encontra também rastros
-        if (margem >= 2) {
-            if (window.adicionarLog) window.adicionarLog(`✨ Sucesso por margem ${margem}! Encontra rastros!`, 'sucesso');
-            this.estado.rastrosEncontrados = true;
-            textoDescoberta += " Além disso, você percebe pegadas frescas levando para o norte, na direção da floresta. São pegadas de criaturas pequenas... goblins! E algumas são mais fundas, como se estivessem carregando algo pesado.";
-        } else {
-            textoDescoberta += " Não há outros sinais além dos destroços da carroça.";
-        }
-        
-        if (window.dialogoTexto) {
-            window.dialogoTexto.textContent = textoDescoberta;
-        }
-        
-        // Opções pós-descoberta
-        if (window.opcoesDialogo) {
-            window.opcoesDialogo.innerHTML = '';
-            
-            // Opção de pegar a boneca
-            const btnPegar = document.createElement('button');
-            btnPegar.className = 'opcao-btn';
-            btnPegar.textContent = "🧸 Pegar a boneca";
-            btnPegar.addEventListener('click', function() {
-                cenaAtual.pegarBoneca();
-            });
-            window.opcoesDialogo.appendChild(btnPegar);
-            
-            // Opção de seguir rastros (se encontrou)
-            if (this.estado.rastrosEncontrados) {
-                const btnRastros = document.createElement('button');
-                btnRastros.className = 'opcao-btn';
-                btnRastros.textContent = "👣 Seguir os rastros dos goblins";
-                btnRastros.addEventListener('click', function() {
-                    if (window.dialogoTexto) {
-                        window.dialogoTexto.textContent = "Você segue as pegadas pela floresta. Elas levam para o norte, cada vez mais fundo na mata fechada...";
-                    }
-                    setTimeout(function() { window.carregarCena('clareira_goblins'); }, 2000);
-                });
-                window.opcoesDialogo.appendChild(btnRastros);
-            } else {
-                // Se não encontrou rastros, opção genérica
-                const btnSeguir = document.createElement('button');
-                btnSeguir.className = 'opcao-btn';
-                btnSeguir.textContent = "➡️ Seguir para a floresta";
-                btnSeguir.addEventListener('click', function() {
-                    if (window.dialogoTexto) {
-                        window.dialogoTexto.textContent = "Sem pistas claras, você decide seguir para a floresta. Algo lhe diz que os goblins foram por ali...";
-                    }
-                    setTimeout(function() { window.carregarCena('clareira_goblins'); }, 2000);
-                });
-                window.opcoesDialogo.appendChild(btnSeguir);
-            }
-            
-            // Opção de ignorar
-            const btnIgnorar = document.createElement('button');
-            btnIgnorar.className = 'opcao-btn';
-            btnIgnorar.textContent = "🚶 Ignorar e seguir caminho";
-            btnIgnorar.addEventListener('click', function() {
-                if (window.dialogoTexto) {
-                    window.dialogoTexto.textContent = "Você decide não se envolver mais e continua sua jornada.";
-                }
-                setTimeout(function() { window.carregarCena('clareira_goblins'); }, 2000);
-            });
-            window.opcoesDialogo.appendChild(btnIgnorar);
-        }
-    },
-    
-    // ===== PEGAR BONECA =====
-    pegarBoneca: function() {
-        if (!window.personagem.inventario.mochila) {
-            window.personagem.inventario.mochila = [];
-        }
-        
-        window.personagem.inventario.mochila.push({
-            id: "boneca_lyra_" + Date.now(),
-            nome: "Boneca de Lyra",
-            descricao: "Uma boneca de pano suja, provavelmente da menina raptada. Pode ser importante para convencê-la de que você veio para ajudar.",
-            peso: 0.2
-        });
-        
-        if (window.adicionarLog) window.adicionarLog(`🧸 Você pegou: Boneca de Lyra`, 'sucesso');
-        
-        if (window.dialogoTexto) {
-            window.dialogoTexto.textContent = "Você guarda a boneca com cuidado. Quem quer que tenha perdido isso deve estar desesperado.";
-        }
-        
-        // Voltar às opções (sem a boneca novamente)
-        if (window.opcoesDialogo) {
-            window.opcoesDialogo.innerHTML = '';
-            
-            if (this.estado.rastrosEncontrados) {
-                const btnRastros = document.createElement('button');
-                btnRastros.className = 'opcao-btn';
-                btnRastros.textContent = "👣 Seguir os rastros dos goblins";
-                btnRastros.addEventListener('click', function() {
-                    if (window.dialogoTexto) {
-                        window.dialogoTexto.textContent = "Você segue as pegadas pela floresta. Elas levam para o norte, cada vez mais fundo na mata fechada...";
-                    }
-                    setTimeout(function() { window.carregarCena('clareira_goblins'); }, 2000);
-                });
-                window.opcoesDialogo.appendChild(btnRastros);
-            } else {
-                const btnSeguir = document.createElement('button');
-                btnSeguir.className = 'opcao-btn';
-                btnSeguir.textContent = "➡️ Seguir para a floresta";
-                btnSeguir.addEventListener('click', function() {
-                    window.carregarCena('clareira_goblins');
-                });
-                window.opcoesDialogo.appendChild(btnSeguir);
-            }
-        }
+        const opcoesNormais = cenaAtual.criarOpcoes(cenaAtual.estado.reacao.classificacao);
+        cenaAtual.renderizarOpcoes(opcoesNormais, cenaAtual);
+        cenaAtual.estado.processando = false;
     }
 },
         
-     // ============================================
+    // ============================================
 // CENA: CLAREIRA DOS GOBLINS (COMPLETA E CORRIGIDA)
 // ============================================
 
 clareira_goblins: {
     id: "clareira_goblins",
     nome: "Clareira na Floresta",
-    imagem: "clareira-goblins.jpg", 
+    imagem: "https://via.placeholder.com/1920x1080/2a1a3a/ffd700?text=Clareira+dos+Goblins", 
     
     // Estado da cena
     estado: {
@@ -5260,7 +5205,8 @@ clareira_goblins: {
         percepcaoTestada: false,
         furtividadeSucesso: false,
         inimigosAlertados: false,
-        informacaoObtida: false
+        informacaoObtida: false,
+        processando: false
     },
     
     // Dados dos inimigos
@@ -5364,12 +5310,24 @@ clareira_goblins: {
             percepcaoTestada: false,
             furtividadeSucesso: false,
             inimigosAlertados: false,
-            informacaoObtida: false
+            informacaoObtida: false,
+            processando: false
         };
         
-        // Imagem de fundo
+        // Imagem de fundo - com fallback
         if (window.cenarioArea) {
-            window.cenarioArea.style.backgroundImage = "url('clareira-goblins.jpg')";
+            // Tenta carregar a imagem, se falhar usa fallback
+            const img = new Image();
+            img.onload = function() {
+                window.cenarioArea.style.backgroundImage = "url('clareira-goblins.jpg')";
+            };
+            img.onerror = function() {
+                // Fallback para gradiente caso imagem não exista
+                window.cenarioArea.style.backgroundImage = "linear-gradient(135deg, #1a3a1a 0%, #2a5a2a 50%, #1a3a1a 100%)";
+                window.adicionarLog("🌲 Clareira na floresta (imagem não encontrada)", "info");
+            };
+            img.src = "clareira-goblins.jpg";
+            
             window.cenarioArea.style.backgroundSize = "cover";
             window.cenarioArea.style.backgroundPosition = "center";
         }
@@ -5400,7 +5358,9 @@ clareira_goblins: {
             btnFurtividade.className = 'opcao-btn';
             btnFurtividade.innerHTML = '🥷 Tentar se aproximar furtivamente';
             btnFurtividade.addEventListener('click', () => {
-                cenaAtual.tentarFurtividade();
+                if (!cenaAtual.estado.processando) {
+                    cenaAtual.tentarFurtividade();
+                }
             });
             window.opcoesDialogo.appendChild(btnFurtividade);
             
@@ -5409,8 +5369,10 @@ clareira_goblins: {
             btnAtacar.className = 'opcao-btn';
             btnAtacar.innerHTML = '⚔️ Atacar os goblins diretamente';
             btnAtacar.addEventListener('click', () => {
-                cenaAtual.estado.inimigosAlertados = true;
-                cenaAtual.iniciarCombate();
+                if (!cenaAtual.estado.processando) {
+                    cenaAtual.estado.inimigosAlertados = true;
+                    cenaAtual.iniciarCombate();
+                }
             });
             window.opcoesDialogo.appendChild(btnAtacar);
             
@@ -5419,12 +5381,14 @@ clareira_goblins: {
             btnVoltar.className = 'opcao-btn';
             btnVoltar.innerHTML = '👣 Voltar para a floresta';
             btnVoltar.addEventListener('click', () => {
-                if (window.dialogoTexto) {
-                    window.dialogoTexto.textContent = "Você decide recuar e pensar em outra estratégia...";
+                if (!cenaAtual.estado.processando) {
+                    if (window.dialogoTexto) {
+                        window.dialogoTexto.textContent = "Você decide recuar e pensar em outra estratégia...";
+                    }
+                    setTimeout(() => {
+                        window.carregarCena('carroca_destruida');
+                    }, 2000);
                 }
-                setTimeout(() => {
-                    window.carregarCena('carroca_destruida');
-                }, 2000);
             });
             window.opcoesDialogo.appendChild(btnVoltar);
         }
@@ -5433,6 +5397,9 @@ clareira_goblins: {
     // ===== FUNÇÃO: TESTAR FURTIVIDADE =====
     tentarFurtividade: function() {
         const cenaAtual = this;
+        
+        // Marcar como processando para evitar múltiplos cliques
+        this.estado.processando = true;
         
         if (window.dialogoTexto) {
             window.dialogoTexto.textContent = "Você se agacha e começa a se mover silenciosamente entre as árvores, tentando se aproximar do acampamento sem ser notado...";
@@ -5453,33 +5420,47 @@ clareira_goblins: {
             // Pega o personagem
             const personagem = window.personagem;
             
+            if (!personagem) {
+                window.adicionarLog("❌ Erro: Personagem não carregado!", "erro");
+                cenaAtual.estado.processando = false;
+                cenaAtual.mostrarOpcoesIniciais();
+                return;
+            }
+            
             // Calcula Furtividade
             let furtividade = 0;
+            let furtividadeInfo = "";
             
             // Pega o valor da perícia Furtividade se existir
             if (personagem.pericias && personagem.pericias.furtividade) {
                 furtividade = personagem.pericias.furtividade.nh || 0;
-                if (window.adicionarLog) {
-                    window.adicionarLog(`📊 Usando perícia Furtividade: NH ${furtividade}`, 'info');
-                }
+                furtividadeInfo = `Usando perícia Furtividade: NH ${furtividade}`;
             } else {
                 // Fallback: DX + 3
                 const dx = personagem.atributos?.dx?.valor || 10;
                 furtividade = dx + 3;
-                if (window.adicionarLog) {
-                    window.adicionarLog(`📊 Sem perícia, usando DX+3: ${dx}+3 = ${furtividade}`, 'info');
-                }
+                furtividadeInfo = `Sem perícia, usando DX+3: ${dx}+3 = ${furtividade}`;
             }
             
-            // Rola 2d10
-            const d1 = Math.floor(Math.random() * 10) + 1;
-            const d2 = Math.floor(Math.random() * 10) + 1;
-            const rolagem = d1 + d2;
+            // Rola 2d10 usando SistemaCombate se disponível
+            let d1, d2, rolagem;
+            if (window.SistemaCombate) {
+                const resultado = window.SistemaCombate.rolar2d10();
+                d1 = resultado.dados[0];
+                d2 = resultado.dados[1];
+                rolagem = resultado.total;
+            } else {
+                d1 = Math.floor(Math.random() * 10) + 1;
+                d2 = Math.floor(Math.random() * 10) + 1;
+                rolagem = d1 + d2;
+            }
+            
             const sucesso = rolagem <= furtividade;
             
-            // Log no console
+            // Log
             if (window.adicionarLog) {
                 window.adicionarLog(`🎲 TESTE DE FURTIVIDADE: ${d1} + ${d2} = ${rolagem}`, 'info');
+                window.adicionarLog(`   ${furtividadeInfo}`, 'info');
                 window.adicionarLog(`   NH: ${furtividade} | Resultado: ${rolagem}`, 'info');
                 window.adicionarLog(sucesso ? '   ✅ Sucesso!' : '   ❌ Falhou!', sucesso ? 'sucesso' : 'erro');
             }
@@ -5497,6 +5478,8 @@ clareira_goblins: {
                     cenaAtual.iniciarCombate();
                 }, 2000);
             }
+            
+            cenaAtual.estado.processando = false;
         }, 2000);
     },
     
@@ -5517,7 +5500,9 @@ clareira_goblins: {
             btnOuvir.className = 'opcao-btn';
             btnOuvir.innerHTML = '👂 Escutar a conversa (Percepção)';
             btnOuvir.addEventListener('click', () => {
-                cenaAtual.testarPercepcao();
+                if (!cenaAtual.estado.processando) {
+                    cenaAtual.testarPercepcao();
+                }
             });
             window.opcoesDialogo.appendChild(btnOuvir);
             
@@ -5526,8 +5511,10 @@ clareira_goblins: {
             btnAtacar.className = 'opcao-btn';
             btnAtacar.innerHTML = '⚔️ Atacar de surpresa (bônus de +3)';
             btnAtacar.addEventListener('click', () => {
-                cenaAtual.estado.inimigosAlertados = true;
-                cenaAtual.iniciarCombate(true); // true = emboscada
+                if (!cenaAtual.estado.processando) {
+                    cenaAtual.estado.inimigosAlertados = true;
+                    cenaAtual.iniciarCombate(true); // true = emboscada
+                }
             });
             window.opcoesDialogo.appendChild(btnAtacar);
             
@@ -5536,12 +5523,14 @@ clareira_goblins: {
             btnVoltar.className = 'opcao-btn';
             btnVoltar.innerHTML = '👣 Voltar para a floresta';
             btnVoltar.addEventListener('click', () => {
-                if (window.dialogoTexto) {
-                    window.dialogoTexto.textContent = "Você decide não arriscar e volta para a floresta...";
+                if (!cenaAtual.estado.processando) {
+                    if (window.dialogoTexto) {
+                        window.dialogoTexto.textContent = "Você decide não arriscar e volta para a floresta...";
+                    }
+                    setTimeout(() => {
+                        window.carregarCena('carroca_destruida');
+                    }, 2000);
                 }
-                setTimeout(() => {
-                    window.carregarCena('carroca_destruida');
-                }, 2000);
             });
             window.opcoesDialogo.appendChild(btnVoltar);
         }
@@ -5550,6 +5539,9 @@ clareira_goblins: {
     // ===== TESTAR PERCEPÇÃO =====
     testarPercepcao: function() {
         const cenaAtual = this;
+        
+        // Marcar como processando
+        this.estado.processando = true;
         
         if (window.dialogoTexto) {
             window.dialogoTexto.textContent = "Você se concentra para ouvir o que os goblins estão falando...";
@@ -5568,6 +5560,13 @@ clareira_goblins: {
         setTimeout(() => {
             const personagem = window.personagem;
             
+            if (!personagem) {
+                window.adicionarLog("❌ Erro: Personagem não carregado!", "erro");
+                cenaAtual.estado.processando = false;
+                cenaAtual.aposFurtividadeSucesso();
+                return;
+            }
+            
             // Calcula Percepção
             let percepcao = personagem.atributos?.iq?.valor || 10;
             let bonusTexto = '';
@@ -5578,9 +5577,18 @@ clareira_goblins: {
             }
             
             // Rola 2d10
-            const d1 = Math.floor(Math.random() * 10) + 1;
-            const d2 = Math.floor(Math.random() * 10) + 1;
-            const rolagem = d1 + d2;
+            let d1, d2, rolagem;
+            if (window.SistemaCombate) {
+                const resultado = window.SistemaCombate.rolar2d10();
+                d1 = resultado.dados[0];
+                d2 = resultado.dados[1];
+                rolagem = resultado.total;
+            } else {
+                d1 = Math.floor(Math.random() * 10) + 1;
+                d2 = Math.floor(Math.random() * 10) + 1;
+                rolagem = d1 + d2;
+            }
+            
             const sucesso = rolagem <= percepcao;
             const margem = percepcao - rolagem;
             
@@ -5616,6 +5624,7 @@ clareira_goblins: {
                 // Mostrar opções pós-informação
                 setTimeout(() => {
                     cenaAtual.aposInformacao();
+                    cenaAtual.estado.processando = false;
                 }, 5000); // 5 segundos para ler o texto
                 
             } else {
@@ -5630,6 +5639,7 @@ clareira_goblins: {
                 
                 setTimeout(() => {
                     cenaAtual.aposFurtividadeSucesso(); // Volta para opções anteriores
+                    cenaAtual.estado.processando = false;
                 }, 3000);
             }
         }, 2000);
@@ -5647,8 +5657,10 @@ clareira_goblins: {
             btnAtacar.className = 'opcao-btn';
             btnAtacar.innerHTML = '⚔️ Atacar os goblins (eliminar a ameaça)';
             btnAtacar.addEventListener('click', () => {
-                cenaAtual.estado.inimigosAlertados = true;
-                cenaAtual.iniciarCombate();
+                if (!cenaAtual.estado.processando) {
+                    cenaAtual.estado.inimigosAlertados = true;
+                    cenaAtual.iniciarCombate();
+                }
             });
             window.opcoesDialogo.appendChild(btnAtacar);
             
@@ -5657,12 +5669,14 @@ clareira_goblins: {
             btnSeguir.className = 'opcao-btn';
             btnSeguir.innerHTML = '➡️ Ignorar e seguir para a caverna';
             btnSeguir.addEventListener('click', () => {
-                if (window.dialogoTexto) {
-                    window.dialogoTexto.textContent = "Você decide não perder tempo com esses goblins. A menina está na caverna, e é para lá que você vai.";
+                if (!cenaAtual.estado.processando) {
+                    if (window.dialogoTexto) {
+                        window.dialogoTexto.textContent = "Você decide não perder tempo com esses goblins. A menina está na caverna, e é para lá que você vai.";
+                    }
+                    setTimeout(() => {
+                        window.carregarCena('entrada_caverna');
+                    }, 2000);
                 }
-                setTimeout(() => {
-                    window.carregarCena('entrada_caverna');
-                }, 2000);
             });
             window.opcoesDialogo.appendChild(btnSeguir);
             
@@ -5671,7 +5685,9 @@ clareira_goblins: {
             btnVoltar.className = 'opcao-btn';
             btnVoltar.innerHTML = '👣 Voltar para a floresta';
             btnVoltar.addEventListener('click', () => {
-                window.carregarCena('carroca_destruida');
+                if (!cenaAtual.estado.processando) {
+                    window.carregarCena('carroca_destruida');
+                }
             });
             window.opcoesDialogo.appendChild(btnVoltar);
         }
@@ -5679,6 +5695,18 @@ clareira_goblins: {
     
     // ===== INICIAR COMBATE =====
     iniciarCombate: function(emboscada = false) {
+        // Verificar se a função global existe
+        if (!window.iniciarCombate) {
+            window.adicionarLog("❌ ERRO: Sistema de combate não carregado!", "erro");
+            
+            // Fallback - criar função temporária
+            window.iniciarCombate = function(inimigosData, emboscada) {
+                window.adicionarLog("⚠️ Usando sistema de combate simplificado (fallback)", "info");
+                window.adicionarLog(`⚔️ COMBATE INICIADO com ${inimigosData.length} inimigos!`, "sucesso");
+                window.adicionarLog("🛠️ Implemente a função completa de combate", "info");
+            };
+        }
+        
         // Se for emboscada, adiciona bônus no log
         if (emboscada && window.adicionarLog) {
             window.adicionarLog(`🎯 ATAQUE SURPRESA! Bônus de +3 na iniciativa!`, 'sucesso');
@@ -5692,9 +5720,7 @@ clareira_goblins: {
         }));
         
         // Chama a função global de iniciar combate
-        if (window.iniciarCombate) {
-            window.iniciarCombate(inimigosCombate, emboscada);
-        }
+        window.iniciarCombate(inimigosCombate, emboscada);
         
         // Define a cena após vitória
         window.capituloAtual.ao_vencer = "entrada_caverna";
@@ -5709,13 +5735,24 @@ clareira_goblins: {
             btnCombate.className = 'opcao-btn';
             btnCombate.innerHTML = '⚔️ Iniciar Combate';
             btnCombate.addEventListener('click', () => {
-                this.iniciarCombate();
+                if (!this.estado.processando) {
+                    this.iniciarCombate();
+                }
             });
             window.opcoesDialogo.appendChild(btnCombate);
+            
+            const btnVoltar = document.createElement('button');
+            btnVoltar.className = 'opcao-btn';
+            btnVoltar.innerHTML = '👣 Voltar para a floresta';
+            btnVoltar.addEventListener('click', () => {
+                if (!this.estado.processando) {
+                    window.carregarCena('carroca_destruida');
+                }
+            });
+            window.opcoesDialogo.appendChild(btnVoltar);
         }
     }
-},
-        
+},  
         entrada_caverna: {
             id: "entrada_caverna",
             nome: "Entrada da Caverna",
