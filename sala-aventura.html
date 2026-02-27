@@ -3520,67 +3520,103 @@ function iniciarTimerHomem() {
     timerHomem = setTimeout(() => {
         adicionarLog('🚪 A porta se abre violentamente! Um homem ensanguentado entra cambaleando!', 'dano');
         carregarCena('interior_taverna_com_homem');
-    }, 40000);
+    }, 30000);
 }
 
-function iniciarCombate(inimigosIds) {
-    turnoAtual = 'jogador';
-    if (turnoIndicator) {
-        turnoIndicator.className = 'turno-indicator jogador';
-        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+// ============================================
+// NOVA FUNÇÃO iniciarCombate (USANDO SistemaCombate)
+// ============================================
+function iniciarCombate(inimigosData, emboscada = false) {
+    // Log para debug
+    console.log('Iniciando combate com:', inimigosData);
+    
+    // Se for emboscada, mostra no log
+    if (emboscada) {
+        adicionarLog(`🎯 ATAQUE SURPRESA! Bônus de +3 na iniciativa!`, 'sucesso');
     }
     
-    inimigos = [];
-    if (capituloAtual.inimigos) {
-        inimigosIds.forEach(id => {
+    // CASO 1: Recebeu array de objetos (formato novo da clareira)
+    if (Array.isArray(inimigosData) && inimigosData.length > 0 && inimigosData[0].pv_max) {
+        window.inimigos = inimigosData.map(inim => ({
+            ...inim,
+            pv: inim.pv_max,
+            pv_atual: inim.pv_max
+        }));
+    } 
+    // CASO 2: Recebeu array de IDs (formato antigo)
+    else if (capituloAtual && capituloAtual.inimigos) {
+        window.inimigos = [];
+        inimigosData.forEach(id => {
             const inimigoData = capituloAtual.inimigos.find(i => i.id === id);
             if (inimigoData) {
-                inimigos.push({
+                window.inimigos.push({
                     ...inimigoData,
-                    pv: inimigoData.pv || inimigoData.pv_max,
-                    pv_max: inimigoData.pv_max || inimigoData.pv
+                    pv: inimigoData.pv_max || inimigoData.pv,
+                    pv_atual: inimigoData.pv_max || inimigoData.pv
                 });
             }
         });
     }
-    
-    if (inimigos.length === 0) {
-        inimigos = inimigosIds.map((id, index) => ({
-            id: id,
-            nome: `Inimigo ${index + 1}`,
-            pv: 20,
-            pv_max: 20,
-            esquiva: 8,
-            nh_ataque: 10,
-            dano: "1d6"
+    // CASO 3: Fallback
+    else {
+        window.inimigos = inimigosData.map((inim, index) => ({
+            id: inim.id || `inimigo_${index}`,
+            nome: inim.nome || `Inimigo ${index + 1}`,
+            pv: inim.pv || 20,
+            pv_max: inim.pv_max || inim.pv || 20,
+            defesa: inim.defesa || 8,
+            dx: inim.dx || 10,
+            nh_ataque: inim.nh_ataque || 10,
+            dano: inim.dano || "1d6",
+            xp: inim.xp || 25
         }));
     }
     
-    if (inimigosContainer) inimigosContainer.style.display = 'block';
-    renderizarInimigos();
-    adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
-}
-
-function renderizarInimigos() {
-    if (!inimigosLista) return;
-    inimigosLista.innerHTML = inimigos.map((inimigo, index) => `
-        <div class="inimigo-mini ${inimigoSelecionado === index ? 'selecionado' : ''}" data-index="${index}">
-            <div class="inimigo-mini-nome">${inimigo.nome}</div>
-            <div class="inimigo-mini-pv">
-                <div class="inimigo-mini-pv-fill" style="width: ${(inimigo.pv / inimigo.pv_max) * 100}%"></div>
-            </div>
-            <div style="font-size:0.7rem; text-align:center;">${inimigo.pv}/${inimigo.pv_max}</div>
-        </div>
-    `).join('');
+    // Verifica se tem inimigos
+    if (!window.inimigos || window.inimigos.length === 0) {
+        adicionarLog('❌ Erro: Nenhum inimigo encontrado!', 'erro');
+        return;
+    }
     
-    document.querySelectorAll('.inimigo-mini').forEach(card => {
-        card.addEventListener('click', () => {
-            const index = parseInt(card.dataset.index);
-            inimigoSelecionado = index;
-            renderizarInimigos();
-            if (btnAtacar) btnAtacar.disabled = false;
-        });
-    });
+    // Calcula INICIATIVA usando SistemaCombate
+    const iniciativa = SistemaCombate.calcularIniciativa(
+        window.personagem,
+        window.inimigos,
+        emboscada ? 'pc' : null
+    );
+    
+    // Mostra resultado da iniciativa
+    adicionarLog(iniciativa.texto, 'info');
+    adicionarLog(`🎲 Sua iniciativa: ${iniciativa.pc} | Inimigos: ${iniciativa.inimigos.toFixed(1)}`, 'info');
+    
+    // Define quem começa
+    window.turnoAtual = iniciativa.quemComeca;
+    
+    // Mostra interface de combate
+    if (window.inimigosContainer) window.inimigosContainer.style.display = 'block';
+    renderizarInimigos();
+    
+    // Atualiza indicador de turno
+    if (window.turnoIndicator) {
+        if (window.turnoAtual === 'pc') {
+            window.turnoIndicator.className = 'turno-indicator jogador';
+            window.turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+            // Habilita botões
+            if (window.btnAtacar) window.btnAtacar.disabled = false;
+            if (window.btnMagia) window.btnMagia.disabled = false;
+        } else {
+            window.turnoIndicator.className = 'turno-indicator inimigo';
+            window.turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+            // Desabilita botões
+            if (window.btnAtacar) window.btnAtacar.disabled = true;
+            if (window.btnMagia) window.btnMagia.disabled = true;
+            
+            // Se inimigos começam, processa turno deles
+            setTimeout(() => processarTurnoInimigos(), 1500);
+        }
+    }
+    
+    adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
 }
 
 function getArmasEquipadas() {
@@ -5216,7 +5252,7 @@ window.AVENTURA = {
 clareira_goblins: {
     id: "clareira_goblins",
     nome: "Clareira na Floresta",
-    imagem: "clareira-goblins.jpg", // Nome do arquivo da imagem de fundo
+    imagem: "clareira-goblins.jpg", 
     
     // Estado da cena
     estado: {
@@ -5232,7 +5268,7 @@ clareira_goblins: {
         goblin_arqueiro: {
             id: "goblin_arqueiro",
             nome: "Goblin Arqueiro",
-            sprite: "goblin-arqueiro.png", // CORRIGIDO: hífen
+            sprite: "goblin-arqueiro.png", 
             pv: 64,
             pv_max: 64,
             defesa: 9,
@@ -5245,7 +5281,7 @@ clareira_goblins: {
         goblin_guerreiro: {
             id: "goblin_guerreiro",
             nome: "Goblin Guerreiro",
-            sprite: "goblin-guerreiro.png", // CORRIGIDO: hífen
+            sprite: "goblin-guerreiro.png",
             pv: 72,
             pv_max: 72,
             defesa: 9,
@@ -5276,7 +5312,7 @@ clareira_goblins: {
         {
             id: "goblin_arqueiro",
             nome: "Goblin Arqueiro",
-            sprite: "goblin-arqueiro.png", // CORRIGIDO
+            sprite: "goblin-arqueiro.png", 
             pv: 64,
             pv_max: 64,
             defesa: 9,
@@ -5288,7 +5324,7 @@ clareira_goblins: {
         {
             id: "goblin_guerreiro",
             nome: "Goblin Guerreiro",
-            sprite: "goblin-guerreiro.png", // CORRIGIDO
+            sprite: "goblin-guerreiro.png",
             pv: 72,
             pv_max: 72,
             defesa: 9,
