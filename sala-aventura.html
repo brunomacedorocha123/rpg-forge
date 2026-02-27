@@ -3865,7 +3865,7 @@ function iniciarTimerHomem() {
 }
 
 // ============================================
-// FUNÇÃO DE COMBATE CORRIGIDA
+// FUNÇÃO DE COMBATE CORRIGIDA (ÚNICA VERSÃO)
 // ============================================
 function iniciarCombate(inimigosData, emboscada = false) {
     console.log('🎯 Iniciando combate com:', inimigosData);
@@ -3921,7 +3921,7 @@ function iniciarCombate(inimigosData, emboscada = false) {
         return;
     }
 
-    // USAR SISTEMA DE COMBATE
+    // Iniciar combate usando o SistemaCombate
     try {
         const iniciativa = SistemaCombate.calcularIniciativa(
             window.personagem,
@@ -3934,21 +3934,23 @@ function iniciarCombate(inimigosData, emboscada = false) {
         
         window.turnoAtual = iniciativa.quemComeca;
         
-        // Iniciar no sistema de combate
         SistemaCombate.turno.iniciarCombate(iniciativa.quemComeca);
         
-        // Mostrar interface de combate
         if (inimigosContainer) inimigosContainer.style.display = 'block';
         renderizarInimigos();
         
         if (window.turnoAtual === 'pc') {
-            turnoIndicator.className = 'turno-indicator jogador';
-            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+            if (turnoIndicator) {
+                turnoIndicator.className = 'turno-indicator jogador';
+                turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+            }
             if (btnAtacar) btnAtacar.disabled = false;
             if (btnMagia) btnMagia.disabled = false;
         } else {
-            turnoIndicator.className = 'turno-indicator inimigo';
-            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+            if (turnoIndicator) {
+                turnoIndicator.className = 'turno-indicator inimigo';
+                turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+            }
             if (btnAtacar) btnAtacar.disabled = true;
             if (btnMagia) btnMagia.disabled = true;
             setTimeout(() => processarTurnoInimigos(), 1500);
@@ -3956,7 +3958,6 @@ function iniciarCombate(inimigosData, emboscada = false) {
         
         adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
         
-        // Salvar referência para próxima cena após combate
         if (capituloAtual && capituloAtual.id === 'clareira_goblins') {
             window.proximaCenaAposCombate = 'entrada_caverna';
         } else if (capituloAtual && capituloAtual.id === 'camara_chefe') {
@@ -3966,8 +3967,7 @@ function iniciarCombate(inimigosData, emboscada = false) {
         }
         
     } catch (error) {
-        console.error('Erro no combate:', error);
-        adicionarLog('❌ Erro ao iniciar combate: ' + error.message, 'erro');
+        adicionarLog('❌ Erro ao iniciar combate', 'erro');
     }
 }
 
@@ -4084,7 +4084,6 @@ function executarAtaque() {
     
     if (modalAtaque) modalAtaque.classList.remove('active');
     
-    // USAR SISTEMA DE COMBATE para atacar
     try {
         const resultado = SistemaCombate.atacar(window.personagem, inimigo, arma);
         
@@ -4100,7 +4099,7 @@ function executarAtaque() {
                 
                 const xpGanho = inimigo.xp || 25;
                 xpAtual += xpGanho;
-                personagem.xp = xpAtual;
+                if (personagem) personagem.xp = xpAtual;
                 adicionarLog(`✨ Ganhou ${xpGanho} XP!`, 'sucesso');
                 verificarGanhoBolinha();
                 
@@ -4111,7 +4110,6 @@ function executarAtaque() {
                     adicionarLog('🎉 VITÓRIA!', 'sucesso');
                     if (inimigosContainer) inimigosContainer.style.display = 'none';
                     
-                    // Ir para próxima cena
                     if (window.proximaCenaAposCombate) {
                         setTimeout(() => carregarCena(window.proximaCenaAposCombate), 2000);
                     }
@@ -4124,21 +4122,17 @@ function executarAtaque() {
             renderizarInimigos();
             atualizarFichaPersonagem();
             
-            // Verificar perda de defesa por falha crítica
             if (resultado.falhaCritica) {
                 SistemaCombate.turno.perderDefesa();
             }
             
-            // Passar turno
             passarTurno();
         } else {
-            // Passar turno mesmo errando
             passarTurno();
         }
         
         salvarProgresso();
     } catch (error) {
-        console.error('Erro no ataque:', error);
         adicionarLog('❌ Erro ao executar ataque', 'erro');
     }
 }
@@ -4147,7 +4141,6 @@ function passarTurno() {
     if (window.turnoAtual === 'pc') {
         window.turnoAtual = 'inimigos';
         
-        // Passar turno no sistema de combate
         try {
             const resultadoTurno = SistemaCombate.turno.passarTurno(window.personagem);
             
@@ -4156,11 +4149,13 @@ function passarTurno() {
                 atualizarFichaPersonagem();
             }
         } catch (error) {
-            console.error('Erro ao passar turno:', error);
+            // Silencia erro ao passar turno
         }
         
-        turnoIndicator.className = 'turno-indicator inimigo';
-        turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+        if (turnoIndicator) {
+            turnoIndicator.className = 'turno-indicator inimigo';
+            turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+        }
         
         if (btnAtacar) btnAtacar.disabled = true;
         if (btnMagia) btnMagia.disabled = true;
@@ -4172,8 +4167,10 @@ function passarTurno() {
 function processarTurnoInimigos() {
     if (!window.inimigos || window.inimigos.length === 0) {
         window.turnoAtual = 'pc';
-        turnoIndicator.className = 'turno-indicator jogador';
-        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        if (turnoIndicator) {
+            turnoIndicator.className = 'turno-indicator jogador';
+            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        }
         if (btnAtacar) btnAtacar.disabled = false;
         if (btnMagia) btnMagia.disabled = false;
         return;
@@ -4184,7 +4181,6 @@ function processarTurnoInimigos() {
     let ataqueRealizado = false;
     
     window.inimigos.forEach(inimigo => {
-        // Usar sistema de combate para rolar ataque do inimigo
         try {
             const rolagem = SistemaCombate.rolar2d10();
             const nhAtaque = inimigo.nh_ataque || 10;
@@ -4192,7 +4188,6 @@ function processarTurnoInimigos() {
             adicionarLog(`🎲 ${inimigo.nome} ataca: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
             
             if (rolagem.total <= nhAtaque) {
-                // Calcular dano
                 let dano = 0;
                 if (inimigo.dano) {
                     dano = SistemaCombate.rolarDados(inimigo.dano);
@@ -4202,7 +4197,6 @@ function processarTurnoInimigos() {
                 
                 dano = Math.max(1, dano);
                 
-                // Tentar defesa do personagem
                 try {
                     const defesaResultado = SistemaCombate.defender(
                         window.personagem,
@@ -4219,7 +4213,7 @@ function processarTurnoInimigos() {
                         adicionarLog(defesaResultado.texto, 'dano');
                     }
                 } catch (error) {
-                    console.error('Erro na defesa:', error);
+                    // Silencia erro na defesa
                 }
                 
                 if (dano > 0) {
@@ -4241,15 +4235,13 @@ function processarTurnoInimigos() {
                 adicionarLog(`✅ ${inimigo.nome} errou!`, 'sucesso');
             }
         } catch (error) {
-            console.error('Erro no ataque do inimigo:', error);
+            // Silencia erro no ataque do inimigo
         }
     });
     
-    // Passar turno para o jogador
     setTimeout(() => {
         window.turnoAtual = 'pc';
         
-        // Passar turno no sistema de combate
         try {
             const resultadoTurno = SistemaCombate.turno.passarTurno(window.personagem);
             
@@ -4258,11 +4250,13 @@ function processarTurnoInimigos() {
                 atualizarFichaPersonagem();
             }
         } catch (error) {
-            console.error('Erro ao passar turno:', error);
+            // Silencia erro ao passar turno
         }
         
-        turnoIndicator.className = 'turno-indicator jogador';
-        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        if (turnoIndicator) {
+            turnoIndicator.className = 'turno-indicator jogador';
+            turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        }
         if (btnAtacar) btnAtacar.disabled = false;
         if (btnMagia) btnMagia.disabled = false;
         
@@ -4275,6 +4269,8 @@ function processarTurnoInimigos() {
 }
 
 function descansar() {
+    if (pvAtual === undefined || pvMax === undefined) return;
+    
     pvAtual = Math.min(pvAtual + 5, pvMax);
     manaAtual = Math.min(manaAtual + 3, manaMax);
     fadigaAtual = Math.min(fadigaAtual + 2, fadigaMax);
@@ -4296,7 +4292,7 @@ function descansar() {
 }
 
 async function salvarProgresso() {
-    if (!personagem || !sessaoId) return;
+    if (!personagem || !sessaoId || !db) return;
     
     try {
         if (personagem && personagem.statusCombate) {
@@ -4325,6 +4321,11 @@ async function salvarProgresso() {
 }
 
 async function carregarPersonagem(personagemId) {
+    if (!db) {
+        adicionarLog('❌ Firebase não inicializado', 'erro');
+        return;
+    }
+    
     try {
         const personagemRef = doc(db, "personagens", personagemId);
         const personagemSnap = await getDoc(personagemRef);
@@ -4396,7 +4397,6 @@ async function carregarPersonagem(personagemId) {
         const dxBolinhas = personagem.atributos?.dx?.bolinhas || 0;
         const iqBolinhas = personagem.atributos?.iq?.bolinhas || 0;
         const htBolinhas = personagem.atributos?.ht?.bolinhas || 0;
-        const totalBolinhas = stBolinhas + dxBolinhas + iqBolinhas + htBolinhas;
         
         bolinhasDisponiveis = 0;
         let xpTemp = xpAtual;
@@ -4485,7 +4485,7 @@ async function criarSessao() {
         
         await setDoc(sessaoRef, {
             id: sessaoId,
-            userId: currentUser.uid,
+            userId: currentUser ? currentUser.uid : 'anonymous',
             personagem_id: personagemId,
             aventura_id: aventuraId,
             pc_atual: personagem,
@@ -4502,7 +4502,6 @@ async function criarSessao() {
         hideLoading();
     }
 }
-
 // ============================================
 // EVENT LISTENERS
 // ============================================
@@ -6367,6 +6366,669 @@ clareira_goblins: {
         }
     }
 };
+</script>
+<script>
+   // ============================================
+// SISTEMA DE COMBATE TÁTICO - ZONAS
+// USANDO SEUS DADOS REAIS DO FIRESTORE
+// ============================================
+const CombateTatico = {
+    // Estado do combate
+    estado: {
+        ativo: false,
+        zonas: [],
+        inimigos: [],
+        turno: 'jogador',
+        zonaAtualJogador: 1,
+        armaEquipada: null,
+        inimigoSelecionado: null,
+        processandoAcao: false,
+        defesasPersonagem: {
+            esquiva: 0,
+            aparar: 0,
+            bloqueio: 0
+        }
+    },
+
+    // ============================================
+    // 1. INICIAR COMBATE
+    // ============================================
+    iniciarCombate: function(inimigosData, emboscada = false) {
+        console.log('⚔️ Iniciando combate tático');
+        
+        // Pega personagem
+        const personagem = window.personagem;
+        if (!personagem) {
+            window.adicionarLog('❌ Personagem não encontrado!', 'erro');
+            return;
+        }
+
+        // CARREGA DEFESAS DIRETAMENTE DO FIRESTORE
+        this.estado.defesasPersonagem = {
+            esquiva: personagem.derivados?.esquiva || 8,
+            aparar: personagem.derivados?.aparar || 0,
+            bloqueio: personagem.derivados?.bloqueio || 0
+        };
+
+        window.adicionarLog('🛡️ DEFESAS CARREGADAS:', 'info');
+        window.adicionarLog(`   Esquiva: ${this.estado.defesasPersonagem.esquiva}`, 'info');
+        window.adicionarLog(`   Aparar: ${this.estado.defesasPersonagem.aparar}`, 'info');
+        window.adicionarLog(`   Bloqueio: ${this.estado.defesasPersonagem.bloqueio}`, 'info');
+
+        // Verifica arma equipada
+        const armas = this.getArmasEquipadas();
+        if (armas.length > 0) {
+            this.estado.armaEquipada = armas[0];
+            window.adicionarLog(`⚔️ Arma: ${this.estado.armaEquipada.nome}`, 'sucesso');
+        } else {
+            window.adicionarLog('❌ SEM ARMA EQUIPADA!', 'erro');
+        }
+
+        // Prepara inimigos
+        this.estado.inimigos = [];
+        inimigosData.forEach((inv, idx) => {
+            this.estado.inimigos.push({
+                id: inv.id || `inimigo_${idx}`,
+                nome: inv.nome || 'Inimigo',
+                pv_atual: inv.pv_max || inv.pv || 20,
+                pv_max: inv.pv_max || inv.pv || 20,
+                dx: inv.dx || 10,
+                nh_ataque: inv.nh_ataque || 10,
+                dano: inv.dano || '1d6',
+                xp: inv.xp || 25,
+                zona: 1,
+                icone: this.getIconeInimigo(inv.nome)
+            });
+        });
+
+        // Teste de iniciativa
+        this.testarIniciativa(emboscada);
+        
+        // Cria zonas
+        this.criarZonas();
+        
+        // Ativa combate
+        this.estado.ativo = true;
+        this.renderizarInterface();
+        
+        // Se inimigos começam, processa turno deles
+        if (this.estado.turno === 'inimigos') {
+            setTimeout(() => this.turnoInimigos(), 2000);
+        }
+    },
+
+    // ============================================
+    // 2. TESTE DE INICIATIVA
+    // ============================================
+    testarIniciativa: function(emboscada) {
+        const personagem = window.personagem;
+        
+        // Pega iniciativa do personagem (já calculada no Firestore)
+        let pcIniciativa = personagem.derivados?.iniciativa || 8;
+        
+        // Bônus de Reflexo de Combate (se tiver)
+        if (personagem.vantagens?.includes('reflexoCombate')) {
+            pcIniciativa += 2;
+            window.adicionarLog('⚡ Reflexo de Combate: +2', 'sucesso');
+        }
+
+        // Média da iniciativa dos inimigos
+        const mediaInimigos = this.estado.inimigos.reduce((sum, i) => sum + (i.dx || 10), 0) / this.estado.inimigos.length;
+
+        // Rola 2d10 para cada lado
+        const rolagemPC = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+        const rolagemInimigos = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+
+        const totalPC = pcIniciativa + rolagemPC;
+        const totalInimigos = mediaInimigos + rolagemInimigos;
+
+        window.adicionarLog('🎲 INICIATIVA:', 'info');
+        window.adicionarLog(`   PC: ${pcIniciativa} + ${rolagemPC} = ${totalPC}`, 'info');
+        window.adicionarLog(`   Inimigos: ${mediaInimigos.toFixed(1)} + ${rolagemInimigos} = ${totalInimigos.toFixed(1)}`, 'info');
+
+        if (emboscada) {
+            this.estado.turno = 'jogador';
+            window.adicionarLog('🎯 EMBOSCADA! Você age primeiro!', 'sucesso');
+        } else if (totalPC >= totalInimigos) {
+            this.estado.turno = 'jogador';
+            window.adicionarLog('✅ Você age primeiro!', 'sucesso');
+        } else {
+            this.estado.turno = 'inimigos';
+            window.adicionarLog('👾 Inimigos agem primeiro!', 'dano');
+        }
+    },
+
+    // ============================================
+    // 3. CRIAR ZONAS
+    // ============================================
+    criarZonas: function() {
+        this.estado.zonas = [
+            { id: 1, nome: 'Corpo a Corpo', alcance: '0-2m', icone: '⚔️' },
+            { id: 2, nome: 'Média Distância', alcance: '3-10m', icone: '🏹' },
+            { id: 3, nome: 'Longa Distância', alcance: '11-30m', icone: '🎯' }
+        ];
+    },
+
+    // ============================================
+    // 4. RENDERIZAR INTERFACE
+    // ============================================
+    renderizarInterface: function() {
+        const cenario = document.getElementById('cenarioArea');
+        const npcs = document.getElementById('npcsContainer');
+        const dialogo = document.getElementById('dialogoTexto');
+        
+        if (!cenario || !npcs) return;
+
+        // Limpa cenário
+        cenario.style.backgroundImage = 'none';
+        cenario.style.backgroundColor = '#1a1a2a';
+        npcs.innerHTML = '';
+
+        // Cria container das zonas
+        const zonasDiv = document.createElement('div');
+        zonasDiv.style.cssText = `
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        `;
+
+        // Cria cada zona
+        this.estado.zonas.forEach(zona => {
+            const zonaDiv = document.createElement('div');
+            zonaDiv.style.cssText = `
+                flex: 1;
+                background: rgba(255,255,255,0.1);
+                border: 3px solid ${zona.id === this.estado.zonaAtualJogador ? '#ffd700' : '#4a4a6a'};
+                border-radius: 20px;
+                padding: 15px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                position: relative;
+            `;
+
+            // Marcação da posição do jogador
+            if (zona.id === this.estado.zonaAtualJogador) {
+                const marker = document.createElement('div');
+                marker.style.cssText = `
+                    position: absolute;
+                    top: -15px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #ffd700;
+                    color: #000;
+                    padding: 5px 20px;
+                    border-radius: 30px;
+                    font-weight: bold;
+                `;
+                marker.textContent = '⭐ VOCÊ';
+                zonaDiv.appendChild(marker);
+            }
+
+            // Título da zona
+            zonaDiv.innerHTML += `
+                <div style="font-size: 2.5rem; margin-top: 20px;">${zona.icone}</div>
+                <div style="color: #ffd700; font-weight: bold; margin: 10px 0;">${zona.nome}</div>
+                <div style="color: #aaa; font-size: 0.9rem; margin-bottom: 20px;">${zona.alcance}</div>
+                <div id="zona-${zona.id}-inimigos" style="width: 100%; flex: 1; overflow-y: auto;"></div>
+            `;
+
+            zonasDiv.appendChild(zonaDiv);
+        });
+
+        npcs.appendChild(zonasDiv);
+
+        // Posiciona inimigos
+        this.atualizarPosicaoInimigos();
+
+        // Atualiza texto do diálogo
+        if (dialogo) {
+            dialogo.textContent = `⚔️ COMBATE - Turno: ${this.estado.turno === 'jogador' ? 'SEU TURNO' : 'INIMIGOS'}`;
+        }
+
+        // Atualiza opções
+        this.atualizarOpcoes();
+    },
+
+    // ============================================
+    // 5. ATUALIZAR POSIÇÃO DOS INIMIGOS
+    // ============================================
+    atualizarPosicaoInimigos: function() {
+        for (let z = 1; z <= 3; z++) {
+            const container = document.getElementById(`zona-${z}-inimigos`);
+            if (!container) continue;
+
+            container.innerHTML = '';
+            
+            const inimigosNaZona = this.estado.inimigos.filter(i => i.zona === z);
+            
+            if (inimigosNaZona.length === 0) {
+                container.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">⭕ Vazio</div>';
+                continue;
+            }
+
+            inimigosNaZona.forEach(inimigo => {
+                const card = document.createElement('div');
+                const selecionado = inimigo.id === this.estado.inimigoSelecionado;
+                
+                card.style.cssText = `
+                    background: ${selecionado ? 'rgba(255,215,0,0.3)' : 'rgba(255,107,107,0.2)'};
+                    border: 2px solid ${selecionado ? '#ffd700' : '#ff6b6b'};
+                    border-radius: 10px;
+                    padding: 10px;
+                    margin: 5px 0;
+                    cursor: pointer;
+                    text-align: center;
+                    transition: all 0.2s;
+                `;
+
+                const pvPercent = (inimigo.pv_atual / inimigo.pv_max) * 100;
+                
+                card.innerHTML = `
+                    <div style="font-size: 2rem;">${inimigo.icone}</div>
+                    <div style="font-weight: bold;">${inimigo.nome}</div>
+                    <div style="font-size: 0.8rem; color: #ffd700;">${inimigo.pv_atual}/${inimigo.pv_max} PV</div>
+                    <div style="width: 100%; height: 4px; background: #333; border-radius: 2px; margin-top: 5px;">
+                        <div style="height: 100%; width: ${pvPercent}%; background: ${pvPercent < 30 ? '#ff6b6b' : '#4CAF50'};"></div>
+                    </div>
+                `;
+
+                card.onclick = () => this.selecionarInimigo(inimigo.id);
+                card.onmouseenter = () => card.style.transform = 'scale(1.02)';
+                card.onmouseleave = () => card.style.transform = 'scale(1)';
+                
+                container.appendChild(card);
+            });
+        }
+    },
+
+    // ============================================
+    // 6. SELECIONAR INIMIGO
+    // ============================================
+    selecionarInimigo: function(id) {
+        if (this.estado.inimigoSelecionado === id) {
+            this.estado.inimigoSelecionado = null;
+            window.adicionarLog('🔽 Alvo desselecionado', 'info');
+        } else {
+            this.estado.inimigoSelecionado = id;
+            const inimigo = this.estado.inimigos.find(i => i.id === id);
+            if (inimigo) {
+                window.adicionarLog(`🎯 Alvo: ${inimigo.nome}`, 'sucesso');
+            }
+        }
+        this.atualizarPosicaoInimigos();
+    },
+
+    // ============================================
+    // 7. ATUALIZAR OPÇÕES
+    // ============================================
+    atualizarOpcoes: function() {
+        const opcoes = document.getElementById('opcoesDialogo');
+        if (!opcoes) return;
+
+        opcoes.innerHTML = '';
+
+        if (this.estado.turno === 'inimigos') {
+            const btn = document.createElement('button');
+            btn.className = 'opcao-btn';
+            btn.textContent = '⏳ AGUARDANDO INIMIGOS...';
+            btn.disabled = true;
+            opcoes.appendChild(btn);
+            return;
+        }
+
+        // Botões de movimento
+        if (this.estado.zonaAtualJogador < 3) {
+            const btn = document.createElement('button');
+            btn.className = 'opcao-btn';
+            btn.innerHTML = '⬆️ AVANÇAR';
+            btn.onclick = () => this.mover('avançar');
+            opcoes.appendChild(btn);
+        }
+
+        if (this.estado.zonaAtualJogador > 1) {
+            const btn = document.createElement('button');
+            btn.className = 'opcao-btn';
+            btn.innerHTML = '⬇️ RECUAR';
+            btn.onclick = () => this.mover('recuar');
+            opcoes.appendChild(btn);
+        }
+
+        // Botão de atacar (se tiver inimigo na mesma zona)
+        const inimigosMesmaZona = this.estado.inimigos.filter(i => i.zona === this.estado.zonaAtualJogador);
+        if (inimigosMesmaZona.length > 0 && this.estado.armaEquipada) {
+            const btn = document.createElement('button');
+            btn.className = 'opcao-btn atacar';
+            btn.innerHTML = `⚔️ ATACAR (${inimigosMesmaZona.length} inimigo${inimigosMesmaZona.length > 1 ? 's' : ''})`;
+            btn.onclick = () => this.abrirSelecaoAtaque();
+            opcoes.appendChild(btn);
+        }
+
+        // Botão de esperar
+        const btnEsperar = document.createElement('button');
+        btnEsperar.className = 'opcao-btn';
+        btnEsperar.innerHTML = '⏳ ESPERAR (passar turno)';
+        btnEsperar.onclick = () => this.passarTurno();
+        opcoes.appendChild(btnEsperar);
+    },
+
+    // ============================================
+    // 8. MOVER
+    // ============================================
+    mover: function(direcao) {
+        if (this.estado.processandoAcao) return;
+        this.estado.processandoAcao = true;
+
+        if (direcao === 'avançar' && this.estado.zonaAtualJogador < 3) {
+            this.estado.zonaAtualJogador++;
+            window.adicionarLog(`👣 Avançou para Zona ${this.estado.zonaAtualJogador}`, 'info');
+        } else if (direcao === 'recuar' && this.estado.zonaAtualJogador > 1) {
+            this.estado.zonaAtualJogador--;
+            window.adicionarLog(`👣 Recuou para Zona ${this.estado.zonaAtualJogador}`, 'info');
+        }
+
+        this.renderizarInterface();
+        setTimeout(() => this.passarTurno(), 1000);
+    },
+
+    // ============================================
+    // 9. ABIR SELEÇÃO DE ATAQUE
+    // ============================================
+    abrirSelecaoAtaque: function() {
+        const opcoes = document.getElementById('opcoesDialogo');
+        const inimigos = this.estado.inimigos.filter(i => i.zona === this.estado.zonaAtualJogador);
+
+        opcoes.innerHTML = '';
+
+        inimigos.forEach(inimigo => {
+            const btn = document.createElement('button');
+            btn.className = 'opcao-btn atacar';
+            btn.innerHTML = `
+                <div style="font-size: 1.5rem;">${inimigo.icone}</div>
+                <div>${inimigo.nome} (${inimigo.pv_atual}/${inimigo.pv_max} PV)</div>
+            `;
+            btn.onclick = () => this.atacar(inimigo);
+            opcoes.appendChild(btn);
+        });
+
+        const btnVoltar = document.createElement('button');
+        btnVoltar.className = 'opcao-btn';
+        btnVoltar.textContent = '↩️ VOLTAR';
+        btnVoltar.onclick = () => this.atualizarOpcoes();
+        opcoes.appendChild(btnVoltar);
+    },
+
+    // ============================================
+    // 10. ATACAR
+    // ============================================
+    atacar: function(inimigo) {
+        if (this.estado.processandoAcao) return;
+        this.estado.processandoAcao = true;
+
+        // Usa SistemaCombate para calcular ataque
+        const resultado = window.SistemaCombate.atacar(
+            window.personagem,
+            inimigo,
+            this.estado.armaEquipada
+        );
+
+        window.adicionarLog(`⚔️ ${resultado.texto}`, resultado.acertou ? 'sucesso' : 'erro');
+
+        if (resultado.acertou) {
+            inimigo.pv_atual = Math.max(0, inimigo.pv_atual - resultado.dano);
+            window.adicionarLog(`💥 Dano: ${resultado.dano}`, 'dano');
+
+            if (inimigo.pv_atual <= 0) {
+                window.adicionarLog(`💀 ${inimigo.nome} derrotado!`, 'sucesso');
+                
+                // Ganha XP
+                window.xpAtual = (window.xpAtual || 0) + (inimigo.xp || 25);
+                if (window.verificarGanhoBolinha) window.verificarGanhoBolinha();
+
+                // Remove inimigo
+                this.estado.inimigos = this.estado.inimigos.filter(i => i.id !== inimigo.id);
+                
+                if (this.estado.inimigos.length === 0) {
+                    window.adicionarLog('🎉 VITÓRIA!', 'sucesso');
+                    this.estado.ativo = false;
+                    setTimeout(() => {
+                        if (window.proximaCenaAposCombate) {
+                            window.carregarCena(window.proximaCenaAposCombate);
+                        }
+                    }, 2000);
+                    return;
+                }
+            }
+        }
+
+        this.atualizarPosicaoInimigos();
+        window.atualizarFichaPersonagem?.();
+        
+        setTimeout(() => this.passarTurno(), 1500);
+    },
+
+    // ============================================
+    // 11. PASSAR TURNO
+    // ============================================
+    passarTurno: function() {
+        this.estado.turno = 'inimigos';
+        this.estado.processandoAcao = false;
+        this.estado.inimigoSelecionado = null;
+        
+        this.renderizarInterface();
+        window.adicionarLog('👾 Turno dos inimigos...', 'dano');
+        
+        setTimeout(() => this.turnoInimigos(), 2000);
+    },
+
+    // ============================================
+    // 12. TURNO DOS INIMIGOS
+    // ============================================
+    turnoInimigos: function() {
+        if (!this.estado.ativo || this.estado.inimigos.length === 0) {
+            this.estado.turno = 'jogador';
+            this.renderizarInterface();
+            return;
+        }
+
+        // Move inimigos em direção ao jogador
+        this.estado.inimigos.forEach(inimigo => {
+            if (inimigo.zona > this.estado.zonaAtualJogador) {
+                inimigo.zona--;
+                window.adicionarLog(`👣 ${inimigo.nome} avançou`, 'info');
+            } else if (inimigo.zona < this.estado.zonaAtualJogador) {
+                inimigo.zona++;
+                window.adicionarLog(`👣 ${inimigo.nome} recuou`, 'info');
+            }
+        });
+
+        this.atualizarPosicaoInimigos();
+
+        // Inimigos na mesma zona atacam
+        const atacantes = this.estado.inimigos.filter(i => i.zona === this.estado.zonaAtualJogador);
+        
+        if (atacantes.length > 0) {
+            this.estado.inimigosProcessados = 0;
+            this.processarProximoAtaqueInimigo(atacantes);
+        } else {
+            setTimeout(() => {
+                this.estado.turno = 'jogador';
+                this.renderizarInterface();
+                window.adicionarLog('🛡️ Sua vez!', 'info');
+            }, 1500);
+        }
+    },
+
+    // ============================================
+    // 13. PROCESSAR ATAQUES DOS INIMIGOS (UM POR UM)
+    // ============================================
+    processarProximoAtaqueInimigo: function(atacantes) {
+        if (this.estado.inimigosProcessados >= atacantes.length) {
+            // Todos atacaram, volta para o jogador
+            setTimeout(() => {
+                this.estado.turno = 'jogador';
+                this.renderizarInterface();
+                window.adicionarLog('🛡️ Sua vez!', 'info');
+            }, 1500);
+            return;
+        }
+
+        const inimigo = atacantes[this.estado.inimigosProcessados];
+        
+        // Rola ataque do inimigo
+        const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+        const acertou = rolagem <= (inimigo.nh_ataque || 10);
+
+        window.adicionarLog(`🎲 ${inimigo.nome} ataca: ${rolagem}`, 'info');
+
+        if (acertou) {
+            // Calcula dano
+            let dano = this.calcularDanoInimigo(inimigo.dano);
+            
+            // OFERECE DEFESA PARA O JOGADOR
+            this.oferecerDefesa(inimigo, dano, () => {
+                this.estado.inimigosProcessados++;
+                setTimeout(() => this.processarProximoAtaqueInimigo(atacantes), 1500);
+            });
+        } else {
+            window.adicionarLog(`✅ ${inimigo.nome} errou!`, 'sucesso');
+            this.estado.inimigosProcessados++;
+            setTimeout(() => this.processarProximoAtaqueInimigo(atacantes), 1000);
+        }
+    },
+
+    // ============================================
+    // 14. OFERECER DEFESA (USANDO VALORES DO FIRESTORE)
+    // ============================================
+    oferecerDefesa: function(inimigo, dano, callback) {
+        const opcoes = document.getElementById('opcoesDialogo');
+        
+        opcoes.innerHTML = '';
+
+        const titulo = document.createElement('div');
+        titulo.style.cssText = 'color: #ffd700; margin-bottom: 15px; text-align: center;';
+        titulo.textContent = `🛡️ ${inimigo.nome} atacou! Escolha sua defesa:`;
+        opcoes.appendChild(titulo);
+
+        // USANDO VALORES EXATOS DO FIRESTORE
+        const defesas = [
+            { nome: 'ESQUIVA', valor: this.estado.defesasPersonagem.esquiva, cor: '#4CAF50' },
+            { nome: 'APARAR', valor: this.estado.defesasPersonagem.aparar, cor: '#ffd700' },
+            { nome: 'BLOQUEIO', valor: this.estado.defesasPersonagem.bloqueio, cor: '#ff6b6b' }
+        ];
+
+        defesas.forEach(def => {
+            if (def.valor <= 0) return; // Só mostra se tiver valor
+
+            const btn = document.createElement('button');
+            btn.className = 'opcao-btn defender';
+            btn.innerHTML = `${def.nome} (NH ${def.valor})`;
+            btn.style.borderColor = def.cor;
+            btn.style.color = def.cor;
+            
+            btn.onclick = () => {
+                this.realizarDefesa(def.nome.toLowerCase(), def.valor, dano, callback);
+            };
+            
+            opcoes.appendChild(btn);
+        });
+
+        // Opção de não defender
+        const btnNao = document.createElement('button');
+        btnNao.className = 'opcao-btn';
+        btnNao.textContent = `💥 NÃO DEFENDER (leva ${dano} de dano)`;
+        btnNao.onclick = () => {
+            this.aplicarDano(dano, inimigo, callback);
+        };
+        opcoes.appendChild(btnNao);
+    },
+
+    // ============================================
+    // 15. REALIZAR DEFESA
+    // ============================================
+    realizarDefesa: function(tipo, nh, dano, callback) {
+        const rolagem = Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
+        const sucesso = rolagem <= nh;
+
+        window.adicionarLog(`🎲 ${tipo.toUpperCase()}: ${rolagem} (NH ${nh})`, 'info');
+
+        if (sucesso) {
+            window.adicionarLog(`✅ Defesa bem sucedida! Dano zero!`, 'sucesso');
+            callback();
+        } else {
+            window.adicionarLog(`❌ Falhou na defesa! Dano: ${dano}`, 'dano');
+            this.aplicarDano(dano, null, callback);
+        }
+    },
+
+    // ============================================
+    // 16. APLICAR DANO
+    // ============================================
+    aplicarDano: function(dano, inimigo, callback) {
+        // Aplica RD da armadura
+        const rd = window.personagem?.derivados?.rd?.corpo || 0;
+        const danoFinal = Math.max(0, dano - rd);
+        
+        if (rd > 0) {
+            window.adicionarLog(`🛡️ RD ${rd} reduziu dano para ${danoFinal}`, 'info');
+        }
+
+        window.pvAtual = Math.max(0, (window.pvAtual || 0) - danoFinal);
+        if (window.personagem?.statusCombate) {
+            window.personagem.statusCombate.vidaAtual = window.pvAtual;
+        }
+
+        window.adicionarLog(`💥 Dano recebido: ${danoFinal} (PV: ${window.pvAtual}/${window.pvMax})`, 'dano');
+        window.atualizarFichaPersonagem?.();
+
+        if (window.pvAtual <= 0) {
+            window.adicionarLog('💀 VOCÊ MORREU!', 'erro');
+            this.estado.ativo = false;
+            return;
+        }
+
+        callback();
+    },
+
+    // ============================================
+    // FUNÇÕES AUXILIARES
+    // ============================================
+    getArmasEquipadas: function() {
+        if (!window.personagem?.inventario?.corpo) return [];
+        return window.personagem.inventario.corpo.filter(item => item.dano);
+    },
+
+    getIconeInimigo: function(nome) {
+        nome = (nome || '').toLowerCase();
+        if (nome.includes('arqueiro')) return '🏹';
+        if (nome.includes('guerreiro')) return '⚔️';
+        if (nome.includes('chefe')) return '👑';
+        if (nome.includes('goblin')) return '👺';
+        return '👾';
+    },
+
+    calcularDanoInimigo: function(expressao) {
+        // Formato: "1d6", "2d+2", etc
+        const match = (expressao || '1d6').match(/(\d+)d([+-]?\d+)?/);
+        if (!match) return Math.floor(Math.random() * 6) + 1;
+        
+        const qtd = parseInt(match[1]) || 1;
+        const mod = match[2] ? parseInt(match[2]) : 0;
+        
+        let total = 0;
+        for (let i = 0; i < qtd; i++) {
+            total += Math.floor(Math.random() * 6) + 1;
+        }
+        return Math.max(0, total + mod);
+    }
+};
+
+// Disponibiliza globalmente
+window.CombateTatico = CombateTatico;
+console.log('✅ Sistema de Combate Tático carregado!');
+
 </script>
 </body>
 </html>
