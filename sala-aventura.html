@@ -1709,7 +1709,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 2. ROLAGENS
+    // 2. ROLAGENS (AGORA USANDO D10)
     // ============================================
     rolar2d10: function() {
         const d1 = Math.floor(Math.random() * 10) + 1;
@@ -1725,9 +1725,41 @@ const SistemaCombate = {
         };
     },
     
-    rolarDados: function(expressao) {
-        // Converte "1d+2" para número
-        // Formatos suportados: "1d-2", "1d", "1d+1", "2d", "2d+2", etc
+    // ============================================
+    // 3. CALCULAR DANO BASE DO PERSONAGEM
+    // ============================================
+    calcularDanoBase: function(personagem) {
+        if (!personagem || !personagem.atributos) return 0;
+        
+        const st = personagem.atributos.st?.valor || 10;
+        
+        // Tabela de dano base baseada em ST
+        if (st <= 9) return 0;
+        if (st <= 10) return 0;
+        if (st <= 11) return 1;
+        if (st <= 12) return 2;
+        if (st <= 13) return 3;
+        if (st <= 14) return 4;
+        if (st <= 15) return 5;
+        if (st <= 16) return 6;
+        if (st <= 17) return 7;
+        if (st <= 18) return 8;
+        if (st <= 19) return 9;
+        if (st <= 20) return 10;
+        
+        return Math.floor((st - 10) / 2); // Para ST muito alto
+    },
+    
+    // ============================================
+    // 4. ROLAR DADOS (COM INTERPRETAÇÃO MELHORADA)
+    // ============================================
+    rolarDados: function(expressao, personagem = null) {
+        // Se for uma string com texto, tenta extrair o dado
+        if (typeof expressao === 'string') {
+            // Remove qualquer texto após o dado (ex: "1d Corte" vira "1d")
+            expressao = expressao.split(' ')[0];
+        }
+        
         const match = expressao.match(/(\d+)d([+-]\d+)?/);
         if (!match) return 0;
         
@@ -1736,7 +1768,7 @@ const SistemaCombate = {
         
         let total = 0;
         for (let i = 0; i < qtd; i++) {
-            total += Math.floor(Math.random() * 6) + 1;
+            total += Math.floor(Math.random() * 10) + 1; // D10
         }
         total += mod;
         
@@ -1744,7 +1776,36 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 3. NH DE ATAQUE (das perícias)
+    // 5. ROLAR DANO TOTAL (ARMA + BASE)
+    // ============================================
+    rolarDanoTotal: function(personagem, arma) {
+        if (!personagem) return 0;
+        
+        // Dano base do personagem (baseado em ST)
+        const danoBase = this.calcularDanoBase(personagem);
+        
+        // Dano da arma
+        let danoArma = 0;
+        if (arma && arma.dano) {
+            danoArma = this.rolarDados(arma.dano, personagem);
+        } else {
+            // Se não tiver arma, usa apenas dano base reduzido
+            return Math.max(1, Math.floor(danoBase / 2));
+        }
+        
+        // Soma os dois danos
+        let danoTotal = danoBase + danoArma;
+        
+        // Bônus de 50% para armas de corte/perfuração (aplica apenas no dano da arma, não no base)
+        if (arma && (arma.tipoDano === 'Corte' || arma.tipoDano === 'Perfuração')) {
+            danoTotal = Math.floor(danoBase + (danoArma * 1.5));
+        }
+        
+        return Math.max(1, danoTotal);
+    },
+    
+    // ============================================
+    // 6. NH DE ATAQUE (das perícias)
     // ============================================
     getNHAtaque: function(personagem, arma) {
         if (!personagem || !arma) return 10;
@@ -1770,7 +1831,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 4. ATAQUE SIMPLES
+    // 7. ATAQUE SIMPLES (AGORA USA DANO TOTAL)
     // ============================================
     atacar: function(atacante, alvo, arma) {
         const nh = this.getNHAtaque(atacante, arma);
@@ -1795,9 +1856,9 @@ const SistemaCombate = {
             return resultado;
         }
         
-        // Se acertou, calcula dano
+        // Se acertou, calcula dano total (arma + base)
         if (rolagem.total <= nh) {
-            let dano = this.rolarDados(arma.dano);
+            let dano = this.rolarDanoTotal(atacante, arma);
             
             // Crítico = dano dobrado
             if (rolagem.isCritico) {
@@ -1805,12 +1866,6 @@ const SistemaCombate = {
                 resultado.texto = `✨ ATAQUE CRÍTICO! (${rolagem.texto})`;
             } else {
                 resultado.texto = `✅ Acertou! (${rolagem.texto})`;
-            }
-            
-            // Bônus de 50% para armas de corte/perfuração
-            if (arma.tipoDano === 'Corte' || arma.tipoDano === 'Perfuração') {
-                dano = Math.floor(dano * 1.5);
-                resultado.texto += ` +50% (${arma.tipoDano})`;
             }
             
             resultado.dano = dano;
@@ -1823,7 +1878,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 5. ATAQUE DUPLO (Ambidestria)
+    // 8. ATAQUE DUPLO (Ambidestria)
     // ============================================
     ataqueDuplo: function(atacante, alvo1, alvo2, arma1, arma2) {
         // Verifica se tem ambidestria
@@ -1842,7 +1897,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 6. ARMAS DE LONGO ALCANCE
+    // 9. ARMAS DE LONGO ALCANCE
     // ============================================
     armasLongoAlcance: {
         // Estado das armas (precisa recarregar)
@@ -1879,18 +1934,15 @@ const SistemaCombate = {
             const bonusMirar = estadoArma.turnosMirando > 0 ? 1 : 0;
             
             // Executa ataque com bônus de mirar
-            const nh = this.getNHAtaque(atacante, arma) + bonusMirar;
+            const nh = SistemaCombate.getNHAtaque(atacante, arma) + bonusMirar;
             
             // Simula ataque (adaptado da função atacar)
-            const rolagem = this.rolar2d10();
+            const rolagem = SistemaCombate.rolar2d10();
             const acertou = rolagem.total <= nh;
             
             let dano = 0;
             if (acertou) {
-                dano = this.rolarDados(arma.dano);
-                if (arma.tipoDano === 'Perfuração') {
-                    dano = Math.floor(dano * 1.5);
-                }
+                dano = SistemaCombate.rolarDanoTotal(atacante, arma);
             }
             
             // Após atirar, arca descarrega
@@ -1945,7 +1997,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 7. DEFESA ATIVA
+    // 10. DEFESA ATIVA
     // ============================================
     defender: function(defensor, tipoDefesa, ataque, estadoDefesa = {}) {
         // Verifica se pode defender (se não perdeu defesa por falha crítica)
@@ -2028,7 +2080,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 8. MAGIAS
+    // 11. MAGIAS
     // ============================================
     magias: {
         // Catálogo de magias (baseado nos dadosMagias)
@@ -2093,7 +2145,7 @@ const SistemaCombate = {
             const temAptidao = personagem.vantagens?.includes('aptidaoMagica');
             const nh = iq + (temAptidao ? 1 : 0);
             
-            const rolagem = this.rolar2d10();
+            const rolagem = SistemaCombate.rolar2d10();
             const sucesso = rolagem.total <= nh;
             
             let resultado = {
@@ -2108,7 +2160,7 @@ const SistemaCombate = {
                 const nivel = personagem.escolas?.agua?.magias[magiaId]?.nivel || 1;
                 const expressaoDano = magia.efeito(nivel);
                 
-                let dano = this.rolarDados(expressaoDano);
+                let dano = SistemaCombate.rolarDados(expressaoDano, personagem);
                 
                 // Crítico em magia
                 if (rolagem.isCritico) dano *= 2;
@@ -2134,7 +2186,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 9. FADIGA
+    // 12. FADIGA
     // ============================================
     fadiga: {
         contadorTurnos: 0,
@@ -2176,7 +2228,7 @@ const SistemaCombate = {
     },
     
     // ============================================
-    // 10. GERENCIADOR DE TURNOS
+    // 13. GERENCIADOR DE TURNOS
     // ============================================
     turno: {
         atual: 'pc', // 'pc' ou 'inimigos'
