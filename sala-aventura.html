@@ -1860,6 +1860,15 @@ const SistemaCombate = {
         if (rolagem.total <= nh) {
             let dano = this.rolarDanoTotal(atacante, arma);
             
+            // Mostrar no log os componentes do dano
+            const danoBase = this.calcularDanoBase(atacante);
+            const danoArma = this.rolarDados(arma.dano);
+            
+            // Log detalhado (se a função adicionarLog existir)
+            if (window.adicionarLog) {
+                window.adicionarLog(`   Dano base (ST): ${danoBase} | Dano arma: ${danoArma} | Total: ${dano}`, 'info');
+            }
+            
             // Crítico = dano dobrado
             if (rolagem.isCritico) {
                 dano *= 2;
@@ -2287,6 +2296,211 @@ const SistemaCombate = {
 
 // Exportar para uso global
 window.SistemaCombate = SistemaCombate;
+
+// ============================================
+// FUNÇÕES ADICIONAIS PARA MODAL DE DEFESA
+// ============================================
+
+// Função para abrir modal de defesa (deve ser chamada quando inimigo ataca)
+window.abrirModalDefesa = function(ataque, inimigo, callback) {
+    if (!window.modalDefesa) return;
+    
+    const defesaContexto = document.getElementById('defesaContexto');
+    const defesasLista = document.getElementById('defesasLista');
+    const btnConfirmarDefesa = document.getElementById('btnConfirmarDefesa');
+    const btnCancelarDefesa = document.getElementById('btnCancelarDefesa');
+    
+    if (!defesaContexto || !defesasLista) return;
+    
+    // Mostrar contexto do ataque
+    defesaContexto.innerHTML = `${inimigo.nome} está atacando com ${ataque.dano} de dano!`;
+    
+    // Obter valores das defesas do personagem
+    const personagem = window.personagem;
+    if (!personagem) return;
+    
+    const dx = personagem.atributos?.dx?.valor || 10;
+    const ht = personagem.atributos?.ht?.valor || 10;
+    
+    // Calcular defesas (pode vir dos derivados ou calcular na hora)
+    const esquiva = personagem.derivados?.esquiva || Math.floor((dx + ht) / 6) + 6;
+    
+    let aparar = 0;
+    if (personagem.inventario?.corpo) {
+        const temArma = personagem.inventario.corpo.some(item => item.dano);
+        if (temArma) aparar = personagem.derivados?.aparar || Math.floor((dx + dx) / 4) + 6;
+    }
+    
+    let bloqueio = 0;
+    if (personagem.inventario?.corpo) {
+        const temEscudo = personagem.inventario.corpo.some(item => 
+            item.tipo === 'escudo' || item.nome?.toLowerCase().includes('escudo')
+        );
+        if (temEscudo) bloqueio = personagem.derivados?.bloqueio || Math.floor((dx + dx) / 4) + 6 + 2;
+    }
+    
+    // Criar lista de defesas disponíveis
+    defesasLista.innerHTML = '';
+    
+    // Esquiva (sempre disponível)
+    const divEsquiva = document.createElement('div');
+    divEsquiva.className = 'defesa-card-modal';
+    divEsquiva.dataset.defesa = 'esquiva';
+    divEsquiva.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fas fa-running"></i> Esquiva</span>
+            <span style="font-weight:bold; color:#4CAF50;">NH ${esquiva}</span>
+        </div>
+        <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:5px;">
+            Tentar desviar do ataque
+        </div>
+    `;
+    defesasLista.appendChild(divEsquiva);
+    
+    // Aparar (se tiver arma)
+    if (aparar > 0) {
+        const divAparar = document.createElement('div');
+        divAparar.className = 'defesa-card-modal';
+        divAparar.dataset.defesa = 'aparar';
+        divAparar.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fas fa-sword"></i> Aparar</span>
+                <span style="font-weight:bold; color:#ffaa00;">NH ${aparar}</span>
+            </div>
+            <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:5px;">
+                Usar arma para bloquear (só 1 vez por turno)
+            </div>
+        `;
+        defesasLista.appendChild(divAparar);
+    }
+    
+    // Bloqueio (se tiver escudo)
+    if (bloqueio > 0) {
+        const divBloqueio = document.createElement('div');
+        divBloqueio.className = 'defesa-card-modal';
+        divBloqueio.dataset.defesa = 'bloqueio';
+        divBloqueio.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fas fa-shield"></i> Bloqueio</span>
+                <span style="font-weight:bold; color:#4a9fff;">NH ${bloqueio}</span>
+            </div>
+            <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-top:5px;">
+                Usar escudo para absorver o golpe
+            </div>
+        `;
+        defesasLista.appendChild(divBloqueio);
+    }
+    
+    // Variável para armazenar defesa selecionada
+    let defesaSelecionada = null;
+    
+    // Adicionar eventos de clique
+    document.querySelectorAll('.defesa-card-modal').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.defesa-card-modal').forEach(c => c.classList.remove('selecionada'));
+            card.classList.add('selecionada');
+            defesaSelecionada = card.dataset.defesa;
+            if (btnConfirmarDefesa) btnConfirmarDefesa.disabled = false;
+        });
+    });
+    
+    // Configurar botão confirmar
+    const confirmarHandler = () => {
+        if (!defesaSelecionada) return;
+        
+        // Fechar modal
+        window.modalDefesa.classList.remove('active');
+        
+        // Remover event listeners
+        if (btnConfirmarDefesa) btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
+        if (btnCancelarDefesa) btnCancelarDefesa.removeEventListener('click', cancelarHandler);
+        
+        // Chamar callback com a defesa escolhida
+        if (callback) callback(defesaSelecionada);
+    };
+    
+    const cancelarHandler = () => {
+        window.modalDefesa.classList.remove('active');
+        
+        // Remover event listeners
+        if (btnConfirmarDefesa) btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
+        if (btnCancelarDefesa) btnCancelarDefesa.removeEventListener('click', cancelarHandler);
+        
+        // Se cancelar, usa esquiva como padrão
+        if (callback) callback('esquiva');
+    };
+    
+    // Adicionar event listeners
+    if (btnConfirmarDefesa) {
+        btnConfirmarDefesa.disabled = true;
+        btnConfirmarDefesa.addEventListener('click', confirmarHandler);
+    }
+    
+    if (btnCancelarDefesa) {
+        btnCancelarDefesa.addEventListener('click', cancelarHandler);
+    }
+    
+    // Mostrar modal
+    window.modalDefesa.classList.add('active');
+};
+
+// Função para processar defesa (chamada pelo callback)
+window.processarDefesa = function(tipoDefesa, ataque, inimigo) {
+    const personagem = window.personagem;
+    if (!personagem) return;
+    
+    // Usar sistema de combate para calcular defesa
+    const estadoDefesa = SistemaCombate.turno?.estadoDefesa || { perdeuDefesa: false, usouAparar: false };
+    
+    const resultado = SistemaCombate.defender(
+        personagem,
+        tipoDefesa,
+        ataque,
+        estadoDefesa
+    );
+    
+    // Atualizar estado da defesa no sistema
+    if (SistemaCombate.turno && resultado.novoEstado) {
+        SistemaCombate.turno.estadoDefesa = resultado.novoEstado;
+    }
+    
+    // Aplicar dano
+    if (resultado.danoFinal > 0) {
+        window.pvAtual = Math.max(0, window.pvAtual - resultado.danoFinal);
+        if (personagem.statusCombate) personagem.statusCombate.vidaAtual = window.pvAtual;
+        
+        window.adicionarLog(`   ${inimigo.nome} causou ${resultado.danoFinal} de dano!`, 'dano');
+    }
+    
+    // Log do resultado
+    window.adicionarLog(resultado.texto, resultado.sucesso ? 'sucesso' : 'erro');
+    
+    // Atualizar ficha
+    if (window.atualizarFichaPersonagem) window.atualizarFichaPersonagem();
+    
+    return resultado;
+};
+
+// Função para simplificar ataque (quando só tem uma arma)
+window.atacarComArmaUnica = function() {
+    const armas = window.getArmasEquipadas ? window.getArmasEquipadas() : [];
+    if (armas.length === 0) {
+        window.adicionarLog('❌ Você não tem armas equipadas!', 'erro');
+        return false;
+    }
+    
+    if (window.inimigoSelecionado === null) {
+        window.adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
+        return false;
+    }
+    
+    // Usa a primeira arma
+    window.armaSelecionada = 0;
+    window.executarAtaque();
+    return true;
+};
+
+console.log('✅ Sistema de combate carregado com funções de defesa!');
 </script>
 <script>
 // ============================================
