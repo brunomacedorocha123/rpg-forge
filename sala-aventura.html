@@ -4485,12 +4485,25 @@ window.AVENTURA = {
         ]
     },
     
+    // Informação especial que pode ser revelada (apenas em reação ótima)
+    informacaoSecreta: {
+        revelada: false,
+        texto: "Ela hesita por um momento, como se decidindo algo. 'Espere... tenho algo que pode ajudar. Meu avô era caçador e me deu isto antes de partir. Dizem que protege quem o carrega.' Ela tira do bolso um pequeno amuleto de madeira com runas desgastadas. 'Tome. Que os espíritos da floresta te guiem.'",
+        item: {
+            id: "amuleto_elara",
+            nome: "Amuleto de Elara",
+            descricao: "Um pequeno amuleto de madeira com runas desgastadas. Dizem que protege quem o carrega.",
+            peso: 0.1
+        }
+    },
+    
     // Estado da interação
     estado: {
         reacao: null,
         flerteTentado: false,
         infoRevelada: false,
-        interacaoIniciada: false
+        interacaoIniciada: false,
+        aguardandoAvanco: false
     },
     
     // ===== FUNÇÃO PRINCIPAL RENDERIZAR =====
@@ -4637,14 +4650,12 @@ window.AVENTURA = {
                 {
                     texto: "   Se afastar lentamente",
                     acao: "sair",
-                    mensagem: "Você levanta as mãos em gesto de paz e se afasta devagar. Ela suspira aliviada e desaparece na floresta.",
-                    proximo: "carroca_destruida"
+                    mensagem: "Você levanta as mãos em gesto de paz e se afasta devagar. Ela suspira aliviada e desaparece na floresta."
                 },
                 {
                     texto: "➡️ Ignorar e seguir caminho",
                     acao: "sair",
-                    mensagem: "Ela foge correndo antes mesmo que você possa dizer algo. Que estranho...",
-                    proximo: "carroca_destruida"
+                    mensagem: "Ela foge correndo antes mesmo que você possa dizer algo. Que estranho..."
                 }
             );
         }
@@ -4681,8 +4692,7 @@ window.AVENTURA = {
             opcoesBase.push(
                 {
                     texto: "➡️ Se despedir e seguir viagem",
-                    acao: "sair",
-                    proximo: "carroca_destruida"
+                    acao: "prepararSaida"
                 }
             );
         }
@@ -4724,8 +4734,7 @@ window.AVENTURA = {
             opcoesBase.push(
                 {
                     texto: "➡️ Seguir viagem (prometendo voltar)",
-                    acao: "sair",
-                    proximo: "carroca_destruida"
+                    acao: "prepararSaida"
                 }
             );
         }
@@ -4770,30 +4779,72 @@ window.AVENTURA = {
                 this.flerteAvancado(opcao);
                 break;
                 
-            case 'sair':
-                if (opcao.mensagem && dialogoTexto) {
-                    dialogoTexto.textContent = opcao.mensagem;
-                    
-                    setTimeout(() => {
-                        if (opcao.proximo === 'carroca_destruida') {
-                            let textoTransicao = "Você segue viagem pela estrada. Após alguns minutos, avista algo à frente...";
-                            
-                            if (opcao.texto.includes("Se despedir")) {
-                                textoTransicao = "Você se despede e continua seu caminho. A estrada serpenteia pela floresta até que algo chama sua atenção...";
-                            } else if (opcao.texto.includes("afastar")) {
-                                textoTransicao = "Depois de se afastar, você retoma seu caminho. Alguns minutos depois, avista algo na estrada...";
-                            }
-                            
-                            dialogoTexto.textContent = textoTransicao;
-                            setTimeout(() => carregarCena(opcao.proximo), 2000);
-                        } else {
-                            carregarCena(opcao.proximo);
-                        }
-                    }, 2000);
-                } else {
-                    carregarCena(opcao.proximo);
-                }
+            case 'prepararSaida':
+                this.prepararSaida();
                 break;
+                
+            case 'sair':
+                if (opcao.mensagem) {
+                    dialogoTexto.textContent = opcao.mensagem;
+                }
+                this.mostrarBotaoAvancar();
+                break;
+        }
+    },
+    
+    // ===== PREPARAR SAÍDA (MOSTRA BOTÃO AVANÇAR) =====
+    prepararSaida: function() {
+        const cenaAtual = this;
+        
+        if (dialogoTexto) {
+            if (this.estado.reacao.classificacao === 'otima') {
+                dialogoTexto.textContent = "'Foi bom conversar com você. Volte quando puder, e cuidado com os goblins!' Elara acena e retorna a colher suas flores.";
+            } else if (this.estado.reacao.classificacao === 'normal') {
+                dialogoTexto.textContent = "'Cuide-se na estrada.' Ela sorri brevemente e volta sua atenção para as flores.";
+            } else {
+                dialogoTexto.textContent = "Você decide que é hora de seguir seu caminho.";
+            }
+        }
+        
+        // Esconder opções anteriores e mostrar apenas botão avançar
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            const btnAvancar = document.createElement('button');
+            btnAvancar.className = 'opcao-btn opcao-destaque';
+            btnAvancar.innerHTML = '➡️ Continuar jornada →';
+            btnAvancar.style.backgroundColor = '#4a6da8';
+            btnAvancar.style.fontWeight = 'bold';
+            btnAvancar.style.padding = '12px';
+            btnAvancar.style.marginTop = '10px';
+            
+            btnAvancar.addEventListener('click', () => {
+                dialogoTexto.textContent = "Você segue pela estrada. Após alguns minutos de caminhada, avista algo à frente...";
+                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+            });
+            
+            opcoesDialogo.appendChild(btnAvancar);
+        }
+    },
+    
+    // ===== MOSTRAR BOTÃO AVANÇAR (VERSÃO SIMPLIFICADA) =====
+    mostrarBotaoAvancar: function() {
+        if (opcoesDialogo) {
+            opcoesDialogo.innerHTML = '';
+            
+            const btnAvancar = document.createElement('button');
+            btnAvancar.className = 'opcao-btn opcao-destaque';
+            btnAvancar.innerHTML = '➡️ Avançar →';
+            btnAvancar.style.backgroundColor = '#4a6da8';
+            btnAvancar.style.fontWeight = 'bold';
+            btnAvancar.style.padding = '12px';
+            
+            btnAvancar.addEventListener('click', () => {
+                dialogoTexto.textContent = "Continuando sua jornada, você logo encontra algo inesperado...";
+                setTimeout(() => carregarCena('carroca_destruida'), 1500);
+            });
+            
+            opcoesDialogo.appendChild(btnAvancar);
         }
     },
     
@@ -4832,16 +4883,14 @@ window.AVENTURA = {
                 dialogoTexto.textContent = "Suas palavras saem completamente erradas! Ela grita e sai correndo floresta adentro, deixando o cesto para trás.";
                 
                 setTimeout(() => {
-                    dialogoTexto.textContent = "Você suspira, frustrado. Continuando pela estrada, logo encontra vestígios de violência...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                    this.mostrarBotaoAvancar();
                 }, 2000);
             } else {
                 adicionarLog(`❌ FALHA!`, 'erro');
                 dialogoTexto.textContent = "Ela não parece confiar em você. 'Achei melhor ir embora...' Ela se afasta rapidamente.";
                 
                 setTimeout(() => {
-                    dialogoTexto.textContent = "Você a observa desaparecer na floresta. Retomando seu caminho, alguns minutos depois avista algo estranho na estrada...";
-                    setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                    this.mostrarBotaoAvancar();
                 }, 2000);
             }
         }
@@ -4868,22 +4917,32 @@ window.AVENTURA = {
                 info = this.informacoes.otima[0];
                 adicionarLog(`   Informação sobre a menina!`, 'sucesso');
                 
-                if (!this.estado.infoRevelada) {
-                    this.estado.infoRevelada = true;
+                // Revelar informação secreta (amuleto) se ainda não foi revelada
+                if (!this.informacaoSecreta.revelada) {
+                    this.informacaoSecreta.revelada = true;
                     
+                    // Adicionar um delay para mostrar a informação extra
                     setTimeout(() => {
-                        if (confirm("Elara hesita... 'Posso te dar um amuleto de proteção.'")) {
-                            if (!window.personagem.inventario.mochila) window.personagem.inventario.mochila = [];
-                            window.personagem.inventario.mochila.push({
-                                id: "amuleto_elara",
-                                nome: "Amuleto de Elara",
-                                descricao: "Um pequeno amuleto de madeira com runas desgastadas.",
-                                peso: 0.1
-                            });
-                            adicionarLog("   Você ganhou: Amuleto de Elara", "sucesso");
+                        if (dialogoTexto) {
+                            dialogoTexto.textContent = this.informacaoSecreta.texto;
                         }
+                        
+                        // Dar o item ao jogador
+                        if (!window.personagem.inventario.mochila) {
+                            window.personagem.inventario.mochila = [];
+                        }
+                        window.personagem.inventario.mochila.push(this.informacaoSecreta.item);
+                        adicionarLog(`   Você ganhou: ${this.informacaoSecreta.item.nome}`, 'sucesso');
+                        
+                        // Após mostrar a informação extra, volta às opções
+                        setTimeout(() => {
+                            const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
+                            this.renderizarOpcoes(opcoes, this);
+                        }, 4000);
+                        
                     }, 3000);
                 }
+                
             } else if (tipo === 'tesouro') {
                 info = this.informacoes.otima[1];
                 adicionarLog(`   Informação de tesouro!`, 'sucesso');
@@ -4893,15 +4952,18 @@ window.AVENTURA = {
             }
         }
         
-        if (dialogoTexto) {
-            dialogoTexto.textContent = info;
+        // Se for informação normal (sem delay extra)
+        if (info && !(tipo === 'menina' && reacaoClass === 'otima')) {
+            if (dialogoTexto) {
+                dialogoTexto.textContent = info;
+            }
+            
+            // Voltar às opções normais após a informação
+            setTimeout(() => {
+                const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
+                this.renderizarOpcoes(opcoes, this);
+            }, 4000);
         }
-        
-        // Voltar às opções normais após a informação
-        setTimeout(() => {
-            const opcoes = this.criarOpcoes(this.estado.reacao.classificacao);
-            this.renderizarOpcoes(opcoes, this);
-        }, 4000);
     },
     
     // ===== INICIAR FLERTE =====
@@ -4910,8 +4972,7 @@ window.AVENTURA = {
             dialogoTexto.textContent = "Ela ri, corando. 'Outra hora, talvez... Vá, sua aventura te espera.'";
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Você sorri e se despede. Seguindo pela estrada, logo encontra algo...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                this.prepararSaida();
             }, 2000);
             return;
         }
@@ -4962,8 +5023,7 @@ window.AVENTURA = {
                     dialogoTexto.textContent = "Ela sorri, aliviada. 'Foi bom te conhecer.'";
                     
                     setTimeout(() => {
-                        dialogoTexto.textContent = "Você se despede e continua. Algo chama sua atenção na estrada...";
-                        setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                        cenaAtual.prepararSaida();
                     }, 2000);
                 } else if (opcao.acao === 'voltarInfo') {
                     const opcoesNormais = cenaAtual.criarOpcoes(cenaAtual.estado.reacao.classificacao);
@@ -5003,8 +5063,7 @@ window.AVENTURA = {
             }
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Você se despede e segue. A estrada revela algo à frente...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                this.prepararSaida();
             }, 3000);
             
         } else {
@@ -5017,8 +5076,7 @@ window.AVENTURA = {
             }
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Constrangido, você segue. Mais adiante, avista uma carroça destruída...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                this.mostrarBotaoAvancar();
             }, 2000);
         }
     },
@@ -5029,8 +5087,7 @@ window.AVENTURA = {
             dialogoTexto.textContent = "Ela sorri. 'Gosto disso. Mas vá salvar a menina.'";
             
             setTimeout(() => {
-                dialogoTexto.textContent = "Você acena e segue. Logo encontra vestígios do ataque...";
-                setTimeout(() => carregarCena('carroca_destruida'), 2000);
+                this.prepararSaida();
             }, 2000);
             return;
         }
@@ -5049,7 +5106,7 @@ window.AVENTURA = {
                     nh: nhFlerte
                 },
                 {
-                    texto: "   'Combinado.'",
+                    texto: "   'Combinado.' (sem teste)",
                     acao: "sairFlerte"
                 }
             ];
