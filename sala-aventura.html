@@ -3774,14 +3774,14 @@ window.AVENTURA = {
     }
 }, 
         
-   // ============================================
+  // ============================================
 // CENA: CLAREIRA DOS GOBLINS (COMPLETA E CORRIGIDA)
 // ============================================
 
 clareira_goblins: {
     id: "clareira_goblins",
     nome: "Clareira na Floresta",
-    imagem: "https://via.placeholder.com/1920x1080/2a1a3a/ffd700?text=Clareira+dos+Goblins", 
+    imagem: "clareira-goblins.jpg", // Imagem de fundo da clareira
     
     // Estado da cena
     estado: {
@@ -3793,7 +3793,35 @@ clareira_goblins: {
         processando: false
     },
     
-    // Lista de inimigos na cena (3 goblins)
+    // NPCs visíveis na cena (os goblins)
+    npcs: [
+        {
+            id: "goblin_arqueiro",
+            nome: "Goblin Arqueiro",
+            sprite: "goblin-arqueiro.png", // imagem na mesma pasta
+            x: 30,
+            y: 40,
+            visivel: true
+        },
+        {
+            id: "goblin_guerreiro",
+            nome: "Goblin Guerreiro",
+            sprite: "goblin-guerreiro.png", // imagem na mesma pasta
+            x: 50,
+            y: 50,
+            visivel: true
+        },
+        {
+            id: "goblin_normal",
+            nome: "Goblin",
+            sprite: "goblin.png", // imagem na mesma pasta
+            x: 70,
+            y: 60,
+            visivel: true
+        }
+    ],
+    
+    // Lista de inimigos na cena (3 goblins) - para combate
     inimigos: [
         {
             id: "goblin_arqueiro",
@@ -3854,27 +3882,52 @@ clareira_goblins: {
             processando: false
         };
         
-        // Imagem de fundo - com fallback
+        // Imagem de fundo
         if (window.cenarioArea) {
-            // Tenta carregar a imagem, se falhar usa fallback
-            const img = new Image();
-            img.onload = function() {
-                window.cenarioArea.style.backgroundImage = "url('clareira-goblins.jpg')";
-            };
-            img.onerror = function() {
-                // Fallback para gradiente caso imagem não exista
-                window.cenarioArea.style.backgroundImage = "linear-gradient(135deg, #1a3a1a 0%, #2a5a2a 50%, #1a3a1a 100%)";
-                window.adicionarLog("   Clareira na floresta (imagem não encontrada)", "info");
-            };
-            img.src = "clareira-goblins.jpg";
-            
+            window.cenarioArea.style.backgroundImage = "url('clareira-goblins.jpg')";
             window.cenarioArea.style.backgroundSize = "cover";
             window.cenarioArea.style.backgroundPosition = "center";
         }
         
-        // Remover NPCs visuais (só inimigos em combate)
+        // MOSTRAR OS GOBLINS NO CENÁRIO
         if (window.npcsContainer) {
             window.npcsContainer.innerHTML = '';
+            
+            // Goblin Arqueiro
+            const npcArqueiro = document.createElement('div');
+            npcArqueiro.className = 'npc-sprite';
+            npcArqueiro.style.left = '30%';
+            npcArqueiro.style.top = '40%';
+            npcArqueiro.dataset.npcId = 'goblin_arqueiro';
+            npcArqueiro.innerHTML = `
+                <img src="goblin-arqueiro.png" alt="Goblin Arqueiro" onerror="this.src='https://via.placeholder.com/150x200/2a5a2a/ffd700?text=Arqueiro'">
+                <div class="npc-nome">Goblin Arqueiro</div>
+            `;
+            window.npcsContainer.appendChild(npcArqueiro);
+            
+            // Goblin Guerreiro
+            const npcGuerreiro = document.createElement('div');
+            npcGuerreiro.className = 'npc-sprite';
+            npcGuerreiro.style.left = '50%';
+            npcGuerreiro.style.top = '50%';
+            npcGuerreiro.dataset.npcId = 'goblin_guerreiro';
+            npcGuerreiro.innerHTML = `
+                <img src="goblin-guerreiro.png" alt="Goblin Guerreiro" onerror="this.src='https://via.placeholder.com/150x200/3a3a1a/ffd700?text=Guerreiro'">
+                <div class="npc-nome">Goblin Guerreiro</div>
+            `;
+            window.npcsContainer.appendChild(npcGuerreiro);
+            
+            // Goblin Normal
+            const npcNormal = document.createElement('div');
+            npcNormal.className = 'npc-sprite';
+            npcNormal.style.left = '70%';
+            npcNormal.style.top = '60%';
+            npcNormal.dataset.npcId = 'goblin_normal';
+            npcNormal.innerHTML = `
+                <img src="goblin.png" alt="Goblin" onerror="this.src='https://via.placeholder.com/150x200/1a4a1a/ffd700?text=Goblin'">
+                <div class="npc-nome">Goblin</div>
+            `;
+            window.npcsContainer.appendChild(npcNormal);
         }
         
         // Mostrar fala inicial
@@ -4267,7 +4320,7 @@ clareira_goblins: {
             window.opcoesDialogo.appendChild(btnVoltar);
         }
     }
-}, 
+},
         entrada_caverna: {
             id: "entrada_caverna",
             nome: "Entrada da Caverna",
@@ -4460,6 +4513,7 @@ const btnAtacar = document.getElementById('btnAtacar');
 const btnMagia = document.getElementById('btnMagia');
 const btnInventario = document.getElementById('btnInventario');
 const btnDescansar = document.getElementById('btnDescansar');
+const btnDefender = document.getElementById('btnDefender'); // NOVO BOTÃO
 const inimigosContainer = document.getElementById('inimigosContainer');
 const inimigosLista = document.getElementById('inimigosLista');
 const logContainer = document.getElementById('logContainer');
@@ -4608,7 +4662,7 @@ let capituloAtual = null;
 let inimigos = [];
 let sessaoId = null;
 
-let turnoAtual = 'jogador';
+let turnoAtual = 'pc'; // 'pc' ou 'inimigos'
 let inimigoSelecionado = null;
 let armaSelecionada = null;
 let defesaSelecionada = null;
@@ -5483,7 +5537,7 @@ function renderizarOpcoes(opcoes) {
             if (opcao.proximo) {
                 carregarCena(opcao.proximo);
             } else if (opcao.acao === 'iniciar_combate') {
-                iniciarCombate(opcao.inimigos || []);
+                window.iniciarCombate(opcao.inimigos || []);
             } else if (opcao.resposta) {
                 if (dialogoTexto) dialogoTexto.textContent = opcao.resposta;
             } else if (opcao.tipo === 'pagar') {
@@ -5554,85 +5608,20 @@ function iniciarTimerHomem() {
 }
 
 // ============================================
-// FUNÇÃO DE COMBATE INTEGRADA COM SISTEMA DE COMBATE
+// FUNÇÕES DE COMBATE (CORRIGIDAS)
 // ============================================
-function iniciarCombate(inimigosData, emboscada = false) {
-    console.log('   Iniciando combate com:', inimigosData);
+
+function getArmasEquipadas() {
+    if (!personagem?.inventario?.corpo) return [];
     
-    // Preparar inimigos
-    if (Array.isArray(inimigosData) && inimigosData.length > 0) {
-        window.inimigos = inimigosData.map(inim => ({
-            ...inim,
-            pv: inim.pv_max || inim.pv,
-            pv_atual: inim.pv_max || inim.pv,
-            pv_max: inim.pv_max || inim.pv
-        }));
-    } else if (capituloAtual && capituloAtual.inimigos) {
-        window.inimigos = [];
-        inimigosData.forEach(id => {
-            const inimigoData = capituloAtual.inimigos.find(i => i.id === id);
-            if (inimigoData) {
-                window.inimigos.push({
-                    ...inimigoData,
-                    pv: inimigoData.pv_max || inimigoData.pv,
-                    pv_atual: inimigoData.pv_max || inimigoData.pv,
-                    pv_max: inimigoData.pv_max || inimigoData.pv
-                });
-            }
-        });
-    } else {
-        window.inimigos = inimigosData.map((inim, index) => ({
-            id: inim.id || `inimigo_${index}`,
-            nome: inim.nome || `Inimigo ${index + 1}`,
-            pv: inim.pv || 20,
-            pv_max: inim.pv_max || inim.pv || 20,
-            pv_atual: inim.pv_max || inim.pv || 20,
-            defesa: inim.defesa || 8,
-            dx: inim.dx || 10,
-            nh_ataque: inim.nh_ataque || 10,
-            dano: inim.dano || "1d6",
-            xp: inim.xp || 25
-        }));
-    }
-    
-    if (!window.inimigos || window.inimigos.length === 0) {
-        adicionarLog('❌ Erro: Nenhum inimigo encontrado!', 'erro');
-        return;
-    }
-    
-    // USAR SISTEMA DE COMBATE
-    const iniciativa = SistemaCombate.calcularIniciativa(
-        window.personagem,
-        window.inimigos,
-        emboscada ? 'pc' : null
-    );
-    
-    adicionarLog(iniciativa.texto, 'info');
-    adicionarLog(`   Sua iniciativa: ${iniciativa.pc} | Inimigos: ${iniciativa.inimigos.toFixed(1)}`, 'info');
-    
-    window.turnoAtual = iniciativa.quemComeca;
-    
-    // Iniciar no sistema de combate
-    SistemaCombate.turno.iniciarCombate(iniciativa.quemComeca);
-    
-    // Mostrar interface de combate
-    if (inimigosContainer) inimigosContainer.style.display = 'block';
-    renderizarInimigos();
-    
-    if (window.turnoAtual === 'pc') {
-        turnoIndicator.className = 'turno-indicator jogador';
-        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-        btnAtacar.disabled = false;
-        btnMagia.disabled = false;
-    } else {
-        turnoIndicator.className = 'turno-indicator inimigo';
-        turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
-        btnAtacar.disabled = true;
-        btnMagia.disabled = true;
-        setTimeout(() => processarTurnoInimigos(), 1500);
-    }
-    
-    adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
+    return personagem.inventario.corpo.filter(item => item.dano).map(item => ({
+        id: item.id,
+        nome: item.nome,
+        dano: item.dano,
+        tipoDano: item.tipoDano || 'Contusão',
+        alcance: item.alcance || 1,
+        st: item.st || 8
+    }));
 }
 
 function renderizarInimigos() {
@@ -5670,64 +5659,16 @@ function renderizarInimigos() {
     });
 }
 
-function getArmasEquipadas() {
-    if (!personagem?.inventario?.corpo) return [];
-    
-    return personagem.inventario.corpo.filter(item => item.dano).map(item => ({
-        id: item.id,
-        nome: item.nome,
-        dano: item.dano,
-        tipoDano: item.tipoDano || 'Contusão',
-        alcance: item.alcance || 1,
-        st: item.st || 8
-    }));
-}
-
-function abrirModalAtaque() {
-    if (!modalAtaque) return;
-    if (inimigoSelecionado === null) {
-        adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
-        return;
-    }
-    
-    const armas = getArmasEquipadas();
-    
-    if (armas.length === 0) {
-        adicionarLog('❌ Você não tem armas equipadas!', 'erro');
-        return;
-    }
-    
-    armaSelecionada = null;
-    if (btnConfirmarAtaque) btnConfirmarAtaque.disabled = true;
-    
-    if (armasLista) {
-        armasLista.innerHTML = armas.map((arma, index) => `
-            <div class="arma-card" data-index="${index}">
-                <div class="arma-nome">${arma.nome}</div>
-                <div class="arma-detalhes">
-                    <span><i class="fas fa-tint"></i> Dano: ${arma.dano}</span>
-                    <span><i class="fas fa-shield-alt"></i> Tipo: ${arma.tipoDano}</span>
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    document.querySelectorAll('.arma-card').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('.arma-card').forEach(c => c.classList.remove('selecionada'));
-            card.classList.add('selecionada');
-            armaSelecionada = parseInt(card.dataset.index);
-            if (btnConfirmarAtaque) btnConfirmarAtaque.disabled = false;
-        });
-    });
-    
-    modalAtaque.classList.add('active');
-}
-
+// ATAQUE - Agora com dano ST + Arma
 function executarAtaque() {
     if (armaSelecionada === null) {
-        adicionarLog('❌ Selecione uma arma!', 'erro');
-        return;
+        const armas = getArmasEquipadas();
+        if (armas.length === 1) {
+            armaSelecionada = 0;
+        } else {
+            adicionarLog('❌ Selecione uma arma!', 'erro');
+            return;
+        }
     }
     
     if (inimigoSelecionado === null) {
@@ -5755,6 +5696,11 @@ function executarAtaque() {
     adicionarLog(resultado.texto, resultado.acertou ? 'sucesso' : 'erro');
     
     if (resultado.acertou) {
+        // Mostrar componentes do dano
+        const danoBase = SistemaCombate.calcularDanoBase(window.personagem);
+        const danoArma = SistemaCombate.rolarDados(arma.dano);
+        adicionarLog(`   Dano base (ST ${getValorAtributoReal('st')}): ${danoBase} | Arma: ${danoArma} | Total: ${resultado.dano}`, 'info');
+        
         inimigo.pv_atual = Math.max(0, inimigo.pv_atual - resultado.dano);
         adicionarLog(`   Dano: ${resultado.dano}`, 'dano');
         
@@ -5769,12 +5715,13 @@ function executarAtaque() {
             
             window.inimigos = window.inimigos.filter((_, i) => i !== inimigoSelecionado);
             inimigoSelecionado = null;
+            armaSelecionada = null;
             
             if (window.inimigos.length === 0) {
                 adicionarLog('   VITÓRIA!', 'sucesso');
                 if (inimigosContainer) inimigosContainer.style.display = 'none';
                 
-                if (capituloAtual.ao_vencer) {
+                if (capituloAtual?.ao_vencer) {
                     carregarCena(capituloAtual.ao_vencer);
                 }
                 salvarProgresso();
@@ -5800,6 +5747,291 @@ function executarAtaque() {
     salvarProgresso();
 }
 
+// DEFESA - Agora com modal e escudo
+function abrirModalDefesa(inimigo, dano, callback) {
+    if (!modalDefesa) {
+        // Se não tiver modal, usa esquiva automática
+        processarDefesa('esquiva', inimigo, dano);
+        if (callback) callback();
+        return;
+    }
+    
+    const defesaContexto = document.getElementById('defesaContexto');
+    const defesasLista = document.getElementById('defesasLista');
+    
+    if (!defesaContexto || !defesasLista) {
+        processarDefesa('esquiva', inimigo, dano);
+        if (callback) callback();
+        return;
+    }
+    
+    // Mostrar contexto
+    defesaContexto.innerHTML = `${inimigo.nome} causará ${dano} de dano! Escolha sua defesa:`;
+    
+    // Obter valores das defesas
+    const dx = getValorAtributoReal('dx');
+    const ht = getValorAtributoReal('ht');
+    
+    const esquiva = Math.floor((dx + ht) / 6) + 6;
+    
+    let aparar = 0;
+    let bloqueio = 0;
+    let escudoPV = 0;
+    let escudoRD = 0;
+    let escudoNome = '';
+    
+    // Verificar equipamentos
+    if (personagem?.inventario?.corpo) {
+        const temArma = personagem.inventario.corpo.some(item => item.dano);
+        if (temArma) aparar = Math.floor((dx + dx) / 4) + 6;
+        
+        const escudo = personagem.inventario.corpo.find(item => 
+            item.nome?.toLowerCase().includes('escudo') || item.tipo === 'escudo'
+        );
+        if (escudo) {
+            bloqueio = Math.floor((dx + dx) / 4) + 6 + 2;
+            escudoPV = escudo.pv || 10;
+            escudoRD = escudo.rd || 2;
+            escudoNome = escudo.nome || 'Escudo';
+        }
+    }
+    
+    // Criar lista de defesas
+    defesasLista.innerHTML = '';
+    
+    // Esquiva
+    const divEsquiva = document.createElement('div');
+    divEsquiva.className = 'defesa-card-modal';
+    divEsquiva.dataset.defesa = 'esquiva';
+    divEsquiva.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span><i class="fas fa-running"></i> Esquiva</span>
+            <span style="font-weight:bold; color:#4CAF50;">${esquiva}</span>
+        </div>
+        <div style="font-size:0.8rem;">Tentar desviar completamente</div>
+    `;
+    defesasLista.appendChild(divEsquiva);
+    
+    // Aparar
+    if (aparar > 0) {
+        const divAparar = document.createElement('div');
+        divAparar.className = 'defesa-card-modal';
+        divAparar.dataset.defesa = 'aparar';
+        divAparar.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fas fa-sword"></i> Aparar</span>
+                <span style="font-weight:bold; color:#ffaa00;">${aparar}</span>
+            </div>
+            <div style="font-size:0.8rem;">Usar arma para bloquear</div>
+        `;
+        defesasLista.appendChild(divAparar);
+    }
+    
+    // Bloqueio
+    if (bloqueio > 0) {
+        const divBloqueio = document.createElement('div');
+        divBloqueio.className = 'defesa-card-modal';
+        divBloqueio.dataset.defesa = 'bloqueio';
+        divBloqueio.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fas fa-shield"></i> Bloqueio</span>
+                <span style="font-weight:bold; color:#4a9fff;">${bloqueio}</span>
+            </div>
+            <div style="font-size:0.8rem;">
+                ${escudoNome} (PV: ${escudoPV} | RD: ${escudoRD})
+            </div>
+        `;
+        defesasLista.appendChild(divBloqueio);
+    }
+    
+    let defesaSelecionada = null;
+    
+    document.querySelectorAll('.defesa-card-modal').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.defesa-card-modal').forEach(c => c.classList.remove('selecionada'));
+            card.classList.add('selecionada');
+            defesaSelecionada = card.dataset.defesa;
+            if (btnConfirmarDefesa) btnConfirmarDefesa.disabled = false;
+        });
+    });
+    
+    const confirmarHandler = () => {
+        if (!defesaSelecionada) {
+            defesaSelecionada = 'esquiva';
+        }
+        
+        modalDefesa.classList.remove('active');
+        
+        // Processar defesa escolhida
+        processarDefesa(defesaSelecionada, inimigo, dano, { escudoPV, escudoRD, escudoNome });
+        
+        btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
+        btnCancelarDefesa.removeEventListener('click', cancelarHandler);
+        
+        if (callback) callback();
+    };
+    
+    const cancelarHandler = () => {
+        modalDefesa.classList.remove('active');
+        
+        // Se cancelar, usa esquiva
+        processarDefesa('esquiva', inimigo, dano, { escudoPV, escudoRD, escudoNome });
+        
+        btnConfirmarDefesa.removeEventListener('click', confirmarHandler);
+        btnCancelarDefesa.removeEventListener('click', cancelarHandler);
+        
+        if (callback) callback();
+    };
+    
+    if (btnConfirmarDefesa) {
+        btnConfirmarDefesa.disabled = true;
+        btnConfirmarDefesa.addEventListener('click', confirmarHandler);
+    }
+    
+    if (btnCancelarDefesa) {
+        btnCancelarDefesa.addEventListener('click', cancelarHandler);
+    }
+    
+    modalDefesa.classList.add('active');
+}
+
+function processarDefesa(tipo, inimigo, dano, escudoInfo = {}) {
+    const dx = getValorAtributoReal('dx');
+    const ht = getValorAtributoReal('ht');
+    
+    let nhDefesa = 0;
+    let nomeDefesa = '';
+    
+    switch(tipo) {
+        case 'esquiva':
+            nhDefesa = Math.floor((dx + ht) / 6) + 6;
+            nomeDefesa = 'Esquiva';
+            break;
+        case 'aparar':
+            nhDefesa = Math.floor((dx + dx) / 4) + 6;
+            nomeDefesa = 'Aparar';
+            break;
+        case 'bloqueio':
+            nhDefesa = Math.floor((dx + dx) / 4) + 6 + 2;
+            nomeDefesa = 'Bloqueio';
+            break;
+        default:
+            nhDefesa = Math.floor((dx + ht) / 6) + 6;
+            nomeDefesa = 'Esquiva';
+    }
+    
+    const rolagem = SistemaCombate.rolar2d10();
+    const sucesso = rolagem.total <= nhDefesa;
+    
+    adicionarLog(`   ${nomeDefesa}: ${rolagem.texto} (NH ${nhDefesa})`, 'info');
+    
+    let danoFinal = dano;
+    let mensagem = '';
+    
+    if (sucesso) {
+        if (tipo === 'bloqueio' && escudoInfo.escudoPV > 0) {
+            // Escudo absorve parte do dano
+            const danoNoEscudo = Math.min(dano, escudoInfo.escudoPV);
+            danoFinal = Math.max(0, dano - escudoInfo.escudoPV - escudoInfo.escudoRD);
+            mensagem = `   ${escudoInfo.escudoNome || 'Escudo'} absorveu ${danoNoEscudo} dano!`;
+        } else {
+            danoFinal = 0;
+        }
+        adicionarLog(`✅ ${nomeDefesa} bem sucedida!`, 'sucesso');
+        if (mensagem) adicionarLog(mensagem, 'sucesso');
+    } else {
+        const rd = personagem.derivados?.rd?.corpo || 2;
+        danoFinal = Math.max(0, dano - rd);
+        adicionarLog(`❌ Falhou na ${nomeDefesa}! RD reduziu para ${danoFinal}`, 'erro');
+    }
+    
+    if (danoFinal > 0) {
+        pvAtual = Math.max(0, pvAtual - danoFinal);
+        if (personagem.statusCombate) personagem.statusCombate.vidaAtual = pvAtual;
+        adicionarLog(`   ${inimigo.nome} causou ${danoFinal} de dano!`, 'dano');
+        atualizarFichaPersonagem();
+        
+        if (pvAtual <= 0) {
+            adicionarLog(`   VOCÊ MORREU!`, 'erro');
+            btnAtacar.disabled = true;
+            btnMagia.disabled = true;
+            if (btnDefender) btnDefender.disabled = true;
+        }
+    }
+}
+
+// TURNO DOS INIMIGOS - Agora com modal de defesa
+function processarTurnoInimigos() {
+    if (!window.inimigos || window.inimigos.length === 0) {
+        window.turnoAtual = 'pc';
+        turnoIndicator.className = 'turno-indicator jogador';
+        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+        btnAtacar.disabled = false;
+        btnMagia.disabled = false;
+        if (btnDefender) btnDefender.disabled = false;
+        return;
+    }
+    
+    adicionarLog(`   Turno dos inimigos!`, 'dano');
+    
+    // Desabilitar botões do jogador
+    btnAtacar.disabled = true;
+    btnMagia.disabled = true;
+    if (btnDefender) btnDefender.disabled = true;
+    
+    // Fila de ataques
+    let index = 0;
+    
+    function atacarProximo() {
+        if (index >= window.inimigos.length) {
+            // Todos atacaram, passar turno
+            setTimeout(() => {
+                window.turnoAtual = 'pc';
+                turnoIndicator.className = 'turno-indicator jogador';
+                turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
+                btnAtacar.disabled = false;
+                btnMagia.disabled = false;
+                if (btnDefender) btnDefender.disabled = false;
+                adicionarLog(`  ️ Sua vez de agir!`, 'info');
+                salvarProgresso();
+            }, 1000);
+            return;
+        }
+        
+        const inimigo = window.inimigos[index];
+        index++;
+        
+        // Rolar ataque do inimigo
+        const rolagem = SistemaCombate.rolar2d10();
+        const nhAtaque = inimigo.nh_ataque || 10;
+        
+        adicionarLog(`   ${inimigo.nome} ataca: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
+        
+        if (rolagem.total <= nhAtaque) {
+            // Calcula dano base
+            let dano = 0;
+            if (inimigo.dano) {
+                dano = SistemaCombate.rolarDados(inimigo.dano);
+            } else {
+                dano = Math.floor(Math.random() * 6) + 1;
+            }
+            dano = Math.max(1, dano);
+            
+            // Abre modal para escolher defesa
+            abrirModalDefesa(inimigo, dano, () => {
+                // Depois de defender, processa próximo inimigo
+                setTimeout(atacarProximo, 500);
+            });
+        } else {
+            adicionarLog(`✅ ${inimigo.nome} errou!`, 'sucesso');
+            setTimeout(atacarProximo, 500);
+        }
+    }
+    
+    // Iniciar ataques
+    atacarProximo();
+}
+
 function passarTurno() {
     if (window.turnoAtual === 'pc') {
         window.turnoAtual = 'inimigos';
@@ -5817,102 +6049,152 @@ function passarTurno() {
         
         btnAtacar.disabled = true;
         btnMagia.disabled = true;
+        if (btnDefender) btnDefender.disabled = true;
         
         setTimeout(processarTurnoInimigos, 1000);
     }
 }
 
-function processarTurnoInimigos() {
-    if (!window.inimigos || window.inimigos.length === 0) {
-        window.turnoAtual = 'pc';
-        turnoIndicator.className = 'turno-indicator jogador';
-        turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
-        btnAtacar.disabled = false;
-        btnMagia.disabled = false;
+// ATAQUE - Versão simplificada para modal
+function abrirModalAtaque() {
+    if (!modalAtaque) return;
+    if (inimigoSelecionado === null) {
+        adicionarLog('❌ Selecione um inimigo primeiro!', 'erro');
         return;
     }
     
-    adicionarLog(`   Turno dos inimigos!`, 'dano');
+    const armas = getArmasEquipadas();
     
-    let ataqueRealizado = false;
+    if (armas.length === 0) {
+        adicionarLog('❌ Você não tem armas equipadas!', 'erro');
+        return;
+    }
     
-    window.inimigos.forEach(inimigo => {
-        // Usar sistema de combate para rolar ataque do inimigo
-        const rolagem = SistemaCombate.rolar2d10();
-        const nhAtaque = inimigo.nh_ataque || 10;
-        
-        adicionarLog(`   ${inimigo.nome} ataca: ${rolagem.texto} (NH ${nhAtaque})`, 'info');
-        
-        if (rolagem.total <= nhAtaque) {
-            // Calcular dano
-            let dano = 0;
-            if (inimigo.dano) {
-                dano = SistemaCombate.rolarDados(inimigo.dano);
-            } else {
-                dano = Math.floor(Math.random() * 6) + 1;
-            }
-            
-            dano = Math.max(1, dano);
-            
-            // Tentar defesa do personagem
-            const defesaResultado = SistemaCombate.defender(
-                window.personagem,
-                'esquiva',
-                { dano: dano },
-                SistemaCombate.turno.estadoDefesa
-            );
-            
-            if (defesaResultado.sucesso) {
-                adicionarLog(`  ️ ${defesaResultado.texto}`, 'sucesso');
-                dano = 0;
-            } else {
-                dano = defesaResultado.danoFinal;
-                adicionarLog(defesaResultado.texto, 'dano');
-            }
-            
-            if (dano > 0) {
-                pvAtual = Math.max(0, pvAtual - dano);
-                if (personagem?.statusCombate) personagem.statusCombate.vidaAtual = pvAtual;
-                
-                adicionarLog(`   ${inimigo.nome} causou ${dano} de dano!`, 'dano');
-                atualizarFichaPersonagem();
-                ataqueRealizado = true;
-                
-                if (pvAtual <= 0) {
-                    adicionarLog(`   VOCÊ MORREU!`, 'erro');
-                    btnAtacar.disabled = true;
-                    btnMagia.disabled = true;
-                    return;
-                }
-            }
-        } else {
-            adicionarLog(`✅ ${inimigo.nome} errou!`, 'sucesso');
-        }
+    // Se só tem UMA arma, ataca direto
+    if (armas.length === 1) {
+        armaSelecionada = 0;
+        executarAtaque();
+        return;
+    }
+    
+    // Se tem várias armas, mostra modal
+    armaSelecionada = null;
+    if (btnConfirmarAtaque) btnConfirmarAtaque.disabled = true;
+    
+    if (armasLista) {
+        armasLista.innerHTML = armas.map((arma, index) => `
+            <div class="arma-card" data-index="${index}">
+                <div class="arma-nome">${arma.nome}</div>
+                <div class="arma-detalhes">
+                    <span><i class="fas fa-tint"></i> Dano: ${arma.dano}</span>
+                    <span><i class="fas fa-shield-alt"></i> Tipo: ${arma.tipoDano}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    document.querySelectorAll('.arma-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.arma-card').forEach(c => c.classList.remove('selecionada'));
+            card.classList.add('selecionada');
+            armaSelecionada = parseInt(card.dataset.index);
+            if (btnConfirmarAtaque) btnConfirmarAtaque.disabled = false;
+        });
     });
     
-    // Passar turno para o jogador
-    setTimeout(() => {
-        window.turnoAtual = 'pc';
-        
-        // Passar turno no sistema de combate
-        const resultadoTurno = SistemaCombate.turno.passarTurno(window.personagem);
-        
-        if (resultadoTurno.fadiga.perdeuFadiga) {
-            adicionarLog(resultadoTurno.fadiga.texto, 'info');
-            atualizarFichaPersonagem();
-        }
-        
+    modalAtaque.classList.add('active');
+}
+
+// DEFESA MANUAL (botão)
+function defenderManual() {
+    if (window.turnoAtual !== 'pc') {
+        adicionarLog('❌ Não é seu turno!', 'erro');
+        return;
+    }
+    
+    if (!window.inimigos || window.inimigos.length === 0) {
+        adicionarLog('❌ Não há inimigos para defender!', 'erro');
+        return;
+    }
+    
+    // Cria um ataque fictício para teste
+    const inimigoFicticio = { nome: 'Treinamento' };
+    const danoFicticio = 0;
+    
+    abrirModalDefesa(inimigoFicticio, danoFicticio, () => {
+        adicionarLog('   Posição de defesa preparada!', 'sucesso');
+    });
+}
+
+// ============================================
+// FUNÇÃO DE COMBATE GLOBAL
+// ============================================
+window.iniciarCombate = function(inimigosData, emboscada = false) {
+    console.log('   Iniciando combate com:', inimigosData);
+    
+    // Preparar inimigos
+    if (Array.isArray(inimigosData) && inimigosData.length > 0) {
+        window.inimigos = inimigosData.map(inim => ({
+            ...inim,
+            pv: inim.pv_max || inim.pv,
+            pv_atual: inim.pv_max || inim.pv,
+            pv_max: inim.pv_max || inim.pv
+        }));
+    } else {
+        window.inimigos = inimigosData.map((inim, index) => ({
+            id: inim.id || `inimigo_${index}`,
+            nome: inim.nome || `Inimigo ${index + 1}`,
+            pv: inim.pv || 20,
+            pv_max: inim.pv_max || inim.pv || 20,
+            pv_atual: inim.pv_max || inim.pv || 20,
+            defesa: inim.defesa || 8,
+            dx: inim.dx || 10,
+            nh_ataque: inim.nh_ataque || 10,
+            dano: inim.dano || "1d6",
+            xp: inim.xp || 25
+        }));
+    }
+    
+    if (!window.inimigos || window.inimigos.length === 0) {
+        adicionarLog('❌ Erro: Nenhum inimigo encontrado!', 'erro');
+        return;
+    }
+    
+    // Calcular iniciativa
+    const iniciativa = SistemaCombate.calcularIniciativa(
+        window.personagem,
+        window.inimigos,
+        emboscada ? 'pc' : null
+    );
+    
+    adicionarLog(iniciativa.texto, 'info');
+    adicionarLog(`   Sua iniciativa: ${iniciativa.pc} | Inimigos: ${iniciativa.inimigos.toFixed(1)}`, 'info');
+    
+    window.turnoAtual = iniciativa.quemComeca;
+    
+    // Iniciar no sistema de combate
+    SistemaCombate.turno.iniciarCombate(iniciativa.quemComeca);
+    
+    // Mostrar interface de combate
+    if (inimigosContainer) inimigosContainer.style.display = 'block';
+    renderizarInimigos();
+    
+    if (window.turnoAtual === 'pc') {
         turnoIndicator.className = 'turno-indicator jogador';
         turnoIndicator.innerHTML = '<i class="fas fa-user"></i> SEU TURNO';
         btnAtacar.disabled = false;
         btnMagia.disabled = false;
-        
-        if (ataqueRealizado) {
-            adicionarLog(`  ️ Sua vez de agir!`, 'info');
-        }
-        
-        salvarProgresso();
-    }, 1000);
+        if (btnDefender) btnDefender.disabled = false;
+    } else {
+        turnoIndicator.className = 'turno-indicator inimigo';
+        turnoIndicator.innerHTML = '<i class="fas fa-skull"></i> TURNO DOS INIMIGOS';
+        btnAtacar.disabled = true;
+        btnMagia.disabled = true;
+        if (btnDefender) btnDefender.disabled = true;
+        setTimeout(processarTurnoInimigos, 1500);
+    }
+    
+    adicionarLog('⚔️ COMBATE INICIADO!', 'sucesso');
 }
 
 function descansar() {
@@ -6145,7 +6427,7 @@ async function criarSessao() {
 }
 
 // ============================================
-// EXPOR FUNÇÕES GLOBAIS (CORREÇÃO AQUI!)
+// EXPOR FUNÇÕES GLOBAIS
 // ============================================
 window.iniciarCombate = iniciarCombate;
 window.carregarCena = carregarCena;
@@ -6157,6 +6439,9 @@ window.getValorAtributoReal = getValorAtributoReal;
 window.calcularPVMax = calcularPVMax;
 window.calcularFadigaMax = calcularFadigaMax;
 window.calcularManaMax = calcularManaMax;
+window.getArmasEquipadas = getArmasEquipadas;
+window.executarAtaque = executarAtaque;
+window.processarTurnoInimigos = processarTurnoInimigos;
 
 // ============================================
 // EVENT LISTENERS
@@ -6174,6 +6459,7 @@ if (btnAtacar) btnAtacar.addEventListener('click', abrirModalAtaque);
 if (btnMagia) btnMagia.addEventListener('click', () => adicionarLog('   Sistema de magias em desenvolvimento', 'info'));
 if (btnInventario) btnInventario.addEventListener('click', abrirModalInventario);
 if (btnDescansar) btnDescansar.addEventListener('click', descansar);
+if (btnDefender) btnDefender.addEventListener('click', defenderManual);
 
 if (btnVerVantagens) btnVerVantagens.addEventListener('click', abrirModalVantagens);
 if (btnVerDesvantagens) btnVerDesvantagens.addEventListener('click', abrirModalDesvantagens);
