@@ -2774,7 +2774,7 @@
     </div>
    <script type="module">
 // ============================================
-// SISTEMA RPGFORCE - VERSÃO CORRIGIDA 100%
+// SISTEMA RPGFORCE - VERSÃO COMPLETA
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -2799,7 +2799,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // ============================================
-// ATRIBUTOS - SISTEMA DUPLA FACE CORRETO
+// ATRIBUTOS - SISTEMA DUPLA FACE
 // ============================================
 const atributos = {
     st: { esferas: 0 },  // Fixo: 5 + esferas | Teste: 30% + (esferas × 3%)
@@ -2810,7 +2810,7 @@ const atributos = {
 };
 
 // ============================================
-// FUNÇÕES DE ATRIBUTOS - CORRETAS
+// FUNÇÕES DE ATRIBUTOS
 // ============================================
 function getSTFixo() { return 5 + atributos.st.esferas; }
 function getSTPercentual() { return 30 + (atributos.st.esferas * 3); }
@@ -2843,7 +2843,7 @@ function calcularNivel() {
 }
 
 // ============================================
-// DEFESAS EM % - CORRETAS (VALORES ALTOS)
+// DEFESAS EM %
 // ============================================
 function calcularEsquiva() {
     let esquiva = Math.floor((getDXPercentual() + getIQPercentual() + getVIGORPercentual()) / 3) + 10;
@@ -3001,6 +3001,15 @@ function calcularCarga() {
         reducaoDeslocamento = 1;
     }
     
+    // Vantagem Carga Resistente (se existir)
+    if (vantagensSelecionadas.has('cargaResistente') && nivel !== 'leve') {
+        if (nivel === 'medio') nivel = 'leve';
+        else if (nivel === 'pesado') nivel = 'medio';
+        else if (nivel === 'limite') nivel = 'pesado';
+        penalidadeEsquiva = Math.max(0, penalidadeEsquiva - 5);
+        reducaoDeslocamento = Math.max(0, reducaoDeslocamento - 1);
+    }
+    
     return {
         pesoTotal,
         nivel,
@@ -3147,7 +3156,7 @@ const escolas = {
 };
 
 // ============================================
-// VANTAGENS - SEM NOÇÃO DO PERIGO
+// VANTAGENS (SEM NOÇÃO DO PERIGO)
 // ============================================
 const vantagensData = {
     aliado: { nome: 'Aliado', efeito: 'Um companheiro fiel' },
@@ -3169,46 +3178,49 @@ const vantagensData = {
     fadigaExtra: { nome: 'Fadiga extra +2', efeito: '+5 PF' },
     htExtra: { nome: 'VT extra +5%', efeito: 'Aumento percentual no VT' },
     atraente: { nome: 'Atraente', efeito: '+5% reações sociais' },
-    rico: { nome: 'Rico', efeito: 'Começa com 250 moedas' }
+    rico: { nome: 'Rico', efeito: 'Começa com 250 moedas' },
+    cargaResistente: { nome: 'Carga Resistente', efeito: 'Reduz penalidade de carga em 1 nível' }
 };
 
 // ============================================
-// CATÁLOGO DE ITENS
+// CATÁLOGO DE ITENS - COMPLETO
 // ============================================
 const catalogoItensData = {
     armas_ca: [
-        { id: 'adaga', nome: 'Adaga', alcance: 1, dano: '1d-2', preco: 30, peso: 0.5, st: 5 },
-        { id: 'espada_curta', nome: 'Espada curta', alcance: 1, dano: '1d-1', preco: 100, peso: 1.5, st: 7 },
-        { id: 'espada_longa', nome: 'Espada longa', alcance: 1, dano: '1d', preco: 200, peso: 2.0, st: 8 },
-        { id: 'machado', nome: 'Machado', alcance: 1, dano: '1d+2', preco: 150, peso: 2.5, st: 9 },
-        { id: 'maca', nome: 'Maça', alcance: 1, dano: '1d+1', preco: 120, peso: 2.0, st: 8 },
-        { id: 'martelo', nome: 'Martelo', alcance: 1, dano: '1d+2', preco: 180, peso: 3.0, st: 10 },
-        { id: 'lanca', nome: 'Lança', alcance: 2, dano: '1d+1', preco: 100, peso: 2.0, st: 8 }
+        { id: 'adaga', nome: 'Adaga', alcance: 1, dano: '1d-2', tipoDano: 'Perfuração', preco: 30, peso: 0.5, st: 5 },
+        { id: 'espada_curta', nome: 'Espada curta', alcance: 1, dano: '1d-1', tipoDano: 'Corte', preco: 100, peso: 1.5, st: 7 },
+        { id: 'espada_longa', nome: 'Espada longa', alcance: 1, dano: '1d', tipoDano: 'Corte', preco: 200, peso: 2.0, st: 8 },
+        { id: 'machado', nome: 'Machado', alcance: 1, dano: '1d+2', tipoDano: 'Corte', preco: 150, peso: 2.5, st: 9 },
+        { id: 'maca', nome: 'Maça', alcance: 1, dano: '1d+1', tipoDano: 'Contusão', preco: 120, peso: 2.0, st: 8 },
+        { id: 'martelo', nome: 'Martelo', alcance: 1, dano: '1d+2', tipoDano: 'Contusão', preco: 180, peso: 3.0, st: 10 },
+        { id: 'lanca', nome: 'Lança', alcance: 2, dano: '1d+1', tipoDano: 'Perfuração', preco: 100, peso: 2.0, st: 8 }
     ],
     armas_dist: [
-        { id: 'arco_curto', nome: 'Arco curto', precisao: 1, dano: '1d', alcance: 'ST×15', preco: 100, peso: 1.0, st: 7 },
-        { id: 'arco_longo', nome: 'Arco longo', precisao: 2, dano: '1d+1', alcance: 'ST×20', preco: 200, peso: 1.5, st: 9 },
-        { id: 'besta_leve', nome: 'Besta leve', precisao: 2, dano: '1d+1', alcance: 'ST×25', preco: 150, peso: 2.5, st: 7 },
-        { id: 'besta_pesada', nome: 'Besta pesada', precisao: 3, dano: '1d+2', alcance: 'ST×30', preco: 250, peso: 4.0, st: 10 }
+        { id: 'arco_curto', nome: 'Arco curto', precisao: 1, dano: '1d', tipoDano: 'Perfuração', alcance: 'ST×15', preco: 100, peso: 1.0, st: 7 },
+        { id: 'arco_longo', nome: 'Arco longo', precisao: 2, dano: '1d+1', tipoDano: 'Perfuração', alcance: 'ST×20', preco: 200, peso: 1.5, st: 9 },
+        { id: 'besta_leve', nome: 'Besta leve', precisao: 2, dano: '1d+1', tipoDano: 'Perfuração', alcance: 'ST×25', preco: 150, peso: 2.5, st: 7 },
+        { id: 'besta_pesada', nome: 'Besta pesada', precisao: 3, dano: '1d+2', tipoDano: 'Perfuração', alcance: 'ST×30', preco: 250, peso: 4.0, st: 10 }
     ],
     armaduras: [
-        { id: 'couro', nome: 'Couro', rd: 2, preco: 50, peso: 5.0, local: 'completo' },
-        { id: 'couro_ref', nome: 'Couro reforçado', rd: 4, preco: 250, peso: 10.0, local: 'completo' },
-        { id: 'cota_malha', nome: 'Cota de malha', rd: 6, preco: 500, peso: 15.0, local: 'completo' },
-        { id: 'placas', nome: 'Placas', rd: 8, preco: 1000, peso: 22.0, local: 'completo' }
+        { id: 'couro', nome: 'Armadura de Couro', rd: 2, preco: 50, peso: 5.0, local: 'completo' },
+        { id: 'couro_ref', nome: 'Armadura de Couro Reforçado', rd: 4, preco: 250, peso: 10.0, local: 'completo' },
+        { id: 'cota_malha', nome: 'Cota de Malha', rd: 6, preco: 500, peso: 15.0, local: 'completo' },
+        { id: 'placas', nome: 'Armadura de Placas', rd: 8, preco: 1000, peso: 22.0, local: 'completo' },
+        { id: 'meia_armadura', nome: 'Meia-Armadura', rd: 5, preco: 400, peso: 12.0, local: 'tronco' }
     ],
     escudos: [
-        { id: 'escudo_leve', nome: 'Escudo leve', bonus: 1, ve: '3/20', preco: 50, peso: 2.0 },
-        { id: 'escudo_medio', nome: 'Escudo médio', bonus: 2, ve: '5/30', preco: 150, peso: 4.0 },
-        { id: 'escudo_pesado', nome: 'Escudo pesado', bonus: 3, ve: '7/45', preco: 300, peso: 8.0 }
+        { id: 'escudo_leve', nome: 'Escudo Leve', bonus: 1, ve: '3/20', preco: 50, peso: 2.0 },
+        { id: 'escudo_medio', nome: 'Escudo Médio', bonus: 2, ve: '5/30', preco: 150, peso: 4.0 },
+        { id: 'escudo_pesado', nome: 'Escudo Pesado', bonus: 3, ve: '7/45', preco: 300, peso: 8.0 },
+        { id: 'escudo_reforcado', nome: 'Escudo Reforçado', bonus: 4, ve: '10/60', preco: 500, peso: 12.0 }
     ],
     itens_gerais: [
         { id: 'corda', nome: 'Corda (10m)', especificacao: '10m', preco: 5, peso: 1.5 },
-        { id: 'tocha', nome: 'Tocha', especificacao: '1h', preco: 1, peso: 0.5 },
-        { id: 'mochila', nome: 'Mochila', especificacao: '50kg', preco: 20, peso: 1.5 },
-        { id: 'racao', nome: 'Ração (1 dia)', especificacao: '1 dia', preco: 2, peso: 0.5 },
+        { id: 'tocha', nome: 'Tocha', especificacao: '1h de luz', preco: 1, peso: 0.5 },
+        { id: 'mochila', nome: 'Mochila', especificacao: '50kg capacidade', preco: 20, peso: 1.5 },
+        { id: 'racao', nome: 'Ração de viagem', especificacao: '1 dia', preco: 2, peso: 0.5 },
         { id: 'cantil', nome: 'Cantil', especificacao: '1L', preco: 3, peso: 0.8 },
-        { id: 'kit_socorros', nome: 'Kit primeiros socorros', especificacao: '', preco: 50, peso: 1.0 }
+        { id: 'kit_socorros', nome: 'Kit de primeiros socorros', especificacao: '', preco: 50, peso: 1.0 }
     ]
 };
 
@@ -3282,18 +3294,37 @@ const elements = {
     esferasGrid: document.getElementById('esferasGrid'),
     detalheMagiaModal: document.getElementById('detalheMagiaModal'),
     detalheMagiaTitulo: document.getElementById('detalheMagiaTitulo'),
+    detalheMagiaInfo: document.getElementById('detalheMagiaInfo'),
     corpoTabelaDetalhe: document.getElementById('corpoTabelaDetalhe'),
     fecharDetalheMagia: document.getElementById('fecharDetalheMagia'),
     comprarNivelMagia: document.getElementById('comprarNivelMagia'),
     detalheMagiaNH: document.getElementById('detalheMagiaNH'),
+    detalheMagiaFormula: document.getElementById('detalheMagiaFormula'),
     dinheiroBaseInput: document.getElementById('dinheiroBase'),
     dinheiroSaldo: document.getElementById('dinheiroSaldo'),
     cargaAtual: document.getElementById('cargaAtual'),
     cargaLimite: document.getElementById('cargaLimite'),
+    cargaLeve: document.getElementById('cargaLeve'),
+    cargaMedia: document.getElementById('cargaMedia'),
+    cargaPesada: document.getElementById('cargaPesada'),
+    cargaLimiteDisplay: document.getElementById('cargaLimiteDisplay'),
+    cargaBarra: document.getElementById('cargaBarra'),
+    cargaNivel: document.getElementById('cargaNivel'),
+    cargaPenalidade: document.getElementById('cargaPenalidade'),
+    pesoMochila: document.getElementById('pesoMochila'),
     inventarioCorpo: document.getElementById('inventarioCorpo'),
     inventarioMochila: document.getElementById('inventarioMochila'),
     inventarioDeposito: document.getElementById('inventarioDeposito'),
     btnCriarItem: document.getElementById('btnCriarItem'),
+    modalCriarItem: document.getElementById('modalCriarItem'),
+    cancelarCriarItem: document.getElementById('cancelarCriarItem'),
+    confirmarCriarItem: document.getElementById('confirmarCriarItem'),
+    itemPersonalizadoNome: document.getElementById('itemPersonalizadoNome'),
+    itemPersonalizadoTipo: document.getElementById('itemPersonalizadoTipo'),
+    camposEspecificos: document.getElementById('camposEspecificos'),
+    itemPersonalizadoPreco: document.getElementById('itemPersonalizadoPreco'),
+    itemPersonalizadoPeso: document.getElementById('itemPersonalizadoPeso'),
+    itemPersonalizadoQtd: document.getElementById('itemPersonalizadoQtd'),
     btnSalvarPersonagem: document.getElementById('btnSalvarPersonagem'),
     btnExportarPDF: document.getElementById('btnExportarPDF'),
     btnExcluirPersonagem: document.getElementById('btnExcluirPersonagem'),
@@ -3303,8 +3334,11 @@ const elements = {
     modalSalvarSucesso: document.getElementById('modalSalvarSucesso'),
     fecharModalSalvar: document.getElementById('fecharModalSalvar'),
     autoSaveIndicator: document.getElementById('autoSaveIndicator'),
+    breadcrumbCurrent: document.getElementById('breadcrumbCurrent'),
+    pageTitle: document.getElementById('pageTitle'),
     personagemIdHidden: document.getElementById('personagemId'),
     
+    // Atributos
     stValor: document.getElementById('stValor'),
     stFixo: document.getElementById('stFixo'),
     stPercentual: document.getElementById('stPercentual'),
@@ -3321,11 +3355,13 @@ const elements = {
     stDano: document.getElementById('stDano'),
     vtVida: document.getElementById('vtVida'),
     
+    // Status
     statusPV: document.getElementById('statusPV'),
     statusPF: document.getElementById('statusPF'),
     statusPM: document.getElementById('statusPM'),
     statusDano: document.getElementById('statusDano'),
     
+    // Combate
     combatePV: document.getElementById('combatePV'),
     combatePF: document.getElementById('combatePF'),
     combatePM: document.getElementById('combatePM'),
@@ -3336,7 +3372,16 @@ const elements = {
     deslocamentoCorrer: document.getElementById('deslocamentoCorrer'),
     armaNome: document.getElementById('armaNome'),
     armaDano: document.getElementById('armaDano'),
-    rdTotal: document.getElementById('rdTotal')
+    armaTipo: document.getElementById('armaTipo'),
+    armaAlcance: document.getElementById('armaAlcance'),
+    rdTotal: document.getElementById('rdTotal'),
+    
+    // Tabelas de itens
+    corpoTabelaArmasCA: document.getElementById('corpoTabelaArmasCA'),
+    corpoTabelaArmasDist: document.getElementById('corpoTabelaArmasDist'),
+    corpoTabelaArmaduras: document.getElementById('corpoTabelaArmaduras'),
+    corpoTabelaEscudos: document.getElementById('corpoTabelaEscudos'),
+    corpoTabelaItensGerais: document.getElementById('corpoTabelaItensGerais')
 };
 
 // ============================================
@@ -3424,10 +3469,10 @@ function atualizarBolinhas(atributoId) {
 }
 
 // ============================================
-// ATUALIZAR INTERFACE - CORRETO COM % REAIS
+// ATUALIZAR INTERFACE
 // ============================================
 function atualizarInterface() {
-    // Atributos - mostrando valores REAIS
+    // Atributos - valores REAIS
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
     if (elements.stFixo) elements.stFixo.textContent = getSTFixo();
     if (elements.stPercentual) elements.stPercentual.textContent = getSTPercentual() + '%';
@@ -3475,7 +3520,7 @@ function atualizarInterface() {
     
     if (elements.vtVida) elements.vtVida.textContent = `PV ${pv}`;
     
-    // Defesas - VALORES ALTOS (42%, 44%, etc)
+    // Defesas
     if (elements.defesaEsquiva) {
         elements.defesaEsquiva.textContent = calcularEsquiva() + '%';
     }
@@ -3506,6 +3551,33 @@ function atualizarInterface() {
     if (elements.cargaLimite) {
         elements.cargaLimite.textContent = carga.limites.limite;
     }
+    if (elements.cargaLeve) {
+        elements.cargaLeve.textContent = carga.limites.leve;
+    }
+    if (elements.cargaMedia) {
+        elements.cargaMedia.textContent = carga.limites.medio;
+    }
+    if (elements.cargaPesada) {
+        elements.cargaPesada.textContent = carga.limites.pesado;
+    }
+    if (elements.cargaLimiteDisplay) {
+        elements.cargaLimiteDisplay.textContent = carga.limites.limite;
+    }
+    if (elements.cargaBarra) {
+        const percentual = (carga.pesoTotal / carga.limites.limite) * 100;
+        elements.cargaBarra.style.width = Math.min(100, percentual) + '%';
+    }
+    if (elements.cargaNivel) {
+        elements.cargaNivel.textContent = carga.nivel.charAt(0).toUpperCase() + carga.nivel.slice(1);
+        elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
+    }
+    if (elements.cargaPenalidade) {
+        let penalidadeTexto = 'Nenhuma';
+        if (carga.nivel === 'medio') penalidadeTexto = '-1m, -5% Esquiva';
+        else if (carga.nivel === 'pesado') penalidadeTexto = '-2m, -10% Esquiva';
+        else if (carga.nivel === 'limite') penalidadeTexto = '-3m, -15% Esquiva';
+        elements.cargaPenalidade.textContent = penalidadeTexto;
+    }
     
     // Arma equipada
     atualizarArmaEquipada();
@@ -3518,7 +3590,7 @@ function atualizarInterface() {
 }
 
 function atualizarArmaEquipada() {
-    if (!elements.armaNome || !elements.armaDano) return;
+    if (!elements.armaNome || !elements.armaDano || !elements.armaTipo || !elements.armaAlcance) return;
     
     let arma = null;
     if (inventario.corpo && inventario.corpo.length > 0) {
@@ -3530,9 +3602,13 @@ function atualizarArmaEquipada() {
     if (arma) {
         elements.armaNome.textContent = arma.nome;
         elements.armaDano.textContent = arma.dano;
+        elements.armaTipo.textContent = arma.tipoDano || '-';
+        elements.armaAlcance.textContent = arma.alcance ? arma.alcance.toString() : '-';
     } else {
         elements.armaNome.textContent = 'Nenhuma';
         elements.armaDano.textContent = '-';
+        elements.armaTipo.textContent = '-';
+        elements.armaAlcance.textContent = '-';
     }
 }
 
@@ -3548,7 +3624,388 @@ function calcularRD() {
 }
 
 // ============================================
-// PERÍCIAS - NH CORRETO (>30%)
+// FUNÇÕES DAS TABELAS DE ITENS - COMPLETAS
+// ============================================
+function renderizarTabelas(tab = 'armas_ca') {
+    document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
+    
+    const mapaTabelas = {
+        'armas_ca': 'tabelaArmasCA',
+        'armas_dist': 'tabelaArmasDist',
+        'armaduras': 'tabelaArmaduras',
+        'escudos': 'tabelaEscudos',
+        'itens_gerais': 'tabelaItensGerais'
+    };
+    
+    const tabelaId = mapaTabelas[tab];
+    const tabelaElement = document.getElementById(tabelaId);
+    if (tabelaElement) tabelaElement.classList.add('ativa');
+    
+    renderizarTabelaArmasCA();
+    renderizarTabelaArmasDist();
+    renderizarTabelaArmaduras();
+    renderizarTabelaEscudos();
+    renderizarTabelaItensGerais();
+}
+
+function renderizarTabelaArmasCA() {
+    const tbody = document.getElementById('corpoTabelaArmasCA');
+    if (!tbody) return;
+    
+    let html = '';
+    catalogoItensData.armas_ca.forEach((item, i) => {
+        html += `
+            <tr>
+                <td>${item.nome}</td>
+                <td>${item.alcance}</td>
+                <td>${item.dano}</td>
+                <td>${item.tipoDano || 'Corte'}</td>
+                <td>${item.preco}</td>
+                <td>${item.peso}</td>
+                <td>${item.st}</td>
+                <td>
+                    <button class="btn-comprar-tabela" data-tipo="armas_ca" data-indice="${i}">
+                        <i class="fas fa-cart-plus"></i> Comprar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function renderizarTabelaArmasDist() {
+    const tbody = document.getElementById('corpoTabelaArmasDist');
+    if (!tbody) return;
+    
+    let html = '';
+    catalogoItensData.armas_dist.forEach((item, i) => {
+        html += `
+            <tr>
+                <td>${item.nome}</td>
+                <td>${item.precisao}</td>
+                <td>${item.dano}</td>
+                <td>${item.tipoDano || 'Perfuração'}</td>
+                <td>${item.alcance}</td>
+                <td>${item.preco}</td>
+                <td>${item.peso}</td>
+                <td>${item.st}</td>
+                <td>
+                    <button class="btn-comprar-tabela" data-tipo="armas_dist" data-indice="${i}">
+                        <i class="fas fa-cart-plus"></i> Comprar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function renderizarTabelaArmaduras() {
+    const tbody = document.getElementById('corpoTabelaArmaduras');
+    if (!tbody) return;
+    
+    let html = '';
+    catalogoItensData.armaduras.forEach((item, i) => {
+        html += `
+            <tr>
+                <td>${item.nome}</td>
+                <td>${item.rd}</td>
+                <td>${item.preco}</td>
+                <td>${item.peso}</td>
+                <td>
+                    <button class="btn-comprar-tabela" data-tipo="armaduras" data-indice="${i}">
+                        <i class="fas fa-cart-plus"></i> Comprar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function renderizarTabelaEscudos() {
+    const tbody = document.getElementById('corpoTabelaEscudos');
+    if (!tbody) return;
+    
+    let html = '';
+    catalogoItensData.escudos.forEach((item, i) => {
+        html += `
+            <tr>
+                <td>${item.nome}</td>
+                <td>+${item.bonus}</td>
+                <td>${item.ve}</td>
+                <td>${item.preco}</td>
+                <td>${item.peso}</td>
+                <td>
+                    <button class="btn-comprar-tabela" data-tipo="escudos" data-indice="${i}">
+                        <i class="fas fa-cart-plus"></i> Comprar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function renderizarTabelaItensGerais() {
+    const tbody = document.getElementById('corpoTabelaItensGerais');
+    if (!tbody) return;
+    
+    let html = '';
+    catalogoItensData.itens_gerais.forEach((item, i) => {
+        html += `
+            <tr>
+                <td>${item.nome}</td>
+                <td>${item.especificacao || ''}</td>
+                <td>${item.preco}</td>
+                <td>${item.peso}</td>
+                <td>
+                    <button class="btn-comprar-tabela" data-tipo="itens_gerais" data-indice="${i}">
+                        <i class="fas fa-cart-plus"></i> Comprar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+function adicionarEventosCompra() {
+    document.querySelectorAll('.btn-comprar-tabela').forEach(btn => {
+        btn.addEventListener('click', comprarItemHandler);
+    });
+}
+
+function comprarItemHandler(e) {
+    e.stopPropagation();
+    
+    const btn = e.currentTarget;
+    const tipo = btn.dataset.tipo;
+    const indice = parseInt(btn.dataset.indice);
+    
+    let item = null;
+    if (tipo === 'armas_ca') item = catalogoItensData.armas_ca[indice];
+    else if (tipo === 'armas_dist') item = catalogoItensData.armas_dist[indice];
+    else if (tipo === 'armaduras') item = catalogoItensData.armaduras[indice];
+    else if (tipo === 'escudos') item = catalogoItensData.escudos[indice];
+    else if (tipo === 'itens_gerais') item = catalogoItensData.itens_gerais[indice];
+    
+    if (item) {
+        comprarItem(item);
+        triggerAutoSave();
+    }
+}
+
+function comprarItem(item) {
+    const preco = item.preco;
+    
+    if (dinheiro < preco) {
+        alert(`Dinheiro insuficiente! Você tem $${dinheiro} e o item custa $${preco}`);
+        return;
+    }
+    
+    dinheiro -= preco;
+    atualizarDinheiroDisplay();
+    
+    const novoItem = {
+        ...item,
+        id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        quantidade: 1
+    };
+    
+    if (!inventario.deposito) inventario.deposito = [];
+    inventario.deposito.push(novoItem);
+    
+    renderizarInventario();
+    triggerAutoSave();
+}
+
+// ============================================
+// INVENTÁRIO
+// ============================================
+function renderizarInventario() {
+    if (!elements.inventarioCorpo) return;
+    
+    const renderizarItens = (itens, local) => {
+        if (!itens || itens.length === 0) {
+            return '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">Vazio</div>';
+        }
+        
+        return itens.map(item => `
+            <div class="item-card" data-item-id="${item.id}" data-local="${local}">
+                <div class="item-nome">
+                    ${item.nome}
+                    ${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}
+                </div>
+                <div class="item-detalhes">
+                    <span class="item-peso">${(item.peso * (item.quantidade || 1)).toFixed(1)} kg</span>
+                    <span class="item-preco">${item.preco} $</span>
+                </div>
+                <div class="item-acoes">
+                    ${local !== 'deposito' ? `<button class="item-acao btn-mover-deposito" title="Mover para Depósito"><i class="fas fa-arrow-right"></i></button>` : ''}
+                    ${local === 'mochila' ? `<button class="item-acao btn-equipar" title="Equipar"><i class="fas fa-user"></i></button>` : ''}
+                    ${local === 'corpo' ? `<button class="item-acao btn-guardar" title="Guardar na Mochila"><i class="fas fa-shopping-bag"></i></button>` : ''}
+                    ${local === 'deposito' ? `<button class="item-acao btn-pegar" title="Pegar"><i class="fas fa-arrow-left"></i></button>` : ''}
+                    <button class="item-acao btn-vender" title="Vender (50%)"><i class="fas fa-coins"></i></button>
+                    <button class="item-acao btn-descartar" title="Descartar"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+    };
+    
+    elements.inventarioCorpo.innerHTML = renderizarItens(inventario.corpo, 'corpo');
+    elements.inventarioMochila.innerHTML = renderizarItens(inventario.mochila, 'mochila');
+    elements.inventarioDeposito.innerHTML = renderizarItens(inventario.deposito, 'deposito');
+    
+    document.querySelectorAll('.btn-mover-deposito').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.item-card');
+            if (card) moverParaDeposito(card.dataset.itemId, card.dataset.local);
+        });
+    });
+    
+    document.querySelectorAll('.btn-equipar').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.item-card');
+            if (card) equiparItem(card.dataset.itemId);
+        });
+    });
+    
+    document.querySelectorAll('.btn-guardar').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.item-card');
+            if (card) guardarItem(card.dataset.itemId);
+        });
+    });
+    
+    document.querySelectorAll('.btn-pegar').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.item-card');
+            if (card) pegarItem(card.dataset.itemId);
+        });
+    });
+    
+    document.querySelectorAll('.btn-vender').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.item-card');
+            if (card) venderItem(card.dataset.itemId, card.dataset.local);
+        });
+    });
+    
+    document.querySelectorAll('.btn-descartar').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const card = e.target.closest('.item-card');
+            if (card) descartarItem(card.dataset.itemId, card.dataset.local);
+        });
+    });
+}
+
+function moverParaDeposito(itemId, local) {
+    if (!inventario[local]) return;
+    const index = inventario[local].findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario[local][index];
+        if (!inventario.deposito) inventario.deposito = [];
+        inventario.deposito.push(item);
+        inventario[local].splice(index, 1);
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+    }
+}
+
+function equiparItem(itemId) {
+    if (!inventario.mochila) return;
+    const index = inventario.mochila.findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario.mochila[index];
+        if (item.st && getSTFixo() < item.st) {
+            alert(`Força insuficiente! Precisa de ST ${item.st}`);
+            return;
+        }
+        if (!inventario.corpo) inventario.corpo = [];
+        inventario.corpo.push(item);
+        inventario.mochila.splice(index, 1);
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+    }
+}
+
+function guardarItem(itemId) {
+    if (!inventario.corpo) return;
+    const index = inventario.corpo.findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario.corpo[index];
+        if (!inventario.mochila) inventario.mochila = [];
+        inventario.mochila.push(item);
+        inventario.corpo.splice(index, 1);
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+    }
+}
+
+function pegarItem(itemId) {
+    if (!inventario.deposito) return;
+    const index = inventario.deposito.findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario.deposito[index];
+        if (!inventario.mochila) inventario.mochila = [];
+        inventario.mochila.push(item);
+        inventario.deposito.splice(index, 1);
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+    }
+}
+
+function venderItem(itemId, local) {
+    if (!inventario[local]) return;
+    const index = inventario[local].findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario[local][index];
+        const valorVenda = Math.floor(item.preco * 0.5 * (item.quantidade || 1));
+        dinheiro += valorVenda;
+        atualizarDinheiroDisplay();
+        
+        if (item.quantidade > 1) {
+            item.quantidade--;
+        } else {
+            inventario[local].splice(index, 1);
+        }
+        
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+    }
+}
+
+function descartarItem(itemId, local) {
+    if (!inventario[local]) return;
+    const index = inventario[local].findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario[local][index];
+        if (item.quantidade > 1) {
+            item.quantidade--;
+        } else {
+            inventario[local].splice(index, 1);
+        }
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+    }
+}
+
+// ============================================
+// PERÍCIAS
 // ============================================
 function renderizarCatalogoPericias(filtro = 'todas') {
     if (!elements.listaPericias) return;
@@ -3557,8 +4014,9 @@ function renderizarCatalogoPericias(filtro = 'todas') {
     
     elements.listaPericias.innerHTML = periciasFiltradas.map(pericia => `
         <div class="pericia-card" data-pericia-id="${pericia.id}">
-            <h4>${pericia.nome}</h4>
-            <div class="atributo">Base: ${pericia.atributo.toUpperCase()}%</div>
+            <h4>${pericia.nome} <span class="tipo ${pericia.tipo}">${pericia.tipo === 'mental' ? 'IQ' : 'DX'}</span></h4>
+            <div class="descricao">Base: ${pericia.atributo.toUpperCase()}%</div>
+            <div class="atributo">Bônus: +4% por nível</div>
         </div>
     `).join('');
     
@@ -3573,7 +4031,7 @@ function renderizarPericiasAdquiridas() {
     const periciasArray = Object.entries(pericias);
     
     if (periciasArray.length === 0) {
-        elements.listaPericiasAdquiridas.innerHTML = '<div style="text-align: center; padding: 20px;">Nenhuma perícia adquirida</div>';
+        elements.listaPericiasAdquiridas.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">Clique em uma perícia do catálogo para adicionar</div>';
         return;
     }
     
@@ -3591,14 +4049,14 @@ function renderizarPericiasAdquiridas() {
         
         return `
             <div class="pericia-adquirida" data-pericia-id="${id}">
-                <div>
+                <div class="pericia-adquirida-info">
                     <h4>${pericia.nome}</h4>
-                    <div>Nível ${dados.nivel} (+${bonus}%)</div>
-                    <div class="nh" style="color: #ffd700; font-weight: bold; font-size: 1.1rem;">NH: ${nh}%</div>
+                    <div class="nivel">Nível ${dados.nivel} <span class="bonus">(+${bonus}%)</span></div>
+                    <div class="nh">NH: <span>${nh}%</span> (${pericia.atributo.toUpperCase()} ${atributoBase}% + ${bonus}%)</div>
                 </div>
                 <div class="pericia-adquirida-acoes">
-                    <button class="btn-pericia btn-aumentar-pericia" data-pericia-id="${id}" ${dados.nivel >= 5 ? 'disabled' : ''}>+</button>
-                    <button class="btn-pericia btn-diminuir-pericia" data-pericia-id="${id}" ${dados.nivel <= 1 ? 'disabled' : ''}>-</button>
+                    <button class="btn-pericia btn-aumentar-pericia" data-pericia-id="${id}" ${dados.nivel >= 5 ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
+                    <button class="btn-pericia btn-diminuir-pericia" data-pericia-id="${id}" ${dados.nivel <= 1 ? 'disabled' : ''}><i class="fas fa-minus"></i></button>
                 </div>
             </div>
         `;
@@ -3649,15 +4107,26 @@ function atualizarModalPericia() {
     if (!periciaAtual) return;
     
     const novoNivel = periciaAtual.novoNivel;
-    const custo = calcularCustoPericia(novoNivel);
+    const nivelAtual = periciaAtual.nivelAtual;
+    const custoTotal = calcularCustoPericia(novoNivel);
+    const custoAtual = nivelAtual > 0 ? calcularCustoPericia(nivelAtual) : 0;
+    const custoDiferenca = custoTotal - custoAtual;
     
-    if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custo + ' PP';
+    if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custoDiferenca + ' PP';
+    if (elements.modalPericiaObservacao) {
+        if (nivelAtual > 0) {
+            elements.modalPericiaObservacao.textContent = `Nível atual: ${nivelAtual} (já gastou ${custoAtual} PP)`;
+        } else {
+            elements.modalPericiaObservacao.textContent = 'Perícia nova';
+        }
+    }
+    
     if (elements.modalPericiaConfirmar) {
-        elements.modalPericiaConfirmar.disabled = custo > (ppDisponivel - ppGastoTotal);
+        elements.modalPericiaConfirmar.disabled = custoDiferenca > (ppDisponivel - ppGastoTotal);
     }
     
     if (elements.modalPericiaMenos) {
-        elements.modalPericiaMenos.disabled = novoNivel <= (periciaAtual.nivelAtual > 0 ? periciaAtual.nivelAtual + 1 : 1);
+        elements.modalPericiaMenos.disabled = novoNivel <= (nivelAtual > 0 ? nivelAtual + 1 : 1);
     }
     if (elements.modalPericiaMais) {
         elements.modalPericiaMais.disabled = novoNivel >= 5;
@@ -3734,7 +4203,12 @@ function diminuirPericia(periciaId) {
     const custoDiferenca = custoAtual - custoNovo;
     
     ppGastoTotal -= custoDiferenca;
-    pericia.nivel = novoNivel;
+    
+    if (novoNivel === 0) {
+        delete pericias[periciaId];
+    } else {
+        pericia.nivel = novoNivel;
+    }
     
     if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
     if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
@@ -3746,7 +4220,7 @@ function diminuirPericia(periciaId) {
 }
 
 // ============================================
-// MAGIAS (10 NÍVEIS)
+// MAGIAS
 // ============================================
 function renderizarEsferas() {
     if (!elements.esferasGrid) return;
@@ -3771,6 +4245,8 @@ function renderizarEsferas() {
             classeEsfera = 'disponivel';
             iconeCadeado = '';
             botaoAcao = `<button class="btn-comprar-esfera" data-magia-id="${id}">Desbloquear (2 PP)</button>`;
+        } else if (!temAptidao) {
+            classeEsfera = 'aptidao-requerida';
         }
         
         // NH da magia = IQ% + 10% + nível
@@ -3785,7 +4261,8 @@ function renderizarEsferas() {
                 <div class="icone-esfera"><i class="fas ${magiaDados.icone}"></i></div>
                 ${iconeCadeado}
                 <div class="nome-esfera">${magiaDados.nome}</div>
-                ${magia.desbloqueada ? `<div class="nivel-esfera">Nv ${magia.nivel} | ${nhMagia}%</div>` : ''}
+                <div class="tipo-esfera">${magiaDados.tipo}</div>
+                ${magia.desbloqueada ? `<div class="nivel-esfera">Nível ${magia.nivel} <button class="btn-detalhe" data-magia-id="${id}"><i class="fas fa-search"></i></button> | ${nhMagia}%</div>` : ''}
                 ${botaoAcao}
             </div>
         `;
@@ -3817,10 +4294,13 @@ function renderizarEsferas() {
         });
     });
     
-    document.querySelectorAll('.esfera-card.desbloqueada').forEach(el => {
-        el.addEventListener('click', () => {
-            const magiaId = el.dataset.magiaId;
-            if (magiaId) abrirDetalheMagia(magiaId);
+    document.querySelectorAll('.btn-detalhe, .esfera-card.desbloqueada').forEach(el => {
+        el.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-comprar-esfera')) return;
+            const magiaId = el.closest('.esfera-card')?.dataset.magiaId || el.dataset.magiaId;
+            if (magiaId && escolas.agua.magias[magiaId]?.desbloqueada) {
+                abrirDetalheMagia(magiaId);
+            }
         });
     });
 }
@@ -3832,17 +4312,15 @@ function abrirDetalheMagia(magiaId) {
     
     magiaSelecionada = magiaId;
     
-    if (elements.detalheMagiaTitulo) {
-        elements.detalheMagiaTitulo.textContent = magiaDados.nome;
-    }
+    if (elements.detalheMagiaTitulo) elements.detalheMagiaTitulo.textContent = magiaDados.nome;
+    if (elements.detalheMagiaInfo) elements.detalheMagiaInfo.textContent = `IQ | Tipo: ${magiaDados.tipo}`;
     
     const iqPercentual = getIQPercentual();
     const nhBase = iqPercentual + 10;
     const nhAtual = nhBase + (magia.nivel || 0);
     
-    if (elements.detalheMagiaNH) {
-        elements.detalheMagiaNH.textContent = nhAtual + '%';
-    }
+    if (elements.detalheMagiaNH) elements.detalheMagiaNH.textContent = nhAtual + '%';
+    if (elements.detalheMagiaFormula) elements.detalheMagiaFormula.textContent = `IQ% (${iqPercentual}%) + 10% + Nível (${magia.nivel || 0})`;
     
     let linhas = '';
     for (let i = 1; i <= 10; i++) {
@@ -3856,14 +4334,13 @@ function abrirDetalheMagia(magiaId) {
         elements.corpoTabelaDetalhe.innerHTML = linhas;
     }
     
+    const custoProximoNivel = magia.nivel >= 10 ? 0 : 2;
     if (elements.comprarNivelMagia) {
-        elements.comprarNivelMagia.disabled = magia.nivel >= 10 || (2 > (ppDisponivel - ppGastoTotal));
-        elements.comprarNivelMagia.textContent = magia.nivel >= 10 ? 'Nível Máximo' : `Comprar Nível ${magia.nivel + 1} (2 PP)`;
+        elements.comprarNivelMagia.disabled = magia.nivel >= 10 || (custoProximoNivel > (ppDisponivel - ppGastoTotal));
+        elements.comprarNivelMagia.textContent = magia.nivel >= 10 ? 'Nível Máximo' : `Comprar Nível ${magia.nivel + 1} (${custoProximoNivel} PP)`;
     }
     
-    if (elements.detalheMagiaModal) {
-        elements.detalheMagiaModal.classList.add('active');
-    }
+    if (elements.detalheMagiaModal) elements.detalheMagiaModal.classList.add('active');
 }
 
 // ============================================
@@ -3885,9 +4362,13 @@ function selecionarVantagem(card) {
         }
     }
     
-    if (vantagemId === 'rico') {
+    if (vantagemId === 'rico' || vantagemId === 'pobre') {
         dinheiro = calcularDinheiroInicial();
         atualizarDinheiroDisplay();
+    }
+    
+    if (vantagemId === 'aptidaoMagica') {
+        renderizarEsferas();
     }
     
     atualizarContadoresAbas();
@@ -3911,7 +4392,7 @@ function selecionarDesvantagem(card) {
         }
     }
     
-    if (desvantagemId === 'pobre') {
+    if (desvantagemId === 'pobre' || desvantagemId === 'rico') {
         dinheiro = calcularDinheiroInicial();
         atualizarDinheiroDisplay();
     }
@@ -3919,162 +4400,6 @@ function selecionarDesvantagem(card) {
     atualizarContadoresAbas();
     atualizarInterface();
     triggerAutoSave();
-}
-
-// ============================================
-// INVENTÁRIO
-// ============================================
-function renderizarInventario() {
-    if (!elements.inventarioCorpo) return;
-    
-    const renderizarItens = (itens, local) => {
-        if (!itens || itens.length === 0) {
-            return '<div style="text-align: center; padding: 20px;">Vazio</div>';
-        }
-        
-        return itens.map(item => `
-            <div class="item-card" data-item-id="${item.id}" data-local="${local}">
-                <div class="item-nome">
-                    ${item.nome}
-                    ${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}
-                </div>
-                <div class="item-detalhes">
-                    <span>${(item.peso * (item.quantidade || 1)).toFixed(1)} kg</span>
-                    <span>${item.preco} $</span>
-                </div>
-                <div class="item-acoes">
-                    ${local === 'deposito' ? '<button class="item-acao btn-pegar" title="Pegar">📦</button>' : ''}
-                    ${local === 'mochila' ? '<button class="item-acao btn-equipar" title="Equipar">⚔️</button>' : ''}
-                    ${local === 'corpo' ? '<button class="item-acao btn-guardar" title="Guardar">🎒</button>' : ''}
-                    <button class="item-acao btn-vender" title="Vender">💰</button>
-                    <button class="item-acao btn-descartar" title="Descartar">🗑️</button>
-                </div>
-            </div>
-        `).join('');
-    };
-    
-    elements.inventarioCorpo.innerHTML = renderizarItens(inventario.corpo, 'corpo');
-    elements.inventarioMochila.innerHTML = renderizarItens(inventario.mochila, 'mochila');
-    elements.inventarioDeposito.innerHTML = renderizarItens(inventario.deposito, 'deposito');
-    
-    document.querySelectorAll('.btn-pegar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = e.target.closest('.item-card');
-            if (card) pegarItem(card.dataset.itemId);
-        });
-    });
-    
-    document.querySelectorAll('.btn-equipar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = e.target.closest('.item-card');
-            if (card) equiparItem(card.dataset.itemId);
-        });
-    });
-    
-    document.querySelectorAll('.btn-guardar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = e.target.closest('.item-card');
-            if (card) guardarItem(card.dataset.itemId);
-        });
-    });
-    
-    document.querySelectorAll('.btn-vender').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = e.target.closest('.item-card');
-            if (card) venderItem(card.dataset.itemId, card.dataset.local);
-        });
-    });
-    
-    document.querySelectorAll('.btn-descartar').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const card = e.target.closest('.item-card');
-            if (card) descartarItem(card.dataset.itemId, card.dataset.local);
-        });
-    });
-}
-
-function pegarItem(itemId) {
-    if (!inventario.deposito) return;
-    const index = inventario.deposito.findIndex(i => i.id === itemId);
-    if (index !== -1) {
-        const item = inventario.deposito[index];
-        inventario.mochila.push(item);
-        inventario.deposito.splice(index, 1);
-        renderizarInventario();
-        atualizarInterface();
-        triggerAutoSave();
-    }
-}
-
-function equiparItem(itemId) {
-    if (!inventario.mochila) return;
-    const index = inventario.mochila.findIndex(i => i.id === itemId);
-    if (index !== -1) {
-        const item = inventario.mochila[index];
-        if (item.st && getSTFixo() < item.st) {
-            alert(`ST necessária: ${item.st}`);
-            return;
-        }
-        inventario.corpo.push(item);
-        inventario.mochila.splice(index, 1);
-        renderizarInventario();
-        atualizarInterface();
-        triggerAutoSave();
-    }
-}
-
-function guardarItem(itemId) {
-    if (!inventario.corpo) return;
-    const index = inventario.corpo.findIndex(i => i.id === itemId);
-    if (index !== -1) {
-        const item = inventario.corpo[index];
-        inventario.mochila.push(item);
-        inventario.corpo.splice(index, 1);
-        renderizarInventario();
-        atualizarInterface();
-        triggerAutoSave();
-    }
-}
-
-function venderItem(itemId, local) {
-    if (!inventario[local]) return;
-    const index = inventario[local].findIndex(i => i.id === itemId);
-    if (index !== -1) {
-        const item = inventario[local][index];
-        const valorVenda = Math.floor(item.preco * 0.5 * (item.quantidade || 1));
-        dinheiro += valorVenda;
-        atualizarDinheiroDisplay();
-        
-        if (item.quantidade > 1) {
-            item.quantidade--;
-        } else {
-            inventario[local].splice(index, 1);
-        }
-        
-        renderizarInventario();
-        atualizarInterface();
-        triggerAutoSave();
-    }
-}
-
-function descartarItem(itemId, local) {
-    if (!inventario[local]) return;
-    const index = inventario[local].findIndex(i => i.id === itemId);
-    if (index !== -1) {
-        if (inventario[local][index].quantidade > 1) {
-            inventario[local][index].quantidade--;
-        } else {
-            inventario[local].splice(index, 1);
-        }
-        renderizarInventario();
-        atualizarInterface();
-        triggerAutoSave();
-    }
 }
 
 // ============================================
@@ -4128,7 +4453,7 @@ function atualizarContadoresAbas() {
 }
 
 // ============================================
-// NAVEGAÇÃO
+// NAVEGAÇÃO ENTRE ABAS
 // ============================================
 function mudarAba(abaId) {
     elements.abas.forEach(aba => {
@@ -4178,11 +4503,24 @@ function mudarAba(abaId) {
         elements.btnProximo.style.display = 'none';
         elements.btnFinalizar.style.display = 'inline-flex';
         renderizarEsferas();
+        if (elements.magiaNH_IQ) {
+            elements.magiaNH_IQ.textContent = getIQPercentual() + '%';
+        }
+        if (elements.magiaNH_Aptidao) {
+            const aptidao = vantagensSelecionadas.has('aptidaoMagica') ? '+10%' : '+0%';
+            elements.magiaNH_Aptidao.textContent = aptidao;
+        }
+        if (elements.magiaNH_Total) {
+            const total = getIQPercentual() + (vantagensSelecionadas.has('aptidaoMagica') ? 10 : 0);
+            elements.magiaNH_Total.textContent = total + '%';
+        }
     } else if (abaId === 'equipamentos') {
         elements.btnAnterior.style.display = 'inline-flex';
         elements.btnProximo.style.display = 'none';
         elements.btnFinalizar.style.display = 'inline-flex';
+        atualizarDinheiroDisplay();
         renderizarInventario();
+        renderizarTabelas('armas_ca');
     }
 }
 
@@ -4215,11 +4553,11 @@ function salvarDadosBasicos() {
         ...dados,
         esferasIniciais: esferasIniciais,
         atributos: {
-            st: atributos.st.esferas,
-            dx: atributos.dx.esferas,
-            iq: atributos.iq.esferas,
-            vigor: atributos.vigor.esferas,
-            vt: atributos.vt.esferas
+            st: { esferas: atributos.st.esferas },
+            dx: { esferas: atributos.dx.esferas },
+            iq: { esferas: atributos.iq.esferas },
+            vigor: { esferas: atributos.vigor.esferas },
+            vt: { esferas: atributos.vt.esferas }
         },
         inventario: inventario,
         dinheiro: dinheiro,
@@ -4277,6 +4615,7 @@ async function salvarPersonagem(finalizar = false) {
         }
         
         let fotoURL = dadosBasicos.fotoURL || '';
+        
         if (fotoURL && fotoURL.startsWith('data:image')) {
             const imagemUrl = await uploadParaImgur(fotoURL);
             if (imagemUrl) fotoURL = imagemUrl;
@@ -4300,11 +4639,28 @@ async function salvarPersonagem(finalizar = false) {
             esferasIniciais: esferasIniciais,
             
             atributos: {
-                st: atributos.st.esferas,
-                dx: atributos.dx.esferas,
-                iq: atributos.iq.esferas,
-                vigor: atributos.vigor.esferas,
-                vt: atributos.vt.esferas
+                st: { esferas: atributos.st.esferas },
+                dx: { esferas: atributos.dx.esferas },
+                iq: { esferas: atributos.iq.esferas },
+                vigor: { esferas: atributos.vigor.esferas },
+                vt: { esferas: atributos.vt.esferas }
+            },
+            
+            statusCombate: {
+                vidaAtual: calcularPV(),
+                vidaMax: calcularPV(),
+                fadigaAtual: calcularPF(),
+                fadigaMax: calcularPF(),
+                manaAtual: calcularPM(),
+                manaMax: calcularPM()
+            },
+            
+            derivados: {
+                danoBase: calcularDanoBase(),
+                esquiva: calcularEsquiva(),
+                aparar: calcularAparar(),
+                bloqueio: calcularBloqueio(),
+                deslocamento: calcularDeslocamento().andar.toFixed(1) + 'm / ' + calcularDeslocamento().correr.toFixed(1) + 'm'
             },
             
             vantagens: Array.from(vantagensSelecionadas) || [],
@@ -4312,19 +4668,14 @@ async function salvarPersonagem(finalizar = false) {
             fobia: fobiaSelecionada || null,
             
             pericias: pericias || {},
+            
             escolas: escolas,
             
             ppDisponivel: ppDisponivel || 30,
             ppGasto: ppGastoTotal || 0,
             
             inventario: inventario || { corpo: [], mochila: [], deposito: [] },
-            dinheiro: dinheiro || 0,
-            
-            status: {
-                pv: calcularPV(),
-                pf: calcularPF(),
-                pm: calcularPM()
-            }
+            dinheiro: dinheiro || 0
         };
         
         if (!personagemId) {
@@ -4386,12 +4737,13 @@ async function carregarPersonagem(id) {
         const data = docSnap.data();
         
         if (data.userId !== auth.currentUser?.uid) {
-            alert('Sem permissão!');
+            alert('Você não tem permissão para editar este personagem!');
             window.location.href = 'personagens.html';
             return;
         }
         
         personagemId = id;
+        modoEdicao = true;
         
         document.getElementById('nomePersonagem').value = data.nome || '';
         document.getElementById('classePersonagem').value = data.classe || 'guerreiro';
@@ -4409,12 +4761,17 @@ async function carregarPersonagem(id) {
             elements.uploadArea.style.display = 'none';
         }
         
+        if (data.esferasIniciais !== undefined) {
+            esferasIniciais = data.esferasIniciais;
+            if (elements.esferasIniciaisInput) elements.esferasIniciaisInput.value = esferasIniciais;
+        }
+        
         if (data.atributos) {
-            atributos.st.esferas = data.atributos.st || 0;
-            atributos.dx.esferas = data.atributos.dx || 0;
-            atributos.iq.esferas = data.atributos.iq || 0;
-            atributos.vigor.esferas = data.atributos.vigor || 0;
-            atributos.vt.esferas = data.atributos.vt || 0;
+            atributos.st.esferas = data.atributos.st?.esferas || 0;
+            atributos.dx.esferas = data.atributos.dx?.esferas || 0;
+            atributos.iq.esferas = data.atributos.iq?.esferas || 0;
+            atributos.vigor.esferas = data.atributos.vigor?.esferas || 0;
+            atributos.vt.esferas = data.atributos.vt?.esferas || 0;
             
             esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
         }
@@ -4445,7 +4802,11 @@ async function carregarPersonagem(id) {
         }
         
         if (data.pericias) pericias = data.pericias;
-        if (data.escolas) escolas.agua = data.escolas.agua || escolas.agua;
+        
+        if (data.escolas) {
+            escolas.agua = data.escolas.agua || escolas.agua;
+        }
+        
         if (data.inventario) inventario = data.inventario;
         
         if (data.dinheiro !== undefined) {
@@ -4469,7 +4830,7 @@ async function carregarPersonagem(id) {
         
         hideLoading();
     } catch (error) {
-        alert('Erro ao carregar!');
+        alert('Erro ao carregar personagem!');
         hideLoading();
     }
 }
@@ -4502,11 +4863,11 @@ function carregarDadosSalvos() {
             }
             
             if (personagemTemp.atributos) {
-                atributos.st.esferas = personagemTemp.atributos.st || 0;
-                atributos.dx.esferas = personagemTemp.atributos.dx || 0;
-                atributos.iq.esferas = personagemTemp.atributos.iq || 0;
-                atributos.vigor.esferas = personagemTemp.atributos.vigor || 0;
-                atributos.vt.esferas = personagemTemp.atributos.vt || 0;
+                atributos.st.esferas = personagemTemp.atributos.st?.esferas || 0;
+                atributos.dx.esferas = personagemTemp.atributos.dx?.esferas || 0;
+                atributos.iq.esferas = personagemTemp.atributos.iq?.esferas || 0;
+                atributos.vigor.esferas = personagemTemp.atributos.vigor?.esferas || 0;
+                atributos.vt.esferas = personagemTemp.atributos.vt?.esferas || 0;
                 
                 esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
             }
@@ -4573,7 +4934,7 @@ async function excluirPersonagem() {
         sessionStorage.removeItem('personagemTemp');
         window.location.href = 'personagens.html';
     } catch (error) {
-        alert('Erro ao excluir: ' + error.message);
+        alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
 }
@@ -4593,6 +4954,8 @@ async function exportarPDF() {
         pdf.text('Ficha de Personagem - RPGForce', 105, yPos, { align: 'center' });
         
         yPos += 10;
+        pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.5);
         pdf.line(20, yPos, 190, yPos);
         yPos += 10;
         
@@ -4607,6 +4970,7 @@ async function exportarPDF() {
         
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
         pdf.text(`Nome: ${nome}`, 25, yPos);
         yPos += 6;
         pdf.text(`Classe: ${classes[classe] || classe}`, 25, yPos);
@@ -4621,6 +4985,7 @@ async function exportarPDF() {
         
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
         pdf.text(`ST: ${getSTFixo()} (${getSTPercentual()}%)`, 25, yPos);
         yPos += 6;
         pdf.text(`DX: ${getDXFixo()} (${getDXPercentual()}%)`, 25, yPos);
@@ -4639,7 +5004,10 @@ async function exportarPDF() {
         
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
         pdf.text(`PV: ${calcularPV()} | PF: ${calcularPF()} | PM: ${calcularPM()}`, 25, yPos);
+        yPos += 6;
+        pdf.text(`Dano Base: ${calcularDanoBase()}`, 25, yPos);
         yPos += 6;
         
         const desloc = calcularDeslocamento();
@@ -4653,6 +5021,7 @@ async function exportarPDF() {
         
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
         pdf.text(`Esquiva: ${calcularEsquiva()}%`, 25, yPos);
         yPos += 6;
         pdf.text(`Aparar: ${calcularAparar()}%`, 25, yPos);
@@ -4669,15 +5038,153 @@ async function exportarPDF() {
 }
 
 // ============================================
+// CONFIGURAÇÃO DE ITEM PERSONALIZADO
+// ============================================
+function configurarCamposItemPersonalizado() {
+    if (!elements.camposEspecificos || !elements.itemPersonalizadoTipo) return;
+    
+    const tipo = elements.itemPersonalizadoTipo.value;
+    let html = '';
+    
+    switch(tipo) {
+        case 'arma_ca':
+            html = `
+                <div class="campo-dinamico">
+                    <label>Alcance (m)</label>
+                    <input type="number" id="itemAlcance" min="0" step="0.1" value="1">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Dano</label>
+                    <input type="text" id="itemDano" placeholder="Ex: 1d+2" value="1d">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Tipo de Dano</label>
+                    <select id="itemTipoDano">
+                        <option value="Corte">Corte</option>
+                        <option value="Perfuração">Perfuração</option>
+                        <option value="Contusão">Contusão</option>
+                    </select>
+                </div>
+                <div class="campo-dinamico">
+                    <label>ST Mínima</label>
+                    <input type="number" id="itemSt" min="1" value="8">
+                </div>
+            `;
+            break;
+            
+        case 'armadura':
+            html = `
+                <div class="campo-dinamico">
+                    <label>RD (Redução de Dano)</label>
+                    <input type="number" id="itemRd" min="0" value="2">
+                </div>
+                <div class="campo-dinamico">
+                    <label>Localização</label>
+                    <select id="itemLocal">
+                        <option value="completo">Completo</option>
+                        <option value="torso">Torso</option>
+                        <option value="membros">Membros</option>
+                        <option value="cabeca">Cabeça</option>
+                    </select>
+                </div>
+            `;
+            break;
+            
+        case 'escudo':
+            html = `
+                <div class="campo-dinamico">
+                    <label>Bônus de Bloqueio</label>
+                    <input type="number" id="itemBonus" min="0" value="1">
+                </div>
+                <div class="campo-dinamico">
+                    <label>VE (Ex: 5/30)</label>
+                    <input type="text" id="itemVe" placeholder="5/30" value="5/30">
+                </div>
+            `;
+            break;
+            
+        default:
+            html = '';
+    }
+    
+    elements.camposEspecificos.innerHTML = html;
+}
+
+function criarItemPersonalizado() {
+    if (!elements.itemPersonalizadoNome || !elements.itemPersonalizadoTipo) return;
+    
+    const nome = elements.itemPersonalizadoNome.value.trim();
+    if (!nome) {
+        alert('Digite um nome para o item');
+        return;
+    }
+    
+    const tipo = elements.itemPersonalizadoTipo.value;
+    const preco = parseInt(elements.itemPersonalizadoPreco?.value) || 10;
+    const peso = parseFloat(elements.itemPersonalizadoPeso?.value) || 1;
+    const quantidade = parseInt(elements.itemPersonalizadoQtd?.value) || 1;
+    
+    if (dinheiro < preco * quantidade) {
+        alert('Dinheiro insuficiente!');
+        return;
+    }
+    
+    dinheiro -= preco * quantidade;
+    atualizarDinheiroDisplay();
+    
+    const itemBase = {
+        id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        nome: nome,
+        tipo: tipo,
+        preco: preco,
+        peso: peso,
+        quantidade: quantidade
+    };
+    
+    switch(tipo) {
+        case 'arma_ca':
+            itemBase.alcance = parseFloat(document.getElementById('itemAlcance')?.value) || 1;
+            itemBase.dano = document.getElementById('itemDano')?.value || '1d';
+            itemBase.tipoDano = document.getElementById('itemTipoDano')?.value || 'Corte';
+            itemBase.st = parseInt(document.getElementById('itemSt')?.value) || 8;
+            break;
+            
+        case 'armadura':
+            itemBase.rd = parseInt(document.getElementById('itemRd')?.value) || 2;
+            itemBase.local = document.getElementById('itemLocal')?.value || 'completo';
+            break;
+            
+        case 'escudo':
+            itemBase.bonus = parseInt(document.getElementById('itemBonus')?.value) || 1;
+            itemBase.ve = document.getElementById('itemVe')?.value || '5/30';
+            break;
+    }
+    
+    if (!inventario.deposito) inventario.deposito = [];
+    inventario.deposito.push(itemBase);
+    
+    renderizarInventario();
+    
+    if (elements.modalCriarItem) elements.modalCriarItem.classList.remove('active');
+    
+    elements.itemPersonalizadoNome.value = '';
+    elements.itemPersonalizadoPreco.value = '10';
+    elements.itemPersonalizadoPeso.value = '1';
+    elements.itemPersonalizadoQtd.value = '1';
+}
+
+// ============================================
 // INICIALIZAÇÃO
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Criar bolinhas
     criarBolinhas('st');
     criarBolinhas('dx');
     criarBolinhas('iq');
     criarBolinhas('vigor');
     criarBolinhas('vt');
     
+    // Esferas iniciais
     if (elements.esferasIniciaisInput) {
         elements.esferasIniciaisInput.addEventListener('change', () => {
             esferasIniciais = parseInt(elements.esferasIniciaisInput.value) || 6;
@@ -4688,6 +5195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // PP inicial
     if (elements.ppInicial) {
         elements.ppInicial.addEventListener('change', () => {
             ppDisponivel = parseInt(elements.ppInicial.value) || 30;
@@ -4696,6 +5204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Dinheiro base
     if (elements.dinheiroBaseInput) {
         elements.dinheiroBaseInput.addEventListener('change', () => {
             dinheiro = calcularDinheiroInicial();
@@ -4704,6 +5213,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    document.getElementById('riqueza')?.addEventListener('change', () => {
+        dinheiro = calcularDinheiroInicial();
+        atualizarDinheiroDisplay();
+        triggerAutoSave();
+    });
+    
+    // Verificar se é edição
     const urlParams = new URLSearchParams(window.location.search);
     const idParaEditar = urlParams.get('id');
     
@@ -4732,6 +5248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Event listeners para auto-save
     const camposAutoSave = [
         'nomePersonagem', 'classePersonagem', 'idadePersonagem', 'alturaPersonagem',
         'pesoPersonagem', 'aparencia', 'riqueza', 'dinheiroBase', 'peculiaridades'
@@ -4745,6 +5262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Abas
     elements.abas.forEach(aba => {
         aba.addEventListener('click', () => {
             if (['combate', 'vantagens', 'desvantagens', 'pericias', 'magias', 'equipamentos'].includes(aba.dataset.aba)) {
@@ -4754,6 +5272,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // Upload de foto
     if (elements.uploadArea && elements.fotoInput) {
         elements.uploadArea.addEventListener('click', () => elements.fotoInput.click());
     }
@@ -4784,14 +5303,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Vantagens
     document.querySelectorAll('.vantagem-card').forEach(card => {
         card.addEventListener('click', () => selecionarVantagem(card));
     });
     
+    // Desvantagens
     document.querySelectorAll('.desvantagem-card:not(#cardFobia)').forEach(card => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
     
+    // Fobia
     if (elements.cardFobia && elements.modalFobias) {
         elements.cardFobia.addEventListener('click', () => {
             elements.modalFobias.classList.add('active');
@@ -4831,6 +5353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // Filtros de perícias
     document.querySelectorAll('.filtro-pericia').forEach(filtro => {
         filtro.addEventListener('click', () => {
             document.querySelectorAll('.filtro-pericia').forEach(f => f.classList.remove('ativo'));
@@ -4839,6 +5362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
+    // Modal de perícia
     if (elements.modalPericiaMais) {
         elements.modalPericiaMais.addEventListener('click', () => {
             if (periciaAtual) {
@@ -4869,6 +5393,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.modalPericiaConfirmar.addEventListener('click', confirmarPericia);
     }
     
+    // Modal de magia
     if (elements.fecharDetalheMagia && elements.detalheMagiaModal) {
         elements.fecharDetalheMagia.addEventListener('click', () => {
             elements.detalheMagiaModal.classList.remove('active');
@@ -4883,6 +5408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!magia || magia.nivel >= 10) return;
             
             const custo = 2;
+            
             if (custo > (ppDisponivel - ppGastoTotal)) {
                 alert('PP insuficiente!');
                 return;
@@ -4901,6 +5427,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Tabs do catálogo de itens
+    document.querySelectorAll('.catalogo-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.catalogo-tab').forEach(t => t.classList.remove('ativo'));
+            tab.classList.add('ativo');
+            renderizarTabelas(tab.dataset.tab);
+        });
+    });
+    
+    // Criar item personalizado
+    if (elements.btnCriarItem && elements.modalCriarItem) {
+        elements.btnCriarItem.addEventListener('click', () => {
+            configurarCamposItemPersonalizado();
+            elements.modalCriarItem.classList.add('active');
+        });
+    }
+    
+    if (elements.itemPersonalizadoTipo) {
+        elements.itemPersonalizadoTipo.addEventListener('change', configurarCamposItemPersonalizado);
+    }
+    
+    if (elements.cancelarCriarItem && elements.modalCriarItem) {
+        elements.cancelarCriarItem.addEventListener('click', () => {
+            elements.modalCriarItem.classList.remove('active');
+        });
+    }
+    
+    if (elements.confirmarCriarItem) {
+        elements.confirmarCriarItem.addEventListener('click', criarItemPersonalizado);
+    }
+    
+    // Botões de navegação
     if (elements.btnAnterior) {
         elements.btnAnterior.addEventListener('click', () => {
             if (abaAtual === 'combate') mudarAba('basicos');
@@ -4917,11 +5475,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (abaAtual === 'basicos') {
                 const nome = document.getElementById('nomePersonagem')?.value.trim();
                 if (!nome) {
-                    alert('Digite um nome');
+                    alert('Digite um nome para o personagem');
                     return;
                 }
                 if (esferasRestantes > 0) {
-                    alert(`Faltam ${esferasRestantes} esferas`);
+                    alert(`Você ainda tem ${esferasRestantes} esferas para distribuir`);
                     return;
                 }
                 salvarDadosBasicos();
@@ -4955,7 +5513,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             if (desvantagensSelecionadas.size < 4) {
-                alert(`Faltam ${4 - desvantagensSelecionadas.size} desvantagens`);
+                alert(`Você precisa escolher 4 desvantagens (faltam ${4 - desvantagensSelecionadas.size})`);
                 return;
             }
             
@@ -4963,6 +5521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Botões de ação
     if (elements.btnSalvarPersonagem) {
         elements.btnSalvarPersonagem.addEventListener('click', async () => {
             await salvarPersonagem(false);
@@ -5011,15 +5570,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    if (elements.btnCriarItem) {
-        const modalCriarItem = document.getElementById('modalCriarItem');
-        if (modalCriarItem) {
-            elements.btnCriarItem.addEventListener('click', () => {
-                modalCriarItem.classList.add('active');
-            });
-        }
-    }
-    
+    // Valores iniciais
     dinheiro = calcularDinheiroInicial();
     atualizarDinheiroDisplay();
     atualizarInterface();
@@ -5027,7 +5578,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================
-// FIM DO SCRIPT - 100% CORRIGIDO
+// FIM DO SCRIPT - COMPLETO E FUNCIONAL
 // ============================================
 </script>
 </body>
