@@ -760,8 +760,7 @@
         where,
         getDocs,
         addDoc,
-        updateDoc,
-        arrayUnion
+        updateDoc
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
     // Configuração do Firebase
@@ -869,42 +868,24 @@
         if (!currentUser || !userData) return;
         
         try {
-            // Buscar guildas onde o usuário é GM (pelo uid)
-            const q1 = query(
-                collection(db, "guildas"),
-                where("gm.uid", "==", currentUser.uid)
-            );
-            
-            // Buscar guildas onde o usuário é membro
-            const q2 = query(
-                collection(db, "guildas"),
-                where("membros", "array-contains", { uid: currentUser.uid })
-            );
-            
-            const [snapshot1, snapshot2] = await Promise.all([
-                getDocs(q1),
-                getDocs(q2)
-            ]);
+            const guildasRef = collection(db, "guildas");
+            const querySnapshot = await getDocs(guildasRef);
             
             guildas = [];
-            const idsAdicionados = new Set();
             
-            snapshot1.forEach((doc) => {
-                if (!idsAdicionados.has(doc.id)) {
-                    idsAdicionados.add(doc.id);
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                
+                // Verificar se o usuário é o GM (pelo uid)
+                const isGM = data.gm?.uid === currentUser.uid;
+                
+                // Verificar se o usuário é membro
+                const isMembro = data.membros?.some(m => m.uid === currentUser.uid);
+                
+                if (isGM || isMembro) {
                     guildas.push({
                         id: doc.id,
-                        ...doc.data()
-                    });
-                }
-            });
-            
-            snapshot2.forEach((doc) => {
-                if (!idsAdicionados.has(doc.id)) {
-                    idsAdicionados.add(doc.id);
-                    guildas.push({
-                        id: doc.id,
-                        ...doc.data()
+                        ...data
                     });
                 }
             });
@@ -996,7 +977,7 @@
             const isGM = guilda.gm?.uid === currentUser?.uid;
             
             html += `
-                <div class="gm-card" onclick="window.location.href='guilda.html?id=${guilda.id}'">
+                <div class="gm-card" data-guilda-id="${guilda.id}">
                     <div class="card-header">
                         <div class="card-icon">
                             <i class="fas fa-chess-queen"></i>
@@ -1023,6 +1004,18 @@
         });
         
         guildasGrid.innerHTML = html;
+        
+        // Adicionar evento de clique em cada card
+        setTimeout(() => {
+            document.querySelectorAll('.gm-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    const guildaId = this.dataset.guildaId;
+                    if (guildaId) {
+                        window.location.href = `guilda.html?id=${guildaId}`;
+                    }
+                });
+            });
+        }, 100);
     }
 
     function renderizarCampanhas() {
@@ -1084,24 +1077,19 @@
                 gm: {
                     uid: currentUser.uid,
                     id_gm: userData.id_gm,
-                    id_pc: userData.id_pc,
-                    nickname: userData.nickname,
-                    nome_completo: userData.nome_completo
+                    nickname: userData.nickname
                 },
                 membros: [
                     {
                         uid: currentUser.uid,
                         id_gm: userData.id_gm,
-                        id_pc: userData.id_pc,
                         nickname: userData.nickname,
-                        nome_completo: userData.nome_completo,
                         status: 'online',
                         funcao: 'gm',
                         entrou_em: new Date().toISOString()
                     }
                 ],
                 convites_pendentes: [],
-                solicitacoes_pendentes: [],
                 campanhas: [],
                 createdAt: new Date().toISOString()
             };
@@ -1116,7 +1104,6 @@
             nomeGuilda.value = '';
             descricaoGuilda.value = '';
             
-            // Redirecionar para a página da guilda
             window.location.href = `guilda.html?id=${docRef.id}`;
             
         } catch (error) {
