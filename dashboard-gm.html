@@ -779,548 +779,585 @@
     </div>
 
     <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import { 
-        getAuth, 
-        signOut,
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-    import { 
-        getFirestore, 
-        doc,
-        getDoc,
-        collection,
-        query,
-        where,
-        getDocs,
-        addDoc,
-        updateDoc,
-        onSnapshot
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { 
+    getAuth, 
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    addDoc,
+    updateDoc,
+    onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-        authDomain: "rpgforce-e3227.firebaseapp.com",
-        projectId: "rpgforce-e3227",
-        storageBucket: "rpgforce-e3227.firebasestorage.app",
-        messagingSenderId: "984517342332",
-        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+    authDomain: "rpgforce-e3227.firebaseapp.com",
+    projectId: "rpgforce-e3227",
+    storageBucket: "rpgforce-e3227.firebasestorage.app",
+    messagingSenderId: "984517342332",
+    appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    // Elementos
-    const displayIdGm = document.getElementById('displayIdGm');
-    const displayNickname = document.getElementById('displayNickname');
-    const welcomeName = document.getElementById('welcomeName');
-    const btnSair = document.getElementById('btnSair');
-    const btnCriarGuilda = document.getElementById('btnCriarGuilda');
-    const btnCriarCampanha = document.getElementById('btnCriarCampanha');
-    const btnBuscarJogador = document.getElementById('btnBuscarJogador');
-    const statGuildas = document.getElementById('statGuildas');
-    const statCampanhas = document.getElementById('statCampanhas');
-    const statJogadores = document.getElementById('statJogadores');
-    const guildasGrid = document.getElementById('guildasGrid');
-    const campanhasGrid = document.getElementById('campanhasGrid');
-    const jogadoresGrid = document.getElementById('jogadoresGrid');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const modalCriarGuilda = document.getElementById('modalCriarGuilda');
-    const cancelarCriarGuilda = document.getElementById('cancelarCriarGuilda');
-    const confirmarCriarGuilda = document.getElementById('confirmarCriarGuilda');
-    const nomeGuilda = document.getElementById('nomeGuilda');
-    const descricaoGuilda = document.getElementById('descricaoGuilda');
-    const btnMinhasGuildas = document.getElementById('btnMinhasGuildas');
+// Elementos
+const displayIdGm = document.getElementById('displayIdGm');
+const displayNickname = document.getElementById('displayNickname');
+const welcomeName = document.getElementById('welcomeName');
+const btnSair = document.getElementById('btnSair');
+const btnCriarGuilda = document.getElementById('btnCriarGuilda');
+const btnCriarCampanha = document.getElementById('btnCriarCampanha');
+const btnBuscarJogador = document.getElementById('btnBuscarJogador');
+const statGuildas = document.getElementById('statGuildas');
+const statCampanhas = document.getElementById('statCampanhas');
+const statJogadores = document.getElementById('statJogadores');
+const guildasGrid = document.getElementById('guildasGrid');
+const campanhasGrid = document.getElementById('campanhasGrid');
+const jogadoresGrid = document.getElementById('jogadoresGrid');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const modalCriarGuilda = document.getElementById('modalCriarGuilda');
+const cancelarCriarGuilda = document.getElementById('cancelarCriarGuilda');
+const confirmarCriarGuilda = document.getElementById('confirmarCriarGuilda');
+const nomeGuilda = document.getElementById('nomeGuilda');
+const descricaoGuilda = document.getElementById('descricaoGuilda');
+const btnMinhasGuildas = document.getElementById('btnMinhasGuildas');
 
-    let currentUser = null;
-    let userData = null;
-    let guildas = [];
-    let campanhas = [];
-    let jogadores = [];
+let currentUser = null;
+let userData = null;
+let guildas = [];
+let campanhas = [];
+let jogadores = [];
 
-    function showLoading() {
-        if (loadingOverlay) loadingOverlay.classList.add('active');
-    }
+function showLoading() {
+    if (loadingOverlay) loadingOverlay.classList.add('active');
+}
 
-    function hideLoading() {
-        if (loadingOverlay) loadingOverlay.classList.remove('active');
-    }
+function hideLoading() {
+    if (loadingOverlay) loadingOverlay.classList.remove('active');
+}
 
-    function showToast(message, type = 'info') {
-        alert(message); // Simples por enquanto
-    }
+function showToast(message, type = 'info') {
+    alert(message); // Simples por enquanto
+}
 
-    window.showTab = function(tabName) {
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
-        
-        document.querySelectorAll('.tab').forEach(tab => {
-            if (tab.getAttribute('href') === '#' + tabName) {
-                tab.classList.add('active');
-            }
-        });
-    }
+window.showTab = function(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+    
+    document.querySelectorAll('.tab').forEach(tab => {
+        if (tab.getAttribute('href') === '#' + tabName) {
+            tab.classList.add('active');
+        }
+    });
+}
 
-    function gerarIdGuilda() {
-        const prefixo = 'GLD';
-        const numero = Math.floor(Math.random() * 90000) + 10000;
-        return prefixo + numero;
-    }
+function gerarIdGuilda() {
+    const prefixo = 'GLD';
+    const numero = Math.floor(Math.random() * 90000) + 10000;
+    return prefixo + numero;
+}
 
-    // ===== FUNÇÃO CORRIGIDA DO BOTÃO MINHAS GUILDAS =====
-    function abrirMinhaGuilda() {
-        console.log('Clicou em Minhas Guildas');
-        console.log('Guildas carregadas:', guildas);
-        
+// ===== FUNÇÃO PRINCIPAL DO BOTÃO MINHAS GUILDAS =====
+async function abrirMinhaGuilda() {
+    e.preventDefault();
+    console.log('Clicou em Minhas Guildas');
+    
+    showLoading();
+    
+    try {
+        // Se já tem guildas carregadas, usa elas
         if (guildas && guildas.length > 0) {
-            // Procura pela guilda onde você é o GM
-            const minhaGuilda = guildas.find(g => g.gm?.uid === currentUser?.uid);
+            console.log('Usando guildas já carregadas:', guildas);
+            
+            // Primeiro tenta achar onde é GM
+            let minhaGuilda = guildas.find(g => g.gm?.uid === currentUser?.uid);
+            
+            // Se não achou como GM, pega a primeira onde é membro
+            if (!minhaGuilda) {
+                minhaGuilda = guildas[0];
+            }
             
             if (minhaGuilda) {
                 const guildaId = minhaGuilda.firestoreId || minhaGuilda.id;
-                console.log('Redirecionando para guilda:', minhaGuilda.nome, 'ID:', guildaId);
+                console.log('Redirecionando para:', guildaId);
                 window.location.href = `guilda.html?id=${guildaId}`;
-            } else {
-                // Se não encontrar como GM, pega a primeira
-                const primeiraGuilda = guildas[0];
-                const guildaId = primeiraGuilda.firestoreId || primeiraGuilda.id;
-                console.log('Redirecionando para primeira guilda:', primeiraGuilda.nome, 'ID:', guildaId);
-                window.location.href = `guilda.html?id=${guildaId}`;
+                return;
             }
+        }
+        
+        // Se não tem guildas carregadas, busca direto do Firebase
+        console.log('Buscando guildas do Firebase...');
+        const guildasRef = collection(db, "guildas");
+        const querySnapshot = await getDocs(guildasRef);
+        
+        let guildasTemp = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            // Verifica se é GM ou membro
+            if (data.gm?.uid === currentUser?.uid || 
+                data.membros?.some(m => m.uid === currentUser?.uid)) {
+                guildasTemp.push({
+                    id: doc.id,
+                    firestoreId: doc.id,
+                    ...data
+                });
+            }
+        });
+        
+        console.log('Guildas encontradas:', guildasTemp);
+        
+        if (guildasTemp.length > 0) {
+            // Pega a primeira guilda
+            const minhaGuilda = guildasTemp[0];
+            window.location.href = `guilda.html?id=${minhaGuilda.firestoreId || minhaGuilda.id}`;
         } else {
             alert('Você ainda não tem guildas. Crie uma primeiro!');
             if (modalCriarGuilda) {
                 modalCriarGuilda.style.display = 'flex';
             }
         }
+    } catch (error) {
+        console.error('Erro ao buscar guildas:', error);
+        alert('Erro ao carregar guildas: ' + error.message);
+    } finally {
+        hideLoading();
     }
+}
 
-    // Adiciona o evento ao botão
-    if (btnMinhasGuildas) {
-        btnMinhasGuildas.addEventListener('click', function(e) {
-            e.preventDefault();
-            abrirMinhaGuilda();
-        });
-    }
+// Adiciona o evento ao botão
+if (btnMinhasGuildas) {
+    btnMinhasGuildas.addEventListener('click', abrirMinhaGuilda);
+}
 
-    async function carregarDadosUsuario(user) {
-        if (!user) return;
+async function carregarDadosUsuario(user) {
+    if (!user) return;
+    
+    try {
+        showLoading();
+        currentUser = user;
         
-        try {
-            showLoading();
-            currentUser = user;
+        const docRef = doc(db, "usuarios", user.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            userData = docSnap.data();
             
-            const docRef = doc(db, "usuarios", user.uid);
-            const docSnap = await getDoc(docRef);
+            if (displayIdGm) displayIdGm.textContent = userData.id_gm || '--------';
+            if (displayNickname) displayNickname.textContent = userData.nickname || 'Mestre';
+            if (welcomeName) welcomeName.textContent = userData.nickname || userData.nome_completo || 'Mestre';
             
-            if (docSnap.exists()) {
-                userData = docSnap.data();
-                
-                if (displayIdGm) displayIdGm.textContent = userData.id_gm || '--------';
-                if (displayNickname) displayNickname.textContent = userData.nickname || 'Mestre';
-                if (welcomeName) welcomeName.textContent = userData.nickname || userData.nome_completo || 'Mestre';
-                
-                await carregarGuildas();
-                await carregarCampanhas();
-                await carregarJogadores();
-                
-                iniciarListeners();
-                
-            } else {
-                showToast('Usuário não encontrado no banco de dados', 'error');
-            }
-        } catch (error) {
-            console.error('Erro ao carregar dados:', error);
-            showToast('Erro ao carregar dados: ' + error.message, 'error');
-        } finally {
-            hideLoading();
+            await carregarGuildas();
+            await carregarCampanhas();
+            await carregarJogadores();
+            
+            iniciarListeners();
+            
+        } else {
+            showToast('Usuário não encontrado no banco de dados', 'error');
         }
+    } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        showToast('Erro ao carregar dados: ' + error.message, 'error');
+    } finally {
+        hideLoading();
     }
+}
 
-    function iniciarListeners() {
-        if (!currentUser) return;
+function iniciarListeners() {
+    if (!currentUser) return;
+    
+    const guildasRef = collection(db, "guildas");
+    onSnapshot(guildasRef, (snapshot) => {
+        guildas = [];
         
-        const guildasRef = collection(db, "guildas");
-        const unsubscribeGuildas = onSnapshot(guildasRef, (snapshot) => {
-            guildas = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data();
             
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                
-                const isGM = data.gm?.uid === currentUser.uid;
-                const isMembro = data.membros?.some(m => m.uid === currentUser.uid);
-                
-                if (isGM || isMembro) {
-                    guildas.push({
-                        id: doc.id,
-                        firestoreId: doc.id,
-                        ...data
-                    });
-                }
-            });
+            const isGM = data.gm?.uid === currentUser.uid;
+            const isMembro = data.membros?.some(m => m.uid === currentUser.uid);
             
-            renderizarGuildas();
-            atualizarEstatisticas();
-        });
-    }
-
-    async function carregarGuildas() {
-        if (!currentUser || !userData) return;
-        
-        try {
-            const guildasRef = collection(db, "guildas");
-            const querySnapshot = await getDocs(guildasRef);
-            
-            guildas = [];
-            
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                
-                const isGM = data.gm?.uid === currentUser.uid;
-                const isMembro = data.membros?.some(m => m.uid === currentUser.uid);
-                
-                if (isGM || isMembro) {
-                    guildas.push({
-                        id: doc.id,
-                        firestoreId: doc.id,
-                        ...data
-                    });
-                }
-            });
-            
-            console.log('Guildas carregadas:', guildas);
-            renderizarGuildas();
-            
-        } catch (error) {
-            console.error('Erro ao carregar guildas:', error);
-        }
-    }
-
-    async function carregarCampanhas() {
-        if (!currentUser || !userData || !userData.id_gm) return;
-        
-        try {
-            const q = query(
-                collection(db, "campanhas"),
-                where("gm.id_gm", "==", userData.id_gm)
-            );
-            
-            const querySnapshot = await getDocs(q);
-            campanhas = [];
-            
-            querySnapshot.forEach((doc) => {
-                campanhas.push({
+            if (isGM || isMembro) {
+                guildas.push({
                     id: doc.id,
-                    ...doc.data()
+                    firestoreId: doc.id,
+                    ...data
                 });
-            });
-            
-            renderizarCampanhas();
-            
-        } catch (error) {
-            console.error('Erro ao carregar campanhas:', error);
-        }
-    }
+            }
+        });
+        
+        console.log('Listener - guildas atualizadas:', guildas);
+        renderizarGuildas();
+        atualizarEstatisticas();
+    });
+}
 
-    async function carregarJogadores() {
-        if (!guildas.length) return;
+async function carregarGuildas() {
+    if (!currentUser || !userData) return;
+    
+    try {
+        const guildasRef = collection(db, "guildas");
+        const querySnapshot = await getDocs(guildasRef);
         
-        try {
-            const jogadoresSet = new Set();
+        guildas = [];
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
             
-            guildas.forEach(guilda => {
-                if (guilda.membros) {
-                    guilda.membros.forEach(membro => {
-                        if (membro.uid !== currentUser?.uid) {
-                            jogadoresSet.add(JSON.stringify({
-                                uid: membro.uid,
-                                nickname: membro.nickname,
-                                id_pc: membro.id_pc
-                            }));
-                        }
-                    });
-                }
-            });
+            const isGM = data.gm?.uid === currentUser.uid;
+            const isMembro = data.membros?.some(m => m.uid === currentUser.uid);
             
-            jogadores = Array.from(jogadoresSet).map(j => JSON.parse(j));
-            renderizarJogadores();
-            
-        } catch (error) {
-            console.error('Erro ao carregar jogadores:', error);
-        }
+            if (isGM || isMembro) {
+                guildas.push({
+                    id: doc.id,
+                    firestoreId: doc.id,
+                    ...data
+                });
+            }
+        });
+        
+        console.log('Guildas carregadas:', guildas);
+        renderizarGuildas();
+        
+    } catch (error) {
+        console.error('Erro ao carregar guildas:', error);
     }
+}
 
-    function renderizarGuildas() {
-        if (!guildasGrid) return;
+async function carregarCampanhas() {
+    if (!currentUser || !userData || !userData.id_gm) return;
+    
+    try {
+        const q = query(
+            collection(db, "campanhas"),
+            where("gm.id_gm", "==", userData.id_gm)
+        );
         
-        if (guildas.length === 0) {
-            guildasGrid.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-chess-queen"></i>
-                    <h3>Você ainda não tem guildas</h3>
-                    <p>Crie sua primeira guilda para começar a reunir jogadores</p>
-                    <button class="btn-primary" onclick="document.getElementById('btnCriarGuilda').click()">
-                        <i class="fas fa-plus-circle"></i> Criar Guilda
-                    </button>
-                </div>
-            `;
-            return;
-        }
+        const querySnapshot = await getDocs(q);
+        campanhas = [];
         
-        let html = '';
+        querySnapshot.forEach((doc) => {
+            campanhas.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        renderizarCampanhas();
+        
+    } catch (error) {
+        console.error('Erro ao carregar campanhas:', error);
+    }
+}
+
+async function carregarJogadores() {
+    if (!guildas.length) return;
+    
+    try {
+        const jogadoresSet = new Set();
+        
         guildas.forEach(guilda => {
-            const totalMembros = guilda.membros?.length || 1;
-            const onlineMembros = guilda.membros?.filter(m => m.status === 'online').length || 0;
-            const isGM = guilda.gm?.uid === currentUser?.uid;
-            
-            html += `
-                <div class="gm-card" data-guilda-id="${guilda.firestoreId || guilda.id}" onclick="window.location.href='guilda.html?id=${guilda.firestoreId || guilda.id}'">
-                    <div class="card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-chess-queen"></i>
-                        </div>
-                        <div class="card-title">
-                            <h3>${guilda.nome || 'Guilda sem nome'} ${isGM ? '👑' : ''}</h3>
-                            <div class="subtitle">
-                                <i class="fas fa-tag"></i> ${guilda.id_guilda || 'ID pendente'}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        ${guilda.descricao ? guilda.descricao.substring(0, 100) + (guilda.descricao.length > 100 ? '...' : '') : 'Sem descrição'}
-                    </div>
-                    <div class="card-footer">
-                        <div class="card-status">
-                            <i class="fas fa-circle ${onlineMembros > 0 ? 'status-active' : 'status-pending'}"></i>
-                            <span>${onlineMembros} online / ${totalMembros} membros</span>
-                        </div>
-                        <span class="btn-card">${isGM ? 'Gerenciar' : 'Visualizar'}</span>
-                    </div>
-                </div>
-            `;
+            if (guilda.membros) {
+                guilda.membros.forEach(membro => {
+                    if (membro.uid !== currentUser?.uid) {
+                        jogadoresSet.add(JSON.stringify({
+                            uid: membro.uid,
+                            nickname: membro.nickname,
+                            id_pc: membro.id_pc
+                        }));
+                    }
+                });
+            }
         });
         
-        guildasGrid.innerHTML = html;
+        jogadores = Array.from(jogadoresSet).map(j => JSON.parse(j));
+        renderizarJogadores();
+        
+    } catch (error) {
+        console.error('Erro ao carregar jogadores:', error);
     }
+}
 
-    function renderizarCampanhas() {
-        if (!campanhasGrid) return;
-        
-        if (campanhas.length === 0) {
-            campanhasGrid.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-scroll"></i>
-                    <h3>Nenhuma campanha ativa</h3>
-                    <p>Crie uma campanha em uma de suas guildas</p>
-                    <button class="btn-primary" onclick="criarCampanha()">
-                        <i class="fas fa-plus-circle"></i> Nova Campanha
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '';
-        campanhas.forEach(campanha => {
-            html += `
-                <div class="gm-card" onclick="window.location.href='campanha.html?id=${campanha.id}'">
-                    <div class="card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-scroll"></i>
-                        </div>
-                        <div class="card-title">
-                            <h3>${campanha.nome || 'Campanha sem nome'}</h3>
-                        </div>
-                    </div>
-                    <div class="card-footer">
-                        <span class="btn-card">Mestrar</span>
-                    </div>
-                </div>
-            `;
-        });
-        
-        campanhasGrid.innerHTML = html;
+function renderizarGuildas() {
+    if (!guildasGrid) return;
+    
+    if (guildas.length === 0) {
+        guildasGrid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-chess-queen"></i>
+                <h3>Você ainda não tem guildas</h3>
+                <p>Crie sua primeira guilda para começar a reunir jogadores</p>
+                <button class="btn-primary" onclick="document.getElementById('btnCriarGuilda').click()">
+                    <i class="fas fa-plus-circle"></i> Criar Guilda
+                </button>
+            </div>
+        `;
+        return;
     }
-
-    function renderizarJogadores() {
-        if (!jogadoresGrid) return;
+    
+    let html = '';
+    guildas.forEach(guilda => {
+        const totalMembros = guilda.membros?.length || 1;
+        const onlineMembros = guilda.membros?.filter(m => m.status === 'online').length || 0;
+        const isGM = guilda.gm?.uid === currentUser?.uid;
         
-        if (jogadores.length === 0) {
-            jogadoresGrid.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-users"></i>
-                    <h3>Nenhum jogador encontrado</h3>
-                    <p>Os jogadores que entrarem nas suas guildas aparecerão aqui</p>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '';
-        jogadores.forEach(jogador => {
-            html += `
-                <div class="gm-card">
-                    <div class="card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div class="card-title">
-                            <h3>${jogador.nickname || 'Jogador'}</h3>
+        html += `
+            <div class="gm-card" data-guilda-id="${guilda.firestoreId || guilda.id}" onclick="window.location.href='guilda.html?id=${guilda.firestoreId || guilda.id}'">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-chess-queen"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>${guilda.nome || 'Guilda sem nome'} ${isGM ? '👑' : ''}</h3>
+                        <div class="subtitle">
+                            <i class="fas fa-tag"></i> ${guilda.id_guilda || 'ID pendente'}
                         </div>
                     </div>
                 </div>
-            `;
-        });
-        
-        jogadoresGrid.innerHTML = html;
-    }
+                <div class="card-body">
+                    ${guilda.descricao ? guilda.descricao.substring(0, 100) + (guilda.descricao.length > 100 ? '...' : '') : 'Sem descrição'}
+                </div>
+                <div class="card-footer">
+                    <div class="card-status">
+                        <i class="fas fa-circle ${onlineMembros > 0 ? 'status-active' : 'status-pending'}"></i>
+                        <span>${onlineMembros} online / ${totalMembros} membros</span>
+                    </div>
+                    <span class="btn-card">${isGM ? 'Gerenciar' : 'Visualizar'}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    guildasGrid.innerHTML = html;
+}
 
-    function atualizarEstatisticas() {
-        if (statGuildas) statGuildas.textContent = guildas.length;
-        if (statCampanhas) statCampanhas.textContent = campanhas.length;
-        if (statJogadores) statJogadores.textContent = jogadores.length;
+function renderizarCampanhas() {
+    if (!campanhasGrid) return;
+    
+    if (campanhas.length === 0) {
+        campanhasGrid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-scroll"></i>
+                <h3>Nenhuma campanha ativa</h3>
+                <p>Crie uma campanha em uma de suas guildas</p>
+                <button class="btn-primary" onclick="criarCampanha()">
+                    <i class="fas fa-plus-circle"></i> Nova Campanha
+                </button>
+            </div>
+        `;
+        return;
     }
+    
+    let html = '';
+    campanhas.forEach(campanha => {
+        html += `
+            <div class="gm-card" onclick="window.location.href='campanha.html?id=${campanha.id}'">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-scroll"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>${campanha.nome || 'Campanha sem nome'}</h3>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <span class="btn-card">Mestrar</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    campanhasGrid.innerHTML = html;
+}
 
-    async function criarGuilda(nome, descricao) {
-        if (!currentUser || !userData) {
-            showToast('Usuário não autenticado', 'error');
-            return;
-        }
+function renderizarJogadores() {
+    if (!jogadoresGrid) return;
+    
+    if (jogadores.length === 0) {
+        jogadoresGrid.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>Nenhum jogador encontrado</h3>
+                <p>Os jogadores que entrarem nas suas guildas aparecerão aqui</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    jogadores.forEach(jogador => {
+        html += `
+            <div class="gm-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>${jogador.nickname || 'Jogador'}</h3>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    jogadoresGrid.innerHTML = html;
+}
+
+function atualizarEstatisticas() {
+    if (statGuildas) statGuildas.textContent = guildas.length;
+    if (statCampanhas) statCampanhas.textContent = campanhas.length;
+    if (statJogadores) statJogadores.textContent = jogadores.length;
+}
+
+async function criarGuilda(nome, descricao) {
+    if (!currentUser || !userData) {
+        alert('Usuário não autenticado');
+        return;
+    }
+    
+    try {
+        showLoading();
         
-        try {
-            showLoading();
-            
-            const idGuilda = gerarIdGuilda();
-            
-            const novaGuilda = {
-                nome: nome,
-                descricao: descricao || '',
-                id_guilda: idGuilda,
-                gm: {
+        const idGuilda = gerarIdGuilda();
+        
+        const novaGuilda = {
+            nome: nome,
+            descricao: descricao || '',
+            id_guilda: idGuilda,
+            gm: {
+                uid: currentUser.uid,
+                id_gm: userData.id_gm,
+                nickname: userData.nickname || userData.nome_completo
+            },
+            membros: [
+                {
                     uid: currentUser.uid,
                     id_gm: userData.id_gm,
-                    nickname: userData.nickname || userData.nome_completo
-                },
-                membros: [
-                    {
-                        uid: currentUser.uid,
-                        id_gm: userData.id_gm,
-                        nickname: userData.nickname || userData.nome_completo,
-                        status: 'online',
-                        funcao: 'gm',
-                        entrou_em: new Date().toISOString()
-                    }
-                ],
-                convites_pendentes: [],
-                campanhas: [],
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            const docRef = await addDoc(collection(db, "guildas"), novaGuilda);
-            
-            await updateDoc(docRef, { 
-                firestoreId: docRef.id
-            });
-            
-            alert('Guilda criada com sucesso!');
-            
-            modalCriarGuilda.style.display = 'none';
-            nomeGuilda.value = '';
-            descricaoGuilda.value = '';
-            
-            // Redireciona para a nova guilda
-            window.location.href = `guilda.html?id=${docRef.id}`;
-            
+                    nickname: userData.nickname || userData.nome_completo,
+                    status: 'online',
+                    funcao: 'gm',
+                    entrou_em: new Date().toISOString()
+                }
+            ],
+            convites_pendentes: [],
+            campanhas: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        const docRef = await addDoc(collection(db, "guildas"), novaGuilda);
+        
+        await updateDoc(docRef, { 
+            firestoreId: docRef.id
+        });
+        
+        alert('Guilda criada com sucesso!');
+        
+        modalCriarGuilda.style.display = 'none';
+        nomeGuilda.value = '';
+        descricaoGuilda.value = '';
+        
+        // Redireciona para a nova guilda
+        window.location.href = `guilda.html?id=${docRef.id}`;
+        
+    } catch (error) {
+        console.error('Erro ao criar guilda:', error);
+        alert('Erro ao criar guilda: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Event Listeners
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        await carregarDadosUsuario(user);
+    } else {
+        window.location.href = 'escolher-tipo.html';
+    }
+});
+
+if (btnSair) {
+    btnSair.addEventListener('click', async () => {
+        try {
+            showLoading();
+            await signOut(auth);
+            window.location.href = 'index.html';
         } catch (error) {
-            console.error('Erro ao criar guilda:', error);
-            alert('Erro ao criar guilda: ' + error.message);
-        } finally {
+            console.error('Erro ao sair:', error);
             hideLoading();
         }
-    }
+    });
+}
 
-    // Event Listeners
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            await carregarDadosUsuario(user);
-        } else {
-            window.location.href = 'escolher-tipo.html';
+if (btnCriarGuilda) {
+    btnCriarGuilda.addEventListener('click', () => {
+        if (modalCriarGuilda) {
+            modalCriarGuilda.style.display = 'flex';
         }
     });
+}
 
-    if (btnSair) {
-        btnSair.addEventListener('click', async () => {
-            try {
-                showLoading();
-                await signOut(auth);
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Erro ao sair:', error);
-                hideLoading();
-            }
-        });
-    }
+if (cancelarCriarGuilda) {
+    cancelarCriarGuilda.addEventListener('click', () => {
+        modalCriarGuilda.style.display = 'none';
+        nomeGuilda.value = '';
+        descricaoGuilda.value = '';
+    });
+}
 
-    if (btnCriarGuilda) {
-        btnCriarGuilda.addEventListener('click', () => {
-            if (modalCriarGuilda) {
-                modalCriarGuilda.style.display = 'flex';
-            }
-        });
-    }
+if (confirmarCriarGuilda) {
+    confirmarCriarGuilda.addEventListener('click', async () => {
+        const nome = nomeGuilda ? nomeGuilda.value.trim() : '';
+        if (!nome) {
+            alert('Digite um nome para a guilda');
+            return;
+        }
+        const descricao = descricaoGuilda ? descricaoGuilda.value.trim() : '';
+        await criarGuilda(nome, descricao);
+    });
+}
 
-    if (cancelarCriarGuilda) {
-        cancelarCriarGuilda.addEventListener('click', () => {
-            modalCriarGuilda.style.display = 'none';
-            nomeGuilda.value = '';
-            descricaoGuilda.value = '';
-        });
-    }
+if (btnCriarCampanha) {
+    btnCriarCampanha.addEventListener('click', () => {
+        alert('Criar campanha - em desenvolvimento');
+    });
+}
 
-    if (confirmarCriarGuilda) {
-        confirmarCriarGuilda.addEventListener('click', async () => {
-            const nome = nomeGuilda ? nomeGuilda.value.trim() : '';
-            if (!nome) {
-                alert('Digite um nome para a guilda');
-                return;
-            }
-            const descricao = descricaoGuilda ? descricaoGuilda.value.trim() : '';
-            await criarGuilda(nome, descricao);
-        });
-    }
-
-    if (btnCriarCampanha) {
-        btnCriarCampanha.addEventListener('click', () => {
-            alert('Criar campanha - em desenvolvimento');
-        });
-    }
-
-    if (btnBuscarJogador) {
-        btnBuscarJogador.addEventListener('click', () => {
-            const idPc = prompt('Digite o ID PC do jogador:');
-            if (idPc) {
-                alert('Buscar jogador - em desenvolvimento');
-            }
-        });
-    }
-
-    // Fechar modal ao clicar fora
-    window.addEventListener('click', (e) => {
-        if (e.target === modalCriarGuilda) {
-            modalCriarGuilda.style.display = 'none';
-            nomeGuilda.value = '';
-            descricaoGuilda.value = '';
+if (btnBuscarJogador) {
+    btnBuscarJogador.addEventListener('click', () => {
+        const idPc = prompt('Digite o ID PC do jogador:');
+        if (idPc) {
+            alert('Buscar jogador - em desenvolvimento');
         }
     });
+}
 
-    </script>
+// Fechar modal ao clicar fora
+window.addEventListener('click', (e) => {
+    if (e.target === modalCriarGuilda) {
+        modalCriarGuilda.style.display = 'none';
+        nomeGuilda.value = '';
+        descricaoGuilda.value = '';
+    }
+});
+
+</script>
 </body>
 </html>
