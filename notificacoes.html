@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>Notificações - RPGForce</title>
+    
+    <!-- Fontes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #2a1a3a 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .magic-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .magic-bg::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        .magic-bg::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 80% 80%, rgba(198, 40, 40, 0.1) 0%, transparent 50%);
+            animation: pulse 10s ease-in-out infinite reverse;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(10, 10, 26, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 20px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .back-btn {
+            color: #ffd700;
+            font-size: 1.2rem;
+            text-decoration: none;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .header h1 {
+            font-family: 'MedievalSharp', cursive;
+            font-size: 1.5rem;
+            background: linear-gradient(45deg, #ffd700, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-marcar-lidas {
+            background: transparent;
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Lista de notificações */
+        .notificacoes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notificacao-card {
+            background: rgba(10, 10, 26, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 15px;
+            padding: 15px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .notificacao-card:hover {
+            border-color: #ffd700;
+            transform: translateX(5px);
+        }
+
+        .notificacao-card.nao-lida {
+            background: rgba(255, 215, 0, 0.1);
+            border-left: 4px solid #ffd700;
+        }
+
+        .notificacao-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .notificacao-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0a0a1a;
+        }
+
+        .notificacao-titulo {
+            flex: 1;
+        }
+
+        .notificacao-titulo h3 {
+            font-size: 1rem;
+            color: #ffd700;
+        }
+
+        .notificacao-titulo .data {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .notificacao-mensagem {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            padding-left: 52px;
+        }
+
+        .notificacao-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            padding-left: 52px;
+        }
+
+        .btn-aceitar {
+            background: #00ff00;
+            color: #0a0a1a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-recusar {
+            background: #ff6b6b;
+            color: #0a0a1a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-ver {
+            background: #ffd700;
+            color: #0a0a1a;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Estado vazio */
+        .empty-state {
+            background: rgba(10, 10, 26, 0.6);
+            border: 2px dashed rgba(255, 215, 0, 0.3);
+            border-radius: 20px;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: rgba(255, 215, 0, 0.3);
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Loading */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 26, 0.95);
+            z-index: 5000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 215, 0, 0.2);
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsivo */
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .btn-marcar-lidas span {
+                display: none;
+            }
+
+            .notificacao-actions {
+                flex-wrap: wrap;
+            }
+
+            .notificacao-actions button {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="magic-bg"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Carregando...</div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <a href="dashboard-pc.html" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1>Notificações</h1>
+            </div>
+            <button class="btn-marcar-lidas" id="btnMarcarTodasLidas">
+                <i class="fas fa-check-double"></i>
+                <span>Marcar todas como lidas</span>
+            </button>
+        </div>
+
+        <!-- Lista de Notificações -->
+        <div class="notificacoes-list" id="notificacoesList">
+            <div class="empty-state">
+                <i class="fas fa-bell"></i>
+                <h3>Nenhuma notificação</h3>
+                <p>Você não tem notificações no momento</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc,
+            getDoc,
+            updateDoc,
+            deleteDoc,
+            collection,
+            query,
+            where,
+            getDocs,
+            addDoc,
+            onSnapshot,
+            orderBy
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+            authDomain: "rpgforce-e3227.firebaseapp.com",
+            projectId: "rpgforce-e3227",
+            storageBucket: "rpgforce-e3227.firebasestorage.app",
+            messagingSenderId: "984517342332",
+            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let notificacoesUnsubscribe = null;
+
+        const elements = {
+            loading: document.getElementById('loadingOverlay'),
+            notificacoesList: document.getElementById('notificacoesList'),
+            btnMarcarTodasLidas: document.getElementById('btnMarcarTodasLidas')
+        };
+
+        function showLoading() {
+            elements.loading.classList.add('active');
+        }
+
+        function hideLoading() {
+            elements.loading.classList.remove('active');
+        }
+
+        // Carregar notificações em tempo real
+        function carregarNotificacoes() {
+            if (!currentUser) return;
+
+            const q = query(
+                collection(db, "notificacoes"),
+                where("usuarioId", "==", currentUser.uid),
+                orderBy("data", "desc")
+            );
+
+            notificacoesUnsubscribe = onSnapshot(q, (snapshot) => {
+                const notificacoes = [];
+                snapshot.forEach((doc) => {
+                    notificacoes.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                renderizarNotificacoes(notificacoes);
+            });
+        }
+
+        // Renderizar notificações
+        function renderizarNotificacoes(notificacoes) {
+            if (notificacoes.length === 0) {
+                elements.notificacoesList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-bell"></i>
+                        <h3>Nenhuma notificação</h3>
+                        <p>Você não tem notificações no momento</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            notificacoes.forEach(notif => {
+                const data = new Date(notif.data).toLocaleString();
+                const naoLida = !notif.lida;
+                
+                html += `
+                    <div class="notificacao-card ${naoLida ? 'nao-lida' : ''}" data-id="${notif.id}">
+                        <div class="notificacao-header">
+                            <div class="notificacao-icon">
+                                ${getIconePorTipo(notif.tipo)}
+                            </div>
+                            <div class="notificacao-titulo">
+                                <h3>${notif.titulo || 'Notificação'}</h3>
+                                <div class="data">${data}</div>
+                            </div>
+                        </div>
+                        <div class="notificacao-mensagem">
+                            ${notif.mensagem || ''}
+                        </div>
+                        <div class="notificacao-actions">
+                            ${getAcoesPorTipo(notif)}
+                        </div>
+                    </div>
+                `;
+            });
+
+            elements.notificacoesList.innerHTML = html;
+
+            // Adicionar event listeners para os botões
+            notificacoes.forEach(notif => {
+                const card = document.querySelector(`[data-id="${notif.id}"]`);
+                if (!card) return;
+
+                // Marcar como lida ao clicar
+                card.addEventListener('click', async (e) => {
+                    if (!e.target.closest('button')) {
+                        await marcarComoLida(notif.id);
+                    }
+                });
+
+                // Botões específicos por tipo
+                if (notif.tipo === 'convite_guilda') {
+                    const btnAceitar = card.querySelector('.btn-aceitar');
+                    const btnRecusar = card.querySelector('.btn-recusar');
+                    
+                    btnAceitar?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        responderConvite(notif, 'aceitar');
+                    });
+                    
+                    btnRecusar?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        responderConvite(notif, 'recusar');
+                    });
+                }
+            });
+        }
+
+        function getIconePorTipo(tipo) {
+            switch(tipo) {
+                case 'convite_guilda': return '<i class="fas fa-envelope"></i>';
+                case 'solicitacao_aceita': return '<i class="fas fa-check-circle"></i>';
+                case 'solicitacao_recusada': return '<i class="fas fa-times-circle"></i>';
+                case 'solicitacao_entrada': return '<i class="fas fa-user-plus"></i>';
+                default: return '<i class="fas fa-bell"></i>';
+            }
+        }
+
+        function getAcoesPorTipo(notif) {
+            switch(notif.tipo) {
+                case 'convite_guilda':
+                    return `
+                        <button class="btn-aceitar">
+                            <i class="fas fa-check"></i> Aceitar
+                        </button>
+                        <button class="btn-recusar">
+                            <i class="fas fa-times"></i> Recusar
+                        </button>
+                    `;
+                case 'solicitacao_aceita':
+                    return `
+                        <button class="btn-ver" onclick="window.location.href='guilda.html?id=${notif.guildaId}'">
+                            <i class="fas fa-eye"></i> Ver Guilda
+                        </button>
+                    `;
+                default:
+                    return `
+                        <button class="btn-ver" onclick="marcarComoLida('${notif.id}')">
+                            <i class="fas fa-check"></i> Marcar como lida
+                        </button>
+                    `;
+            }
+        }
+
+        async function marcarComoLida(notificacaoId) {
+            try {
+                await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                    lida: true
+                });
+            } catch (error) {
+                console.error('Erro ao marcar como lida:', error);
+            }
+        }
+
+        async function responderConvite(notificacao, acao) {
+            try {
+                showLoading();
+
+                if (acao === 'aceitar') {
+                    // Buscar dados da guilda
+                    const guildRef = doc(db, "guildas", notificacao.guildaId);
+                    const guildSnap = await getDoc(guildRef);
+                    
+                    if (!guildSnap.exists()) {
+                        alert('Guilda não encontrada');
+                        return;
+                    }
+
+                    const guildData = guildSnap.data();
+
+                    // Adicionar jogador aos membros
+                    const novosMembros = [...(guildData.membros || [])];
+                    novosMembros.push({
+                        uid: currentUser.uid,
+                        id_pc: userData?.id_pc,
+                        nickname: userData?.nickname || userData?.nome_completo,
+                        status: 'online',
+                        funcao: 'membro',
+                        entrou_em: new Date().toISOString()
+                    });
+
+                    await updateDoc(guildRef, {
+                        membros: novosMembros
+                    });
+
+                    // Marcar convite como aceito
+                    await updateDoc(doc(db, "convites", notificacao.conviteId), {
+                        status: 'aceito',
+                        respondido_em: new Date().toISOString()
+                    });
+
+                    alert('Você entrou na guilda!');
+                    window.location.href = `guilda.html?id=${notificacao.guildaId}`;
+                } else {
+                    // Recusar convite
+                    await updateDoc(doc(db, "convites", notificacao.conviteId), {
+                        status: 'recusado',
+                        respondido_em: new Date().toISOString()
+                    });
+                }
+
+                // Marcar notificação como lida
+                await updateDoc(doc(db, "notificacoes", notificacao.id), {
+                    lida: true
+                });
+
+            } catch (error) {
+                console.error('Erro ao responder convite:', error);
+                alert('Erro ao processar resposta');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function marcarTodasComoLidas() {
+            try {
+                showLoading();
+
+                const q = query(
+                    collection(db, "notificacoes"),
+                    where("usuarioId", "==", currentUser.uid),
+                    where("lida", "==", false)
+                );
+
+                const snapshot = await getDocs(q);
+                
+                const promises = [];
+                snapshot.forEach(doc => {
+                    promises.push(updateDoc(doc.ref, { lida: true }));
+                });
+
+                await Promise.all(promises);
+                
+            } catch (error) {
+                console.error('Erro ao marcar todas como lidas:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Auth state
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                
+                // Carregar dados do usuário
+                const docRef = doc(db, "usuarios", user.uid);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    userData = docSnap.data();
+                }
+                
+                carregarNotificacoes();
+            } else {
+                window.location.href = 'escolher-tipo.html';
+            }
+        });
+
+        elements.btnMarcarTodasLidas.addEventListener('click', marcarTodasComoLidas);
+
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (notificacoesUnsubscribe) {
+                notificacoesUnsubscribe();
+            }
+        });
+
+    </script>
+</body>
+</html>
