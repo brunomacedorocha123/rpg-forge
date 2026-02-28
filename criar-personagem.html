@@ -2774,7 +2774,7 @@
     </div>
    <script type="module">
 // ============================================
-// SISTEMA RPGFORCE - VERSÃO COMPLETA
+// SISTEMA RPGFORCE - VERSÃO COMPLETA E CORRIGIDA
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -3001,15 +3001,6 @@ function calcularCarga() {
         reducaoDeslocamento = 1;
     }
     
-    // Vantagem Carga Resistente (se existir)
-    if (vantagensSelecionadas.has('cargaResistente') && nivel !== 'leve') {
-        if (nivel === 'medio') nivel = 'leve';
-        else if (nivel === 'pesado') nivel = 'medio';
-        else if (nivel === 'limite') nivel = 'pesado';
-        penalidadeEsquiva = Math.max(0, penalidadeEsquiva - 5);
-        reducaoDeslocamento = Math.max(0, reducaoDeslocamento - 1);
-    }
-    
     return {
         pesoTotal,
         nivel,
@@ -3140,6 +3131,7 @@ const escolas = {
         id: 'agua',
         nome: 'Água',
         desbloqueada: true,
+        icone: 'fa-water',
         magias: {
             localizarAgua: { nivel: 0, desbloqueada: false, ordem: 1 },
             purificarAgua: { nivel: 0, desbloqueada: false, ordem: 2 },
@@ -3156,7 +3148,7 @@ const escolas = {
 };
 
 // ============================================
-// VANTAGENS (SEM NOÇÃO DO PERIGO)
+// VANTAGENS
 // ============================================
 const vantagensData = {
     aliado: { nome: 'Aliado', efeito: 'Um companheiro fiel' },
@@ -3178,12 +3170,11 @@ const vantagensData = {
     fadigaExtra: { nome: 'Fadiga extra +2', efeito: '+5 PF' },
     htExtra: { nome: 'VT extra +5%', efeito: 'Aumento percentual no VT' },
     atraente: { nome: 'Atraente', efeito: '+5% reações sociais' },
-    rico: { nome: 'Rico', efeito: 'Começa com 250 moedas' },
-    cargaResistente: { nome: 'Carga Resistente', efeito: 'Reduz penalidade de carga em 1 nível' }
+    rico: { nome: 'Rico', efeito: 'Começa com 250 moedas' }
 };
 
 // ============================================
-// CATÁLOGO DE ITENS - COMPLETO
+// CATÁLOGO DE ITENS
 // ============================================
 const catalogoItensData = {
     armas_ca: [
@@ -3243,7 +3234,6 @@ let periciaAtual = null;
 let dinheiroBase = 1000;
 let autoSaveTimeout = null;
 let magiaSelecionada = null;
-
 let inventario = { corpo: [], mochila: [], deposito: [] };
 let dinheiro = 0;
 
@@ -3304,27 +3294,12 @@ const elements = {
     dinheiroSaldo: document.getElementById('dinheiroSaldo'),
     cargaAtual: document.getElementById('cargaAtual'),
     cargaLimite: document.getElementById('cargaLimite'),
-    cargaLeve: document.getElementById('cargaLeve'),
-    cargaMedia: document.getElementById('cargaMedia'),
-    cargaPesada: document.getElementById('cargaPesada'),
-    cargaLimiteDisplay: document.getElementById('cargaLimiteDisplay'),
     cargaBarra: document.getElementById('cargaBarra'),
     cargaNivel: document.getElementById('cargaNivel'),
-    cargaPenalidade: document.getElementById('cargaPenalidade'),
-    pesoMochila: document.getElementById('pesoMochila'),
     inventarioCorpo: document.getElementById('inventarioCorpo'),
     inventarioMochila: document.getElementById('inventarioMochila'),
     inventarioDeposito: document.getElementById('inventarioDeposito'),
     btnCriarItem: document.getElementById('btnCriarItem'),
-    modalCriarItem: document.getElementById('modalCriarItem'),
-    cancelarCriarItem: document.getElementById('cancelarCriarItem'),
-    confirmarCriarItem: document.getElementById('confirmarCriarItem'),
-    itemPersonalizadoNome: document.getElementById('itemPersonalizadoNome'),
-    itemPersonalizadoTipo: document.getElementById('itemPersonalizadoTipo'),
-    camposEspecificos: document.getElementById('camposEspecificos'),
-    itemPersonalizadoPreco: document.getElementById('itemPersonalizadoPreco'),
-    itemPersonalizadoPeso: document.getElementById('itemPersonalizadoPeso'),
-    itemPersonalizadoQtd: document.getElementById('itemPersonalizadoQtd'),
     btnSalvarPersonagem: document.getElementById('btnSalvarPersonagem'),
     btnExportarPDF: document.getElementById('btnExportarPDF'),
     btnExcluirPersonagem: document.getElementById('btnExcluirPersonagem'),
@@ -3377,6 +3352,11 @@ const elements = {
     rdTotal: document.getElementById('rdTotal'),
     
     // Tabelas de itens
+    tabelaArmasCA: document.getElementById('tabelaArmasCA'),
+    tabelaArmasDist: document.getElementById('tabelaArmasDist'),
+    tabelaArmaduras: document.getElementById('tabelaArmaduras'),
+    tabelaEscudos: document.getElementById('tabelaEscudos'),
+    tabelaItensGerais: document.getElementById('tabelaItensGerais'),
     corpoTabelaArmasCA: document.getElementById('corpoTabelaArmasCA'),
     corpoTabelaArmasDist: document.getElementById('corpoTabelaArmasDist'),
     corpoTabelaArmaduras: document.getElementById('corpoTabelaArmaduras'),
@@ -3417,7 +3397,7 @@ function triggerAutoSave() {
 }
 
 // ============================================
-// BOLINHAS (ESFERAS)
+// BOLINHAS (ESFERAS) - CORRIGIDO
 // ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
@@ -3443,6 +3423,7 @@ function criarBolinhas(atributoId) {
             }
             
             atualizarInterface();
+            atualizarBolinhas(atributoId);
             triggerAutoSave();
         });
         
@@ -3551,18 +3532,6 @@ function atualizarInterface() {
     if (elements.cargaLimite) {
         elements.cargaLimite.textContent = carga.limites.limite;
     }
-    if (elements.cargaLeve) {
-        elements.cargaLeve.textContent = carga.limites.leve;
-    }
-    if (elements.cargaMedia) {
-        elements.cargaMedia.textContent = carga.limites.medio;
-    }
-    if (elements.cargaPesada) {
-        elements.cargaPesada.textContent = carga.limites.pesado;
-    }
-    if (elements.cargaLimiteDisplay) {
-        elements.cargaLimiteDisplay.textContent = carga.limites.limite;
-    }
     if (elements.cargaBarra) {
         const percentual = (carga.pesoTotal / carga.limites.limite) * 100;
         elements.cargaBarra.style.width = Math.min(100, percentual) + '%';
@@ -3570,13 +3539,6 @@ function atualizarInterface() {
     if (elements.cargaNivel) {
         elements.cargaNivel.textContent = carga.nivel.charAt(0).toUpperCase() + carga.nivel.slice(1);
         elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
-    }
-    if (elements.cargaPenalidade) {
-        let penalidadeTexto = 'Nenhuma';
-        if (carga.nivel === 'medio') penalidadeTexto = '-1m, -5% Esquiva';
-        else if (carga.nivel === 'pesado') penalidadeTexto = '-2m, -10% Esquiva';
-        else if (carga.nivel === 'limite') penalidadeTexto = '-3m, -15% Esquiva';
-        elements.cargaPenalidade.textContent = penalidadeTexto;
     }
     
     // Arma equipada
@@ -3624,7 +3586,7 @@ function calcularRD() {
 }
 
 // ============================================
-// FUNÇÕES DAS TABELAS DE ITENS - COMPLETAS
+// FUNÇÕES DAS TABELAS DE ITENS
 // ============================================
 function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
@@ -3646,10 +3608,12 @@ function renderizarTabelas(tab = 'armas_ca') {
     renderizarTabelaArmaduras();
     renderizarTabelaEscudos();
     renderizarTabelaItensGerais();
+    
+    adicionarEventosCompra();
 }
 
 function renderizarTabelaArmasCA() {
-    const tbody = document.getElementById('corpoTabelaArmasCA');
+    const tbody = elements.corpoTabelaArmasCA;
     if (!tbody) return;
     
     let html = '';
@@ -3675,7 +3639,7 @@ function renderizarTabelaArmasCA() {
 }
 
 function renderizarTabelaArmasDist() {
-    const tbody = document.getElementById('corpoTabelaArmasDist');
+    const tbody = elements.corpoTabelaArmasDist;
     if (!tbody) return;
     
     let html = '';
@@ -3702,7 +3666,7 @@ function renderizarTabelaArmasDist() {
 }
 
 function renderizarTabelaArmaduras() {
-    const tbody = document.getElementById('corpoTabelaArmaduras');
+    const tbody = elements.corpoTabelaArmaduras;
     if (!tbody) return;
     
     let html = '';
@@ -3725,7 +3689,7 @@ function renderizarTabelaArmaduras() {
 }
 
 function renderizarTabelaEscudos() {
-    const tbody = document.getElementById('corpoTabelaEscudos');
+    const tbody = elements.corpoTabelaEscudos;
     if (!tbody) return;
     
     let html = '';
@@ -3749,7 +3713,7 @@ function renderizarTabelaEscudos() {
 }
 
 function renderizarTabelaItensGerais() {
-    const tbody = document.getElementById('corpoTabelaItensGerais');
+    const tbody = elements.corpoTabelaItensGerais;
     if (!tbody) return;
     
     let html = '';
@@ -3773,6 +3737,7 @@ function renderizarTabelaItensGerais() {
 
 function adicionarEventosCompra() {
     document.querySelectorAll('.btn-comprar-tabela').forEach(btn => {
+        btn.removeEventListener('click', comprarItemHandler);
         btn.addEventListener('click', comprarItemHandler);
     });
 }
@@ -3818,7 +3783,6 @@ function comprarItem(item) {
     inventario.deposito.push(novoItem);
     
     renderizarInventario();
-    triggerAutoSave();
 }
 
 // ============================================
@@ -3858,6 +3822,7 @@ function renderizarInventario() {
     elements.inventarioMochila.innerHTML = renderizarItens(inventario.mochila, 'mochila');
     elements.inventarioDeposito.innerHTML = renderizarItens(inventario.deposito, 'deposito');
     
+    // Adicionar eventos aos botões
     document.querySelectorAll('.btn-mover-deposito').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4113,13 +4078,6 @@ function atualizarModalPericia() {
     const custoDiferenca = custoTotal - custoAtual;
     
     if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custoDiferenca + ' PP';
-    if (elements.modalPericiaObservacao) {
-        if (nivelAtual > 0) {
-            elements.modalPericiaObservacao.textContent = `Nível atual: ${nivelAtual} (já gastou ${custoAtual} PP)`;
-        } else {
-            elements.modalPericiaObservacao.textContent = 'Perícia nova';
-        }
-    }
     
     if (elements.modalPericiaConfirmar) {
         elements.modalPericiaConfirmar.disabled = custoDiferenca > (ppDisponivel - ppGastoTotal);
@@ -4249,7 +4207,6 @@ function renderizarEsferas() {
             classeEsfera = 'aptidao-requerida';
         }
         
-        // NH da magia = IQ% + 10% + nível
         let nhMagia = 0;
         if (magia.desbloqueada) {
             nhMagia = getIQPercentual() + 10 + (magia.nivel || 0);
@@ -4313,14 +4270,12 @@ function abrirDetalheMagia(magiaId) {
     magiaSelecionada = magiaId;
     
     if (elements.detalheMagiaTitulo) elements.detalheMagiaTitulo.textContent = magiaDados.nome;
-    if (elements.detalheMagiaInfo) elements.detalheMagiaInfo.textContent = `IQ | Tipo: ${magiaDados.tipo}`;
     
     const iqPercentual = getIQPercentual();
     const nhBase = iqPercentual + 10;
     const nhAtual = nhBase + (magia.nivel || 0);
     
     if (elements.detalheMagiaNH) elements.detalheMagiaNH.textContent = nhAtual + '%';
-    if (elements.detalheMagiaFormula) elements.detalheMagiaFormula.textContent = `IQ% (${iqPercentual}%) + 10% + Nível (${magia.nivel || 0})`;
     
     let linhas = '';
     for (let i = 1; i <= 10; i++) {
@@ -4503,17 +4458,6 @@ function mudarAba(abaId) {
         elements.btnProximo.style.display = 'none';
         elements.btnFinalizar.style.display = 'inline-flex';
         renderizarEsferas();
-        if (elements.magiaNH_IQ) {
-            elements.magiaNH_IQ.textContent = getIQPercentual() + '%';
-        }
-        if (elements.magiaNH_Aptidao) {
-            const aptidao = vantagensSelecionadas.has('aptidaoMagica') ? '+10%' : '+0%';
-            elements.magiaNH_Aptidao.textContent = aptidao;
-        }
-        if (elements.magiaNH_Total) {
-            const total = getIQPercentual() + (vantagensSelecionadas.has('aptidaoMagica') ? 10 : 0);
-            elements.magiaNH_Total.textContent = total + '%';
-        }
     } else if (abaId === 'equipamentos') {
         elements.btnAnterior.style.display = 'inline-flex';
         elements.btnProximo.style.display = 'none';
@@ -4774,6 +4718,13 @@ async function carregarPersonagem(id) {
             atributos.vt.esferas = data.atributos.vt?.esferas || 0;
             
             esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
+            
+            // Atualizar bolinhas
+            atualizarBolinhas('st');
+            atualizarBolinhas('dx');
+            atualizarBolinhas('iq');
+            atualizarBolinhas('vigor');
+            atualizarBolinhas('vt');
         }
         
         if (data.vantagens) {
@@ -4870,6 +4821,13 @@ function carregarDadosSalvos() {
                 atributos.vt.esferas = personagemTemp.atributos.vt?.esferas || 0;
                 
                 esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
+                
+                // Atualizar bolinhas
+                atualizarBolinhas('st');
+                atualizarBolinhas('dx');
+                atualizarBolinhas('iq');
+                atualizarBolinhas('vigor');
+                atualizarBolinhas('vt');
             }
             
             if (personagemTemp.vantagens) {
@@ -5035,142 +4993,6 @@ async function exportarPDF() {
     } finally {
         hideLoading();
     }
-}
-
-// ============================================
-// CONFIGURAÇÃO DE ITEM PERSONALIZADO
-// ============================================
-function configurarCamposItemPersonalizado() {
-    if (!elements.camposEspecificos || !elements.itemPersonalizadoTipo) return;
-    
-    const tipo = elements.itemPersonalizadoTipo.value;
-    let html = '';
-    
-    switch(tipo) {
-        case 'arma_ca':
-            html = `
-                <div class="campo-dinamico">
-                    <label>Alcance (m)</label>
-                    <input type="number" id="itemAlcance" min="0" step="0.1" value="1">
-                </div>
-                <div class="campo-dinamico">
-                    <label>Dano</label>
-                    <input type="text" id="itemDano" placeholder="Ex: 1d+2" value="1d">
-                </div>
-                <div class="campo-dinamico">
-                    <label>Tipo de Dano</label>
-                    <select id="itemTipoDano">
-                        <option value="Corte">Corte</option>
-                        <option value="Perfuração">Perfuração</option>
-                        <option value="Contusão">Contusão</option>
-                    </select>
-                </div>
-                <div class="campo-dinamico">
-                    <label>ST Mínima</label>
-                    <input type="number" id="itemSt" min="1" value="8">
-                </div>
-            `;
-            break;
-            
-        case 'armadura':
-            html = `
-                <div class="campo-dinamico">
-                    <label>RD (Redução de Dano)</label>
-                    <input type="number" id="itemRd" min="0" value="2">
-                </div>
-                <div class="campo-dinamico">
-                    <label>Localização</label>
-                    <select id="itemLocal">
-                        <option value="completo">Completo</option>
-                        <option value="torso">Torso</option>
-                        <option value="membros">Membros</option>
-                        <option value="cabeca">Cabeça</option>
-                    </select>
-                </div>
-            `;
-            break;
-            
-        case 'escudo':
-            html = `
-                <div class="campo-dinamico">
-                    <label>Bônus de Bloqueio</label>
-                    <input type="number" id="itemBonus" min="0" value="1">
-                </div>
-                <div class="campo-dinamico">
-                    <label>VE (Ex: 5/30)</label>
-                    <input type="text" id="itemVe" placeholder="5/30" value="5/30">
-                </div>
-            `;
-            break;
-            
-        default:
-            html = '';
-    }
-    
-    elements.camposEspecificos.innerHTML = html;
-}
-
-function criarItemPersonalizado() {
-    if (!elements.itemPersonalizadoNome || !elements.itemPersonalizadoTipo) return;
-    
-    const nome = elements.itemPersonalizadoNome.value.trim();
-    if (!nome) {
-        alert('Digite um nome para o item');
-        return;
-    }
-    
-    const tipo = elements.itemPersonalizadoTipo.value;
-    const preco = parseInt(elements.itemPersonalizadoPreco?.value) || 10;
-    const peso = parseFloat(elements.itemPersonalizadoPeso?.value) || 1;
-    const quantidade = parseInt(elements.itemPersonalizadoQtd?.value) || 1;
-    
-    if (dinheiro < preco * quantidade) {
-        alert('Dinheiro insuficiente!');
-        return;
-    }
-    
-    dinheiro -= preco * quantidade;
-    atualizarDinheiroDisplay();
-    
-    const itemBase = {
-        id: 'custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        nome: nome,
-        tipo: tipo,
-        preco: preco,
-        peso: peso,
-        quantidade: quantidade
-    };
-    
-    switch(tipo) {
-        case 'arma_ca':
-            itemBase.alcance = parseFloat(document.getElementById('itemAlcance')?.value) || 1;
-            itemBase.dano = document.getElementById('itemDano')?.value || '1d';
-            itemBase.tipoDano = document.getElementById('itemTipoDano')?.value || 'Corte';
-            itemBase.st = parseInt(document.getElementById('itemSt')?.value) || 8;
-            break;
-            
-        case 'armadura':
-            itemBase.rd = parseInt(document.getElementById('itemRd')?.value) || 2;
-            itemBase.local = document.getElementById('itemLocal')?.value || 'completo';
-            break;
-            
-        case 'escudo':
-            itemBase.bonus = parseInt(document.getElementById('itemBonus')?.value) || 1;
-            itemBase.ve = document.getElementById('itemVe')?.value || '5/30';
-            break;
-    }
-    
-    if (!inventario.deposito) inventario.deposito = [];
-    inventario.deposito.push(itemBase);
-    
-    renderizarInventario();
-    
-    if (elements.modalCriarItem) elements.modalCriarItem.classList.remove('active');
-    
-    elements.itemPersonalizadoNome.value = '';
-    elements.itemPersonalizadoPreco.value = '10';
-    elements.itemPersonalizadoPeso.value = '1';
-    elements.itemPersonalizadoQtd.value = '1';
 }
 
 // ============================================
@@ -5436,26 +5258,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Criar item personalizado
-    if (elements.btnCriarItem && elements.modalCriarItem) {
+    // Criar item personalizado (elementos que podem estar faltando no HTML)
+    if (elements.btnCriarItem) {
         elements.btnCriarItem.addEventListener('click', () => {
-            configurarCamposItemPersonalizado();
-            elements.modalCriarItem.classList.add('active');
+            alert('Função de criar item personalizado em desenvolvimento');
         });
-    }
-    
-    if (elements.itemPersonalizadoTipo) {
-        elements.itemPersonalizadoTipo.addEventListener('change', configurarCamposItemPersonalizado);
-    }
-    
-    if (elements.cancelarCriarItem && elements.modalCriarItem) {
-        elements.cancelarCriarItem.addEventListener('click', () => {
-            elements.modalCriarItem.classList.remove('active');
-        });
-    }
-    
-    if (elements.confirmarCriarItem) {
-        elements.confirmarCriarItem.addEventListener('click', criarItemPersonalizado);
     }
     
     // Botões de navegação
