@@ -202,6 +202,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            font-weight: 600;
         }
 
         .btn-recusar {
@@ -214,6 +215,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            font-weight: 600;
         }
 
         .btn-ver {
@@ -226,6 +228,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            font-weight: 600;
         }
 
         /* Estado vazio */
@@ -396,26 +399,32 @@
             elements.loading.classList.remove('active');
         }
 
-        // Carregar notificações em tempo real - CORRIGIDO!
+        // Carregar notificações em tempo real - CORRIGIDO com os campos EXATOS
         function carregarNotificacoes() {
             if (!currentUser) return;
 
-            // CORREÇÃO: usando uid_usuario (campo real) e data_criacao
+            console.log("Carregando notificações para:", currentUser.uid);
+            
+            // Usando os campos EXATOS que você mostrou: usuarioId e data
             const q = query(
                 collection(db, "notificacoes"),
-                where("uid_usuario", "==", currentUser.uid),  // ✅ CAMPO CORRETO
-                orderBy("data_criacao", "desc")               // ✅ CAMPO CORRETO
+                where("usuarioId", "==", currentUser.uid),  // ✅ CAMPO EXATO: usuarioId
+                orderBy("data", "desc")                      // ✅ CAMPO EXATO: data
             );
 
             notificacoesUnsubscribe = onSnapshot(q, (snapshot) => {
+                console.log("Notificações encontradas:", snapshot.size);
                 const notificacoes = [];
                 snapshot.forEach((doc) => {
+                    console.log("Notificação:", doc.id, doc.data());
                     notificacoes.push({
                         id: doc.id,
                         ...doc.data()
                     });
                 });
                 renderizarNotificacoes(notificacoes);
+            }, (error) => {
+                console.error("Erro ao carregar notificações:", error);
             });
         }
 
@@ -434,18 +443,18 @@
 
             let html = '';
             notificacoes.forEach(notif => {
-                // CORREÇÃO: usar data_criacao
-                const data = new Date(notif.data_criacao).toLocaleString();
+                // Usando o campo EXATO: data
+                const data = new Date(notif.data).toLocaleString();
                 const naoLida = !notif.lida;
                 
                 html += `
                     <div class="notificacao-card ${naoLida ? 'nao-lida' : ''}" data-id="${notif.id}">
                         <div class="notificacao-header">
                             <div class="notificacao-icon">
-                                ${getIconePorTipo(notif.tipo)}
+                                <i class="fas fa-envelope"></i>
                             </div>
                             <div class="notificacao-titulo">
-                                <h3>${notif.titulo || 'Notificação'}</h3>
+                                <h3>${notif.titulo || 'Convite para Guilda'}</h3>
                                 <div class="data">${data}</div>
                             </div>
                         </div>
@@ -453,7 +462,12 @@
                             ${notif.mensagem || ''}
                         </div>
                         <div class="notificacao-actions">
-                            ${getAcoesPorTipo(notif)}
+                            <button class="btn-aceitar" data-id="${notif.id}" data-guilda="${notif.guildaId}">
+                                <i class="fas fa-check"></i> Aceitar
+                            </button>
+                            <button class="btn-recusar" data-id="${notif.id}">
+                                <i class="fas fa-times"></i> Recusar
+                            </button>
                         </div>
                     </div>
                 `;
@@ -461,83 +475,32 @@
 
             elements.notificacoesList.innerHTML = html;
 
-            // Adicionar event listeners para os botões
-            notificacoes.forEach(notif => {
-                const card = document.querySelector(`[data-id="${notif.id}"]`);
-                if (!card) return;
-
-                // Marcar como lida ao clicar
-                card.addEventListener('click', async (e) => {
-                    if (!e.target.closest('button')) {
-                        await marcarComoLida(notif.id);
-                    }
+            // Adicionar event listeners
+            document.querySelectorAll('.btn-aceitar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const notifId = btn.dataset.id;
+                    const guildaId = btn.dataset.guilda;
+                    responderConvite(notifId, guildaId, 'aceitar');
                 });
+            });
 
-                // Botões específicos por tipo
-                if (notif.tipo === 'convite_guilda') {
-                    const btnAceitar = card.querySelector('.btn-aceitar');
-                    const btnRecusar = card.querySelector('.btn-recusar');
-                    
-                    btnAceitar?.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        responderConvite(notif, 'aceitar');
-                    });
-                    
-                    btnRecusar?.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        responderConvite(notif, 'recusar');
-                    });
-                }
+            document.querySelectorAll('.btn-recusar').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const notifId = btn.dataset.id;
+                    responderConvite(notifId, null, 'recusar');
+                });
             });
         }
 
-        function getIconePorTipo(tipo) {
-            switch(tipo) {
-                case 'convite_guilda': return '<i class="fas fa-envelope"></i>';
-                case 'solicitacao_aceita': return '<i class="fas fa-check-circle"></i>';
-                case 'solicitacao_recusada': return '<i class="fas fa-times-circle"></i>';
-                default: return '<i class="fas fa-bell"></i>';
-            }
-        }
-
-        function getAcoesPorTipo(notif) {
-            switch(notif.tipo) {
-                case 'convite_guilda':
-                    return `
-                        <button class="btn-aceitar">
-                            <i class="fas fa-check"></i> Aceitar
-                        </button>
-                        <button class="btn-recusar">
-                            <i class="fas fa-times"></i> Recusar
-                        </button>
-                    `;
-                default:
-                    return `
-                        <button class="btn-ver" onclick="marcarComoLida('${notif.id}')">
-                            <i class="fas fa-check"></i> Marcar como lida
-                        </button>
-                    `;
-            }
-        }
-
-        async function marcarComoLida(notificacaoId) {
-            try {
-                await updateDoc(doc(db, "notificacoes", notificacaoId), {
-                    lida: true
-                });
-            } catch (error) {
-                console.error('Erro ao marcar como lida:', error);
-            }
-        }
-
-        // CORREÇÃO: função responderConvite simplificada
-        async function responderConvite(notificacao, acao) {
+        async function responderConvite(notificacaoId, guildaId, acao) {
             try {
                 showLoading();
 
-                if (acao === 'aceitar') {
+                if (acao === 'aceitar' && guildaId) {
                     // Buscar dados da guilda
-                    const guildRef = doc(db, "guildas", notificacao.guilda_id);
+                    const guildRef = doc(db, "guildas", guildaId);
                     const guildSnap = await getDoc(guildRef);
                     
                     if (!guildSnap.exists()) {
@@ -548,7 +511,7 @@
                     const guildData = guildSnap.data();
 
                     // Verificar se já é membro
-                    if (guildData.membros.includes(currentUser.uid)) {
+                    if (guildData.membros && guildData.membros.includes(currentUser.uid)) {
                         alert('Você já é membro desta guilda!');
                         return;
                     }
@@ -566,11 +529,11 @@
                     });
 
                     alert('🎉 Você entrou na guilda!');
-                    window.location.href = `guilda-visualizar.html?id=${notificacao.guilda_id}`;
+                    window.location.href = `guilda-visualizar.html?id=${guildaId}`;
                 }
 
                 // Marcar notificação como lida
-                await updateDoc(doc(db, "notificacoes", notificacao.id), {
+                await updateDoc(doc(db, "notificacoes", notificacaoId), {
                     lida: true
                 });
 
@@ -588,7 +551,7 @@
 
                 const q = query(
                     collection(db, "notificacoes"),
-                    where("uid_usuario", "==", currentUser.uid),  // ✅ CAMPO CORRETO
+                    where("usuarioId", "==", currentUser.uid),
                     where("lida", "==", false)
                 );
 
@@ -612,6 +575,7 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
+                console.log("Usuário logado:", user.uid);
                 
                 // Carregar dados do usuário
                 const docRef = doc(db, "usuarios", user.uid);
@@ -619,6 +583,7 @@
                 
                 if (docSnap.exists()) {
                     userData = docSnap.data();
+                    console.log("Dados do usuário:", userData);
                 }
                 
                 carregarNotificacoes();
