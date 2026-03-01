@@ -2952,7 +2952,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // ============================================
-// ATRIBUTOS - SISTEMA DUPLA FACE
+// ATRIBUTOS
 // ============================================
 const atributos = {
     st: { esferas: 0 },
@@ -3275,7 +3275,7 @@ const vantagensData = {
 };
 
 // ============================================
-// CATÁLOGO DE ITENS (CORRIGIDO - SEM tipoDano)
+// CATÁLOGO DE ITENS (SEM tipoDano)
 // ============================================
 const catalogoItensData = {
     armas_ca: [
@@ -3412,7 +3412,6 @@ const elements = {
     pageTitle: document.getElementById('pageTitle'),
     personagemIdHidden: document.getElementById('personagemId'),
     
-    // Atributos
     stValor: document.getElementById('stValor'),
     stFixo: document.getElementById('stFixo'),
     stPercentual: document.getElementById('stPercentual'),
@@ -3429,13 +3428,11 @@ const elements = {
     stDano: document.getElementById('stDano'),
     vtVida: document.getElementById('vtVida'),
     
-    // Status
     statusPV: document.getElementById('statusPV'),
     statusPF: document.getElementById('statusPF'),
     statusPM: document.getElementById('statusPM'),
     statusDano: document.getElementById('statusDano'),
     
-    // Combate
     combatePV: document.getElementById('combatePV'),
     combatePF: document.getElementById('combatePF'),
     combatePM: document.getElementById('combatePM'),
@@ -3449,7 +3446,6 @@ const elements = {
     armaAlcance: document.getElementById('armaAlcance'),
     rdTotal: document.getElementById('rdTotal'),
     
-    // Tabelas de itens
     corpoTabelaArmasCA: document.getElementById('corpoTabelaArmasCA'),
     corpoTabelaArmasDist: document.getElementById('corpoTabelaArmasDist'),
     corpoTabelaArmaduras: document.getElementById('corpoTabelaArmaduras'),
@@ -3490,7 +3486,7 @@ function triggerAutoSave() {
 }
 
 // ============================================
-// BOLINHAS (ESFERAS)
+// BOLINHAS
 // ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
@@ -3664,7 +3660,7 @@ function calcularRD() {
 }
 
 // ============================================
-// FUNÇÕES DAS TABELAS DE ITENS (CORRIGIDAS)
+// FUNÇÕES DAS TABELAS DE ITENS
 // ============================================
 function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
@@ -4594,7 +4590,7 @@ function salvarDadosBasicos() {
 }
 
 // ============================================
-// FUNÇÃO PRINCIPAL DE SALVAMENTO (CORRIGIDA)
+// FUNÇÃO DE SALVAMENTO
 // ============================================
 async function salvarPersonagem(finalizar = false) {
     try {
@@ -4620,9 +4616,7 @@ async function salvarPersonagem(finalizar = false) {
             if (imagemUrl) fotoURL = imagemUrl;
         }
         
-        // Dados completos do personagem
         const personagemData = {
-            // Dados básicos
             nome: dadosBasicos.nome,
             classe: dadosBasicos.classe,
             idade: dadosBasicos.idade,
@@ -4633,13 +4627,9 @@ async function salvarPersonagem(finalizar = false) {
             dinheiroBase: dadosBasicos.dinheiroBase,
             peculiaridades: dadosBasicos.peculiaridades || '',
             fotoURL: fotoURL,
-            
-            // Metadados
             userId: user.uid,
             status: finalizar ? 'finalizado' : 'rascunho',
             updatedAt: new Date(),
-            
-            // Sistema de atributos
             esferasIniciais: esferasIniciais,
             atributos: {
                 st: { esferas: atributos.st.esferas },
@@ -4648,8 +4638,6 @@ async function salvarPersonagem(finalizar = false) {
                 vigor: { esferas: atributos.vigor.esferas },
                 vt: { esferas: atributos.vt.esferas }
             },
-            
-            // Status de combate
             statusCombate: {
                 vidaAtual: calcularPV(),
                 vidaMax: calcularPV(),
@@ -4658,8 +4646,6 @@ async function salvarPersonagem(finalizar = false) {
                 manaAtual: calcularPM(),
                 manaMax: calcularPM()
             },
-            
-            // Derivados
             derivados: {
                 danoBase: calcularDanoBase(),
                 esquiva: calcularEsquiva(),
@@ -4667,33 +4653,21 @@ async function salvarPersonagem(finalizar = false) {
                 bloqueio: calcularBloqueio(),
                 deslocamento: calcularDeslocamento().andar.toFixed(1) + 'm / ' + calcularDeslocamento().correr.toFixed(1) + 'm'
             },
-            
-            // Vantagens e desvantagens
             vantagens: Array.from(vantagensSelecionadas),
             desvantagens: Array.from(desvantagensSelecionadas),
             fobia: fobiaSelecionada,
-            
-            // Perícias
             pericias: pericias,
-            
-            // Magias
             escolas: escolas,
-            
-            // Pontos de perícia
             ppDisponivel: ppDisponivel,
             ppGasto: ppGastoTotal,
-            
-            // Inventário e dinheiro
             inventario: inventario,
             dinheiro: dinheiro
         };
         
-        // Adiciona createdAt apenas se for novo
         if (!personagemId) {
             personagemData.createdAt = new Date();
         }
         
-        // Salva no Firestore
         let docRef;
         if (personagemId) {
             docRef = doc(db, "personagens", personagemId);
@@ -4707,20 +4681,17 @@ async function salvarPersonagem(finalizar = false) {
             console.log('Personagem criado com sucesso!');
         }
         
-        // Atualiza interface
         setAutoSaveIndicator('saved');
         
         if (elements.personagemIdHidden) elements.personagemIdHidden.value = personagemId;
         if (elements.breadcrumbCurrent) elements.breadcrumbCurrent.textContent = `Editando: ${dadosBasicos.nome}`;
         if (elements.pageTitle) elements.pageTitle.textContent = `Editando: ${dadosBasicos.nome}`;
         
-        // Salva no sessionStorage
         if (personagemTemp) {
             personagemTemp.fotoURL = fotoURL;
             sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
         }
         
-        // Mostra modal de sucesso
         if (finalizar && elements.modalSalvarSucesso) {
             elements.modalSalvarSucesso.style.display = 'flex';
         }
@@ -4729,38 +4700,9 @@ async function salvarPersonagem(finalizar = false) {
         
     } catch (error) {
         console.error('ERRO DETALHADO:', error);
-        console.error('Código:', error.code);
-        console.error('Mensagem:', error.message);
-        
         setAutoSaveIndicator('error');
-        alert('Erro ao salvar: ' + error.message + '\nCódigo: ' + error.code);
+        alert('Erro ao salvar: ' + error.message);
         return false;
-    }
-}
-
-// ============================================
-// DEMAIS FUNÇÕES (upload, carregar, excluir, PDF)
-// ============================================
-async function uploadParaImgur(base64Image) {
-    try {
-        const CLIENT_ID = '546c25a59c58ad7';
-        const base64Data = base64Image.split(',')[1];
-        
-        const formData = new FormData();
-        formData.append('image', base64Data);
-        formData.append('type', 'base64');
-        
-        const resposta = await fetch('https://api.imgur.com/3/image', {
-            method: 'POST',
-            headers: { 'Authorization': `Client-ID ${CLIENT_ID}` },
-            body: formData
-        });
-        
-        const dados = await resposta.json();
-        return dados.success ? dados.data.link : null;
-    } catch (erro) {
-        console.error('Erro no upload da imagem:', erro);
-        return null;
     }
 }
 
@@ -4769,6 +4711,9 @@ async function salvarRascunho() {
     await salvarPersonagem(false);
 }
 
+// ============================================
+// CARREGAR PERSONAGEM (CORRIGIDA)
+// ============================================
 async function carregarPersonagem(id) {
     try {
         showLoading();
@@ -4855,13 +4800,20 @@ async function carregarPersonagem(id) {
             elements.cardFobia.classList.add('selecionada');
         }
         
-        if (data.pericias) pericias = data.pericias;
+        if (data.pericias) {
+            pericias = data.pericias;
+            renderizarPericiasAdquiridas(); // <-- MOSTRA AS PERÍCIAS
+        }
         
         if (data.escolas) {
             escolas.agua = data.escolas.agua || escolas.agua;
+            renderizarEsferas(); // <-- MOSTRA AS MAGIAS
         }
         
-        if (data.inventario) inventario = data.inventario;
+        if (data.inventario) {
+            inventario = data.inventario;
+            renderizarInventario(); // <-- MOSTRA O INVENTÁRIO
+        }
         
         if (data.dinheiro !== undefined) {
             dinheiro = data.dinheiro;
@@ -4948,8 +4900,20 @@ function carregarDadosSalvos() {
                 elements.cardFobia.classList.add('selecionada');
             }
             
-            if (personagemTemp.pericias) pericias = personagemTemp.pericias;
-            if (personagemTemp.inventario) inventario = personagemTemp.inventario;
+            if (personagemTemp.pericias) {
+                pericias = personagemTemp.pericias;
+                renderizarPericiasAdquiridas();
+            }
+            
+            if (personagemTemp.inventario) {
+                inventario = personagemTemp.inventario;
+                renderizarInventario();
+            }
+            
+            if (personagemTemp.escolas) {
+                escolas.agua = personagemTemp.escolas.agua || escolas.agua;
+                renderizarEsferas();
+            }
             
             if (personagemTemp.dinheiro !== undefined) {
                 dinheiro = personagemTemp.dinheiro;
@@ -4962,7 +4926,6 @@ function carregarDadosSalvos() {
                 if (elements.ppInicial) elements.ppInicial.value = ppDisponivel;
             }
             if (personagemTemp.ppGasto !== undefined) ppGastoTotal = personagemTemp.ppGasto;
-            if (personagemTemp.escolas) escolas.agua = personagemTemp.escolas.agua || escolas.agua;
             
             atualizarInterface();
             atualizarContadoresAbas();
@@ -5100,18 +5063,39 @@ async function exportarPDF() {
     }
 }
 
+async function uploadParaImgur(base64Image) {
+    try {
+        const CLIENT_ID = '546c25a59c58ad7';
+        const base64Data = base64Image.split(',')[1];
+        
+        const formData = new FormData();
+        formData.append('image', base64Data);
+        formData.append('type', 'base64');
+        
+        const resposta = await fetch('https://api.imgur.com/3/image', {
+            method: 'POST',
+            headers: { 'Authorization': `Client-ID ${CLIENT_ID}` },
+            body: formData
+        });
+        
+        const dados = await resposta.json();
+        return dados.success ? dados.data.link : null;
+    } catch (erro) {
+        console.error('Erro no upload da imagem:', erro);
+        return null;
+    }
+}
+
 // ============================================
 // INICIALIZAÇÃO
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Criar bolinhas
     criarBolinhas('st');
     criarBolinhas('dx');
     criarBolinhas('iq');
     criarBolinhas('vigor');
     criarBolinhas('vt');
     
-    // Esferas iniciais
     if (elements.esferasIniciaisInput) {
         elements.esferasIniciaisInput.addEventListener('change', () => {
             esferasIniciais = parseInt(elements.esferasIniciaisInput.value) || 6;
@@ -5122,7 +5106,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // PP inicial
     if (elements.ppInicial) {
         elements.ppInicial.addEventListener('change', () => {
             ppDisponivel = parseInt(elements.ppInicial.value) || 30;
@@ -5131,7 +5114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Dinheiro base
     if (elements.dinheiroBaseInput) {
         elements.dinheiroBaseInput.addEventListener('change', () => {
             dinheiro = calcularDinheiroInicial();
@@ -5146,7 +5128,6 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerAutoSave();
     });
     
-    // Verificar se é edição
     const urlParams = new URLSearchParams(window.location.search);
     const idParaEditar = urlParams.get('id');
     
@@ -5175,7 +5156,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Event listeners para auto-save
     const camposAutoSave = [
         'nomePersonagem', 'classePersonagem', 'idadePersonagem', 'alturaPersonagem',
         'pesoPersonagem', 'aparencia', 'riqueza', 'dinheiroBase', 'peculiaridades'
@@ -5189,7 +5169,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Abas
     elements.abas.forEach(aba => {
         aba.addEventListener('click', () => {
             if (['combate', 'vantagens', 'desvantagens', 'pericias', 'magias', 'equipamentos'].includes(aba.dataset.aba)) {
@@ -5199,7 +5178,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Upload de foto
     if (elements.uploadArea && elements.fotoInput) {
         elements.uploadArea.addEventListener('click', () => elements.fotoInput.click());
     }
@@ -5230,17 +5208,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Vantagens
     document.querySelectorAll('.vantagem-card').forEach(card => {
         card.addEventListener('click', () => selecionarVantagem(card));
     });
     
-    // Desvantagens
     document.querySelectorAll('.desvantagem-card:not(#cardFobia)').forEach(card => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
     
-    // Fobia
     if (elements.cardFobia && elements.modalFobias) {
         elements.cardFobia.addEventListener('click', () => {
             elements.modalFobias.classList.add('active');
@@ -5280,7 +5255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Filtros de perícias
     document.querySelectorAll('.filtro-pericia').forEach(filtro => {
         filtro.addEventListener('click', () => {
             document.querySelectorAll('.filtro-pericia').forEach(f => f.classList.remove('ativo'));
@@ -5289,7 +5263,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Modal de perícia
     if (elements.modalPericiaMais) {
         elements.modalPericiaMais.addEventListener('click', () => {
             if (periciaAtual) {
@@ -5320,7 +5293,6 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.modalPericiaConfirmar.addEventListener('click', confirmarPericia);
     }
     
-    // Modal de magia
     if (elements.fecharDetalheMagia && elements.detalheMagiaModal) {
         elements.fecharDetalheMagia.addEventListener('click', () => {
             elements.detalheMagiaModal.classList.remove('active');
@@ -5354,7 +5326,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Tabs do catálogo de itens
     document.querySelectorAll('.catalogo-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.catalogo-tab').forEach(t => t.classList.remove('ativo'));
@@ -5363,14 +5334,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Criar item personalizado
     if (elements.btnCriarItem) {
         elements.btnCriarItem.addEventListener('click', () => {
             alert('Função de criar item personalizado em desenvolvimento');
         });
     }
     
-    // Botões de navegação
     if (elements.btnAnterior) {
         elements.btnAnterior.addEventListener('click', () => {
             if (abaAtual === 'combate') mudarAba('basicos');
@@ -5433,7 +5402,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Botões de ação
     if (elements.btnSalvarPersonagem) {
         elements.btnSalvarPersonagem.addEventListener('click', async () => {
             await salvarPersonagem(false);
@@ -5483,17 +5451,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Valores iniciais
     dinheiro = calcularDinheiroInicial();
     atualizarDinheiroDisplay();
     atualizarInterface();
     atualizarContadoresAbas();
     renderizarTabelas('armas_ca');
 });
-
-// ============================================
-// FIM DO SCRIPT
-// ============================================
 </script>
 </body>
 </html>
