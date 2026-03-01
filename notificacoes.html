@@ -455,20 +455,22 @@
             }, 3000);
         }
 
-        // Carregar notificações em tempo real
+        // Carregar notificações NÃO LIDAS em tempo real
         function carregarNotificacoes() {
             if (!currentUser) return;
 
             console.log("Carregando notificações para:", currentUser.uid);
             
+            // ✅ FILTRO: só notificações NÃO LIDAS!
             const q = query(
                 collection(db, "notificacoes"),
                 where("usuarioId", "==", currentUser.uid),
+                where("lida", "==", false),  // ← ISSO É CRUCIAL!
                 orderBy("data", "desc")
             );
 
             notificacoesUnsubscribe = onSnapshot(q, (snapshot) => {
-                console.log("Notificações encontradas:", snapshot.size);
+                console.log("Notificações não lidas encontradas:", snapshot.size);
                 const notificacoes = [];
                 snapshot.forEach((doc) => {
                     notificacoes.push({
@@ -498,10 +500,9 @@
             let html = '';
             notificacoes.forEach(notif => {
                 const data = new Date(notif.data).toLocaleString();
-                const naoLida = !notif.lida;
                 
                 html += `
-                    <div class="notificacao-card ${naoLida ? 'nao-lida' : ''}" data-id="${notif.id}">
+                    <div class="notificacao-card nao-lida" data-id="${notif.id}">
                         <div class="notificacao-header">
                             <div class="notificacao-icon">
                                 <i class="fas fa-envelope"></i>
@@ -569,7 +570,7 @@
                     if (guildData.membros && guildData.membros.includes(currentUser.uid)) {
                         showToast('Você já é membro desta guilda!', true);
                         
-                        // Mesmo assim, remove a notificação
+                        // Mesmo assim, marca como lida para sumir
                         await updateDoc(doc(db, "notificacoes", notificacaoId), {
                             lida: true
                         });
@@ -590,7 +591,7 @@
 
                     showToast('🎉 Você entrou na guilda!');
                     
-                    // Aguarda 1 segundo para mostrar a mensagem antes de redirecionar
+                    // Aguarda 1 segundo e redireciona
                     setTimeout(() => {
                         window.location.href = `guilda-visualizar.html?id=${guildaId}`;
                     }, 1000);
@@ -599,7 +600,7 @@
                     showToast('Convite recusado');
                 }
 
-                // Marcar notificação como lida (e ela vai sumir da lista)
+                // ✅ MARCA COMO LIDA - A NOTIFICAÇÃO VAI SUMIR!
                 await updateDoc(doc(db, "notificacoes", notificacaoId), {
                     lida: true
                 });
