@@ -879,7 +879,7 @@
         <!-- Navbar -->
         <nav class="navbar">
             <div class="logo-area">
-                <img src="logo-rpgforce.png" alt="RPGForce" class="logo">
+                <img src="logo-rpgforce.png" alt="RPGForce" class="logo" onerror="this.src='https://via.placeholder.com/40x40?text=RPG'">
                 <h2>RPGForce - Guildas</h2>
             </div>
 
@@ -969,18 +969,13 @@
             collection,
             query,
             where,
-            getDocs,
-            deleteDoc,
-            updateDoc,
-            arrayUnion,
-            arrayRemove
+            getDocs
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
         import {
             getStorage,
             ref,
             uploadBytes,
-            getDownloadURL,
-            deleteObject
+            getDownloadURL
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
         // Configuração do Firebase
@@ -1057,8 +1052,13 @@
             loadingOverlay.classList.remove('active');
         }
 
-        function showToast(message) {
+        function showToast(message, isError = false) {
             toastMessage.textContent = message;
+            if (isError) {
+                toastNotification.style.background = 'linear-gradient(135deg, #c62828, #b71c1c)';
+            } else {
+                toastNotification.style.background = 'linear-gradient(135deg, #c62828, #aa00ff)';
+            }
             toastNotification.classList.add('show');
             setTimeout(() => {
                 toastNotification.classList.remove('show');
@@ -1099,7 +1099,7 @@
                 const file = e.target.files[0];
                 if (file) {
                     if (file.size > 2 * 1024 * 1024) {
-                        showToast('A imagem deve ter no máximo 2MB');
+                        showToast('A imagem deve ter no máximo 2MB', true);
                         return;
                     }
                     
@@ -1126,7 +1126,6 @@
             if (!user) return;
             
             try {
-                showLoading();
                 currentUser = user;
                 
                 const docRef = doc(db, "usuarios", user.uid);
@@ -1143,9 +1142,7 @@
                 }
             } catch (error) {
                 console.error('Erro ao carregar dados:', error);
-                showToast('Erro ao carregar dados do usuário');
-            } finally {
-                hideLoading();
+                showToast('Erro ao carregar dados do usuário', true);
             }
         }
 
@@ -1176,7 +1173,7 @@
                 
             } catch (error) {
                 console.error('Erro ao carregar guildas:', error);
-                showToast('Erro ao carregar guildas');
+                showToast('Erro ao carregar guildas', true);
             } finally {
                 hideLoading();
             }
@@ -1258,12 +1255,12 @@
             const guildaId = guildaIdDisplay.textContent;
             
             if (!nome || !descricao || !tipo) {
-                showToast('Preencha todos os campos obrigatórios!');
+                showToast('Preencha todos os campos obrigatórios!', true);
                 return;
             }
             
             if (!currentUser || !userData) {
-                showToast('Usuário não autenticado');
+                showToast('Usuário não autenticado', true);
                 return;
             }
             
@@ -1278,9 +1275,8 @@
                     imagemURL = await getDownloadURL(storageRef);
                 }
                 
-                // 2. Dados da guilda
+                // 2. Dados da guilda (exatamente como as regras do Firestore exigem)
                 const guildaData = {
-                    id: guildaId,
                     nome: nome,
                     descricao: descricao,
                     tipo: tipo,
@@ -1295,26 +1291,29 @@
                         cargo: 'lider',
                         data_entrada: new Date().toISOString()
                     }],
-                    data_criacao: new Date().toISOString(),
                     total_membros: 1,
                     campanhas: [],
+                    data_criacao: new Date().toISOString(),
                     createdAt: new Date(),
                     updatedAt: new Date()
                 };
                 
-                // 3. Salvar no Firestore
+                // 3. Salvar no Firestore com o ID gerado
                 await setDoc(doc(db, "guildas", guildaId), guildaData);
                 
                 // 4. Atualizar lista local
-                guildas.push(guildaData);
+                guildas.push({
+                    id: guildaId,
+                    ...guildaData
+                });
                 
                 fecharModal();
                 renderizarGuildas();
                 showToast('Guilda criada com sucesso!');
                 
             } catch (error) {
-                console.error('Erro ao criar guilda:', error);
-                showToast('Erro ao criar guilda: ' + error.message);
+                console.error('Erro detalhado ao criar guilda:', error);
+                showToast('Erro ao criar guilda: ' + error.message, true);
             } finally {
                 hideLoading();
             }
@@ -1372,7 +1371,7 @@
             } catch (error) {
                 console.error('Erro ao sair:', error);
                 hideLoading();
-                showToast('Erro ao sair');
+                showToast('Erro ao sair', true);
             }
         });
 
