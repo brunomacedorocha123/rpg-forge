@@ -804,11 +804,11 @@
             <p class="subtitle">Forje uma irmandade e reúna heróis para suas aventuras</p>
 
             <form id="formCriarGuilda">
-                <!-- Upload de Imagem -->
+                <!-- Upload de Imagem (igual ao criar personagem - Imgur) -->
                 <div class="image-upload-area" id="imageUploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <p>Clique para enviar o brasão da guilda</p>
-                    <small style="color: rgba(255,255,255,0.4);">PNG, JPG até 2MB</small>
+                    <small style="color: rgba(255,255,255,0.4);">PNG, JPG até 2MB - Upload via Imgur</small>
                 </div>
                 
                 <div class="image-preview" id="imagePreview">
@@ -971,12 +971,6 @@
             where,
             getDocs
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-        import {
-            getStorage,
-            ref,
-            uploadBytes,
-            getDownloadURL
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
         // Configuração do Firebase
         const firebaseConfig = {
@@ -992,7 +986,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
         // ========== ELEMENTOS DO DOM ==========
         
@@ -1012,7 +1005,6 @@
         const btnAbrirModal = document.getElementById('btnAbrirModal');
         const btnCriarPrimeira = document.getElementById('btnCriarPrimeira');
         const cancelarModal = document.getElementById('cancelarModal');
-        const btnCriarGuilda = document.getElementById('btnCriarGuilda');
         
         // Upload de imagem
         const imageUploadArea = document.getElementById('imageUploadArea');
@@ -1054,11 +1046,9 @@
 
         function showToast(message, isError = false) {
             toastMessage.textContent = message;
-            if (isError) {
-                toastNotification.style.background = 'linear-gradient(135deg, #c62828, #b71c1c)';
-            } else {
-                toastNotification.style.background = 'linear-gradient(135deg, #c62828, #aa00ff)';
-            }
+            toastNotification.style.background = isError 
+                ? 'linear-gradient(135deg, #c62828, #b71c1c)' 
+                : 'linear-gradient(135deg, #c62828, #aa00ff)';
             toastNotification.classList.add('show');
             setTimeout(() => {
                 toastNotification.classList.remove('show');
@@ -1087,6 +1077,28 @@
             imagePreview.classList.remove('active');
             previewImg.src = '';
             imagemSelecionada = null;
+        }
+
+        // Upload de imagem para Imgur (igual ao criar personagem)
+        async function uploadParaImgur(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await fetch('https://api.imgur.com/3/image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Client-ID 3d8548c7c7b6c3c'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                return data.data.link;
+            } else {
+                throw new Error('Erro ao fazer upload para Imgur');
+            }
         }
 
         // Upload de imagem
@@ -1125,24 +1137,18 @@
         async function carregarDadosUsuario(user) {
             if (!user) return;
             
-            try {
-                currentUser = user;
+            currentUser = user;
+            
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                userData = docSnap.data();
                 
-                const docRef = doc(db, "usuarios", user.uid);
-                const docSnap = await getDoc(docRef);
+                displayIdGm.textContent = userData.id_gm || '--------';
+                displayNickname.textContent = userData.nickname || 'Mestre';
                 
-                if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    
-                    displayIdGm.textContent = userData.id_gm || '--------';
-                    displayNickname.textContent = userData.nickname || 'Mestre';
-                    
-                    // Carregar guildas do usuário
-                    await carregarGuildas();
-                }
-            } catch (error) {
-                console.error('Erro ao carregar dados:', error);
-                showToast('Erro ao carregar dados do usuário', true);
+                await carregarGuildas();
             }
         }
 
@@ -1150,10 +1156,9 @@
         async function carregarGuildas() {
             if (!currentUser) return;
             
+            showLoading();
+            
             try {
-                showLoading();
-                
-                // Buscar guildas onde o usuário é membro
                 const q = query(
                     collection(db, "guildas"),
                     where("membros", "array-contains", currentUser.uid)
@@ -1170,9 +1175,7 @@
                 });
                 
                 renderizarGuildas();
-                
             } catch (error) {
-                console.error('Erro ao carregar guildas:', error);
                 showToast('Erro ao carregar guildas', true);
             } finally {
                 hideLoading();
@@ -1198,11 +1201,11 @@
                 const tipoIcon = g.tipo === 'publica' ? 'fa-globe' : 'fa-lock';
                 
                 html += `
-                    <div class="guilda-card ${cargoClass}" onclick="window.location.href='guilda-detalhe.html?id=${g.id}'">
+                    <div class="guilda-card ${cargoClass}">
                         <div class="guilda-banner">
                             ${g.imagemURL ? 
                                 `<img src="${g.imagemURL}" alt="${g.nome}">` : 
-                                `<div class="default-icon"><i class="fas fa-dragon"></i></div>`
+                                `<i class="fas fa-dragon"></i>`
                             }
                         </div>
                         
@@ -1222,9 +1225,6 @@
                                 <div class="stat">
                                     <i class="fas fa-users"></i> ${g.total_membros || 1} membros
                                 </div>
-                                <div class="stat">
-                                    <i class="fas fa-scroll"></i> ${g.campanhas?.length || 0} campanhas
-                                </div>
                             </div>
                         </div>
                         
@@ -1232,9 +1232,6 @@
                             <span class="guilda-cargo ${cargoClass}">
                                 <i class="fas fa-${isLider ? 'crown' : 'user'}"></i> 
                                 ${isLider ? 'Líder' : 'Membro'}
-                            </span>
-                            <span class="btn-card">
-                                <i class="fas fa-eye"></i> Visualizar
                             </span>
                         </div>
                     </div>
@@ -1244,7 +1241,7 @@
             guildasGrid.innerHTML = html;
         }
 
-        // Criar nova guilda no Firebase
+        // Criar nova guilda no Firebase (SEM STORAGE - só Imgur)
         async function criarGuilda(e) {
             e.preventDefault();
             
@@ -1267,38 +1264,42 @@
             showLoading();
             
             try {
-                // 1. Upload da imagem (se houver)
+                // 1. Upload da imagem para Imgur (se houver)
                 let imagemURL = '';
                 if (imagemSelecionada) {
-                    const storageRef = ref(storage, `guildas/${guildaId}/brasao`);
-                    await uploadBytes(storageRef, imagemSelecionada);
-                    imagemURL = await getDownloadURL(storageRef);
+                    try {
+                        imagemURL = await uploadParaImgur(imagemSelecionada);
+                    } catch (error) {
+                        showToast('Erro ao fazer upload da imagem', true);
+                        hideLoading();
+                        return;
+                    }
                 }
                 
-                // 2. Dados da guilda (exatamente como as regras do Firestore exigem)
+                // 2. Dados da guilda
                 const guildaData = {
                     nome: nome,
                     descricao: descricao,
                     tipo: tipo,
-                    regras: regras || '',
-                    imagemURL: imagemURL,
                     lider_uid: currentUser.uid,
-                    lider_nick: userData.nickname || 'Mestre',
                     membros: [currentUser.uid],
-                    membros_detalhes: [{
-                        uid: currentUser.uid,
-                        nick: userData.nickname || 'Mestre',
-                        cargo: 'lider',
-                        data_entrada: new Date().toISOString()
-                    }],
                     total_membros: 1,
-                    campanhas: [],
-                    data_criacao: new Date().toISOString(),
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+                    data_criacao: new Date().toISOString()
                 };
+
+                // Campos opcionais (só adiciona se existirem)
+                if (regras) guildaData.regras = regras;
+                if (imagemURL) guildaData.imagemURL = imagemURL;
+                if (userData.nickname) guildaData.lider_nick = userData.nickname;
                 
-                // 3. Salvar no Firestore com o ID gerado
+                guildaData.membros_detalhes = [{
+                    uid: currentUser.uid,
+                    nick: userData.nickname || 'Mestre',
+                    cargo: 'lider',
+                    data_entrada: new Date().toISOString()
+                }];
+                
+                // 3. Salvar no Firestore
                 await setDoc(doc(db, "guildas", guildaId), guildaData);
                 
                 // 4. Atualizar lista local
@@ -1312,8 +1313,7 @@
                 showToast('Guilda criada com sucesso!');
                 
             } catch (error) {
-                console.error('Erro detalhado ao criar guilda:', error);
-                showToast('Erro ao criar guilda: ' + error.message, true);
+                showToast('Erro ao criar guilda', true);
             } finally {
                 hideLoading();
             }
@@ -1331,6 +1331,13 @@
         
         formCriarGuilda.addEventListener('submit', criarGuilda);
 
+        // Fechar modal clicando fora
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                fecharModal();
+            }
+        });
+
         // Abas
         tabMinhasGuildas.addEventListener('click', () => {
             tabMinhasGuildas.classList.add('active');
@@ -1346,13 +1353,6 @@
             explorarContent.style.display = 'block';
         });
 
-        // Fechar modal clicando fora
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) {
-                fecharModal();
-            }
-        });
-
         // Verificação de login
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -1364,17 +1364,15 @@
 
         // Sair
         btnSair.addEventListener('click', async () => {
+            showLoading();
             try {
-                showLoading();
                 await signOut(auth);
                 window.location.href = 'index.html';
             } catch (error) {
-                console.error('Erro ao sair:', error);
-                hideLoading();
                 showToast('Erro ao sair', true);
+                hideLoading();
             }
         });
-
     </script>
 </body>
 </html>
