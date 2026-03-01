@@ -202,6 +202,26 @@
             font-weight: 500;
         }
 
+        /* Botão Voltar */
+        .btn-voltar {
+            background: transparent;
+            border: 1px solid rgba(198, 40, 40, 0.3);
+            color: #c62828;
+            padding: 8px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .btn-voltar:hover {
+            background: rgba(198, 40, 40, 0.1);
+        }
+
         /* Card da Guilda (Detalhes) */
         .guilda-detalhe-card {
             background: rgba(26, 10, 26, 0.9);
@@ -477,7 +497,7 @@
             margin-top: 15px;
         }
 
-        .jogor-encontrado {
+        .jogador-encontrado {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -589,33 +609,6 @@
                 opacity: 1;
             }
         }
-
-        /* Badge de convite enviado */
-        .convite-enviado {
-            color: #4caf50;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.9rem;
-        }
-
-        .btn-voltar {
-            background: transparent;
-            border: 1px solid rgba(198, 40, 40, 0.3);
-            color: #c62828;
-            padding: 8px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-voltar:hover {
-            background: rgba(198, 40, 40, 0.1);
-        }
     </style>
 </head>
 <body>
@@ -669,7 +662,7 @@
         </div>
 
         <!-- Botão Voltar -->
-        <div style="margin-bottom: 20px;">
+        <div>
             <a href="guildas.html" class="btn-voltar">
                 <i class="fas fa-arrow-left"></i> Voltar para Guildas
             </a>
@@ -731,25 +724,24 @@
 
                 <div class="busca-area">
                     <p style="color: rgba(255,255,255,0.6); margin-bottom: 15px;">
-                        <i class="fas fa-info-circle"></i> Busque por ID GM ou nickname
+                        <i class="fas fa-info-circle"></i> Busque por <strong>ID do Jogador (ID PC)</strong> ou nickname
                     </p>
 
                     <div class="busca-input-group">
-                        <input type="text" id="buscaJogador" placeholder="Ex: 26083218 ou Clara" maxlength="50">
+                        <input type="text" id="buscaJogador" placeholder="Ex: 83964581 ou Clara" maxlength="50">
                         <button class="btn-buscar" id="btnBuscar">
-                            <i class="fas fa-search"></i>
+                            <i class="fas fa-search"></i> Buscar
                         </button>
                     </div>
 
                     <!-- Resultado da busca -->
-                    <div class="resultado-busca" id="resultadoBusca" style="display: none;">
-                        <!-- Resultado será inserido aqui -->
-                    </div>
+                    <div class="resultado-busca" id="resultadoBusca" style="display: none;"></div>
 
                     <!-- Mensagem de nenhum resultado -->
                     <div id="semResultado" style="display: none; text-align: center; padding: 20px; color: rgba(255,255,255,0.4);">
                         <i class="fas fa-user-slash" style="font-size: 2rem; margin-bottom: 10px;"></i>
                         <p>Nenhum jogador encontrado</p>
+                        <small>Verifique se o ID ou nickname está correto</small>
                     </div>
                 </div>
 
@@ -760,7 +752,7 @@
                     </p>
                     <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
                         <code id="guildaIdDisplay" style="color: #c62828; font-size: 1.2rem;">--------</code>
-                        <button class="btn-card" id="copiarIdBtn" style="padding: 5px 15px;">
+                        <button class="btn-card" id="copiarIdBtn" style="padding: 5px 15px; background: transparent; border: 1px solid #c62828; color: #c62828; border-radius: 20px; cursor: pointer;">
                             <i class="fas fa-copy"></i> Copiar
                         </button>
                     </div>
@@ -878,7 +870,7 @@
             return data.toLocaleDateString('pt-BR');
         }
 
-        // Carregar dados do usuário
+        // Carregar dados do usuário (GM)
         async function carregarDadosUsuario(user) {
             if (!user) return;
             
@@ -933,13 +925,9 @@
                     ...docSnap.data()
                 };
                 
-                // Verificar se usuário é membro
-                if (!guildaAtual.membros.includes(currentUser.uid)) {
-                    showToast('Você não é membro desta guilda', true);
-                    setTimeout(() => {
-                        window.location.href = 'guildas.html';
-                    }, 2000);
-                    return;
+                // Verificar se usuário é líder (só GM líder pode gerenciar)
+                if (guildaAtual.lider_uid !== currentUser.uid) {
+                    showToast('Apenas o líder da guilda pode gerenciar convites', true);
                 }
                 
                 renderizarDetalhesGuilda();
@@ -1030,25 +1018,25 @@
             membrosLista.innerHTML = html;
         }
 
-        // Buscar jogador por ID GM ou nickname
+        // BUSCAR JOGADOR POR ID PC OU NICKNAME (CORRIGIDO!)
         async function buscarJogador() {
             const termo = buscaJogador.value.trim();
             
             if (!termo) {
-                showToast('Digite um ID GM ou nickname', true);
+                showToast('Digite um ID do Jogador (ID PC) ou nickname', true);
                 return;
             }
             
             showLoading();
             
             try {
-                // Buscar por ID GM primeiro
+                // Buscar por ID PC primeiro (campo correto: id_pc)
                 let jogadores = [];
                 
-                // Buscar por ID GM (exato)
+                // Busca por ID PC (exato)
                 const q1 = query(
                     collection(db, "usuarios"),
-                    where("id_gm", "==", termo)
+                    where("id_pc", "==", termo)  // ✅ CORRETO: id_pc
                 );
                 const snapshot1 = await getDocs(q1);
                 snapshot1.forEach(doc => {
@@ -1058,7 +1046,7 @@
                     });
                 });
                 
-                // Se não encontrou por ID, buscar por nickname (parcial, mas como não pode, vamos buscar exato)
+                // Se não encontrou por ID PC, buscar por nickname
                 if (jogadores.length === 0) {
                     const q2 = query(
                         collection(db, "usuarios"),
@@ -1101,26 +1089,24 @@
                 
             } catch (error) {
                 hideLoading();
+                console.error('Erro na busca:', error);
                 showToast('Erro ao buscar jogador', true);
             }
         }
 
-        // Mostrar resultado da busca
+        // Mostrar resultado da busca (MOSTRA ID PC!)
         function mostrarResultadoBusca(jogador) {
             // Verificar se já é membro
             const jaEhMembro = guildaAtual.membros.includes(jogador.uid);
             
-            // Verificar se já tem convite pendente (simplificado - depois implementaremos coleção de convites)
-            const botaoDisabled = jaEhMembro;
-            
             resultadoBusca.innerHTML = `
-                <div class="jogor-encontrado">
+                <div class="jogador-encontrado">
                     <div class="jogador-info">
                         <h4><i class="fas fa-user"></i> ${jogador.nickname || 'Sem nickname'}</h4>
-                        <p><i class="fas fa-id-card"></i> ID GM: ${jogador.id_gm || '---'}</p>
+                        <p><i class="fas fa-id-card"></i> <strong>ID do Jogador:</strong> ${jogador.id_pc || '---'}</p>
                         ${jogador.email ? `<p><i class="fas fa-envelope"></i> ${jogador.email}</p>` : ''}
                     </div>
-                    <button class="btn-convidar" id="btnConvidar" ${botaoDisabled ? 'disabled' : ''}>
+                    <button class="btn-convidar" id="btnConvidar" ${jaEhMembro ? 'disabled' : ''}>
                         ${jaEhMembro ? '<i class="fas fa-check"></i> Já é membro' : '<i class="fas fa-paper-plane"></i> Convidar'}
                     </button>
                 </div>
@@ -1137,6 +1123,12 @@
 
         // Convidar jogador
         async function convidarJogador(jogador) {
+            // Verificar se é líder
+            if (guildaAtual.lider_uid !== currentUser.uid) {
+                showToast('Apenas o líder pode convidar jogadores', true);
+                return;
+            }
+            
             showLoading();
             
             try {
@@ -1159,15 +1151,15 @@
                 // Criar notificação para o jogador
                 const notificacaoId = `notif_${jogador.uid}_${Date.now()}`;
                 const notificacaoData = {
-                    uid_usuario: jogador.uid,
+                    usuarioId: jogador.uid,  // Campo correto: usuarioId (como no notificacoes.html)
                     tipo: 'convite_guilda',
-                    titulo: 'Novo convite para guilda!',
+                    titulo: '🎮 Convite para Guilda!',
                     mensagem: `${userData.nickname} convidou você para entrar na guilda "${guildaAtual.nome}"`,
-                    guilda_id: guildaId,
-                    guilda_nome: guildaAtual.nome,
-                    convite_id: conviteId,
+                    guildaId: guildaId,
+                    guildaNome: guildaAtual.nome,
+                    conviteId: conviteId,
                     lida: false,
-                    data_criacao: new Date().toISOString()
+                    data: new Date().toISOString()
                 };
                 
                 await setDoc(doc(db, "notificacoes", notificacaoId), notificacaoData);
@@ -1182,6 +1174,7 @@
                 }
                 
             } catch (error) {
+                console.error('Erro ao enviar convite:', error);
                 showToast('Erro ao enviar convite', true);
             } finally {
                 hideLoading();
