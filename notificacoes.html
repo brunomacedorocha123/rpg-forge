@@ -355,14 +355,13 @@
             doc,
             getDoc,
             updateDoc,
-            deleteDoc,
             collection,
             query,
             where,
             getDocs,
-            addDoc,
             onSnapshot,
-            orderBy
+            orderBy,
+            arrayUnion
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
         // Configuração do Firebase
@@ -380,6 +379,7 @@
         const db = getFirestore(app);
 
         let currentUser = null;
+        let userData = null;
         let notificacoesUnsubscribe = null;
 
         const elements = {
@@ -396,14 +396,15 @@
             elements.loading.classList.remove('active');
         }
 
-        // Carregar notificações em tempo real
+        // Carregar notificações em tempo real - CORRIGIDO!
         function carregarNotificacoes() {
             if (!currentUser) return;
 
+            // CORREÇÃO: usando uid_usuario (campo real) e data_criacao
             const q = query(
                 collection(db, "notificacoes"),
-                where("usuarioId", "==", currentUser.uid),
-                orderBy("data", "desc")
+                where("uid_usuario", "==", currentUser.uid),  // ✅ CAMPO CORRETO
+                orderBy("data_criacao", "desc")               // ✅ CAMPO CORRETO
             );
 
             notificacoesUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -433,7 +434,8 @@
 
             let html = '';
             notificacoes.forEach(notif => {
-                const data = new Date(notif.data).toLocaleString();
+                // CORREÇÃO: usar data_criacao
+                const data = new Date(notif.data_criacao).toLocaleString();
                 const naoLida = !notif.lida;
                 
                 html += `
@@ -494,7 +496,6 @@
                 case 'convite_guilda': return '<i class="fas fa-envelope"></i>';
                 case 'solicitacao_aceita': return '<i class="fas fa-check-circle"></i>';
                 case 'solicitacao_recusada': return '<i class="fas fa-times-circle"></i>';
-                case 'solicitacao_entrada': return '<i class="fas fa-user-plus"></i>';
                 default: return '<i class="fas fa-bell"></i>';
             }
         }
@@ -508,12 +509,6 @@
                         </button>
                         <button class="btn-recusar">
                             <i class="fas fa-times"></i> Recusar
-                        </button>
-                    `;
-                case 'solicitacao_aceita':
-                    return `
-                        <button class="btn-ver" onclick="window.location.href='guilda.html?id=${notif.guildaId}'">
-                            <i class="fas fa-eye"></i> Ver Guilda
                         </button>
                     `;
                 default:
@@ -535,13 +530,14 @@
             }
         }
 
+        // CORREÇÃO: função responderConvite simplificada
         async function responderConvite(notificacao, acao) {
             try {
                 showLoading();
 
                 if (acao === 'aceitar') {
                     // Buscar dados da guilda
-                    const guildRef = doc(db, "guildas", notificacao.guildaId);
+                    const guildRef = doc(db, "guildas", notificacao.guilda_id);
                     const guildSnap = await getDoc(guildRef);
                     
                     if (!guildSnap.exists()) {
@@ -551,35 +547,26 @@
 
                     const guildData = guildSnap.data();
 
+                    // Verificar se já é membro
+                    if (guildData.membros.includes(currentUser.uid)) {
+                        alert('Você já é membro desta guilda!');
+                        return;
+                    }
+
                     // Adicionar jogador aos membros
-                    const novosMembros = [...(guildData.membros || [])];
-                    novosMembros.push({
-                        uid: currentUser.uid,
-                        id_pc: userData?.id_pc,
-                        nickname: userData?.nickname || userData?.nome_completo,
-                        status: 'online',
-                        funcao: 'membro',
-                        entrou_em: new Date().toISOString()
-                    });
-
                     await updateDoc(guildRef, {
-                        membros: novosMembros
+                        membros: arrayUnion(currentUser.uid),
+                        membros_detalhes: arrayUnion({
+                            uid: currentUser.uid,
+                            nick: userData?.nickname || 'Jogador',
+                            cargo: 'membro',
+                            data_entrada: new Date().toISOString()
+                        }),
+                        total_membros: (guildData.total_membros || 0) + 1
                     });
 
-                    // Marcar convite como aceito
-                    await updateDoc(doc(db, "convites", notificacao.conviteId), {
-                        status: 'aceito',
-                        respondido_em: new Date().toISOString()
-                    });
-
-                    alert('Você entrou na guilda!');
-                    window.location.href = `guilda.html?id=${notificacao.guildaId}`;
-                } else {
-                    // Recusar convite
-                    await updateDoc(doc(db, "convites", notificacao.conviteId), {
-                        status: 'recusado',
-                        respondido_em: new Date().toISOString()
-                    });
+                    alert('🎉 Você entrou na guilda!');
+                    window.location.href = `guilda-visualizar.html?id=${notificacao.guilda_id}`;
                 }
 
                 // Marcar notificação como lida
@@ -601,7 +588,7 @@
 
                 const q = query(
                     collection(db, "notificacoes"),
-                    where("usuarioId", "==", currentUser.uid),
+                    where("uid_usuario", "==", currentUser.uid),  // ✅ CAMPO CORRETO
                     where("lida", "==", false)
                 );
 
