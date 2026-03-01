@@ -2927,7 +2927,7 @@
 </div>
    <script type="module">
 // ============================================
-// SISTEMA RPGFORCE - VERSÃO COMPLETA E CORRIGIDA
+// SISTEMA RPGFORCE - VERSÃO COMPLETA E FUNCIONAL
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -2955,11 +2955,11 @@ const storage = getStorage(app);
 // ATRIBUTOS - SISTEMA DUPLA FACE
 // ============================================
 const atributos = {
-    st: { esferas: 0 },  // Fixo: 5 + esferas | Teste: 30% + (esferas × 3%)
-    dx: { esferas: 0 },  // Fixo: 5 + esferas | Teste: 30% + (esferas × 2%)
-    iq: { esferas: 0 },  // Fixo: 5 + esferas | Teste: 30% + (esferas × 2%)
-    vigor: { esferas: 0 }, // Fixo: 5 + esferas | Teste: 30% + (esferas × 3%)
-    vt: { esferas: 0 }   // Fixo: 5 + esferas (só fixo)
+    st: { esferas: 0 },
+    dx: { esferas: 0 },
+    iq: { esferas: 0 },
+    vigor: { esferas: 0 },
+    vt: { esferas: 0 }
 };
 
 // ============================================
@@ -2967,16 +2967,12 @@ const atributos = {
 // ============================================
 function getSTFixo() { return 5 + atributos.st.esferas; }
 function getSTPercentual() { return 30 + (atributos.st.esferas * 3); }
-
 function getDXFixo() { return 5 + atributos.dx.esferas; }
 function getDXPercentual() { return 30 + (atributos.dx.esferas * 2); }
-
 function getIQFixo() { return 5 + atributos.iq.esferas; }
 function getIQPercentual() { return 30 + (atributos.iq.esferas * 2); }
-
 function getVIGORFixo() { return 5 + atributos.vigor.esferas; }
 function getVIGORPercentual() { return 30 + (atributos.vigor.esferas * 3); }
-
 function getVTFixo() { 
     let vt = 5 + atributos.vt.esferas;
     if (vantagensSelecionadas.has('duroMatar')) vt = Math.floor(vt * 1.1);
@@ -2996,91 +2992,12 @@ function calcularNivel() {
 }
 
 // ============================================
-// DEFESAS EM %
-// ============================================
-function calcularEsquiva() {
-    let esquiva = Math.floor((getDXPercentual() + getIQPercentual() + getVIGORPercentual()) / 3) + 10;
-    if (vantagensSelecionadas.has('reflexoCombate')) esquiva += 5;
-    
-    const carga = calcularCarga();
-    esquiva -= carga.penalidadeEsquiva;
-    
-    return Math.min(75, Math.max(0, esquiva));
-}
-
-function calcularAparar() {
-    let melhorBonus = 0;
-    let temArma = false;
-    
-    if (inventario.corpo && inventario.corpo.length > 0) {
-        inventario.corpo.forEach(item => {
-            if (item.dano) {
-                temArma = true;
-                const periciaId = mapearPericiaArma(item.nome);
-                const pericia = pericias[periciaId];
-                if (pericia) {
-                    const bonus = (pericia.nivel || 0) * 4;
-                    if (bonus > melhorBonus) melhorBonus = bonus;
-                }
-            }
-        });
-    }
-    
-    if (!temArma) return 0;
-    
-    let aparar = getDXPercentual() + melhorBonus;
-    if (vantagensSelecionadas.has('mestreArmas')) aparar += 5;
-    
-    return Math.min(80, aparar);
-}
-
-function calcularBloqueio() {
-    let melhorBonus = 0;
-    let bonusEscudo = 0;
-    let temEscudo = false;
-    
-    if (inventario.corpo && inventario.corpo.length > 0) {
-        inventario.corpo.forEach(item => {
-            if (item.bonus) {
-                temEscudo = true;
-                bonusEscudo = item.bonus || 0;
-                const pericia = pericias['escudo'];
-                if (pericia) {
-                    const bonus = (pericia.nivel || 0) * 4;
-                    if (bonus > melhorBonus) melhorBonus = bonus;
-                }
-            }
-        });
-    }
-    
-    if (!temEscudo) return 0;
-    
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo;
-    return Math.min(85, bloqueio);
-}
-
-function mapearPericiaArma(nome) {
-    nome = nome.toLowerCase();
-    if (nome.includes('espada') || nome.includes('adaga')) return 'espada';
-    if (nome.includes('machado')) return 'machado';
-    if (nome.includes('arco')) return 'arco';
-    if (nome.includes('besta')) return 'besta';
-    if (nome.includes('lança')) return 'armasHaste';
-    return 'espada';
-}
-
-// ============================================
-// TABELA DE DANO (1d10)
+// TABELA DE DANO
 // ============================================
 const tabelaDano = {
-    0: "1d-3", 1: "1d-3",
-    2: "1d-2", 3: "1d-2",
-    4: "1d-1", 5: "1d-1",
-    6: "1d",   7: "1d",
-    8: "1d+1", 9: "1d+1",
-    10: "1d+2", 11: "1d+2",
-    12: "2d-1", 13: "2d-1",
-    14: "2d",   15: "2d"
+    0: "1d-3", 1: "1d-3", 2: "1d-2", 3: "1d-2", 4: "1d-1", 5: "1d-1",
+    6: "1d", 7: "1d", 8: "1d+1", 9: "1d+1", 10: "1d+2", 11: "1d+2",
+    12: "2d-1", 13: "2d-1", 14: "2d", 15: "2d"
 };
 
 function calcularDanoBase() {
@@ -3102,14 +3019,77 @@ const tabelaDeslocamento = [
 
 function calcularDeslocamento() {
     const soma = getSTFixo() + getDXFixo() + getVIGORFixo();
-    
     for (let faixa of tabelaDeslocamento) {
         if (soma >= faixa.min && soma <= faixa.max) {
             return { andar: faixa.andar, correr: faixa.correr };
         }
     }
-    
     return soma < 15 ? { andar: 2.0, correr: 6.0 } : { andar: 8.0, correr: 24.0 };
+}
+
+// ============================================
+// DEFESAS
+// ============================================
+function calcularEsquiva() {
+    let esquiva = Math.floor((getDXPercentual() + getIQPercentual() + getVIGORPercentual()) / 3) + 10;
+    if (vantagensSelecionadas.has('reflexoCombate')) esquiva += 5;
+    const carga = calcularCarga();
+    esquiva -= carga.penalidadeEsquiva;
+    return Math.min(75, Math.max(0, esquiva));
+}
+
+function calcularAparar() {
+    let melhorBonus = 0;
+    let temArma = false;
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            if (item.dano) {
+                temArma = true;
+                const periciaId = mapearPericiaArma(item.nome);
+                const pericia = pericias[periciaId];
+                if (pericia) {
+                    const bonus = (pericia.nivel || 0) * 4;
+                    if (bonus > melhorBonus) melhorBonus = bonus;
+                }
+            }
+        });
+    }
+    if (!temArma) return 0;
+    let aparar = getDXPercentual() + melhorBonus;
+    if (vantagensSelecionadas.has('mestreArmas')) aparar += 5;
+    return Math.min(80, aparar);
+}
+
+function calcularBloqueio() {
+    let melhorBonus = 0;
+    let bonusEscudo = 0;
+    let temEscudo = false;
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            if (item.bonus) {
+                temEscudo = true;
+                bonusEscudo = item.bonus || 0;
+                const pericia = pericias['escudo'];
+                if (pericia) {
+                    const bonus = (pericia.nivel || 0) * 4;
+                    if (bonus > melhorBonus) melhorBonus = bonus;
+                }
+            }
+        });
+    }
+    if (!temEscudo) return 0;
+    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo;
+    return Math.min(85, bloqueio);
+}
+
+function mapearPericiaArma(nome) {
+    nome = nome.toLowerCase();
+    if (nome.includes('espada') || nome.includes('adaga')) return 'espada';
+    if (nome.includes('machado')) return 'machado';
+    if (nome.includes('arco')) return 'arco';
+    if (nome.includes('besta')) return 'besta';
+    if (nome.includes('lança')) return 'armasHaste';
+    return 'espada';
 }
 
 // ============================================
@@ -3127,7 +3107,6 @@ function calcularLimitesCarga() {
 
 function calcularCarga() {
     let pesoTotal = 0;
-    
     if (inventario.corpo) {
         inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
@@ -3179,7 +3158,6 @@ const catalogoPericias = [
     { id: "persuasao", nome: "Persuasão", tipo: "mental", atributo: "iq" },
     { id: "primeirosSocorros", nome: "Primeiros Socorros", tipo: "mental", atributo: "iq" },
     { id: "sobrevivencia", nome: "Sobrevivência", tipo: "mental", atributo: "iq" },
-    
     { id: "acrobacia", nome: "Acrobacia", tipo: "fisica", atributo: "dx" },
     { id: "arco", nome: "Arco", tipo: "fisica", atributo: "dx" },
     { id: "armasHaste", nome: "Armas de Haste", tipo: "fisica", atributo: "dx" },
@@ -3201,78 +3179,48 @@ const catalogoPericias = [
 ];
 
 // ============================================
-// DADOS DAS MAGIAS (10 NÍVEIS)
+// DADOS DAS MAGIAS
 // ============================================
 const dadosMagias = {
     localizarAgua: {
         nome: "Localizar Água", tipo: "Informação", icone: "fa-location-dot",
-        efeitos: {
-            1: "10m", 2: "50m", 3: "100m", 4: "500m", 5: "1km",
-            6: "5km", 7: "10km", 8: "15km", 9: "20km", 10: "30km"
-        }
+        efeitos: { 1: "10m", 2: "50m", 3: "100m", 4: "500m", 5: "1km", 6: "5km", 7: "10km", 8: "15km", 9: "20km", 10: "30km" }
     },
     purificarAgua: {
         nome: "Purificar Água", tipo: "Utilitária", icone: "fa-droplet",
-        efeitos: {
-            1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L",
-            6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L"
-        }
+        efeitos: { 1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L", 6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L" }
     },
     criarAgua: {
         nome: "Criar Água", tipo: "Utilitária", icone: "fa-water",
-        efeitos: {
-            1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L",
-            6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L"
-        }
+        efeitos: { 1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L", 6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L" }
     },
     dissiparAgua: {
         nome: "Dissipar Água", tipo: "Área", icone: "fa-wind",
-        efeitos: {
-            1: "1m³", 2: "5m³", 3: "10m³", 4: "20m³", 5: "50m³",
-            6: "100m³", 7: "200m³", 8: "500m³", 9: "1000m³", 10: "5000m³"
-        }
+        efeitos: { 1: "1m³", 2: "5m³", 3: "10m³", 4: "20m³", 5: "50m³", 6: "100m³", 7: "200m³", 8: "500m³", 9: "1000m³", 10: "5000m³" }
     },
     adagaDeGelo: {
         nome: "Adaga de Gelo", tipo: "Ataque", icone: "fa-knife",
-        efeitos: {
-            1: "1d-3", 2: "1d-2", 3: "1d-1", 4: "1d", 5: "1d+1",
-            6: "1d+2", 7: "2d-2", 8: "2d-1", 9: "2d", 10: "2d+1"
-        }
+        efeitos: { 1: "1d-3", 2: "1d-2", 3: "1d-1", 4: "1d", 5: "1d+1", 6: "1d+2", 7: "2d-2", 8: "2d-1", 9: "2d", 10: "2d+1" }
     },
     respirarNaAgua: {
         nome: "Respirar na Água", tipo: "Suporte", icone: "fa-lungs",
-        efeitos: {
-            1: "1min", 2: "2min", 3: "5min", 4: "10min", 5: "15min",
-            6: "30min", 7: "45min", 8: "1h", 9: "1.5h", 10: "2h"
-        }
+        efeitos: { 1: "1min", 2: "2min", 3: "5min", 4: "10min", 5: "15min", 6: "30min", 7: "45min", 8: "1h", 9: "1.5h", 10: "2h" }
     },
     moldarAgua: {
         nome: "Moldar Água", tipo: "Controle", icone: "fa-hand",
-        efeitos: {
-            1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L",
-            6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L"
-        }
+        efeitos: { 1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L", 6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L" }
     },
     nevoeiro: {
         nome: "Nevoeiro", tipo: "Área", icone: "fa-cloud",
-        efeitos: {
-            1: "5m", 2: "6m", 3: "7m", 4: "8m", 5: "9m",
-            6: "10m", 7: "12m", 8: "14m", 9: "16m", 10: "20m"
-        }
+        efeitos: { 1: "5m", 2: "6m", 3: "7m", 4: "8m", 5: "9m", 6: "10m", 7: "12m", 8: "14m", 9: "16m", 10: "20m" }
     },
     armaCongelante: {
         nome: "Arma Congelante", tipo: "Encanto", icone: "fa-snowflake",
-        efeitos: {
-            1: "+1", 2: "+2", 3: "+3", 4: "+4", 5: "+5",
-            6: "+6", 7: "+7", 8: "+8", 9: "+9", 10: "+10"
-        }
+        efeitos: { 1: "+1", 2: "+2", 3: "+3", 4: "+4", 5: "+5", 6: "+6", 7: "+7", 8: "+8", 9: "+9", 10: "+10" }
     },
     cortinaDagua: {
         nome: "Cortina d'Água", tipo: "Defesa", icone: "fa-shield",
-        efeitos: {
-            1: "RD+1", 2: "RD+1", 3: "RD+2", 4: "RD+2", 5: "RD+3",
-            6: "RD+3", 7: "RD+4", 8: "RD+4", 9: "RD+5", 10: "RD+5"
-        }
+        efeitos: { 1: "RD+1", 2: "RD+1", 3: "RD+2", 4: "RD+2", 5: "RD+3", 6: "RD+3", 7: "RD+4", 8: "RD+4", 9: "RD+5", 10: "RD+5" }
     }
 };
 
@@ -3327,30 +3275,30 @@ const vantagensData = {
 };
 
 // ============================================
-// CATÁLOGO DE ITENS
+// CATÁLOGO DE ITENS (CORRIGIDO - SEM tipoDano)
 // ============================================
 const catalogoItensData = {
     armas_ca: [
-        { id: 'adaga', nome: 'Adaga', alcance: 1, dano: '1d-2', tipoDano: 'Perfuração', preco: 30, peso: 0.5, st: 5 },
-        { id: 'espada_curta', nome: 'Espada curta', alcance: 1, dano: '1d-1', tipoDano: 'Corte', preco: 100, peso: 1.5, st: 7 },
-        { id: 'espada_longa', nome: 'Espada longa', alcance: 1, dano: '1d', tipoDano: 'Corte', preco: 200, peso: 2.0, st: 8 },
-        { id: 'machado', nome: 'Machado', alcance: 1, dano: '1d+2', tipoDano: 'Corte', preco: 150, peso: 2.5, st: 9 },
-        { id: 'maca', nome: 'Maça', alcance: 1, dano: '1d+1', tipoDano: 'Contusão', preco: 120, peso: 2.0, st: 8 },
-        { id: 'martelo', nome: 'Martelo', alcance: 1, dano: '1d+2', tipoDano: 'Contusão', preco: 180, peso: 3.0, st: 10 },
-        { id: 'lanca', nome: 'Lança', alcance: 2, dano: '1d+1', tipoDano: 'Perfuração', preco: 100, peso: 2.0, st: 8 }
+        { id: 'adaga', nome: 'Adaga', alcance: 1, dano: '1d-2', preco: 30, peso: 0.5, st: 5 },
+        { id: 'espada_curta', nome: 'Espada curta', alcance: 1, dano: '1d-1', preco: 100, peso: 1.5, st: 7 },
+        { id: 'espada_longa', nome: 'Espada longa', alcance: 1, dano: '1d', preco: 200, peso: 2.0, st: 8 },
+        { id: 'machado', nome: 'Machado', alcance: 1, dano: '1d+2', preco: 150, peso: 2.5, st: 9 },
+        { id: 'maca', nome: 'Maça', alcance: 1, dano: '1d+1', preco: 120, peso: 2.0, st: 8 },
+        { id: 'martelo', nome: 'Martelo', alcance: 1, dano: '1d+2', preco: 180, peso: 3.0, st: 10 },
+        { id: 'lanca', nome: 'Lança', alcance: 2, dano: '1d+1', preco: 100, peso: 2.0, st: 8 }
     ],
     armas_dist: [
-        { id: 'arco_curto', nome: 'Arco curto', precisao: 1, dano: '1d', tipoDano: 'Perfuração', alcance: 'ST×15', preco: 100, peso: 1.0, st: 7 },
-        { id: 'arco_longo', nome: 'Arco longo', precisao: 2, dano: '1d+1', tipoDano: 'Perfuração', alcance: 'ST×20', preco: 200, peso: 1.5, st: 9 },
-        { id: 'besta_leve', nome: 'Besta leve', precisao: 2, dano: '1d+1', tipoDano: 'Perfuração', alcance: 'ST×25', preco: 150, peso: 2.5, st: 7 },
-        { id: 'besta_pesada', nome: 'Besta pesada', precisao: 3, dano: '1d+2', tipoDano: 'Perfuração', alcance: 'ST×30', preco: 250, peso: 4.0, st: 10 }
+        { id: 'arco_curto', nome: 'Arco curto', precisao: 1, dano: '1d', alcance: 'ST×15', preco: 100, peso: 1.0, st: 7 },
+        { id: 'arco_longo', nome: 'Arco longo', precisao: 2, dano: '1d+1', alcance: 'ST×20', preco: 200, peso: 1.5, st: 9 },
+        { id: 'besta_leve', nome: 'Besta leve', precisao: 2, dano: '1d+1', alcance: 'ST×25', preco: 150, peso: 2.5, st: 7 },
+        { id: 'besta_pesada', nome: 'Besta pesada', precisao: 3, dano: '1d+2', alcance: 'ST×30', preco: 250, peso: 4.0, st: 10 }
     ],
     armaduras: [
-        { id: 'couro', nome: 'Armadura de Couro', rd: 2, preco: 50, peso: 5.0, local: 'completo' },
-        { id: 'couro_ref', nome: 'Armadura de Couro Reforçado', rd: 4, preco: 250, peso: 10.0, local: 'completo' },
-        { id: 'cota_malha', nome: 'Cota de Malha', rd: 6, preco: 500, peso: 15.0, local: 'completo' },
-        { id: 'placas', nome: 'Armadura de Placas', rd: 8, preco: 1000, peso: 22.0, local: 'completo' },
-        { id: 'meia_armadura', nome: 'Meia-Armadura', rd: 5, preco: 400, peso: 12.0, local: 'tronco' }
+        { id: 'couro', nome: 'Armadura de Couro', rd: 2, preco: 50, peso: 5.0 },
+        { id: 'couro_ref', nome: 'Armadura de Couro Reforçado', rd: 4, preco: 250, peso: 10.0 },
+        { id: 'cota_malha', nome: 'Cota de Malha', rd: 6, preco: 500, peso: 15.0 },
+        { id: 'placas', nome: 'Armadura de Placas', rd: 8, preco: 1000, peso: 22.0 },
+        { id: 'meia_armadura', nome: 'Meia-Armadura', rd: 5, preco: 400, peso: 12.0 }
     ],
     escudos: [
         { id: 'escudo_leve', nome: 'Escudo Leve', bonus: 1, ve: '3/20', preco: 50, peso: 2.0 },
@@ -3359,12 +3307,12 @@ const catalogoItensData = {
         { id: 'escudo_reforcado', nome: 'Escudo Reforçado', bonus: 4, ve: '10/60', preco: 500, peso: 12.0 }
     ],
     itens_gerais: [
-        { id: 'corda', nome: 'Corda (10m)', especificacao: '10m', preco: 5, peso: 1.5 },
+        { id: 'corda', nome: 'Corda', especificacao: '10m', preco: 5, peso: 1.5 },
         { id: 'tocha', nome: 'Tocha', especificacao: '1h de luz', preco: 1, peso: 0.5 },
         { id: 'mochila', nome: 'Mochila', especificacao: '50kg capacidade', preco: 20, peso: 1.5 },
-        { id: 'racao', nome: 'Ração de viagem', especificacao: '1 dia', preco: 2, peso: 0.5 },
+        { id: 'racao', nome: 'Ração', especificacao: '1 dia', preco: 2, peso: 0.5 },
         { id: 'cantil', nome: 'Cantil', especificacao: '1L', preco: 3, peso: 0.8 },
-        { id: 'kit_socorros', nome: 'Kit de primeiros socorros', especificacao: '', preco: 50, peso: 1.0 }
+        { id: 'kit_socorros', nome: 'Kit primeiros socorros', especificacao: '', preco: 50, peso: 1.0 }
     ]
 };
 
@@ -3437,12 +3385,10 @@ const elements = {
     esferasGrid: document.getElementById('esferasGrid'),
     detalheMagiaModal: document.getElementById('detalheMagiaModal'),
     detalheMagiaTitulo: document.getElementById('detalheMagiaTitulo'),
-    detalheMagiaInfo: document.getElementById('detalheMagiaInfo'),
     corpoTabelaDetalhe: document.getElementById('corpoTabelaDetalhe'),
     fecharDetalheMagia: document.getElementById('fecharDetalheMagia'),
     comprarNivelMagia: document.getElementById('comprarNivelMagia'),
     detalheMagiaNH: document.getElementById('detalheMagiaNH'),
-    detalheMagiaFormula: document.getElementById('detalheMagiaFormula'),
     dinheiroBaseInput: document.getElementById('dinheiroBase'),
     dinheiroSaldo: document.getElementById('dinheiroSaldo'),
     cargaAtual: document.getElementById('cargaAtual'),
@@ -3500,16 +3446,10 @@ const elements = {
     deslocamentoCorrer: document.getElementById('deslocamentoCorrer'),
     armaNome: document.getElementById('armaNome'),
     armaDano: document.getElementById('armaDano'),
-    armaTipo: document.getElementById('armaTipo'),
     armaAlcance: document.getElementById('armaAlcance'),
     rdTotal: document.getElementById('rdTotal'),
     
     // Tabelas de itens
-    tabelaArmasCA: document.getElementById('tabelaArmasCA'),
-    tabelaArmasDist: document.getElementById('tabelaArmasDist'),
-    tabelaArmaduras: document.getElementById('tabelaArmaduras'),
-    tabelaEscudos: document.getElementById('tabelaEscudos'),
-    tabelaItensGerais: document.getElementById('tabelaItensGerais'),
     corpoTabelaArmasCA: document.getElementById('corpoTabelaArmasCA'),
     corpoTabelaArmasDist: document.getElementById('corpoTabelaArmasDist'),
     corpoTabelaArmaduras: document.getElementById('corpoTabelaArmaduras'),
@@ -3550,7 +3490,7 @@ function triggerAutoSave() {
 }
 
 // ============================================
-// BOLINHAS (ESFERAS) - CORRIGIDO
+// BOLINHAS (ESFERAS)
 // ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
@@ -3606,7 +3546,6 @@ function atualizarBolinhas(atributoId) {
 // ATUALIZAR INTERFACE
 // ============================================
 function atualizarInterface() {
-    // Atributos - valores REAIS
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
     if (elements.stFixo) elements.stFixo.textContent = getSTFixo();
     if (elements.stPercentual) elements.stPercentual.textContent = getSTPercentual() + '%';
@@ -3625,22 +3564,18 @@ function atualizarInterface() {
     
     if (elements.vtValor) elements.vtValor.textContent = getVTFixo();
     
-    // Esferas restantes
     if (elements.esferasRestantesSpan) {
         elements.esferasRestantesSpan.textContent = esferasRestantes;
     }
     
-    // Nível
     if (elements.nivelPersonagemSpan) {
         elements.nivelPersonagemSpan.textContent = calcularNivel();
     }
     
-    // Dano
     const danoBase = calcularDanoBase();
     if (elements.stDano) elements.stDano.textContent = danoBase;
     if (elements.statusDano) elements.statusDano.textContent = danoBase;
     
-    // PV, PF, PM
     const pv = calcularPV();
     const pf = calcularPF();
     const pm = calcularPM();
@@ -3654,7 +3589,6 @@ function atualizarInterface() {
     
     if (elements.vtVida) elements.vtVida.textContent = `PV ${pv}`;
     
-    // Defesas
     if (elements.defesaEsquiva) {
         elements.defesaEsquiva.textContent = calcularEsquiva() + '%';
     }
@@ -3665,7 +3599,6 @@ function atualizarInterface() {
         elements.defesaBloqueio.textContent = calcularBloqueio() + '%';
     }
     
-    // Deslocamento
     const desloc = calcularDeslocamento();
     const carga = calcularCarga();
     const andarFinal = Math.max(1, desloc.andar - carga.reducaoDeslocamento);
@@ -3678,7 +3611,6 @@ function atualizarInterface() {
         elements.deslocamentoCorrer.textContent = correrFinal.toFixed(1);
     }
     
-    // Carga
     if (elements.cargaAtual) {
         elements.cargaAtual.textContent = carga.pesoTotal.toFixed(1);
     }
@@ -3694,18 +3626,13 @@ function atualizarInterface() {
         elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
     }
     
-    // Arma equipada
     atualizarArmaEquipada();
-    
-    // RD
     calcularRD();
-    
-    // Contadores
     atualizarContadoresAbas();
 }
 
 function atualizarArmaEquipada() {
-    if (!elements.armaNome || !elements.armaDano || !elements.armaTipo || !elements.armaAlcance) return;
+    if (!elements.armaNome || !elements.armaDano || !elements.armaAlcance) return;
     
     let arma = null;
     if (inventario.corpo && inventario.corpo.length > 0) {
@@ -3717,12 +3644,10 @@ function atualizarArmaEquipada() {
     if (arma) {
         elements.armaNome.textContent = arma.nome;
         elements.armaDano.textContent = arma.dano;
-        elements.armaTipo.textContent = arma.tipoDano || '-';
         elements.armaAlcance.textContent = arma.alcance ? arma.alcance.toString() : '-';
     } else {
         elements.armaNome.textContent = 'Nenhuma';
         elements.armaDano.textContent = '-';
-        elements.armaTipo.textContent = '-';
         elements.armaAlcance.textContent = '-';
     }
 }
@@ -3739,7 +3664,7 @@ function calcularRD() {
 }
 
 // ============================================
-// FUNÇÕES DAS TABELAS DE ITENS
+// FUNÇÕES DAS TABELAS DE ITENS (CORRIGIDAS)
 // ============================================
 function renderizarTabelas(tab = 'armas_ca') {
     document.querySelectorAll('.tabela-item').forEach(t => t.classList.remove('ativa'));
@@ -3776,7 +3701,6 @@ function renderizarTabelaArmasCA() {
                 <td>${item.nome}</td>
                 <td>${item.alcance}</td>
                 <td>${item.dano}</td>
-                <td>${item.tipoDano || 'Corte'}</td>
                 <td>${item.preco}</td>
                 <td>${item.peso}</td>
                 <td>${item.st}</td>
@@ -3800,9 +3724,8 @@ function renderizarTabelaArmasDist() {
         html += `
             <tr>
                 <td>${item.nome}</td>
-                <td>${item.precisao}</td>
+                <td>+${item.precisao}</td>
                 <td>${item.dano}</td>
-                <td>${item.tipoDano || 'Perfuração'}</td>
                 <td>${item.alcance}</td>
                 <td>${item.preco}</td>
                 <td>${item.peso}</td>
@@ -3975,7 +3898,6 @@ function renderizarInventario() {
     elements.inventarioMochila.innerHTML = renderizarItens(inventario.mochila, 'mochila');
     elements.inventarioDeposito.innerHTML = renderizarItens(inventario.deposito, 'deposito');
     
-    // Adicionar eventos aos botões
     document.querySelectorAll('.btn-mover-deposito').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4622,7 +4544,7 @@ function mudarAba(abaId) {
 }
 
 // ============================================
-// SALVAMENTO
+// FUNÇÕES DE COLETA DE DADOS
 // ============================================
 function coletarDadosBasicos() {
     return {
@@ -4671,28 +4593,9 @@ function salvarDadosBasicos() {
     return personagemTemp;
 }
 
-async function uploadParaImgur(base64Image) {
-    try {
-        const CLIENT_ID = '546c25a59c58ad7';
-        const base64Data = base64Image.split(',')[1];
-        
-        const formData = new FormData();
-        formData.append('image', base64Data);
-        formData.append('type', 'base64');
-        
-        const resposta = await fetch('https://api.imgur.com/3/image', {
-            method: 'POST',
-            headers: { 'Authorization': `Client-ID ${CLIENT_ID}` },
-            body: formData
-        });
-        
-        const dados = await resposta.json();
-        return dados.success ? dados.data.link : null;
-    } catch (erro) {
-        return null;
-    }
-}
-
+// ============================================
+// FUNÇÃO PRINCIPAL DE SALVAMENTO (CORRIGIDA)
+// ============================================
 async function salvarPersonagem(finalizar = false) {
     try {
         setAutoSaveIndicator('saving');
@@ -4712,29 +4615,32 @@ async function salvarPersonagem(finalizar = false) {
         }
         
         let fotoURL = dadosBasicos.fotoURL || '';
-        
         if (fotoURL && fotoURL.startsWith('data:image')) {
             const imagemUrl = await uploadParaImgur(fotoURL);
             if (imagemUrl) fotoURL = imagemUrl;
         }
         
+        // Dados completos do personagem
         const personagemData = {
+            // Dados básicos
             nome: dadosBasicos.nome,
             classe: dadosBasicos.classe,
             idade: dadosBasicos.idade,
             altura: dadosBasicos.altura,
             peso: dadosBasicos.peso,
-            fotoURL: fotoURL || '',
             aparencia: dadosBasicos.aparencia,
             riqueza: dadosBasicos.riqueza,
             dinheiroBase: dadosBasicos.dinheiroBase,
             peculiaridades: dadosBasicos.peculiaridades || '',
+            fotoURL: fotoURL,
+            
+            // Metadados
             userId: user.uid,
             status: finalizar ? 'finalizado' : 'rascunho',
             updatedAt: new Date(),
             
+            // Sistema de atributos
             esferasIniciais: esferasIniciais,
-            
             atributos: {
                 st: { esferas: atributos.st.esferas },
                 dx: { esferas: atributos.dx.esferas },
@@ -4743,6 +4649,7 @@ async function salvarPersonagem(finalizar = false) {
                 vt: { esferas: atributos.vt.esferas }
             },
             
+            // Status de combate
             statusCombate: {
                 vidaAtual: calcularPV(),
                 vidaMax: calcularPV(),
@@ -4752,6 +4659,7 @@ async function salvarPersonagem(finalizar = false) {
                 manaMax: calcularPM()
             },
             
+            // Derivados
             derivados: {
                 danoBase: calcularDanoBase(),
                 esquiva: calcularEsquiva(),
@@ -4760,56 +4668,99 @@ async function salvarPersonagem(finalizar = false) {
                 deslocamento: calcularDeslocamento().andar.toFixed(1) + 'm / ' + calcularDeslocamento().correr.toFixed(1) + 'm'
             },
             
-            vantagens: Array.from(vantagensSelecionadas) || [],
-            desvantagens: Array.from(desvantagensSelecionadas) || [],
-            fobia: fobiaSelecionada || null,
+            // Vantagens e desvantagens
+            vantagens: Array.from(vantagensSelecionadas),
+            desvantagens: Array.from(desvantagensSelecionadas),
+            fobia: fobiaSelecionada,
             
-            pericias: pericias || {},
+            // Perícias
+            pericias: pericias,
             
+            // Magias
             escolas: escolas,
             
-            ppDisponivel: ppDisponivel || 30,
-            ppGasto: ppGastoTotal || 0,
+            // Pontos de perícia
+            ppDisponivel: ppDisponivel,
+            ppGasto: ppGastoTotal,
             
-            inventario: inventario || { corpo: [], mochila: [], deposito: [] },
-            dinheiro: dinheiro || 0
+            // Inventário e dinheiro
+            inventario: inventario,
+            dinheiro: dinheiro
         };
         
+        // Adiciona createdAt apenas se for novo
         if (!personagemId) {
             personagemData.createdAt = new Date();
         }
         
+        // Salva no Firestore
         let docRef;
         if (personagemId) {
             docRef = doc(db, "personagens", personagemId);
             await updateDoc(docRef, personagemData);
+            console.log('Personagem atualizado com sucesso!');
         } else {
             docRef = doc(collection(db, "personagens"));
             personagemId = docRef.id;
             personagemData.id = personagemId;
             await setDoc(docRef, personagemData);
+            console.log('Personagem criado com sucesso!');
         }
         
+        // Atualiza interface
         setAutoSaveIndicator('saved');
         
         if (elements.personagemIdHidden) elements.personagemIdHidden.value = personagemId;
         if (elements.breadcrumbCurrent) elements.breadcrumbCurrent.textContent = `Editando: ${dadosBasicos.nome}`;
         if (elements.pageTitle) elements.pageTitle.textContent = `Editando: ${dadosBasicos.nome}`;
         
+        // Salva no sessionStorage
         if (personagemTemp) {
             personagemTemp.fotoURL = fotoURL;
             sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
         }
         
+        // Mostra modal de sucesso
         if (finalizar && elements.modalSalvarSucesso) {
             elements.modalSalvarSucesso.style.display = 'flex';
         }
         
         return true;
+        
     } catch (error) {
+        console.error('ERRO DETALHADO:', error);
+        console.error('Código:', error.code);
+        console.error('Mensagem:', error.message);
+        
         setAutoSaveIndicator('error');
-        alert('Erro ao salvar: ' + error.message);
+        alert('Erro ao salvar: ' + error.message + '\nCódigo: ' + error.code);
         return false;
+    }
+}
+
+// ============================================
+// DEMAIS FUNÇÕES (upload, carregar, excluir, PDF)
+// ============================================
+async function uploadParaImgur(base64Image) {
+    try {
+        const CLIENT_ID = '546c25a59c58ad7';
+        const base64Data = base64Image.split(',')[1];
+        
+        const formData = new FormData();
+        formData.append('image', base64Data);
+        formData.append('type', 'base64');
+        
+        const resposta = await fetch('https://api.imgur.com/3/image', {
+            method: 'POST',
+            headers: { 'Authorization': `Client-ID ${CLIENT_ID}` },
+            body: formData
+        });
+        
+        const dados = await resposta.json();
+        return dados.success ? dados.data.link : null;
+    } catch (erro) {
+        console.error('Erro no upload da imagem:', erro);
+        return null;
     }
 }
 
@@ -4872,7 +4823,6 @@ async function carregarPersonagem(id) {
             
             esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
             
-            // Atualizar bolinhas
             atualizarBolinhas('st');
             atualizarBolinhas('dx');
             atualizarBolinhas('iq');
@@ -4934,6 +4884,7 @@ async function carregarPersonagem(id) {
         
         hideLoading();
     } catch (error) {
+        console.error('Erro ao carregar:', error);
         alert('Erro ao carregar personagem!');
         hideLoading();
     }
@@ -4975,7 +4926,6 @@ function carregarDadosSalvos() {
                 
                 esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
                 
-                // Atualizar bolinhas
                 atualizarBolinhas('st');
                 atualizarBolinhas('dx');
                 atualizarBolinhas('iq');
@@ -5045,6 +4995,7 @@ async function excluirPersonagem() {
         sessionStorage.removeItem('personagemTemp');
         window.location.href = 'personagens.html';
     } catch (error) {
+        console.error('Erro ao excluir:', error);
         alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
@@ -5142,6 +5093,7 @@ async function exportarPDF() {
         
         pdf.save(`ficha_${nome.replace(/\s+/g, '_')}.pdf`);
     } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
         alert('Erro ao gerar PDF');
     } finally {
         hideLoading();
@@ -5411,7 +5363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // Criar item personalizado (elementos que podem estar faltando no HTML)
+    // Criar item personalizado
     if (elements.btnCriarItem) {
         elements.btnCriarItem.addEventListener('click', () => {
             alert('Função de criar item personalizado em desenvolvimento');
@@ -5525,24 +5477,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 await signOut(auth);
                 window.location.href = 'index.html';
             } catch (error) {
+                console.error('Erro ao sair:', error);
                 hideLoading();
             }
         });
     }
-    
-      // ... (todo o código existente) ...
     
     // Valores iniciais
     dinheiro = calcularDinheiroInicial();
     atualizarDinheiroDisplay();
     atualizarInterface();
     atualizarContadoresAbas();
-    renderizarTabelas('armas_ca');  
-    
-}); 
+    renderizarTabelas('armas_ca');
+});
 
 // ============================================
-// FIM DO SCRIPT - COMPLETO E FUNCIONAL
+// FIM DO SCRIPT
 // ============================================
 </script>
 </body>
