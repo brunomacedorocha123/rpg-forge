@@ -288,6 +288,43 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Toast de notificação */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            color: #0a0a1a;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 6000;
+            animation: slideIn 0.5s ease;
+            font-weight: 600;
+        }
+
+        .toast-notification.show {
+            display: flex;
+        }
+
+        .toast-notification i {
+            font-size: 1.5rem;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
         /* Responsivo */
         @media (max-width: 480px) {
             .container {
@@ -320,6 +357,12 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
         <div class="loading-text">Carregando...</div>
+    </div>
+
+    <!-- Toast de notificação -->
+    <div class="toast-notification" id="toastNotification">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Operação realizada com sucesso!</span>
     </div>
 
     <div class="container">
@@ -388,7 +431,9 @@
         const elements = {
             loading: document.getElementById('loadingOverlay'),
             notificacoesList: document.getElementById('notificacoesList'),
-            btnMarcarTodasLidas: document.getElementById('btnMarcarTodasLidas')
+            btnMarcarTodasLidas: document.getElementById('btnMarcarTodasLidas'),
+            toast: document.getElementById('toastNotification'),
+            toastMessage: document.getElementById('toastMessage')
         };
 
         function showLoading() {
@@ -399,24 +444,33 @@
             elements.loading.classList.remove('active');
         }
 
-        // Carregar notificações em tempo real - CORRIGIDO com os campos EXATOS
+        function showToast(message, isError = false) {
+            elements.toastMessage.textContent = message;
+            elements.toast.style.background = isError 
+                ? 'linear-gradient(135deg, #ff6b6b, #ff4444)' 
+                : 'linear-gradient(135deg, #ffd700, #ffaa00)';
+            elements.toast.classList.add('show');
+            setTimeout(() => {
+                elements.toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Carregar notificações em tempo real
         function carregarNotificacoes() {
             if (!currentUser) return;
 
             console.log("Carregando notificações para:", currentUser.uid);
             
-            // Usando os campos EXATOS que você mostrou: usuarioId e data
             const q = query(
                 collection(db, "notificacoes"),
-                where("usuarioId", "==", currentUser.uid),  // ✅ CAMPO EXATO: usuarioId
-                orderBy("data", "desc")                      // ✅ CAMPO EXATO: data
+                where("usuarioId", "==", currentUser.uid),
+                orderBy("data", "desc")
             );
 
             notificacoesUnsubscribe = onSnapshot(q, (snapshot) => {
                 console.log("Notificações encontradas:", snapshot.size);
                 const notificacoes = [];
                 snapshot.forEach((doc) => {
-                    console.log("Notificação:", doc.id, doc.data());
                     notificacoes.push({
                         id: doc.id,
                         ...doc.data()
@@ -443,7 +497,6 @@
 
             let html = '';
             notificacoes.forEach(notif => {
-                // Usando o campo EXATO: data
                 const data = new Date(notif.data).toLocaleString();
                 const naoLida = !notif.lida;
                 
@@ -479,6 +532,7 @@
             document.querySelectorAll('.btn-aceitar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     const notifId = btn.dataset.id;
                     const guildaId = btn.dataset.guilda;
                     responderConvite(notifId, guildaId, 'aceitar');
@@ -488,6 +542,7 @@
             document.querySelectorAll('.btn-recusar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     const notifId = btn.dataset.id;
                     responderConvite(notifId, null, 'recusar');
                 });
@@ -504,7 +559,7 @@
                     const guildSnap = await getDoc(guildRef);
                     
                     if (!guildSnap.exists()) {
-                        alert('Guilda não encontrada');
+                        showToast('Guilda não encontrada', true);
                         return;
                     }
 
@@ -512,7 +567,12 @@
 
                     // Verificar se já é membro
                     if (guildData.membros && guildData.membros.includes(currentUser.uid)) {
-                        alert('Você já é membro desta guilda!');
+                        showToast('Você já é membro desta guilda!', true);
+                        
+                        // Mesmo assim, remove a notificação
+                        await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                            lida: true
+                        });
                         return;
                     }
 
@@ -521,25 +581,32 @@
                         membros: arrayUnion(currentUser.uid),
                         membros_detalhes: arrayUnion({
                             uid: currentUser.uid,
-                            nick: userData?.nickname || 'Jogador',
+                            nick: userData?.nickname || userData?.nome_completo || 'Jogador',
                             cargo: 'membro',
                             data_entrada: new Date().toISOString()
                         }),
                         total_membros: (guildData.total_membros || 0) + 1
                     });
 
-                    alert('🎉 Você entrou na guilda!');
-                    window.location.href = `guilda-visualizar.html?id=${guildaId}`;
+                    showToast('🎉 Você entrou na guilda!');
+                    
+                    // Aguarda 1 segundo para mostrar a mensagem antes de redirecionar
+                    setTimeout(() => {
+                        window.location.href = `guilda-visualizar.html?id=${guildaId}`;
+                    }, 1000);
+                    
+                } else {
+                    showToast('Convite recusado');
                 }
 
-                // Marcar notificação como lida
+                // Marcar notificação como lida (e ela vai sumir da lista)
                 await updateDoc(doc(db, "notificacoes", notificacaoId), {
                     lida: true
                 });
 
             } catch (error) {
                 console.error('Erro ao responder convite:', error);
-                alert('Erro ao processar resposta');
+                showToast('Erro ao processar resposta', true);
             } finally {
                 hideLoading();
             }
@@ -563,9 +630,11 @@
                 });
 
                 await Promise.all(promises);
+                showToast('Todas notificações marcadas como lidas');
                 
             } catch (error) {
                 console.error('Erro ao marcar todas como lidas:', error);
+                showToast('Erro ao marcar notificações', true);
             } finally {
                 hideLoading();
             }
