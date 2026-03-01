@@ -25,7 +25,6 @@
             color: #fff;
         }
 
-        /* Efeito de fundo */
         .magic-bg {
             position: fixed;
             top: 0;
@@ -328,16 +327,6 @@
             object-fit: cover;
         }
 
-        .guilda-banner .default-icon {
-            background: linear-gradient(135deg, #c62828, #aa00ff);
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-        }
-
         .guilda-info {
             margin-bottom: 15px;
         }
@@ -447,6 +436,7 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(198, 40, 40, 0.2);
             border-radius: 30px;
+            grid-column: 1 / -1;
         }
 
         .empty-state i {
@@ -496,7 +486,6 @@
             max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
         }
 
         .modal h2 {
@@ -568,7 +557,7 @@
         }
 
         /* Upload de imagem */
-        .image-upload {
+        .image-upload-area {
             border: 2px dashed rgba(198, 40, 40, 0.3);
             border-radius: 15px;
             padding: 30px;
@@ -578,18 +567,18 @@
             margin-bottom: 20px;
         }
 
-        .image-upload:hover {
+        .image-upload-area:hover {
             border-color: #c62828;
             background: rgba(198, 40, 40, 0.05);
         }
 
-        .image-upload i {
+        .image-upload-area i {
             font-size: 3rem;
             color: #c62828;
             margin-bottom: 10px;
         }
 
-        .image-upload p {
+        .image-upload-area p {
             color: rgba(255, 255, 255, 0.6);
         }
 
@@ -611,6 +600,26 @@
 
         .image-preview.active {
             display: block;
+        }
+
+        .remove-image {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .remove-image:hover {
+            background: #c62828;
         }
 
         /* ID gerado */
@@ -743,7 +752,7 @@
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
-        <div class="loading-text">Forjando sua guilda...</div>
+        <div class="loading-text">Carregando guildas...</div>
     </div>
 
     <!-- Modal de Criar Guilda -->
@@ -754,7 +763,7 @@
 
             <form id="formCriarGuilda">
                 <!-- Upload de Imagem -->
-                <div class="image-upload" id="imageUpload">
+                <div class="image-upload-area" id="imageUploadArea">
                     <i class="fas fa-cloud-upload-alt"></i>
                     <p>Clique para enviar o brasão da guilda</p>
                     <small style="color: rgba(255,255,255,0.4);">PNG, JPG até 2MB</small>
@@ -762,11 +771,14 @@
                 
                 <div class="image-preview" id="imagePreview">
                     <img src="" alt="Preview" id="previewImg">
+                    <button type="button" class="remove-image" id="removeImage" onclick="removerImagem()">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
 
                 <!-- Nome da Guilda -->
                 <div class="form-group">
-                    <label><i class="fas fa-crown"></i> Nome da Guilda</label>
+                    <label><i class="fas fa-crown"></i> Nome da Guilda *</label>
                     <div class="input-wrapper">
                         <i class="fas fa-tag"></i>
                         <input type="text" id="nomeGuilda" placeholder="Ex: Os Dragões de Ébano" maxlength="50" required>
@@ -775,7 +787,7 @@
 
                 <!-- Descrição -->
                 <div class="form-group">
-                    <label><i class="fas fa-scroll"></i> Descrição</label>
+                    <label><i class="fas fa-scroll"></i> Descrição *</label>
                     <div class="input-wrapper">
                         <i class="fas fa-align-left"></i>
                         <textarea id="descricaoGuilda" placeholder="Conte um pouco sobre sua guilda, seus objetivos e ideais..." maxlength="500" required></textarea>
@@ -784,11 +796,11 @@
 
                 <!-- Tipo de Guilda -->
                 <div class="form-group">
-                    <label><i class="fas fa-shield-alt"></i> Tipo de Guilda</label>
+                    <label><i class="fas fa-shield-alt"></i> Tipo de Guilda *</label>
                     <div class="input-wrapper">
                         <i class="fas fa-globe"></i>
                         <select id="tipoGuilda" required>
-                            <option value="publica">Pública - Qualquer um pode entrar</option>
+                            <option value="publica">Pública - Qualquer um pode solicitar entrada</option>
                             <option value="privada">Privada - Apenas com convite</option>
                         </select>
                     </div>
@@ -796,7 +808,7 @@
 
                 <!-- ID da Guilda (gerado automaticamente) -->
                 <div class="id-display">
-                    <span class="label"><i class="fas fa-id-card"></i> ID da Guilda:</span>
+                    <span class="label"><i class="fas fa-id-card"></i> ID da Guilda (único):</span>
                     <span class="value" id="guildaIdDisplay">--------</span>
                 </div>
 
@@ -838,7 +850,7 @@
                 
                 <div class="user-nick">
                     <i class="fas fa-user"></i>
-                    <span id="displayNickname">Mestre</span>
+                    <span id="displayNickname">Carregando...</span>
                 </div>
                 
                 <button class="btn-sair" id="btnSair">
@@ -878,12 +890,11 @@
         <!-- Conteúdo: Minhas Guildas -->
         <div id="minhasGuildasContent">
             <div class="guildas-grid" id="guildasGrid">
-                <!-- Cards serão inseridos via JavaScript -->
                 <!-- Estado vazio (aparece quando não tem guildas) -->
                 <div class="empty-state" id="emptyState">
                     <i class="fas fa-users-slash"></i>
                     <h3>Você ainda não participa de nenhuma guilda</h3>
-                    <p>Crie sua própria guilda ou aceite convites de outros mestres!</p>
+                    <p>Crie sua primeira guilda e comece a construir sua irmandade!</p>
                     <button class="btn-primary" onclick="abrirModal()">
                         <i class="fas fa-plus-circle"></i> Criar Primeira Guilda
                     </button>
@@ -915,12 +926,14 @@
             collection,
             query,
             where,
-            getDocs,
-            addDoc,
-            updateDoc,
-            serverTimestamp,
-            setDoc
+            getDocs
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+        import {
+            getStorage,
+            ref,
+            uploadBytes,
+            getDownloadURL
+        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
         // Configuração do Firebase
         const firebaseConfig = {
@@ -936,6 +949,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
 
         // ========== ELEMENTOS DO DOM ==========
         
@@ -953,10 +967,11 @@
         const regrasGuilda = document.getElementById('regrasGuilda');
         const guildaIdDisplay = document.getElementById('guildaIdDisplay');
         
-        // Upload de imagem (placeholder - implementaremos depois)
-        const imageUpload = document.getElementById('imageUpload');
+        // Upload de imagem
+        const imageUploadArea = document.getElementById('imageUploadArea');
         const imagePreview = document.getElementById('imagePreview');
         const previewImg = document.getElementById('previewImg');
+        const removeImageBtn = document.getElementById('removeImage');
         
         // Grid de guildas
         const guildasGrid = document.getElementById('guildasGrid');
@@ -975,7 +990,7 @@
         
         let currentUser = null;
         let userData = null;
-        let guildas = [];
+        let imagemSelecionada = null;
 
         // ========== FUNÇÕES ==========
         
@@ -987,27 +1002,56 @@
             loadingOverlay.classList.remove('active');
         }
 
-        function abrirModal() {
-            // Gerar ID único para a guilda
-            const guildaId = gerarId8Digitos();
-            guildaIdDisplay.textContent = guildaId;
+        function gerarId8Digitos() {
+            return Math.floor(10000000 + Math.random() * 90000000).toString();
+        }
+
+        window.abrirModal = function() {
+            const novoId = gerarId8Digitos();
+            guildaIdDisplay.textContent = novoId;
             modalOverlay.classList.add('active');
         }
 
-        window.abrirModal = abrirModal;
-
-        function fecharModal() {
+        window.fecharModal = function() {
             modalOverlay.classList.remove('active');
             formCriarGuilda.reset();
             imagePreview.classList.remove('active');
             previewImg.src = '';
+            imagemSelecionada = null;
         }
 
-        window.fecharModal = fecharModal;
-
-        function gerarId8Digitos() {
-            return Math.floor(10000000 + Math.random() * 90000000).toString();
+        window.removerImagem = function() {
+            imagePreview.classList.remove('active');
+            previewImg.src = '';
+            imagemSelecionada = null;
         }
+
+        // Upload de imagem
+        imageUploadArea.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png, image/jpeg, image/jpg, image/gif';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert('A imagem deve ter no máximo 2MB');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        previewImg.src = e.target.result;
+                        imagePreview.classList.add('active');
+                        imagemSelecionada = file;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            
+            input.click();
+        });
 
         // Carregar dados do usuário
         async function carregarDadosUsuario(user) {
@@ -1025,123 +1069,12 @@
                     
                     displayIdGm.textContent = userData.id_gm || '--------';
                     displayNickname.textContent = userData.nickname || 'Mestre';
-                    
-                    // Carregar guildas do usuário
-                    await carregarGuildas();
-                    
-                    return userData;
                 }
             } catch (error) {
                 console.error('Erro ao carregar dados:', error);
             } finally {
                 hideLoading();
             }
-        }
-
-        // Carregar guildas do usuário
-        async function carregarGuildas() {
-            if (!currentUser) return;
-            
-            try {
-                // Por enquanto, vamos simular guildas para teste
-                // Quando tiver Firestore, aqui fará a query
-                
-                // SIMULAÇÃO: guildas de exemplo
-                setTimeout(() => {
-                    const guildasSimuladas = [
-                        {
-                            id: "12345678",
-                            nome: "Os Dragões de Ébano",
-                            descricao: "Guilda dedicada a explorar masmorras perigosas e enfrentar dragões ancestrais. Buscamos guerreiros valentes!",
-                            tipo: "publica",
-                            membros: 12,
-                            campanhas: 3,
-                            cargo: "lider",
-                            imagem: null
-                        },
-                        {
-                            id: "87654321",
-                            nome: "Irmandade da Rosa",
-                            descricao: "Uma guilda de cavaleiros e magos que protegem os reinos contra as forças das trevas. Honra e coragem acima de tudo.",
-                            tipo: "privada",
-                            membros: 8,
-                            campanhas: 2,
-                            cargo: "membro",
-                            imagem: null
-                        }
-                    ];
-                    
-                    guildas = guildasSimuladas;
-                    renderizarGuildas();
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Erro ao carregar guildas:', error);
-            }
-        }
-
-        // Renderizar cards de guildas
-        function renderizarGuildas() {
-            if (guildas.length === 0) {
-                emptyState.style.display = 'block';
-                guildasGrid.innerHTML = '';
-                guildasGrid.appendChild(emptyState);
-                return;
-            }
-            
-            emptyState.style.display = 'none';
-            
-            let html = '';
-            guildas.forEach(g => {
-                const cargoClass = g.cargo === 'lider' ? 'lider' : '';
-                const tipoClass = g.tipo === 'publica' ? 'publica' : 'privada';
-                const tipoIcon = g.tipo === 'publica' ? 'fa-globe' : 'fa-lock';
-                
-                html += `
-                    <div class="guilda-card ${cargoClass}" onclick="window.location.href='guilda.html?id=${g.id}'">
-                        <div class="guilda-banner">
-                            ${g.imagem ? 
-                                `<img src="${g.imagem}" alt="${g.nome}">` : 
-                                `<div class="default-icon"><i class="fas fa-dragon"></i></div>`
-                            }
-                        </div>
-                        
-                        <div class="guilda-info">
-                            <div class="guilda-nome">
-                                <h3>${g.nome}</h3>
-                                <span class="guilda-tipo ${tipoClass}">
-                                    <i class="fas ${tipoIcon}"></i> ${g.tipo === 'publica' ? 'Pública' : 'Privada'}
-                                </span>
-                            </div>
-                            
-                            <div class="guilda-descricao">
-                                ${g.descricao}
-                            </div>
-                            
-                            <div class="guilda-stats">
-                                <div class="stat">
-                                    <i class="fas fa-users"></i> ${g.membros} membros
-                                </div>
-                                <div class="stat">
-                                    <i class="fas fa-scroll"></i> ${g.campanhas} campanhas
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="guilda-footer">
-                            <span class="guilda-cargo ${cargoClass}">
-                                <i class="fas fa-${g.cargo === 'lider' ? 'crown' : 'user'}"></i> 
-                                ${g.cargo === 'lider' ? 'Líder' : 'Membro'}
-                            </span>
-                            <span class="btn-card">
-                                <i class="fas fa-eye"></i> Visualizar
-                            </span>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            guildasGrid.innerHTML = html;
         }
 
         // Criar nova guilda
@@ -1162,37 +1095,57 @@
             showLoading();
             
             try {
-                // SIMULAÇÃO: Criar guilda (sem Firebase por enquanto)
-                console.log('Criando guilda:', {
+                // Aqui você vai implementar o salvamento no Firebase
+                // Quando estiver pronto para conectar, descomente o código abaixo
+                
+                /*
+                // 1. Upload da imagem (se houver)
+                let imagemURL = '';
+                if (imagemSelecionada) {
+                    const storageRef = ref(storage, `guildas/${guildaId}/brasao`);
+                    await uploadBytes(storageRef, imagemSelecionada);
+                    imagemURL = await getDownloadURL(storageRef);
+                }
+                
+                // 2. Salvar no Firestore
+                await setDoc(doc(db, "guildas", guildaId), {
+                    id: guildaId,
+                    nome: nome,
+                    descricao: descricao,
+                    tipo: tipo,
+                    regras: regras || '',
+                    imagemURL: imagemURL,
+                    lider_uid: currentUser.uid,
+                    lider_nick: userData.nickname,
+                    membros: [{
+                        uid: currentUser.uid,
+                        nick: userData.nickname,
+                        cargo: 'lider',
+                        data_entrada: new Date().toISOString()
+                    }],
+                    data_criacao: new Date().toISOString(),
+                    total_membros: 1,
+                    campanhas: []
+                });
+                */
+                
+                // Simulação de sucesso (remova quando conectar ao Firebase)
+                console.log('Guilda criada:', {
                     id: guildaId,
                     nome,
                     descricao,
                     tipo,
                     regras,
-                    lider: currentUser?.uid,
-                    lider_nick: userData?.nickname,
-                    data_criacao: new Date().toISOString()
+                    lider: currentUser?.uid
                 });
                 
-                // Simular delay
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 
-                // Adicionar à lista local
-                guildas.push({
-                    id: guildaId,
-                    nome,
-                    descricao,
-                    tipo,
-                    membros: 1,
-                    campanhas: 0,
-                    cargo: 'lider',
-                    imagem: null
-                });
-                
-                renderizarGuildas();
                 fecharModal();
-                
                 alert('Guilda criada com sucesso! ID: ' + guildaId);
+                
+                // Aqui você vai recarregar a lista de guildas
+                // await carregarGuildas();
                 
             } catch (error) {
                 console.error('Erro ao criar guilda:', error);
@@ -1204,12 +1157,6 @@
 
         // ========== EVENT LISTENERS ==========
         
-        // Upload de imagem (placeholder)
-        imageUpload.addEventListener('click', () => {
-            alert('Funcionalidade de upload será implementada em breve!');
-        });
-
-        // Formulário de criação
         formCriarGuilda.addEventListener('submit', criarGuilda);
 
         // Abas
