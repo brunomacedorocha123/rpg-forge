@@ -725,6 +725,42 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Toast de notificação */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #c62828, #aa00ff);
+            color: #fff;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(198, 40, 40, 0.3);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 5000;
+            animation: slideIn 0.5s ease;
+        }
+
+        .toast-notification.show {
+            display: flex;
+        }
+
+        .toast-notification i {
+            font-size: 1.5rem;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
         /* Responsivo */
         @media (max-width: 768px) {
             .navbar {
@@ -755,6 +791,12 @@
         <div class="loading-text">Carregando guildas...</div>
     </div>
 
+    <!-- Toast de notificação -->
+    <div class="toast-notification" id="toastNotification">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">Guilda criada com sucesso!</span>
+    </div>
+
     <!-- Modal de Criar Guilda -->
     <div class="modal-overlay" id="modalCriarGuilda">
         <div class="modal">
@@ -771,7 +813,7 @@
                 
                 <div class="image-preview" id="imagePreview">
                     <img src="" alt="Preview" id="previewImg">
-                    <button type="button" class="remove-image" id="removeImage" onclick="removerImagem()">
+                    <button type="button" class="remove-image" id="removeImageBtn">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -822,10 +864,10 @@
                 </div>
 
                 <div class="modal-actions">
-                    <button type="button" class="btn-cancelar" onclick="fecharModal()">
+                    <button type="button" class="btn-cancelar" id="cancelarModal">
                         <i class="fas fa-times"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn-criar">
+                    <button type="submit" class="btn-criar" id="btnCriarGuilda">
                         <i class="fas fa-magic"></i> Criar Guilda
                     </button>
                 </div>
@@ -872,7 +914,7 @@
                 <i class="fas fa-users"></i> 
                 Minhas Guildas
             </h1>
-            <button class="btn-primary" onclick="abrirModal()">
+            <button class="btn-primary" id="btnAbrirModal">
                 <i class="fas fa-plus-circle"></i> Criar Nova Guilda
             </button>
         </div>
@@ -895,7 +937,7 @@
                     <i class="fas fa-users-slash"></i>
                     <h3>Você ainda não participa de nenhuma guilda</h3>
                     <p>Crie sua primeira guilda e comece a construir sua irmandade!</p>
-                    <button class="btn-primary" onclick="abrirModal()">
+                    <button class="btn-primary" id="btnCriarPrimeira">
                         <i class="fas fa-plus-circle"></i> Criar Primeira Guilda
                     </button>
                 </div>
@@ -922,17 +964,23 @@
         import { 
             getFirestore, 
             doc,
+            setDoc,
             getDoc,
             collection,
             query,
             where,
-            getDocs
+            getDocs,
+            deleteDoc,
+            updateDoc,
+            arrayUnion,
+            arrayRemove
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
         import {
             getStorage,
             ref,
             uploadBytes,
-            getDownloadURL
+            getDownloadURL,
+            deleteObject
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
         // Configuração do Firebase
@@ -966,12 +1014,16 @@
         const tipoGuilda = document.getElementById('tipoGuilda');
         const regrasGuilda = document.getElementById('regrasGuilda');
         const guildaIdDisplay = document.getElementById('guildaIdDisplay');
+        const btnAbrirModal = document.getElementById('btnAbrirModal');
+        const btnCriarPrimeira = document.getElementById('btnCriarPrimeira');
+        const cancelarModal = document.getElementById('cancelarModal');
+        const btnCriarGuilda = document.getElementById('btnCriarGuilda');
         
         // Upload de imagem
         const imageUploadArea = document.getElementById('imageUploadArea');
         const imagePreview = document.getElementById('imagePreview');
         const previewImg = document.getElementById('previewImg');
-        const removeImageBtn = document.getElementById('removeImage');
+        const removeImageBtn = document.getElementById('removeImageBtn');
         
         // Grid de guildas
         const guildasGrid = document.getElementById('guildasGrid');
@@ -983,14 +1035,17 @@
         const minhasGuildasContent = document.getElementById('minhasGuildasContent');
         const explorarContent = document.getElementById('explorarContent');
         
-        // Loading
+        // Loading e Toast
         const loadingOverlay = document.getElementById('loadingOverlay');
+        const toastNotification = document.getElementById('toastNotification');
+        const toastMessage = document.getElementById('toastMessage');
 
         // ========== VARIÁVEIS GLOBAIS ==========
         
         let currentUser = null;
         let userData = null;
         let imagemSelecionada = null;
+        let guildas = [];
 
         // ========== FUNÇÕES ==========
         
@@ -1002,17 +1057,25 @@
             loadingOverlay.classList.remove('active');
         }
 
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toastNotification.classList.add('show');
+            setTimeout(() => {
+                toastNotification.classList.remove('show');
+            }, 3000);
+        }
+
         function gerarId8Digitos() {
             return Math.floor(10000000 + Math.random() * 90000000).toString();
         }
 
-        window.abrirModal = function() {
+        function abrirModal() {
             const novoId = gerarId8Digitos();
             guildaIdDisplay.textContent = novoId;
             modalOverlay.classList.add('active');
         }
 
-        window.fecharModal = function() {
+        function fecharModal() {
             modalOverlay.classList.remove('active');
             formCriarGuilda.reset();
             imagePreview.classList.remove('active');
@@ -1020,7 +1083,7 @@
             imagemSelecionada = null;
         }
 
-        window.removerImagem = function() {
+        function removerImagem() {
             imagePreview.classList.remove('active');
             previewImg.src = '';
             imagemSelecionada = null;
@@ -1036,7 +1099,7 @@
                 const file = e.target.files[0];
                 if (file) {
                     if (file.size > 2 * 1024 * 1024) {
-                        alert('A imagem deve ter no máximo 2MB');
+                        showToast('A imagem deve ter no máximo 2MB');
                         return;
                     }
                     
@@ -1051,6 +1114,11 @@
             };
             
             input.click();
+        });
+
+        removeImageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removerImagem();
         });
 
         // Carregar dados do usuário
@@ -1069,15 +1137,117 @@
                     
                     displayIdGm.textContent = userData.id_gm || '--------';
                     displayNickname.textContent = userData.nickname || 'Mestre';
+                    
+                    // Carregar guildas do usuário
+                    await carregarGuildas();
                 }
             } catch (error) {
                 console.error('Erro ao carregar dados:', error);
+                showToast('Erro ao carregar dados do usuário');
             } finally {
                 hideLoading();
             }
         }
 
-        // Criar nova guilda
+        // Carregar guildas do usuário do Firestore
+        async function carregarGuildas() {
+            if (!currentUser) return;
+            
+            try {
+                showLoading();
+                
+                // Buscar guildas onde o usuário é membro
+                const q = query(
+                    collection(db, "guildas"),
+                    where("membros", "array-contains", currentUser.uid)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                guildas = [];
+                
+                querySnapshot.forEach((doc) => {
+                    guildas.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                renderizarGuildas();
+                
+            } catch (error) {
+                console.error('Erro ao carregar guildas:', error);
+                showToast('Erro ao carregar guildas');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Renderizar cards de guildas
+        function renderizarGuildas() {
+            if (guildas.length === 0) {
+                emptyState.style.display = 'block';
+                guildasGrid.innerHTML = '';
+                guildasGrid.appendChild(emptyState);
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            let html = '';
+            guildas.forEach(g => {
+                const isLider = g.lider_uid === currentUser?.uid;
+                const cargoClass = isLider ? 'lider' : '';
+                const tipoClass = g.tipo === 'publica' ? 'publica' : 'privada';
+                const tipoIcon = g.tipo === 'publica' ? 'fa-globe' : 'fa-lock';
+                
+                html += `
+                    <div class="guilda-card ${cargoClass}" onclick="window.location.href='guilda-detalhe.html?id=${g.id}'">
+                        <div class="guilda-banner">
+                            ${g.imagemURL ? 
+                                `<img src="${g.imagemURL}" alt="${g.nome}">` : 
+                                `<div class="default-icon"><i class="fas fa-dragon"></i></div>`
+                            }
+                        </div>
+                        
+                        <div class="guilda-info">
+                            <div class="guilda-nome">
+                                <h3>${g.nome}</h3>
+                                <span class="guilda-tipo ${tipoClass}">
+                                    <i class="fas ${tipoIcon}"></i> ${g.tipo === 'publica' ? 'Pública' : 'Privada'}
+                                </span>
+                            </div>
+                            
+                            <div class="guilda-descricao">
+                                ${g.descricao}
+                            </div>
+                            
+                            <div class="guilda-stats">
+                                <div class="stat">
+                                    <i class="fas fa-users"></i> ${g.total_membros || 1} membros
+                                </div>
+                                <div class="stat">
+                                    <i class="fas fa-scroll"></i> ${g.campanhas?.length || 0} campanhas
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="guilda-footer">
+                            <span class="guilda-cargo ${cargoClass}">
+                                <i class="fas fa-${isLider ? 'crown' : 'user'}"></i> 
+                                ${isLider ? 'Líder' : 'Membro'}
+                            </span>
+                            <span class="btn-card">
+                                <i class="fas fa-eye"></i> Visualizar
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            guildasGrid.innerHTML = html;
+        }
+
+        // Criar nova guilda no Firebase
         async function criarGuilda(e) {
             e.preventDefault();
             
@@ -1088,17 +1258,18 @@
             const guildaId = guildaIdDisplay.textContent;
             
             if (!nome || !descricao || !tipo) {
-                alert('Preencha todos os campos obrigatórios!');
+                showToast('Preencha todos os campos obrigatórios!');
+                return;
+            }
+            
+            if (!currentUser || !userData) {
+                showToast('Usuário não autenticado');
                 return;
             }
             
             showLoading();
             
             try {
-                // Aqui você vai implementar o salvamento no Firebase
-                // Quando estiver pronto para conectar, descomente o código abaixo
-                
-                /*
                 // 1. Upload da imagem (se houver)
                 let imagemURL = '';
                 if (imagemSelecionada) {
@@ -1107,8 +1278,8 @@
                     imagemURL = await getDownloadURL(storageRef);
                 }
                 
-                // 2. Salvar no Firestore
-                await setDoc(doc(db, "guildas", guildaId), {
+                // 2. Dados da guilda
+                const guildaData = {
                     id: guildaId,
                     nome: nome,
                     descricao: descricao,
@@ -1116,46 +1287,48 @@
                     regras: regras || '',
                     imagemURL: imagemURL,
                     lider_uid: currentUser.uid,
-                    lider_nick: userData.nickname,
-                    membros: [{
+                    lider_nick: userData.nickname || 'Mestre',
+                    membros: [currentUser.uid],
+                    membros_detalhes: [{
                         uid: currentUser.uid,
-                        nick: userData.nickname,
+                        nick: userData.nickname || 'Mestre',
                         cargo: 'lider',
                         data_entrada: new Date().toISOString()
                     }],
                     data_criacao: new Date().toISOString(),
                     total_membros: 1,
-                    campanhas: []
-                });
-                */
+                    campanhas: [],
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
                 
-                // Simulação de sucesso (remova quando conectar ao Firebase)
-                console.log('Guilda criada:', {
-                    id: guildaId,
-                    nome,
-                    descricao,
-                    tipo,
-                    regras,
-                    lider: currentUser?.uid
-                });
+                // 3. Salvar no Firestore
+                await setDoc(doc(db, "guildas", guildaId), guildaData);
                 
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // 4. Atualizar lista local
+                guildas.push(guildaData);
                 
                 fecharModal();
-                alert('Guilda criada com sucesso! ID: ' + guildaId);
-                
-                // Aqui você vai recarregar a lista de guildas
-                // await carregarGuildas();
+                renderizarGuildas();
+                showToast('Guilda criada com sucesso!');
                 
             } catch (error) {
                 console.error('Erro ao criar guilda:', error);
-                alert('Erro ao criar guilda. Tente novamente.');
+                showToast('Erro ao criar guilda: ' + error.message);
             } finally {
                 hideLoading();
             }
         }
 
         // ========== EVENT LISTENERS ==========
+        
+        btnAbrirModal.addEventListener('click', abrirModal);
+        
+        if (btnCriarPrimeira) {
+            btnCriarPrimeira.addEventListener('click', abrirModal);
+        }
+        
+        cancelarModal.addEventListener('click', fecharModal);
         
         formCriarGuilda.addEventListener('submit', criarGuilda);
 
@@ -1199,6 +1372,7 @@
             } catch (error) {
                 console.error('Erro ao sair:', error);
                 hideLoading();
+                showToast('Erro ao sair');
             }
         });
 
