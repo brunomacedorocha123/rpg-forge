@@ -1406,11 +1406,11 @@
         document.getElementById('sessaoDescricao').value = '';
     }
 
-    // ===== FUNÇÃO DE CONVITE COM DEBUG COMPLETO =====
+    // ===== FUNÇÃO DE CONVITE CORRIGIDA - USANDO COLEÇÃO CONVITES_CAMPANHA =====
     window.enviarConvite = async function() {
         const idPC = convidarIdPC.value.trim();
         
-        console.log('%c🔍 DEBUG CONVITE', 'background: #c62828; color: #fff; padding: 10px; font-size: 14px;');
+        console.log('%c🔍 DEBUG CONVITE CAMPANHA', 'background: #c62828; color: #fff; padding: 10px; font-size: 14px;');
         console.log('1️⃣ ID_PC digitado:', idPC);
         
         if (!idPC) {
@@ -1460,28 +1460,78 @@
                 });
             });
             
-            // Dados da notificação
-            const notificacaoData = {
-                usuarioId: jogadorUid,
-                tipo: "convite_campanha",
-                titulo: `Convite para campanha: ${campanhaAtual.nome}`,
-                mensagem: `Você foi convidado pelo Mestre ${userData?.nickname || 'Akalanata'} para participar da campanha "${campanhaAtual.nome}". Clique para escolher seu personagem.`,
+            // Verificar se o jogador já está na campanha
+            const vinculoQuery = query(
+                collection(db, "campanha_personagens"),
+                where("campanha_id", "==", campanhaAtual.id),
+                where("jogador_uid", "==", jogadorUid)
+            );
+            const vinculoSnap = await getDocs(vinculoQuery);
+            
+            if (!vinculoSnap.empty) {
+                alert('Este jogador já está participando da campanha!');
+                hideLoading();
+                return;
+            }
+            
+            // Verificar se já existe convite pendente para esta campanha
+            const conviteQuery = query(
+                collection(db, "convites_campanha"),
+                where("destinatario_uid", "==", jogadorUid),
+                where("campanha_id", "==", campanhaAtual.id),
+                where("status", "==", "pendente")
+            );
+            const conviteSnap = await getDocs(conviteQuery);
+            
+            if (!conviteSnap.empty) {
+                alert('Já existe um convite pendente para este jogador nesta campanha!');
+                hideLoading();
+                return;
+            }
+            
+            // Criar data atual no formato ISO string
+            const agora = new Date().toISOString();
+            
+            // Dados do convite de campanha (coleção separada)
+            const conviteData = {
+                // Campos obrigatórios (mesmo padrão da guilda)
+                remetente_uid: currentUser.uid,
+                remetente_nick: userData?.nickname || 'Akalanata',
+                destinatario_uid: jogadorUid,
+                destinatario_nick: jogadorData.nickname || 'Jogador',
+                data_envio: agora,
+                status: "pendente",
+                lido: false,
+                
+                // Campos específicos de campanha
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
+                campanha_descricao: campanhaAtual.descricao_curta || '',
                 gm_uid: currentUser.uid,
-                gm_nick: userData?.nickname || 'Akalanata',
-                lida: false,
-                data: serverTimestamp()
+                gm_nick: userData?.nickname || 'Akalanata'
             };
             
-            console.log('7️⃣ Dados da notificação a ser enviada:', notificacaoData);
+            console.log('7️⃣ Dados do convite a ser enviado:', conviteData);
             
-            // Salvar no Firestore
-            console.log('8️⃣ Salvando notificação...');
-            const docRef = await addDoc(collection(db, "notificacoes"), notificacaoData);
+            // Salvar na coleção "convites_campanha"
+            console.log('8️⃣ Salvando convite em convites_campanha...');
+            const docRef = await addDoc(collection(db, "convites_campanha"), conviteData);
             
-            console.log('9️⃣ Notificação salva com ID:', docRef.id);
-            console.log('🔟 Link da notificação:', `https://console.firebase.google.com/project/rpgforce-e3227/firestore/data/notificacoes/${docRef.id}`);
+            console.log('9️⃣ Convite salvo com ID:', docRef.id);
+            console.log('🔟 Link do convite:', `https://console.firebase.google.com/project/rpgforce-e3227/firestore/data/convites_campanha/${docRef.id}`);
+            
+            // Criar notificação para o jogador
+            await addDoc(collection(db, "notificacoes"), {
+                usuarioId: jogadorUid,
+                tipo: "convite_campanha",
+                titulo: `📜 Convite para Campanha: ${campanhaAtual.nome}`,
+                mensagem: `O Mestre ${userData?.nickname || 'Akalanata'} convidou você para participar da campanha "${campanhaAtual.nome}".`,
+                campanha_id: campanhaAtual.id,
+                campanha_nome: campanhaAtual.nome,
+                convite_id: docRef.id,
+                lida: false,
+                data: serverTimestamp()
+            });
             
             alert('✅ Convite enviado com sucesso! O jogador receberá a notificação.');
             fecharModalConvidar();
@@ -1490,7 +1540,14 @@
             console.error('❌ ERRO AO ENVIAR CONVITE:', error);
             console.error('Código do erro:', error.code);
             console.error('Mensagem:', error.message);
-            alert('Erro ao enviar convite: ' + error.message);
+            
+            if (error.code === 'permission-denied') {
+                alert('Erro de permissão! Verifique se a coleção "convites_campanha" existe e as regras foram atualizadas.');
+            } else if (error.code === 'not-found') {
+                alert('A coleção "convites_campanha" não existe. Crie ela no Firebase Console primeiro!');
+            } else {
+                alert('Erro ao enviar convite: ' + error.message);
+            }
         } finally {
             hideLoading();
         }
