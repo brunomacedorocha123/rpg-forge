@@ -304,7 +304,6 @@
             overflow: hidden;
             transition: all 0.3s;
             cursor: pointer;
-            position: relative;
         }
 
         .campanha-card:hover {
@@ -338,7 +337,6 @@
             font-size: 0.8rem;
             font-weight: 600;
             text-transform: uppercase;
-            z-index: 2;
         }
 
         .status-aberto {
@@ -604,7 +602,7 @@
         </div>
 
         <!-- Estatísticas -->
-        <div class="stats-grid" id="statsContainer">
+        <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon"><i class="fas fa-scroll"></i></div>
                 <div class="stat-info">
@@ -642,6 +640,7 @@
     </div>
 
     <script type="module">
+        // Importações do Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -655,8 +654,7 @@
             collection,
             query,
             where,
-            getDocs,
-            orderBy
+            getDocs
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
         // Configuração do Firebase
@@ -678,18 +676,12 @@
         const displayIdGm = document.getElementById('displayIdGm');
         const btnSair = document.getElementById('btnSair');
         const loadingOverlay = document.getElementById('loadingOverlay');
-        
-        // Stats
         const statTotal = document.getElementById('statTotal');
         const statAndamento = document.getElementById('statAndamento');
         const statAbertas = document.getElementById('statAbertas');
         const statJogadores = document.getElementById('statJogadores');
-        
-        // Filtros
         const filterStatus = document.getElementById('filterStatus');
         const searchInput = document.getElementById('searchInput');
-        
-        // Container
         const campanhasContainer = document.getElementById('campanhasContainer');
 
         // ========== VARIÁVEIS GLOBAIS ==========
@@ -697,8 +689,7 @@
         let userData = null;
         let todasCampanhas = [];
 
-        // ========== FUNÇÕES ==========
-        
+        // ========== FUNÇÕES AUXILIARES ==========
         function showLoading() {
             loadingOverlay.classList.add('active');
         }
@@ -707,127 +698,31 @@
             loadingOverlay.classList.remove('active');
         }
 
-        // Formatar data do Firestore
         function formatarData(dataFirestore) {
             if (!dataFirestore) return 'Data desconhecida';
-            
             try {
-                // Se for timestamp do Firestore (tem toDate)
                 if (dataFirestore.toDate) {
                     return dataFirestore.toDate().toLocaleDateString('pt-BR');
                 }
-                // Se for string ISO
                 if (typeof dataFirestore === 'string') {
-                    return new Date(dataFirestore).toLocaleDateString('pt-BR');
-                }
-                // Se for número (timestamp)
-                if (typeof dataFirestore === 'number') {
                     return new Date(dataFirestore).toLocaleDateString('pt-BR');
                 }
                 return 'Data desconhecida';
             } catch (e) {
-                console.error('Erro ao formatar data:', e);
                 return 'Data inválida';
             }
         }
 
-        // Carregar campanhas do GM
-        async function carregarCampanhas() {
-            if (!currentUser) {
-                console.log('Usuário não logado');
-                return;
-            }
-            
-            showLoading();
-            
-            try {
-                console.log('🔍 Buscando campanhas para GM UID:', currentUser.uid);
-                
-                // IMPORTANTE: Usar o UID correto do Firebase Authentication
-                const q = query(
-                    collection(db, "campanhas"),
-                    where("gm_uid", "==", currentUser.uid),
-                    orderBy("data_criacao", "desc")
-                );
-                
-                const querySnapshot = await getDocs(q);
-                
-                console.log('📊 Query executada, documentos encontrados:', querySnapshot.size);
-                
-                todasCampanhas = [];
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    console.log('📝 Campanha encontrada:', {
-                        id: doc.id,
-                        nome: data.nome,
-                        gm_uid: data.gm_uid,
-                        data_criacao: data.data_criacao
-                    });
-                    
-                    todasCampanhas.push({
-                        id: doc.id, // ID do documento Firestore
-                        ...data
-                    });
-                });
-                
-                console.log('✅ Total de campanhas carregadas:', todasCampanhas.length);
-                
-                // Atualizar estatísticas
-                atualizarEstatisticas();
-                
-                // Renderizar campanhas
-                renderizarCampanhas(todasCampanhas);
-                
-            } catch (error) {
-                console.error('❌ Erro ao carregar campanhas:', error);
-                
-                let mensagem = error.message;
-                if (error.code === 'permission-denied') {
-                    mensagem = 'Você não tem permissão para ver estas campanhas. Verifique as regras do Firestore.';
-                } else if (error.code === 'unavailable') {
-                    mensagem = 'Firebase indisponível. Tente novamente.';
-                }
-                
-                campanhasContainer.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Erro ao carregar campanhas</h3>
-                        <p>${mensagem}</p>
-                        <button onclick="location.reload()" class="btn-primary" style="display: inline-flex; margin-top: 20px;">
-                            <i class="fas fa-redo"></i> Tentar novamente
-                        </button>
-                    </div>
-                `;
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // Atualizar estatísticas
-        function atualizarEstatisticas() {
-            const total = todasCampanhas.length;
-            const andamento = todasCampanhas.filter(c => c.status === 'andamento').length;
-            const abertas = todasCampanhas.filter(c => c.status === 'aberto').length;
-            
-            // Calcular total de jogadores (vagas ocupadas)
-            const totalJogadores = todasCampanhas.reduce((acc, camp) => acc + (camp.vagas_ocupadas || 0), 0);
-            
-            statTotal.textContent = total;
-            statAndamento.textContent = andamento;
-            statAbertas.textContent = abertas;
-            statJogadores.textContent = totalJogadores;
-        }
-
-        // Renderizar campanhas
+        // ========== FUNÇÃO PARA RENDERIZAR CAMPANHAS ==========
         function renderizarCampanhas(campanhas) {
             if (campanhas.length === 0) {
                 campanhasContainer.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-scroll"></i>
                         <h3>Nenhuma campanha encontrada</h3>
-                        <p>Você ainda não criou nenhuma campanha como Mestre.</p>
+                        <p>Você ainda não criou nenhuma campanha.</p>
                         <a href="criar-campanha.html" class="btn-primary" style="display: inline-flex;">
-                            <i class="fas fa-plus"></i> Criar Primeira Campanha
+                            <i class="fas fa-plus"></i> Criar Campanha
                         </a>
                     </div>
                 `;
@@ -837,33 +732,21 @@
             let html = '<div class="campanhas-grid">';
             
             campanhas.forEach(camp => {
-                // Determinar classe do status
                 const statusClass = camp.status === 'aberto' ? 'status-aberto' :
                                    camp.status === 'andamento' ? 'status-andamento' :
                                    camp.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
                 
-                // Texto do status
                 const statusText = camp.status === 'aberto' ? 'Aberto' :
                                   camp.status === 'andamento' ? 'Em Andamento' :
                                   camp.status === 'fechado' ? 'Fechado' : 'Encerrado';
                 
-                // Vagas
                 const vagasOcupadas = camp.vagas_ocupadas || 0;
                 const vagasMax = camp.vagas_max || 5;
                 const percentual = vagasMax > 0 ? (vagasOcupadas / vagasMax) * 100 : 0;
-                
-                // Imagem
                 const temImagem = camp.imagem_capa && camp.imagem_capa !== '';
                 
-                // Nome da guilda (tratar o caso especial)
-                let nomeGuilda = camp.nome_guilda || 'Sem guilda';
-                if (nomeGuilda === 'Nenhuma (campanha pública)') {
-                    nomeGuilda = 'Sem guilda';
-                }
-                
-                // USAR O ID DA CAMPANHA (camp.id) para redirecionar
-                const campanhaId = camp.id; // ID do documento Firestore
-                const campanhaIdCustom = camp.id_custom || camp.id_campanha || ''; // Se tiver ID customizado
+                // Usar o ID customizado da campanha (camp.id) se existir, senão usa o ID do documento
+                const campanhaId = camp.id || camp.docId;
                 
                 html += `
                     <div class="campanha-card" onclick="window.location.href='gerenciar-campanha.html?id=${campanhaId}'">
@@ -875,27 +758,20 @@
                         <div class="campanha-info">
                             <div class="campanha-header">
                                 <h3>${camp.nome || 'Sem nome'}</h3>
-                                <span class="campanha-id">${camp.id ? camp.id.substring(0, 6) : ''}</span>
+                                <span class="campanha-id">${camp.id ? camp.id.substring(0, 8) : ''}</span>
                             </div>
-                            <div class="campanha-descricao">
-                                ${camp.descricao_curta || 'Sem descrição'}
-                            </div>
+                            <div class="campanha-descricao">${camp.descricao_curta || 'Sem descrição'}</div>
                             <div class="campanha-meta">
                                 <span><i class="fas fa-level-up-alt"></i> Nível ${camp.nivel_min || 1}-${camp.nivel_max || 5}</span>
                                 <span><i class="fas fa-calendar"></i> ${formatarData(camp.data_criacao)}</span>
                             </div>
                             <div class="campanha-vagas">
                                 <i class="fas fa-users"></i>
-                                <span>${vagasOcupadas}/${vagasMax} jogadores</span>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${percentual}%"></div>
-                                </div>
+                                <span>${vagasOcupadas}/${vagasMax}</span>
+                                <div class="progress-bar"><div class="progress-fill" style="width: ${percentual}%"></div></div>
                             </div>
                             <div class="campanha-footer">
-                                <div class="campanha-guilda">
-                                    <i class="fas fa-users"></i>
-                                    ${nomeGuilda}
-                                </div>
+                                <div class="campanha-guilda"><i class="fas fa-users"></i> ${camp.nome_guilda || 'Sem guilda'}</div>
                                 <span class="btn-card">Gerenciar</span>
                             </div>
                         </div>
@@ -907,8 +783,77 @@
             campanhasContainer.innerHTML = html;
         }
 
-        // Filtrar campanhas
-        function filtrarCampanhas() {
+        // ========== FUNÇÃO PARA CARREGAR CAMPANHAS ==========
+        async function carregarCampanhas() {
+            if (!currentUser) {
+                console.log('Sem usuário logado');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                console.log('UID do usuário:', currentUser.uid);
+                
+                // Query para buscar campanhas onde gm_uid é igual ao UID do usuário
+                const campanhasRef = collection(db, "campanhas");
+                const q = query(campanhasRef, where("gm_uid", "==", currentUser.uid));
+                
+                const querySnapshot = await getDocs(q);
+                
+                console.log('Campanhas encontradas:', querySnapshot.size);
+                
+                todasCampanhas = [];
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    console.log('Campanha:', data.nome, '- GM_UID:', data.gm_uid);
+                    todasCampanhas.push({
+                        docId: doc.id,
+                        ...data
+                    });
+                });
+                
+                // Ordenar manualmente (mais recente primeiro)
+                todasCampanhas.sort((a, b) => {
+                    const dataA = a.data_criacao?.toDate?.() || new Date(0);
+                    const dataB = b.data_criacao?.toDate?.() || new Date(0);
+                    return dataB - dataA;
+                });
+                
+                // Atualizar estatísticas
+                const total = todasCampanhas.length;
+                const andamento = todasCampanhas.filter(c => c.status === 'andamento').length;
+                const abertas = todasCampanhas.filter(c => c.status === 'aberto').length;
+                const totalJogadores = todasCampanhas.reduce((acc, camp) => acc + (camp.vagas_ocupadas || 0), 0);
+                
+                statTotal.textContent = total;
+                statAndamento.textContent = andamento;
+                statAbertas.textContent = abertas;
+                statJogadores.textContent = totalJogadores;
+                
+                // Renderizar campanhas
+                renderizarCampanhas(todasCampanhas);
+                
+            } catch (error) {
+                console.error('ERRO ao carregar campanhas:', error);
+                campanhasContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Erro ao carregar campanhas</h3>
+                        <p>${error.message}</p>
+                        <p>Código: ${error.code}</p>
+                        <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
+                            <i class="fas fa-redo"></i> Tentar novamente
+                        </button>
+                    </div>
+                `;
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ========== FUNÇÕES DE FILTRO ==========
+        function aplicarFiltros() {
             const status = filterStatus.value;
             const search = searchInput.value.toLowerCase().trim();
             
@@ -919,7 +864,7 @@
                 filtradas = filtradas.filter(c => c.status === status);
             }
             
-            // Filtrar por nome
+            // Filtrar por nome ou descrição
             if (search) {
                 filtradas = filtradas.filter(c => 
                     (c.nome && c.nome.toLowerCase().includes(search)) ||
@@ -931,11 +876,9 @@
         }
 
         // ========== EVENT LISTENERS ==========
-        
-        filterStatus.addEventListener('change', filtrarCampanhas);
-        searchInput.addEventListener('input', filtrarCampanhas);
+        filterStatus.addEventListener('change', aplicarFiltros);
+        searchInput.addEventListener('input', aplicarFiltros);
 
-        // Sair
         btnSair.addEventListener('click', async () => {
             try {
                 showLoading();
@@ -947,12 +890,10 @@
             }
         });
 
-        // ========== VERIFICAÇÃO DE LOGIN CORRIGIDA ==========
+        // ========== VERIFICAÇÃO DE LOGIN ==========
         onAuthStateChanged(auth, async (user) => {
-            console.log('🔥 Auth state changed:', user ? 'Logado' : 'Deslogado');
-            
             if (user) {
-                console.log('👤 UID do usuário:', user.uid);
+                currentUser = user;
                 showLoading();
                 
                 try {
@@ -960,50 +901,34 @@
                     const docRef = doc(db, "usuarios", user.uid);
                     const docSnap = await getDoc(docRef);
                     
-                    console.log('📄 Documento existe?', docSnap.exists());
-                    
                     if (docSnap.exists()) {
                         userData = docSnap.data();
-                        console.log('📊 Dados do usuário:', {
-                            uid: user.uid,
-                            id_gm: userData.id_gm,
-                            nickname: userData.nickname,
-                            email: userData.email
-                        });
+                        displayIdGm.textContent = userData.id_gm || '---';
                         
-                        // VERIFICAR SE É GM
-                        if (userData.id_gm) {
-                            console.log('✅ É GM! ID_GM:', userData.id_gm);
-                            
-                            // Mostrar ID_GM no header
-                            displayIdGm.textContent = userData.id_gm;
-                            
-                            // Carregar campanhas
-                            await carregarCampanhas();
-                            
-                        } else {
-                            console.log('❌ NÃO É GM - Redirecionando...');
-                            alert('Esta área é exclusiva para Mestres! Você não tem ID_GM cadastrado.');
+                        // Verificar se é GM (tem id_gm)
+                        if (!userData.id_gm) {
+                            alert('Esta área é exclusiva para Mestres!');
                             window.location.href = 'dashboard-pc.html';
+                            return;
                         }
+                        
+                        // Carregar campanhas
+                        await carregarCampanhas();
                     } else {
-                        console.log('❌ Documento do usuário não encontrado!');
-                        alert('Erro: Dados do usuário não encontrados no Firestore');
+                        console.error('Documento do usuário não encontrado');
+                        alert('Erro: Dados do usuário não encontrados');
                         await signOut(auth);
                         window.location.href = 'index.html';
                     }
                 } catch (error) {
-                    console.error('❌ Erro ao carregar dados:', error);
-                    alert('Erro ao carregar dados: ' + error.message);
+                    console.error('Erro ao carregar dados do usuário:', error);
                 } finally {
                     hideLoading();
                 }
             } else {
-                console.log('🚫 Usuário não logado, redirecionando...');
                 window.location.href = 'index.html';
             }
         });
-
     </script>
 </body>
 </html>
