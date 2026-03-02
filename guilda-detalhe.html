@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalhes da Guilda - RPGForce</title>
     
+    <!-- PREVENIR LOADING INFINITO -->
+    <script>
+        // Forçar término do carregamento após 2 segundos
+        setTimeout(() => {
+            if (document.readyState === 'loading') {
+                document.dispatchEvent(new Event('DOMContentLoaded'));
+            }
+        }, 2000);
+    </script>
+    
     <!-- Fontes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -86,9 +96,19 @@
             gap: 15px;
         }
 
-        .logo {
-            height: 2.5rem;
-            width: auto;
+        /* LOGO CORRIGIDO - SEM ERRO 404 */
+        .logo-fallback {
+            width: 40px;
+            height: 40px;
+            background: #c62828;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 10px rgba(198,40,40,0.5);
         }
 
         .logo-area h2 {
@@ -627,10 +647,10 @@
     </div>
 
     <div class="container">
-        <!-- Navbar -->
+        <!-- Navbar - LOGO CORRIGIDO (sem erro 404) -->
         <nav class="navbar">
             <div class="logo-area">
-                <img src="logo-rpgforce.png" alt="RPGForce" class="logo" onerror="this.src='https://via.placeholder.com/40x40?text=RPG'">
+                <div class="logo-fallback">RPG</div>
                 <h2>RPGForce - Detalhes da Guilda</h2>
             </div>
 
@@ -776,8 +796,6 @@
             query,
             where,
             getDocs,
-            updateDoc,
-            arrayUnion,
             setDoc
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
@@ -1018,7 +1036,7 @@
             membrosLista.innerHTML = html;
         }
 
-        // BUSCAR JOGADOR POR ID PC OU NICKNAME (CORRIGIDO!)
+        // BUSCAR JOGADOR POR ID PC OU NICKNAME
         async function buscarJogador() {
             const termo = buscaJogador.value.trim();
             
@@ -1030,13 +1048,12 @@
             showLoading();
             
             try {
-                // Buscar por ID PC primeiro (campo correto: id_pc)
                 let jogadores = [];
                 
-                // Busca por ID PC (exato)
+                // Busca por ID PC
                 const q1 = query(
                     collection(db, "usuarios"),
-                    where("id_pc", "==", termo)  // ✅ CORRETO: id_pc
+                    where("id_pc", "==", termo)
                 );
                 const snapshot1 = await getDocs(q1);
                 snapshot1.forEach(doc => {
@@ -1061,7 +1078,7 @@
                     });
                 }
                 
-                // Se ainda não encontrou, buscar por email (opcional)
+                // Se ainda não encontrou, buscar por email
                 if (jogadores.length === 0 && termo.includes('@')) {
                     const q3 = query(
                         collection(db, "usuarios"),
@@ -1085,7 +1102,7 @@
                 }
                 
                 semResultado.style.display = 'none';
-                mostrarResultadoBusca(jogadores[0]); // Mostra o primeiro encontrado
+                mostrarResultadoBusca(jogadores[0]);
                 
             } catch (error) {
                 hideLoading();
@@ -1094,9 +1111,8 @@
             }
         }
 
-        // Mostrar resultado da busca (MOSTRA ID PC!)
+        // Mostrar resultado da busca
         function mostrarResultadoBusca(jogador) {
-            // Verificar se já é membro
             const jaEhMembro = guildaAtual.membros.includes(jogador.uid);
             
             resultadoBusca.innerHTML = `
@@ -1123,7 +1139,6 @@
 
         // Convidar jogador
         async function convidarJogador(jogador) {
-            // Verificar se é líder
             if (guildaAtual.lider_uid !== currentUser.uid) {
                 showToast('Apenas o líder pode convidar jogadores', true);
                 return;
@@ -1132,7 +1147,6 @@
             showLoading();
             
             try {
-                // Criar documento de convite
                 const conviteId = `${guildaId}_${jogador.uid}_${Date.now()}`;
                 const conviteData = {
                     guilda_id: guildaId,
@@ -1148,10 +1162,9 @@
                 
                 await setDoc(doc(db, "convites", conviteId), conviteData);
                 
-                // Criar notificação para o jogador
                 const notificacaoId = `notif_${jogador.uid}_${Date.now()}`;
                 const notificacaoData = {
-                    usuarioId: jogador.uid,  // Campo correto: usuarioId (como no notificacoes.html)
+                    usuarioId: jogador.uid,
                     tipo: 'convite_guilda',
                     titulo: '🎮 Convite para Guilda!',
                     mensagem: `${userData.nickname} convidou você para entrar na guilda "${guildaAtual.nome}"`,
@@ -1166,7 +1179,6 @@
                 
                 showToast('Convite enviado com sucesso!');
                 
-                // Desabilitar botão
                 const btnConvidar = document.getElementById('btnConvidar');
                 if (btnConvidar) {
                     btnConvidar.disabled = true;
@@ -1191,13 +1203,11 @@
             }
         });
 
-        // Copiar ID da guilda
         document.getElementById('copiarIdBtn').addEventListener('click', () => {
             navigator.clipboard.writeText(guildaId);
             showToast('ID copiado para a área de transferência!');
         });
 
-        // Verificação de login
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 await carregarDadosUsuario(user);
@@ -1206,7 +1216,6 @@
             }
         });
 
-        // Sair
         btnSair.addEventListener('click', async () => {
             showLoading();
             try {
@@ -1216,6 +1225,15 @@
                 showToast('Erro ao sair', true);
                 hideLoading();
             }
+        });
+        
+        // FORÇAR FIM DO CARREGAMENTO
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (document.readyState === 'complete') {
+                    document.dispatchEvent(new Event('DOMContentLoaded'));
+                }
+            }, 1000);
         });
     </script>
 </body>
