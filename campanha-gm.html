@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
+        /* Seu CSS existente permanece IGUAL */
         * {
             margin: 0;
             padding: 0;
@@ -546,7 +547,7 @@
         <!-- Navbar -->
         <nav class="navbar">
             <div class="logo-area">
-                <img src="logo-rpgforce.png" alt="RPGForce" class="logo">
+                <img src="logo-rpgforce.png" alt="RPGForce" class="logo" onerror="this.style.display='none'">
                 <h2>RPGForce - Mestre</h2>
             </div>
 
@@ -705,8 +706,24 @@
         function formatarData(timestamp) {
             if (!timestamp) return 'Data desconhecida';
             
-            const data = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return data.toLocaleDateString('pt-BR');
+            try {
+                // Se for string ISO
+                if (typeof timestamp === 'string') {
+                    const data = new Date(timestamp);
+                    return data.toLocaleDateString('pt-BR');
+                }
+                // Se for timestamp do Firestore
+                if (timestamp.toDate) {
+                    return timestamp.toDate().toLocaleDateString('pt-BR');
+                }
+                // Se for Date
+                if (timestamp instanceof Date) {
+                    return timestamp.toLocaleDateString('pt-BR');
+                }
+                return 'Data desconhecida';
+            } catch (e) {
+                return 'Data inválida';
+            }
         }
 
         // Carregar campanhas
@@ -716,6 +733,8 @@
             showLoading();
             
             try {
+                console.log('Carregando campanhas para GM:', currentUser.uid);
+                
                 const q = query(
                     collection(db, "campanhas"),
                     where("gm_uid", "==", currentUser.uid),
@@ -732,6 +751,8 @@
                     });
                 });
                 
+                console.log('Campanhas encontradas:', todasCampanhas.length);
+                
                 // Atualizar estatísticas
                 atualizarEstatisticas();
                 
@@ -740,13 +761,26 @@
                 
             } catch (error) {
                 console.error('Erro ao carregar campanhas:', error);
-                campanhasContainer.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Erro ao carregar campanhas</h3>
-                        <p>${error.message}</p>
-                    </div>
-                `;
+                
+                // Verificar se é erro de permissão
+                if (error.code === 'permission-denied') {
+                    campanhasContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-lock"></i>
+                            <h3>Erro de Permissão</h3>
+                            <p>Você não tem permissão para ver estas campanhas.</p>
+                            <p style="font-size: 0.9rem; color: #c62828;">Verifique as regras do Firestore</p>
+                        </div>
+                    `;
+                } else {
+                    campanhasContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h3>Erro ao carregar campanhas</h3>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                }
             } finally {
                 hideLoading();
             }
@@ -774,9 +808,9 @@
                     <div class="empty-state">
                         <i class="fas fa-scroll"></i>
                         <h3>Nenhuma campanha encontrada</h3>
-                        <p>Comece criando sua primeira campanha!</p>
+                        <p>Você ainda não criou nenhuma campanha como Mestre.</p>
                         <a href="criar-campanha.html" class="btn-primary" style="display: inline-flex;">
-                            <i class="fas fa-plus"></i> Criar Campanha
+                            <i class="fas fa-plus"></i> Criar Primeira Campanha
                         </a>
                     </div>
                 `;
@@ -795,7 +829,7 @@
                                   camp.status === 'fechado' ? 'Fechado' : 'Encerrado';
                 
                 const vagasOcupadas = camp.vagas_ocupadas || 0;
-                const vagasMax = camp.vagas_max || 0;
+                const vagasMax = camp.vagas_max || 5;
                 const percentual = vagasMax > 0 ? (vagasOcupadas / vagasMax) * 100 : 0;
                 
                 const temImagem = camp.imagem_capa && camp.imagem_capa !== '';
@@ -810,7 +844,7 @@
                         <div class="campanha-info">
                             <div class="campanha-header">
                                 <h3>${camp.nome || 'Sem nome'}</h3>
-                                <span class="campanha-id">${camp.id || ''}</span>
+                                <span class="campanha-id">${camp.id ? camp.id.substring(0, 8) : ''}</span>
                             </div>
                             <div class="campanha-descricao">
                                 ${camp.descricao_curta || 'Sem descrição'}
@@ -882,42 +916,58 @@
             }
         });
 
-        // Verificação de login
+        // ========== VERIFICAÇÃO DE LOGIN CORRIGIDA ==========
         onAuthStateChanged(auth, async (user) => {
+            console.log('Auth state changed:', user ? 'Logado' : 'Deslogado');
+            
             if (user) {
-                currentUser = user;
+                console.log('UID do usuário:', user.uid);
+                showLoading();
                 
                 try {
+                    // Buscar dados do usuário no Firestore
                     const docRef = doc(db, "usuarios", user.uid);
                     const docSnap = await getDoc(docRef);
                     
+                    console.log('Documento existe?', docSnap.exists());
+                    
                     if (docSnap.exists()) {
                         userData = docSnap.data();
+                        console.log('Dados do usuário:', userData);
                         
-                        // Verificar se é GM
-                        if (!userData.id_gm) {
-                            alert('Você não tem permissão de Mestre');
+                        // VERIFICAÇÃO CORRIGIDA: Apenas verifica se tem id_gm
+                        // Como você tem id_gm no Firestore, isso deve funcionar
+                        if (userData.id_gm) {
+                            console.log('É GM! ID_GM:', userData.id_gm);
+                            
+                            // Mostrar ID_GM no header
+                            displayIdGm.textContent = userData.id_gm;
+                            
+                            // Carregar campanhas
+                            await carregarCampanhas();
+                            
+                        } else {
+                            console.log('NÃO É GM - Redirecionando...');
+                            alert('Esta área é exclusiva para Mestres! Você não tem ID_GM cadastrado.');
                             window.location.href = 'dashboard-pc.html';
-                            return;
                         }
-                        
-                        displayIdGm.textContent = userData.id_gm || '--------';
-                        
-                        // Carregar campanhas
-                        await carregarCampanhas();
+                    } else {
+                        console.log('Documento do usuário não encontrado!');
+                        alert('Erro: Dados do usuário não encontrados no Firestore');
+                        await signOut(auth);
+                        window.location.href = 'index.html';
                     }
                 } catch (error) {
                     console.error('Erro ao carregar dados:', error);
+                    alert('Erro ao carregar dados: ' + error.message);
+                } finally {
+                    hideLoading();
                 }
             } else {
+                console.log('Usuário não logado, redirecionando...');
                 window.location.href = 'index.html';
             }
         });
-
-        // Tornar função global para o onclick
-        window.location.href = function(url) {
-            window.location.href = url;
-        };
 
     </script>
 </body>
