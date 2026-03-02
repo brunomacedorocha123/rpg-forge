@@ -1406,12 +1406,9 @@
         document.getElementById('sessaoDescricao').value = '';
     }
 
-    // ===== FUNÇÃO DE CONVITE CORRIGIDA - USANDO COLEÇÃO CONVITES_CAMPANHA =====
+    // ===== FUNÇÃO DE CONVITE OTIMIZADA - USANDO COLEÇÃO ÚNICA "CONVITES" =====
     window.enviarConvite = async function() {
         const idPC = convidarIdPC.value.trim();
-        
-        console.log('%c🔍 DEBUG CONVITE CAMPANHA', 'background: #c62828; color: #fff; padding: 10px; font-size: 14px;');
-        console.log('1️⃣ ID_PC digitado:', idPC);
         
         if (!idPC) {
             alert('Digite o ID do jogador');
@@ -1421,27 +1418,11 @@
         showLoading();
         
         try {
-            console.log('2️⃣ Usuário logado (mestre):', {
-                uid: currentUser?.uid,
-                id_gm: userData?.id_gm,
-                nickname: userData?.nickname
-            });
-            
-            console.log('3️⃣ Campanha atual:', {
-                id: campanhaAtual?.id,
-                nome: campanhaAtual?.nome,
-                docId: campanhaAtual?.docId
-            });
-            
             // Buscar jogador pelo ID_PC
-            console.log('4️⃣ Buscando usuário com id_pc =', idPC);
             const userQuery = query(collection(db, "usuarios"), where("id_pc", "==", idPC));
             const userSnap = await getDocs(userQuery);
             
-            console.log('5️⃣ Resultado da busca:', userSnap.size, 'documentos encontrados');
-            
             if (userSnap.empty) {
-                console.log('❌ Nenhum usuário encontrado com ID_PC:', idPC);
                 alert('Jogador não encontrado! Verifique o ID_PC');
                 hideLoading();
                 return;
@@ -1452,12 +1433,6 @@
             userSnap.forEach(doc => {
                 jogadorUid = doc.id;
                 jogadorData = doc.data();
-                console.log('6️⃣ Jogador encontrado:', {
-                    uid: jogadorUid,
-                    id_pc: jogadorData.id_pc,
-                    nickname: jogadorData.nickname,
-                    email: jogadorData.email
-                });
             });
             
             // Verificar se o jogador já está na campanha
@@ -1474,11 +1449,12 @@
                 return;
             }
             
-            // Verificar se já existe convite pendente para esta campanha
+            // Verificar se já existe convite pendente na coleção ÚNICA "convites"
             const conviteQuery = query(
-                collection(db, "convites_campanha"),
+                collection(db, "convites"),
                 where("destinatario_uid", "==", jogadorUid),
                 where("campanha_id", "==", campanhaAtual.id),
+                where("tipo", "==", "campanha"),
                 where("status", "==", "pendente")
             );
             const conviteSnap = await getDocs(conviteQuery);
@@ -1489,17 +1465,15 @@
                 return;
             }
             
-            // Criar data atual no formato ISO string
-            const agora = new Date().toISOString();
-            
-            // Dados do convite de campanha (coleção separada)
+            // Dados do convite na coleção ÚNICA "convites"
             const conviteData = {
-                // Campos obrigatórios (mesmo padrão da guilda)
+                // Campos genéricos (para qualquer tipo de convite)
+                tipo: "campanha", // Diferencia se é convite de guilda, campanha, etc
                 remetente_uid: currentUser.uid,
-                remetente_nick: userData?.nickname || 'Akalanata',
+                remetente_nick: userData?.nickname || 'Mestre',
                 destinatario_uid: jogadorUid,
                 destinatario_nick: jogadorData.nickname || 'Jogador',
-                data_envio: agora,
+                data_envio: new Date().toISOString(),
                 status: "pendente",
                 lido: false,
                 
@@ -1508,24 +1482,18 @@
                 campanha_nome: campanhaAtual.nome,
                 campanha_descricao: campanhaAtual.descricao_curta || '',
                 gm_uid: currentUser.uid,
-                gm_nick: userData?.nickname || 'Akalanata'
+                gm_nick: userData?.nickname || 'Mestre'
             };
             
-            console.log('7️⃣ Dados do convite a ser enviado:', conviteData);
-            
-            // Salvar na coleção "convites_campanha"
-            console.log('8️⃣ Salvando convite em convites_campanha...');
-            const docRef = await addDoc(collection(db, "convites_campanha"), conviteData);
-            
-            console.log('9️⃣ Convite salvo com ID:', docRef.id);
-            console.log('🔟 Link do convite:', `https://console.firebase.google.com/project/rpgforce-e3227/firestore/data/convites_campanha/${docRef.id}`);
+            // Salvar na coleção ÚNICA "convites"
+            const docRef = await addDoc(collection(db, "convites"), conviteData);
             
             // Criar notificação para o jogador
             await addDoc(collection(db, "notificacoes"), {
                 usuarioId: jogadorUid,
                 tipo: "convite_campanha",
                 titulo: `📜 Convite para Campanha: ${campanhaAtual.nome}`,
-                mensagem: `O Mestre ${userData?.nickname || 'Akalanata'} convidou você para participar da campanha "${campanhaAtual.nome}".`,
+                mensagem: `O Mestre ${userData?.nickname || 'Mestre'} convidou você para participar da campanha "${campanhaAtual.nome}".`,
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
                 convite_id: docRef.id,
@@ -1538,13 +1506,9 @@
             
         } catch (error) {
             console.error('❌ ERRO AO ENVIAR CONVITE:', error);
-            console.error('Código do erro:', error.code);
-            console.error('Mensagem:', error.message);
             
             if (error.code === 'permission-denied') {
-                alert('Erro de permissão! Verifique se a coleção "convites_campanha" existe e as regras foram atualizadas.');
-            } else if (error.code === 'not-found') {
-                alert('A coleção "convites_campanha" não existe. Crie ela no Firebase Console primeiro!');
+                alert('Erro de permissão! Verifique as regras do Firestore.');
             } else {
                 alert('Erro ao enviar convite: ' + error.message);
             }
