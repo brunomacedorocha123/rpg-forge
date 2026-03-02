@@ -1,3 +1,5 @@
+// ===== SUBSTITUA O ARQUIVO notificacoes.html COMPLETO =====
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -143,6 +145,11 @@
         .notificacao-card.nao-lida {
             background: rgba(255, 215, 0, 0.1);
             border-left: 4px solid #ffd700;
+        }
+
+        /* Estilo específico para convite de campanha */
+        .notificacao-card.tipo-campanha .notificacao-icon {
+            background: linear-gradient(135deg, #c62828, #aa00ff);
         }
 
         .notificacao-header {
@@ -407,10 +414,10 @@
             getDocs,
             onSnapshot,
             orderBy,
-            arrayUnion
+            arrayUnion,
+            writeBatch
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
             authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -461,11 +468,10 @@
 
             console.log("Carregando notificações para:", currentUser.uid);
             
-            // ✅ FILTRO: só notificações NÃO LIDAS!
             const q = query(
                 collection(db, "notificacoes"),
                 where("usuarioId", "==", currentUser.uid),
-                where("lida", "==", false),  // ← ISSO É CRUCIAL!
+                where("lida", "==", false),
                 orderBy("data", "desc")
             );
 
@@ -484,7 +490,7 @@
             });
         }
 
-        // Renderizar notificações
+        // Renderizar notificações (agora com suporte a campanhas)
         function renderizarNotificacoes(notificacoes) {
             if (notificacoes.length === 0) {
                 elements.notificacoesList.innerHTML = `
@@ -499,16 +505,30 @@
 
             let html = '';
             notificacoes.forEach(notif => {
-                const data = new Date(notif.data).toLocaleString();
+                const data = new Date(notif.data?.seconds * 1000 || notif.data).toLocaleString();
+                
+                // Determinar ícone e cor baseado no tipo
+                let icon = 'fa-envelope';
+                let titulo = notif.titulo || 'Notificação';
+                
+                if (notif.tipo === 'convite_campanha') {
+                    icon = 'fa-scroll';
+                    titulo = notif.titulo || 'Convite para Campanha';
+                } else if (notif.tipo?.includes('guilda')) {
+                    icon = 'fa-users';
+                }
+                
+                // Classe extra para campanha
+                const tipoClass = notif.tipo === 'convite_campanha' ? 'tipo-campanha' : '';
                 
                 html += `
-                    <div class="notificacao-card nao-lida" data-id="${notif.id}">
+                    <div class="notificacao-card nao-lida ${tipoClass}" data-id="${notif.id}" data-tipo="${notif.tipo || 'guilda'}">
                         <div class="notificacao-header">
                             <div class="notificacao-icon">
-                                <i class="fas fa-envelope"></i>
+                                <i class="fas ${icon}"></i>
                             </div>
                             <div class="notificacao-titulo">
-                                <h3>${notif.titulo || 'Convite para Guilda'}</h3>
+                                <h3>${titulo}</h3>
                                 <div class="data">${data}</div>
                             </div>
                         </div>
@@ -516,12 +536,7 @@
                             ${notif.mensagem || ''}
                         </div>
                         <div class="notificacao-actions">
-                            <button class="btn-aceitar" data-id="${notif.id}" data-guilda="${notif.guildaId}">
-                                <i class="fas fa-check"></i> Aceitar
-                            </button>
-                            <button class="btn-recusar" data-id="${notif.id}">
-                                <i class="fas fa-times"></i> Recusar
-                            </button>
+                            ${renderizarBotoes(notif)}
                         </div>
                     </div>
                 `;
@@ -536,7 +551,18 @@
                     e.preventDefault();
                     const notifId = btn.dataset.id;
                     const guildaId = btn.dataset.guilda;
-                    responderConvite(notifId, guildaId, 'aceitar');
+                    const campanhaId = btn.dataset.campanha;
+                    const tipo = btn.dataset.tipo;
+                    responderConvite(notifId, { guildaId, campanhaId, tipo }, 'aceitar');
+                });
+            });
+
+            document.querySelectorAll('.btn-ver').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const campanhaId = btn.dataset.campanha;
+                    window.location.href = `campanha-pc.html?id=${campanhaId}`;
                 });
             });
 
@@ -550,13 +576,37 @@
             });
         }
 
-        async function responderConvite(notificacaoId, guildaId, acao) {
+        function renderizarBotoes(notif) {
+            if (notif.tipo === 'convite_campanha') {
+                // Convite de campanha: botão VER (vai para campanha-pc.html)
+                return `
+                    <button class="btn-ver" data-id="${notif.id}" data-campanha="${notif.campanha_id}">
+                        <i class="fas fa-eye"></i> Ver Campanha
+                    </button>
+                    <button class="btn-recusar" data-id="${notif.id}">
+                        <i class="fas fa-times"></i> Recusar
+                    </button>
+                `;
+            } else {
+                // Convite de guilda (comportamento original)
+                return `
+                    <button class="btn-aceitar" data-id="${notif.id}" data-guilda="${notif.guildaId}" data-tipo="guilda">
+                        <i class="fas fa-check"></i> Aceitar
+                    </button>
+                    <button class="btn-recusar" data-id="${notif.id}">
+                        <i class="fas fa-times"></i> Recusar
+                    </button>
+                `;
+            }
+        }
+
+        async function responderConvite(notificacaoId, dados, acao) {
             try {
                 showLoading();
 
-                if (acao === 'aceitar' && guildaId) {
-                    // Buscar dados da guilda
-                    const guildRef = doc(db, "guildas", guildaId);
+                if (acao === 'aceitar' && dados?.tipo === 'guilda' && dados?.guildaId) {
+                    // ===== LÓGICA ORIGINAL DE GUILDA =====
+                    const guildRef = doc(db, "guildas", dados.guildaId);
                     const guildSnap = await getDoc(guildRef);
                     
                     if (!guildSnap.exists()) {
@@ -566,18 +616,15 @@
 
                     const guildData = guildSnap.data();
 
-                    // Verificar se já é membro
                     if (guildData.membros && guildData.membros.includes(currentUser.uid)) {
                         showToast('Você já é membro desta guilda!', true);
                         
-                        // Mesmo assim, marca como lida para sumir
                         await updateDoc(doc(db, "notificacoes", notificacaoId), {
                             lida: true
                         });
                         return;
                     }
 
-                    // Adicionar jogador aos membros
                     await updateDoc(guildRef, {
                         membros: arrayUnion(currentUser.uid),
                         membros_detalhes: arrayUnion({
@@ -591,16 +638,23 @@
 
                     showToast('🎉 Você entrou na guilda!');
                     
-                    // Aguarda 1 segundo e redireciona
                     setTimeout(() => {
-                        window.location.href = `guilda-visualizar.html?id=${guildaId}`;
+                        window.location.href = `guilda-visualizar.html?id=${dados.guildaId}`;
+                    }, 1000);
+                    
+                } else if (acao === 'aceitar' && dados?.tipo === 'convite_campanha') {
+                    // ===== LÓGICA PARA CAMPANHA =====
+                    showToast('Redirecionando para a campanha...');
+                    
+                    setTimeout(() => {
+                        window.location.href = `campanha-pc.html?id=${dados.campanhaId}`;
                     }, 1000);
                     
                 } else {
                     showToast('Convite recusado');
                 }
 
-                // ✅ MARCA COMO LIDA - A NOTIFICAÇÃO VAI SUMIR!
+                // Marcar notificação como lida
                 await updateDoc(doc(db, "notificacoes", notificacaoId), {
                     lida: true
                 });
@@ -625,12 +679,12 @@
 
                 const snapshot = await getDocs(q);
                 
-                const promises = [];
+                const batch = writeBatch(db);
                 snapshot.forEach(doc => {
-                    promises.push(updateDoc(doc.ref, { lida: true }));
+                    batch.update(doc.ref, { lida: true });
                 });
+                await batch.commit();
 
-                await Promise.all(promises);
                 showToast('Todas notificações marcadas como lidas');
                 
             } catch (error) {
@@ -647,7 +701,6 @@
                 currentUser = user;
                 console.log("Usuário logado:", user.uid);
                 
-                // Carregar dados do usuário
                 const docRef = doc(db, "usuarios", user.uid);
                 const docSnap = await getDoc(docRef);
                 
@@ -664,7 +717,6 @@
 
         elements.btnMarcarTodasLidas.addEventListener('click', marcarTodasComoLidas);
 
-        // Cleanup
         window.addEventListener('beforeunload', () => {
             if (notificacoesUnsubscribe) {
                 notificacoesUnsubscribe();
