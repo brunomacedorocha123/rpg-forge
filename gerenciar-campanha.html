@@ -389,17 +389,32 @@
             font-size: 0.85rem;
         }
 
+        .jogador-status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .status-pendente {
+            background: #ffaa00;
+            color: #000;
+        }
+
+        .status-ativo {
+            background: #00ff00;
+            color: #000;
+        }
+
         /* Cards de Personagem */
         .personagem-card {
             background: rgba(0, 0, 0, 0.3);
             border-radius: 15px;
             padding: 15px;
-            margin-bottom: 10px;
+            margin-top: 10px;
             border: 1px solid rgba(198, 40, 40, 0.2);
-        }
-
-        .personagem-card:last-child {
-            margin-bottom: 0;
         }
 
         .personagem-header {
@@ -528,11 +543,9 @@
             background: #2a1a3a;
             border-radius: 30px;
             padding: 30px;
-            max-width: 500px;
+            max-width: 400px;
             width: 90%;
             border: 1px solid #c62828;
-            max-height: 90vh;
-            overflow-y: auto;
         }
 
         .modal-content h3 {
@@ -551,9 +564,7 @@
             color: rgba(255, 255, 255, 0.8);
         }
 
-        .modal-content input,
-        .modal-content select,
-        .modal-content textarea {
+        .modal-content input {
             width: 100%;
             padding: 12px 15px;
             background: rgba(0, 0, 0, 0.3);
@@ -563,9 +574,7 @@
             font-family: 'Inter', sans-serif;
         }
 
-        .modal-content input:focus,
-        .modal-content select:focus,
-        .modal-content textarea:focus {
+        .modal-content input:focus {
             outline: none;
             border-color: #c62828;
         }
@@ -1000,24 +1009,9 @@
             <h3><i class="fas fa-user-plus"></i> Convidar Jogador</h3>
             
             <div class="form-group">
-                <label>Email do Jogador</label>
-                <input type="email" id="convidarEmail" placeholder="digite o email...">
-            </div>
-
-            <div class="form-group">
-                <label>Tipo de Convite</label>
-                <select id="convidarTipo">
-                    <option value="campanha">Apenas entrar na campanha</option>
-                    <option value="campanha_personagem">Entrar e criar personagem</option>
-                </select>
-            </div>
-
-            <div class="form-group" id="personagemGrupo" style="display: none;">
-                <label>Personagem (opcional)</label>
-                <select id="convidarPersonagem">
-                    <option value="">Criar novo personagem</option>
-                    <!-- Personagens existentes serão carregados aqui -->
-                </select>
+                <label>ID do Jogador (ID_PC)</label>
+                <input type="text" id="convidarIdPC" placeholder="ex: 83964581">
+                <small style="color: rgba(255,255,255,0.4); display: block; margin-top: 5px;">O jogador receberá uma notificação para escolher seu personagem</small>
             </div>
 
             <div class="modal-buttons">
@@ -1044,12 +1038,12 @@
 
             <div class="form-group">
                 <label>Horário</label>
-                <input type="time" id="sessaoHora">
+                <input type="time" id="sessaoHora" value="20:00">
             </div>
 
             <div class="form-group">
                 <label>Descrição</label>
-                <textarea id="sessaoDescricao" rows="4" placeholder="descreva os objetivos da sessão..."></textarea>
+                <textarea id="sessaoDescricao" rows="4" placeholder="descreva os objetivos da sessão..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(198,40,40,0.3); border-radius: 15px; color: #fff; font-family: 'Inter', sans-serif;"></textarea>
             </div>
 
             <div class="modal-buttons">
@@ -1080,7 +1074,6 @@
             serverTimestamp
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
             authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -1098,8 +1091,6 @@
         const displayIdGm = document.getElementById('displayIdGm');
         const btnSair = document.getElementById('btnSair');
         const loadingOverlay = document.getElementById('loadingOverlay');
-        
-        // Elementos da campanha
         const campanhaTitulo = document.getElementById('campanhaTitulo');
         const campanhaDescricao = document.getElementById('campanhaDescricao');
         const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
@@ -1111,30 +1102,24 @@
         const resumoMundo = document.getElementById('resumoMundo');
         const regrasCasa = document.getElementById('regrasCasa');
         const statId = document.getElementById('statId');
-        
-        // Selects de configuração
+        const statJogadores = document.getElementById('statJogadores');
+        const statSessoes = document.getElementById('statSessoes');
+        const statProxima = document.getElementById('statProxima');
         const selectStatus = document.getElementById('selectStatus');
         const selectVisibilidade = document.getElementById('selectVisibilidade');
-        
-        // Containers
         const jogadoresContainer = document.getElementById('jogadoresContainer');
         const sessoesContainer = document.getElementById('sessoesContainer');
 
         // Modais
         const modalConvidar = document.getElementById('modalConvidar');
         const modalSessao = document.getElementById('modalSessao');
-        const convidarEmail = document.getElementById('convidarEmail');
-        const convidarTipo = document.getElementById('convidarTipo');
-        const personagemGrupo = document.getElementById('personagemGrupo');
-        const convidarPersonagem = document.getElementById('convidarPersonagem');
+        const convidarIdPC = document.getElementById('convidarIdPC');
 
         // Variáveis globais
         let currentUser = null;
         let userData = null;
         let campanhaAtual = null;
         let campanhaId = null;
-        let todosJogadores = [];
-        let todasSessoes = [];
 
         function showLoading() {
             loadingOverlay.classList.add('active');
@@ -1149,7 +1134,7 @@
             return urlParams.get('id');
         }
 
-        // ========== CARREGAR DADOS ==========
+        // Carregar campanha
         async function carregarCampanha() {
             campanhaId = getCampanhaIdFromUrl();
             
@@ -1231,7 +1216,7 @@
             selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
         }
 
-        // ========== CARREGAR JOGADORES E PERSONAGENS ==========
+        // Carregar jogadores e seus personagens
         async function carregarJogadores() {
             if (!campanhaAtual) return;
             
@@ -1245,9 +1230,9 @@
                 const vinculosSnap = await getDocs(vinculosQuery);
                 
                 const vinculos = [];
-                vinculosSnap.forEach(doc => vinculos.push(doc.data()));
+                vinculosSnap.forEach(doc => vinculos.push({ id: doc.id, ...doc.data() }));
                 
-                document.getElementById('statJogadores').textContent = vinculos.length;
+                statJogadores.textContent = vinculos.length;
                 
                 if (vinculos.length === 0) {
                     jogadoresContainer.innerHTML = `
@@ -1282,6 +1267,9 @@
                                     <div class="jogador-info">
                                         <h4>${jogador.nickname || 'Jogador'}</h4>
                                         <p>ID: ${jogador.id_pc || '---'}</p>
+                                        <span class="jogador-status ${personagem ? 'status-ativo' : 'status-pendente'}">
+                                            ${personagem ? 'Personagem vinculado' : 'Aguardando personagem'}
+                                        </span>
                                     </div>
                                 </div>
                                 ${personagem ? `
@@ -1301,11 +1289,7 @@
                                             <span><i class="fas fa-magic"></i> Mana: ${personagem.statusCombate?.manaAtual || 0}/${personagem.statusCombate?.manaMax || 0}</span>
                                         </div>
                                     </div>
-                                ` : `
-                                    <div style="text-align: center; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;">
-                                        <p style="color: #ffaa00;">Aguardando personagem...</p>
-                                    </div>
-                                `}
+                                ` : ''}
                             </div>
                         `;
                     }
@@ -1318,7 +1302,7 @@
             }
         }
 
-        // ========== CARREGAR SESSÕES ==========
+        // Carregar sessões
         async function carregarSessoes() {
             if (!campanhaAtual) return;
             
@@ -1331,17 +1315,17 @@
                 
                 const querySnapshot = await getDocs(q);
                 
-                todasSessoes = [];
+                const sessoes = [];
                 querySnapshot.forEach((doc) => {
-                    todasSessoes.push({
+                    sessoes.push({
                         id: doc.id,
                         ...doc.data()
                     });
                 });
                 
-                document.getElementById('statSessoes').textContent = todasSessoes.length;
+                statSessoes.textContent = sessoes.length;
                 
-                if (todasSessoes.length === 0) {
+                if (sessoes.length === 0) {
                     sessoesContainer.innerHTML = `
                         <div style="text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
                             <i class="fas fa-calendar" style="font-size: 3rem; color: #c62828; margin-bottom: 15px;"></i>
@@ -1353,11 +1337,22 @@
                 }
                 
                 let html = '';
+                let proximaSessao = null;
                 
-                todasSessoes.forEach(sessao => {
+                sessoes.sort((a, b) => {
+                    const dataA = a.data?.seconds || 0;
+                    const dataB = b.data?.seconds || 0;
+                    return dataA - dataB;
+                });
+                
+                sessoes.forEach(sessao => {
                     const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
                     const dia = data.getDate().toString().padStart(2, '0');
                     const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+                    
+                    if (!sessao.realizada && !proximaSessao) {
+                        proximaSessao = `${dia}/${mes}`;
+                    }
                     
                     html += `
                         <div class="sessao-item">
@@ -1376,14 +1371,12 @@
                                 <button class="btn-sessao" onclick="iniciarSessao('${sessao.id}')">
                                     <i class="fas fa-play"></i> Iniciar
                                 </button>
-                                <button class="btn-sessao" onclick="editarSessao('${sessao.id}')">
-                                    <i class="fas fa-edit"></i>
-                                </button>
                             </div>
                         </div>
                     `;
                 });
                 
+                statProxima.textContent = proximaSessao || '--/--';
                 sessoesContainer.innerHTML = html;
                 
             } catch (error) {
@@ -1391,115 +1384,73 @@
             }
         }
 
-        // ========== FUNÇÕES DE MODAL ==========
+        // Funções de Modal
         window.abrirModalConvidar = function() {
             modalConvidar.classList.add('active');
-            carregarPersonagensJogador();
         }
 
         window.fecharModalConvidar = function() {
             modalConvidar.classList.remove('active');
-            convidarEmail.value = '';
-            convidarTipo.value = 'campanha';
-            personagemGrupo.style.display = 'none';
+            convidarIdPC.value = '';
         }
 
         window.abrirModalSessao = function() {
             modalSessao.classList.add('active');
             const hoje = new Date().toISOString().split('T')[0];
             document.getElementById('sessaoData').value = hoje;
-            document.getElementById('sessaoHora').value = '20:00';
         }
 
         window.fecharModalSessao = function() {
             modalSessao.classList.remove('active');
             document.getElementById('sessaoTitulo').value = '';
             document.getElementById('sessaoData').value = '';
-            document.getElementById('sessaoHora').value = '';
+            document.getElementById('sessaoHora').value = '20:00';
             document.getElementById('sessaoDescricao').value = '';
         }
 
-        // Mostrar/esconder campo de personagem
-        convidarTipo.addEventListener('change', function() {
-            personagemGrupo.style.display = this.value === 'campanha_personagem' ? 'block' : 'none';
-        });
-
-        // ========== CARREGAR PERSONAGENS DO JOGADOR ==========
-        async function carregarPersonagensJogador() {
-            const email = convidarEmail.value.trim();
-            if (!email) return;
-            
-            try {
-                // Buscar usuário por email
-                const userQuery = query(collection(db, "usuarios"), where("email", "==", email));
-                const userSnap = await getDocs(userQuery);
-                
-                if (userSnap.empty) return;
-                
-                let jogadorUid = null;
-                userSnap.forEach(doc => jogadorUid = doc.id);
-                
-                // Buscar personagens do jogador
-                const personagensQuery = query(collection(db, "personagens"), where("userId", "==", jogadorUid));
-                const personagensSnap = await getDocs(personagensQuery);
-                
-                convidarPersonagem.innerHTML = '<option value="">Criar novo personagem</option>';
-                
-                personagensSnap.forEach(doc => {
-                    const personagem = doc.data();
-                    convidarPersonagem.innerHTML += `<option value="${doc.id}">${personagem.nome} (${personagem.classe})</option>`;
-                });
-                
-            } catch (error) {
-                console.error('Erro ao carregar personagens:', error);
-            }
-        }
-
-        // Buscar personagens quando digitar email
-        let timeoutId;
-        convidarEmail.addEventListener('input', function() {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(carregarPersonagensJogador, 500);
-        });
-
-        // ========== ENVIAR CONVITE ==========
+        // Enviar convite
         window.enviarConvite = async function() {
-            const email = convidarEmail.value.trim();
-            if (!email) {
-                alert('Digite um email');
+            const idPC = convidarIdPC.value.trim();
+            
+            if (!idPC) {
+                alert('Digite o ID do jogador');
                 return;
             }
             
             showLoading();
             
             try {
-                // Buscar usuário por email
-                const userQuery = query(collection(db, "usuarios"), where("email", "==", email));
+                // Buscar jogador pelo ID_PC
+                const userQuery = query(collection(db, "usuarios"), where("id_pc", "==", idPC));
                 const userSnap = await getDocs(userQuery);
                 
                 if (userSnap.empty) {
-                    alert('Usuário não encontrado!');
+                    alert('Jogador não encontrado!');
                     return;
                 }
                 
                 let jogadorUid = null;
-                userSnap.forEach(doc => jogadorUid = doc.id);
+                let jogadorNick = '';
+                userSnap.forEach(doc => {
+                    jogadorUid = doc.id;
+                    jogadorNick = doc.data().nickname || 'Jogador';
+                });
                 
-                // Criar convite na coleção campanha_convites
-                await addDoc(collection(db, "campanha_convites"), {
+                // Criar notificação para o jogador (igual ao sistema de guildas)
+                await addDoc(collection(db, "notificacoes"), {
+                    usuarioId: jogadorUid,
+                    tipo: "convite_campanha",
+                    titulo: `Convite para campanha: ${campanhaAtual.nome}`,
+                    mensagem: `Você foi convidado pelo Mestre ${userData.nickname} para participar da campanha "${campanhaAtual.nome}". Clique para escolher seu personagem.`,
                     campanha_id: campanhaAtual.id,
                     campanha_nome: campanhaAtual.nome,
                     gm_uid: currentUser.uid,
                     gm_nick: userData.nickname,
-                    jogador_uid: jogadorUid,
-                    jogador_email: email,
-                    tipo: convidarTipo.value,
-                    personagem_id: convidarPersonagem.value || null,
-                    status: 'pendente',
-                    data_convite: serverTimestamp()
+                    lida: false,
+                    data: serverTimestamp()
                 });
                 
-                alert('Convite enviado com sucesso!');
+                alert('Convite enviado com sucesso! O jogador receberá a notificação.');
                 fecharModalConvidar();
                 
             } catch (error) {
@@ -1510,7 +1461,7 @@
             }
         }
 
-        // ========== CRIAR SESSÃO ==========
+        // Criar sessão
         window.criarSessao = async function() {
             const titulo = document.getElementById('sessaoTitulo').value;
             const data = document.getElementById('sessaoData').value;
@@ -1538,7 +1489,7 @@
                     data_criacao: serverTimestamp()
                 });
                 
-                alert('Sessão criada!');
+                alert('Sessão criada com sucesso!');
                 fecharModalSessao();
                 await carregarSessoes();
                 
@@ -1550,16 +1501,12 @@
             }
         }
 
-        // ========== INICIAR SESSÃO ==========
+        // Iniciar sessão
         window.iniciarSessao = function(sessaoId) {
             window.location.href = `mesa-jogo.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
         }
 
-        window.editarSessao = function(sessaoId) {
-            alert('Editar sessão - em desenvolvimento');
-        }
-
-        // ========== CONFIGURAÇÕES ==========
+        // Salvar configurações
         window.salvarConfiguracoes = async function() {
             showLoading();
             
@@ -1584,6 +1531,7 @@
             }
         }
 
+        // Excluir campanha
         window.excluirCampanha = async function() {
             if (!confirm('Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita!')) {
                 return;
@@ -1603,7 +1551,7 @@
             }
         }
 
-        // ========== MUDAR ABA ==========
+        // Mudar aba
         window.mudarAba = function(aba) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             event.target.classList.add('active');
@@ -1615,12 +1563,13 @@
             document.getElementById(`aba-${aba}`).style.display = 'block';
         }
 
-        // ========== EVENT LISTENERS ==========
+        // Sair
         btnSair.addEventListener('click', async () => {
             await signOut(auth);
             window.location.href = 'index.html';
         });
 
+        // Verificar login
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
@@ -1653,4 +1602,4 @@
         });
     </script>
 </body>
-</html>
+</html> 
