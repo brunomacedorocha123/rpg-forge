@@ -769,7 +769,7 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { 
         getAuth, 
@@ -785,7 +785,6 @@
         where,
         getDocs,
         addDoc,
-        updateDoc,
         deleteDoc,
         serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -952,10 +951,8 @@
                         ...doc.data()
                     };
                 });
-                console.log('Vínculo encontrado:', vinculoAtual);
             } else {
                 vinculoAtual = null;
-                console.log('Nenhum vínculo encontrado');
             }
             
         } catch (error) {
@@ -1001,11 +998,11 @@
             let html = '';
             
             for (const p of personagens) {
-                const jaVinculado = vinculoAtual && vinculoAtual.personagem_id === p.id;
+                const estePersonagemEstaVinculado = vinculoAtual && vinculoAtual.personagem_id === p.id;
                 
                 html += `
-                    <div class="personagem-card ${jaVinculado ? 'vinculado' : 'vincular'} ${!jaVinculado && !vinculoAtual ? 'disponivel' : ''}" data-id="${p.id}">
-                        ${jaVinculado ? '<div class="selo-vinculado"><i class="fas fa-check-circle"></i> Atual</div>' : ''}
+                    <div class="personagem-card" data-id="${p.id}">
+                        ${estePersonagemEstaVinculado ? '<div class="selo-vinculado"><i class="fas fa-check-circle"></i> Vinculado</div>' : ''}
                         <div class="personagem-header">
                             <div class="personagem-avatar">
                                 <i class="fas fa-dragon"></i>
@@ -1027,23 +1024,22 @@
                         </div>
                 `;
                 
-                if (jaVinculado) {
-                    // Personagem já vinculado - mostra botão de desvincular
+                if (estePersonagemEstaVinculado) {
+                    // ESTE personagem está vinculado → mostra botão DESVINCULAR
                     html += `
-                        <div class="btn-ja-vinculado"><i class="fas fa-check"></i> Vinculado</div>
-                        <button class="btn-desvincular" onclick="desvincularPersonagem()">
-                            <i class="fas fa-unlink"></i> Desvincular e escolher outro
+                        <button class="btn-desvincular" onclick="desvincularPersonagem('${p.id}', '${p.nome}')">
+                            <i class="fas fa-unlink"></i> Desvincular
                         </button>
                     `;
                 } else if (vinculoAtual) {
-                    // Já tem outro personagem vinculado
+                    // OUTRO personagem está vinculado → mostra mensagem
                     html += `
                         <div class="btn-ja-vinculado" style="background: rgba(255,0,0,0.2); border-color: #ff0000; color: #ff0000;">
-                            <i class="fas fa-times"></i> Você já tem "${vinculoAtual.personagem_nome}" vinculado
+                            <i class="fas fa-info-circle"></i> ${vinculoAtual.personagem_nome} vinculado
                         </div>
                     `;
                 } else {
-                    // Nenhum vínculo ainda
+                    // NENHUM vínculo → mostra botão VINCULAR
                     html += `
                         <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')">
                             <i class="fas fa-link"></i> Vincular à Campanha
@@ -1076,14 +1072,13 @@
             return;
         }
         
-        if (!confirm(`Deseja vincular o personagem "${personagemNome}" a esta campanha?`)) {
+        if (!confirm(`Vincular "${personagemNome}" a esta campanha?`)) {
             return;
         }
         
         showLoading();
         
         try {
-            // Criar vínculo
             await addDoc(collection(db, "campanha_personagens"), {
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
@@ -1095,20 +1090,7 @@
                 status: 'ativo'
             });
             
-            // Atualizar vagas ocupadas na campanha
-            if (campanhaAtual.docId) {
-                const campanhaRef = doc(db, "campanhas", campanhaAtual.docId);
-                const vagasOcupadas = (campanhaAtual.vagas_ocupadas || 0) + 1;
-                await updateDoc(campanhaRef, { 
-                    vagas_ocupadas: vagasOcupadas 
-                });
-                
-                // Atualizar objeto local
-                campanhaAtual.vagas_ocupadas = vagasOcupadas;
-                vagas.textContent = `${vagasOcupadas}/${campanhaAtual.vagas_max || 5}`;
-            }
-            
-            showToast('✅ Personagem vinculado com sucesso!');
+            showToast('✅ Personagem vinculado!');
             
             // Recarregar vínculo e personagens
             await carregarVinculoAtual();
@@ -1116,58 +1098,41 @@
             
         } catch (error) {
             console.error('Erro ao vincular:', error);
-            showToast('Erro ao vincular personagem: ' + error.message, true);
+            showToast('Erro ao vincular', true);
         } finally {
             hideLoading();
         }
     };
 
-    // DESVINCULAR personagem da campanha (VERSÃO CORRIGIDA)
-    window.desvincularPersonagem = async function() {
+    // DESVINCULAR personagem da campanha
+    window.desvincularPersonagem = async function(personagemId, personagemNome) {
         if (!currentUser || !campanhaAtual || !vinculoAtual) {
             showToast('Nenhum personagem vinculado', true);
             return;
         }
         
-        if (!confirm(`Tem certeza que deseja desvincular "${vinculoAtual.personagem_nome}" da campanha?`)) {
+        if (!confirm(`Desvincular "${vinculoAtual.personagem_nome}" da campanha?`)) {
             return;
         }
         
         showLoading();
         
         try {
-            // 1. DELETAR o vínculo
+            // Deletar o vínculo
             const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
             await deleteDoc(vinculoRef);
             
-            // 2. LIMPAR a variável vinculoAtual IMEDIATAMENTE
+            // Limpar vínculo atual
             vinculoAtual = null;
             
-            // 3. Atualizar vagas na campanha (se possível)
-            if (campanhaAtual.docId) {
-                try {
-                    const campanhaRef = doc(db, "campanhas", campanhaAtual.docId);
-                    const vagasOcupadas = Math.max(0, (campanhaAtual.vagas_ocupadas || 1) - 1);
-                    await updateDoc(campanhaRef, { 
-                        vagas_ocupadas: vagasOcupadas 
-                    });
-                    
-                    // Atualizar objeto local
-                    campanhaAtual.vagas_ocupadas = vagasOcupadas;
-                    vagas.textContent = `${vagasOcupadas}/${campanhaAtual.vagas_max || 5}`;
-                } catch (e) {
-                    console.warn('Erro ao atualizar vagas (não crítico):', e);
-                }
-            }
+            showToast('✅ Personagem desvinculado!');
             
-            showToast('✅ Personagem desvinculado com sucesso!');
-            
-            // 4. RECARREGAR os personagens
+            // Recarregar personagens (atualiza os botões)
             await carregarPersonagens();
             
         } catch (error) {
             console.error('Erro ao desvincular:', error);
-            showToast('Erro ao desvincular personagem', true);
+            showToast('Erro ao desvincular', true);
         } finally {
             hideLoading();
         }
