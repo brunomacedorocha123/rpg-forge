@@ -1071,6 +1071,7 @@
         updateDoc,
         deleteDoc,
         addDoc,
+        setDoc,
         serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
@@ -1148,10 +1149,10 @@
         showLoading();
         
         try {
+            // Buscar campanha pelo campo "id" (não pelo document ID)
             const q = query(
                 collection(db, "campanhas"),
-                where("id", "==", campanhaId),
-                where("gm_uid", "==", currentUser.uid)
+                where("id", "==", campanhaId)
             );
             
             const querySnapshot = await getDocs(q);
@@ -1162,12 +1163,20 @@
                 return;
             }
             
+            // Pegar a primeira (deve ser única)
             querySnapshot.forEach((doc) => {
                 campanhaAtual = {
-                    docId: doc.id,
+                    docId: doc.id, // ID do documento Firestore
                     ...doc.data()
                 };
             });
+            
+            // Verificar se o GM autenticado é o dono da campanha
+            if (campanhaAtual.gm_uid !== currentUser.uid) {
+                alert('Você não é o GM desta campanha!');
+                window.location.href = 'campanha-gm.html';
+                return;
+            }
             
             atualizarInterface();
             await carregarJogadores();
@@ -1175,7 +1184,7 @@
             
         } catch (error) {
             console.error('Erro:', error);
-            alert('Erro ao carregar campanha');
+            alert('Erro ao carregar campanha: ' + error.message);
         } finally {
             hideLoading();
         }
@@ -1222,6 +1231,7 @@
         if (!campanhaAtual) return;
         
         try {
+            // Buscar vínculos na coleção campanha_personagens
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("campanha_id", "==", campanhaAtual.id)
@@ -1307,8 +1317,7 @@
         try {
             const q = query(
                 collection(db, "sessoes"),
-                where("campanha_id", "==", campanhaAtual.id),
-                where("gm_uid", "==", currentUser.uid)
+                where("campanha_id", "==", campanhaAtual.id)
             );
             
             const querySnapshot = await getDocs(q);
@@ -1406,33 +1415,36 @@
         document.getElementById('sessaoDescricao').value = '';
     }
 
-    // ===== FUNÇÃO DE CONVITE ATUALIZADA 100% PARA NOVAS REGRAS =====
+    // ===== FUNÇÃO DE CONVITE 100% FUNCIONAL =====
     window.enviarConvite = async function() {
         const idPC = convidarIdPC.value.trim();
         
         if (!idPC) {
-            alert('Digite o ID do jogador');
+            alert('Digite o ID do jogador (ID PC)');
             return;
         }
         
-        // GARANTIR que está usando o UID do Firebase Auth (OBRIGATÓRIO para as regras)
-        const gmAuthUid = auth.currentUser?.uid;
-        
-        if (!gmAuthUid) {
-            alert('Erro: Não autenticado como GM');
+        // Verificar autenticação
+        if (!auth.currentUser) {
+            alert('Erro: Não autenticado');
             return;
         }
         
-        console.log('🔐 GM Auth UID:', gmAuthUid);
+        const gmAuthUid = auth.currentUser.uid;
+        console.log('🔐 GM UID:', gmAuthUid);
+        
         showLoading();
         
         try {
             // Buscar jogador pelo ID_PC
-            const userQuery = query(collection(db, "usuarios"), where("id_pc", "==", idPC));
+            const userQuery = query(
+                collection(db, "usuarios"), 
+                where("id_pc", "==", idPC)
+            );
             const userSnap = await getDocs(userQuery);
             
             if (userSnap.empty) {
-                alert('❌ Jogador não encontrado! Verifique o ID_PC');
+                alert('❌ Jogador não encontrado! Verifique o ID_PC.');
                 hideLoading();
                 return;
             }
@@ -1440,14 +1452,14 @@
             let jogadorUid = null;
             let jogadorData = null;
             userSnap.forEach(doc => {
-                jogadorUid = doc.id; // UID do documento = UID do Auth do jogador
+                jogadorUid = doc.id;
                 jogadorData = doc.data();
             });
             
             console.log('👤 Jogador UID:', jogadorUid);
             console.log('👤 Jogador Data:', jogadorData);
             
-            // Verificar se é o próprio GM (não pode auto-convite)
+            // Verificar se é o próprio GM
             if (jogadorUid === gmAuthUid) {
                 alert('❌ Você não pode convidar a si mesmo!');
                 hideLoading();
@@ -1478,74 +1490,73 @@
             const conviteSnap = await getDocs(conviteQuery);
             
             if (!conviteSnap.empty) {
-                alert('⏳ Já existe um convite pendente para este jogador nesta campanha!');
+                alert('⏳ Já existe um convite pendente para este jogador!');
                 hideLoading();
                 return;
             }
             
-            // Dados do convite - TODOS os campos obrigatórios das regras
+            // Criar ID único para o convite (igual funciona na guilda)
+            const conviteId = `${campanhaAtual.id}_${jogadorUid}_${Date.now()}`;
+            
+            // Dados do convite - ESTRUTURA SIMPLIFICADA E FUNCIONAL
             const conviteData = {
-                // Identificação do tipo (OBRIGATÓRIO: deve ser 'campanha')
+                // Identificação
                 tipo: "campanha",
                 
-                // Remetente (GM) - OBRIGATÓRIO: deve ser o UID do Auth do GM
+                // Remetente (GM)
                 remetente_uid: gmAuthUid,
                 remetente_nick: userData?.nickname || 'Mestre',
                 
-                // Destinatário (PC) - OBRIGATÓRIO: deve ser UID de um jogador PC (não GM)
+                // Destinatário (Jogador)
                 destinatario_uid: jogadorUid,
                 destinatario_nick: jogadorData.nickname || 'Jogador',
                 
-                // Metadados do convite
+                // Status e metadados
+                status: "pendente",
                 data_envio: new Date().toISOString(),
-                status: "pendente", // OBRIGATÓRIO: deve ser exatamente 'pendente'
-                lido: false, // OBRIGATÓRIO: boolean
+                lido: false,
                 
-                // Dados da campanha (OBRIGATÓRIOS quando tipo == 'campanha')
+                // Dados da campanha
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
                 campanha_descricao: campanhaAtual.descricao_curta || '',
                 
-                // Dados do GM (OBRIGATÓRIOS)
-                gm_uid: gmAuthUid, // DEVE ser igual ao remetente_uid
+                // Dados do GM (mesmo que remetente)
+                gm_uid: gmAuthUid,
                 gm_nick: userData?.nickname || 'Mestre'
             };
             
-            console.log('📤 Enviando convite com dados:', conviteData);
+            console.log('📤 Criando convite:', conviteData);
             
-            // Criar convite na coleção "convites"
-            const docRef = await addDoc(collection(db, "convites"), conviteData);
-            console.log('✅ Convite criado com ID:', docRef.id);
+            // Usar setDoc com ID específico (igual na guilda)
+            await setDoc(doc(db, "convites", conviteId), conviteData);
+            console.log('✅ Convite criado com ID:', conviteId);
             
-            // Criar notificação para o jogador PC
+            // Criar notificação para o jogador
+            const notifId = `notif_${jogadorUid}_${Date.now()}`;
             const notifData = {
-                usuarioId: jogadorUid, // Destinatário da notificação (PC)
-                tipo: "convite_campanha", // OBRIGATÓRIO
-                titulo: `📜 Convite: ${campanhaAtual.nome}`, // OBRIGATÓRIO
-                mensagem: `Mestre ${userData?.nickname || 'Mestre'} convidou você para "${campanhaAtual.nome}".`, // OBRIGATÓRIO
+                usuarioId: jogadorUid,
+                tipo: "convite_campanha",
+                titulo: `📜 Convite: ${campanhaAtual.nome}`,
+                mensagem: `Mestre ${userData?.nickname || 'Mestre'} convidou você para "${campanhaAtual.nome}".`,
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
-                convite_id: docRef.id,
-                lida: false, // OBRIGATÓRIO: boolean
-                data: serverTimestamp()
+                convite_id: conviteId,
+                lida: false,
+                data: new Date().toISOString()
             };
             
             console.log('📤 Criando notificação:', notifData);
-            await addDoc(collection(db, "notificacoes"), notifData);
+            await setDoc(doc(db, "notificacoes", notifId), notifData);
             
             alert('✅ Convite enviado com sucesso!');
             fecharModalConvidar();
             
         } catch (error) {
-            console.error('❌ ERRO AO ENVIAR CONVITE:', error);
-            console.error('Código do erro:', error.code);
+            console.error('❌ ERRO:', error);
+            console.error('Código:', error.code);
             console.error('Mensagem:', error.message);
-            
-            if (error.code === 'permission-denied') {
-                alert('🚫 Erro de permissão: Verifique se você está logado como GM válido e se o jogador é um PC (não GM).');
-            } else {
-                alert('❌ Erro ao enviar convite: ' + error.message);
-            }
+            alert('❌ Erro ao enviar convite: ' + error.message);
         } finally {
             hideLoading();
         }
