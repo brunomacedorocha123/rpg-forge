@@ -446,6 +446,13 @@
             border: 1px solid #ffaa00;
         }
 
+        /* NOVO ESTILO PARA VINCULADO */
+        .status-vinculado {
+            background: rgba(255, 215, 0, 0.2);
+            color: #ffd700;
+            border: 1px solid #ffd700;
+        }
+
         .character-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -517,7 +524,19 @@
             color: #0a0a1a;
         }
 
-        /* NOVO BOTÃO - AVENTURA SOLO */
+        /* ESTILO PARA BOTÃO DESABILITADO */
+        .btn-icon.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .btn-icon.disabled:hover {
+            background: transparent;
+            color: #ffd700;
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
         .btn-solo {
             background: linear-gradient(45deg, #4CAF50, #45a049);
             color: white;
@@ -719,6 +738,17 @@
         </div>
     </div>
 
+    <div class="modal" id="modalVinculado">
+        <div class="modal-content" style="border-color: #ffd700;">
+            <h3 style="color: #ffd700;"><i class="fas fa-link"></i> Personagem Vinculado</h3>
+            <p>Este personagem está vinculado a uma campanha ativa e não pode ser editado.</p>
+            <p style="font-size: 0.9rem;">Para editá-lo, primeiro desvincule da campanha.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="fecharModalVinculado">Entendi</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <nav class="navbar">
             <div class="logo-area">
@@ -769,11 +799,11 @@
             </div>
             <div class="stat-card">
                 <div class="stat-icon">
-                    <i class="fas fa-check-circle"></i>
+                    <i class="fas fa-link"></i>
                 </div>
                 <div class="stat-info">
-                    <h3 id="totalFinalizados">0</h3>
-                    <p>Finalizados</p>
+                    <h3 id="totalVinculados">0</h3>
+                    <p>Vinculados</p>
                 </div>
             </div>
             <div class="stat-card">
@@ -795,7 +825,7 @@
 
         <div class="filters" id="filters">
             <button class="filter-btn active" data-filter="todos">Todos</button>
-            <button class="filter-btn" data-filter="finalizado">Finalizados</button>
+            <button class="filter-btn" data-filter="vinculado">Vinculados</button>
             <button class="filter-btn" data-filter="rascunho">Rascunhos</button>
             <button class="filter-btn" data-filter="guerreiro">Guerreiros</button>
             <button class="filter-btn" data-filter="mago">Magos</button>
@@ -850,12 +880,14 @@
         const searchButton = document.getElementById('searchButton');
         const filterButtons = document.querySelectorAll('.filter-btn');
         const totalPersonagens = document.getElementById('totalPersonagens');
-        const totalFinalizados = document.getElementById('totalFinalizados');
+        const totalVinculados = document.getElementById('totalVinculados');
         const totalRascunhos = document.getElementById('totalRascunhos');
         
         const modalConfirmarExclusao = document.getElementById('modalConfirmarExclusao');
+        const modalVinculado = document.getElementById('modalVinculado');
         const cancelarExclusao = document.getElementById('cancelarExclusao');
         const confirmarExclusao = document.getElementById('confirmarExclusao');
+        const fecharModalVinculado = document.getElementById('fecharModalVinculado');
 
         let currentUser = null;
         let userData = null;
@@ -912,8 +944,10 @@
 
         function filtrarPersonagens() {
             return personagens.filter(p => {
-                if (filtroAtual !== 'todos' && p.status !== filtroAtual && p.classe !== filtroAtual) {
-                    return false;
+                if (filtroAtual !== 'todos') {
+                    if (filtroAtual === 'vinculado' && !p.vinculado) return false;
+                    if (filtroAtual === 'rascunho' && p.vinculado) return false;
+                    if (filtroAtual !== 'vinculado' && filtroAtual !== 'rascunho' && p.classe !== filtroAtual) return false;
                 }
                 
                 if (buscaAtual) {
@@ -926,10 +960,19 @@
             });
         }
 
-        // NOVA FUNÇÃO: Iniciar aventura solo
         function iniciarAventuraSolo(personagemId, event) {
-            event.stopPropagation(); // Impede de abrir a edição
+            event.stopPropagation();
             window.location.href = `aventura-solo.html?personagem=${personagemId}`;
+        }
+
+        function tentarEditar(personagem, event) {
+            event.stopPropagation();
+            
+            if (personagem.vinculado) {
+                modalVinculado.classList.add('active');
+            } else {
+                window.location.href = `criar-personagem.html?id=${personagem.id}`;
+            }
         }
 
         function renderizarPersonagens() {
@@ -954,17 +997,29 @@
             charactersGrid.innerHTML = filtrados.map(p => {
                 const classeIcon = getClasseIcon(p.classe);
                 const classeNome = getClasseNome(p.classe);
-                const statusClass = p.status === 'finalizado' ? 'status-finalizado' : 'status-rascunho';
-                const statusText = p.status === 'finalizado' ? 'Finalizado' : 'Rascunho';
                 
-                const st = p.atributos?.st?.valor || 9;
-                const dx = p.atributos?.dx?.valor || 5;
-                const iq = p.atributos?.iq?.valor || 5;
+                let statusClass = 'status-rascunho';
+                let statusText = 'Rascunho';
+                
+                if (p.vinculado) {
+                    statusClass = 'status-vinculado';
+                    statusText = 'Vinculado';
+                } else if (p.status === 'finalizado') {
+                    statusClass = 'status-finalizado';
+                    statusText = 'Finalizado';
+                }
+                
+                const st = p.atributos?.st?.esferas || 0;
+                const dx = p.atributos?.dx?.esferas || 0;
+                const iq = p.atributos?.iq?.esferas || 0;
                 
                 const dataAtualizacao = p.updatedAt ? formatarData(p.updatedAt) : 'Data desconhecida';
                 
+                // Botão de editar desabilitado se vinculado
+                const editButtonClass = p.vinculado ? 'btn-icon disabled' : 'btn-icon edit-character';
+                
                 return `
-                    <div class="character-card" data-id="${p.id}">
+                    <div class="character-card" data-id="${p.id}" data-vinculado="${p.vinculado}">
                         <div class="character-status ${statusClass}">${statusText}</div>
                         <div class="character-header">
                             <div class="character-avatar">
@@ -984,15 +1039,15 @@
                         
                         <div class="character-stats">
                             <div class="stat-item">
-                                <div class="stat-label">FORÇA</div>
+                                <div class="stat-label">ST</div>
                                 <div class="stat-value">${st}</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-label">DESTREZA</div>
+                                <div class="stat-label">DX</div>
                                 <div class="stat-value">${dx}</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-label">INTELIGÊNCIA</div>
+                                <div class="stat-label">IQ</div>
                                 <div class="stat-value">${iq}</div>
                             </div>
                         </div>
@@ -1003,11 +1058,10 @@
                                 ${dataAtualizacao}
                             </div>
                             <div class="character-actions">
-                                <!-- NOVO BOTÃO DE AVENTURA SOLO -->
                                 <button class="btn-solo solo-character" title="Jogar Aventura Solo">
                                     <i class="fas fa-play"></i>
                                 </button>
-                                <button class="btn-icon edit-character" title="Editar">
+                                <button class="${editButtonClass}" title="${p.vinculado ? 'Personagem vinculado não pode ser editado' : 'Editar'}">
                                     <i class="fas fa-pencil-alt"></i>
                                 </button>
                                 <button class="btn-icon delete delete-character" title="Excluir">
@@ -1019,23 +1073,33 @@
                 `;
             }).join('');
 
+            // Event listeners para os cards
             document.querySelectorAll('.character-card').forEach(card => {
+                const personagemId = card.dataset.id;
+                const personagem = personagens.find(p => p.id === personagemId);
+                
                 card.addEventListener('click', (e) => {
                     if (!e.target.closest('.character-actions')) {
-                        window.location.href = `criar-personagem.html?id=${card.dataset.id}`;
+                        if (personagem?.vinculado) {
+                            modalVinculado.classList.add('active');
+                        } else {
+                            window.location.href = `criar-personagem.html?id=${card.dataset.id}`;
+                        }
                     }
                 });
             });
 
+            // Event listeners para botões de editar
             document.querySelectorAll('.edit-character').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const card = btn.closest('.character-card');
-                    window.location.href = `criar-personagem.html?id=${card.dataset.id}`;
+                    const personagem = personagens.find(p => p.id === card.dataset.id);
+                    tentarEditar(personagem, e);
                 });
             });
 
-            // NOVO: Event listener para botões de aventura solo
+            // Event listeners para botões de aventura solo
             document.querySelectorAll('.solo-character').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1044,6 +1108,7 @@
                 });
             });
 
+            // Event listeners para botões de excluir
             document.querySelectorAll('.delete-character').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1070,18 +1135,21 @@
                 
                 personagens = [];
                 querySnapshot.forEach((doc) => {
+                    const data = doc.data();
                     personagens.push({
                         id: doc.id,
-                        ...doc.data()
+                        vinculado: data.vinculado || false,
+                        status: data.status || 'rascunho',
+                        ...data
                     });
                 });
                 
                 const total = personagens.length;
-                const finalizados = personagens.filter(p => p.status === 'finalizado').length;
-                const rascunhos = personagens.filter(p => p.status === 'rascunho').length;
+                const vinculados = personagens.filter(p => p.vinculado === true).length;
+                const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
                 
                 totalPersonagens.textContent = total;
-                totalFinalizados.textContent = finalizados;
+                totalVinculados.textContent = vinculados;
                 totalRascunhos.textContent = rascunhos;
                 
                 renderizarPersonagens();
@@ -1110,11 +1178,11 @@
                 personagens = personagens.filter(p => p.id !== id);
                 
                 const total = personagens.length;
-                const finalizados = personagens.filter(p => p.status === 'finalizado').length;
-                const rascunhos = personagens.filter(p => p.status === 'rascunho').length;
+                const vinculados = personagens.filter(p => p.vinculado === true).length;
+                const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
                 
                 totalPersonagens.textContent = total;
-                totalFinalizados.textContent = finalizados;
+                totalVinculados.textContent = vinculados;
                 totalRascunhos.textContent = rascunhos;
                 
                 renderizarPersonagens();
@@ -1198,6 +1266,10 @@
                 modalConfirmarExclusao.classList.remove('active');
                 personagemParaExcluir = null;
             }
+        });
+
+        fecharModalVinculado.addEventListener('click', () => {
+            modalVinculado.classList.remove('active');
         });
     </script>
 </body>
