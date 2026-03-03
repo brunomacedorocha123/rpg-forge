@@ -490,6 +490,22 @@
         loadingOverlay.classList.remove('active');
     }
 
+    // ===== FUNÇÃO PARA BUSCAR VAGAS REAIS =====
+    async function buscarVagasReais(campanhaId) {
+        try {
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("campanha_id", "==", campanhaId)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            return vinculosSnap.size;
+        } catch (error) {
+            console.error('Erro ao buscar vagas para campanha', campanhaId, error);
+            return 0;
+        }
+    }
+
     // Carregar campanhas do jogador (MESMO AS DESVINCULADAS)
     async function carregarCampanhas() {
         if (!currentUser) return;
@@ -505,7 +521,7 @@
             
             const vinculosSnap = await getDocs(vinculosQuery);
             
-            // Criar mapa de campanhas que o jogador JÁ PARTICIPOU (mesmo se desvinculou)
+            // Criar mapa de campanhas que o jogador JÁ PARTICIPOU
             const campanhasQueParticipou = new Map();
             vinculosSnap.forEach(doc => {
                 const data = doc.data();
@@ -513,14 +529,13 @@
                     personagem: data.personagem_nome,
                     dataVinculo: data.data_vinculo,
                     vinculoId: doc.id,
-                    ativo: true // Consideramos ativo porque tem registro
+                    ativo: true
                 });
             });
             
             // 2. Buscar TODAS as campanhas disponíveis
             const campanhasQuery = query(
                 collection(db, "campanhas")
-                // SEM where de status - pega todas
             );
             
             const campanhasSnap = await getDocs(campanhasQuery);
@@ -528,34 +543,38 @@
             // Array para armazenar as campanhas que serão mostradas
             const campanhasParaMostrar = [];
             
-            campanhasSnap.forEach(doc => {
+            // 3. Para cada campanha, buscar vagas reais
+            for (const doc of campanhasSnap.docs) {
                 const campanha = {
                     docId: doc.id,
                     ...doc.data()
                 };
                 
-                // Verifica se o jogador já participou desta campanha
+                // Buscar vagas reais
+                const vagasReais = await buscarVagasReais(campanha.id || doc.id);
+                
+                // Verifica se o jogador já participou
                 const jaParticipou = campanhasQueParticipou.has(campanha.id);
                 
                 if (jaParticipou) {
-                    // Se já participou, mostra com badge "Jogador" ou "Ex-jogador"
                     campanhasParaMostrar.push({
                         ...campanha,
+                        vagas_ocupadas_real: vagasReais,
                         jaParticipou: true,
                         statusVinculo: 'ja_participou',
                         personagemVinculado: campanhasQueParticipou.get(campanha.id).personagem
                     });
                 } else {
-                    // Se nunca participou, mostra como campanha disponível
                     campanhasParaMostrar.push({
                         ...campanha,
+                        vagas_ocupadas_real: vagasReais,
                         jaParticipou: false,
                         statusVinculo: 'nao_participa'
                     });
                 }
-            });
+            }
             
-            // Ordenar: primeiro as que participa ativamente, depois as que já participou, depois disponíveis
+            // Ordenar: primeiro as que participa, depois disponíveis
             campanhasParaMostrar.sort((a, b) => {
                 if (a.jaParticipou && !b.jaParticipou) return -1;
                 if (!a.jaParticipou && b.jaParticipou) return 1;
@@ -588,6 +607,10 @@
                                   camp.status === 'andamento' ? 'Em Andamento' :
                                   camp.status === 'fechado' ? 'Fechado' : 'Encerrado';
                 
+                // USAR VAGAS REAIS
+                const vagasOcupadas = camp.vagas_ocupadas_real || 0;
+                const vagasMax = camp.vagas_max || 5;
+                
                 // Badge de participação
                 let badgeParticipacao = '';
                 if (camp.jaParticipou) {
@@ -619,7 +642,7 @@
                             <h2>${camp.nome || 'Campanha sem nome'}</h2>
                             <div class="campanha-meta">
                                 <span><i class="fas fa-crown"></i> ${camp.gm_nick || 'Mestre'}</span>
-                                <span><i class="fas fa-users"></i> ${camp.vagas_ocupadas || 0}/${camp.vagas_max || 5}</span>
+                                <span><i class="fas fa-users"></i> ${vagasOcupadas}/${vagasMax}</span>
                                 <span><i class="fas fa-level-up-alt"></i> Nv ${camp.nivel_min || 1}-${camp.nivel_max || 5}</span>
                             </div>
                             <div class="campanha-descricao">
