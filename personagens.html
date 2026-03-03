@@ -839,438 +839,462 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signOut,
-            onAuthStateChanged 
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc,
-            getDoc,
-            collection,
-            query,
-            where,
-            getDocs,
-            deleteDoc,
-            orderBy
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+   <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { 
+        getAuth, 
+        signOut,
+        onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { 
+        getFirestore, 
+        doc,
+        getDoc,
+        collection,
+        query,
+        where,
+        getDocs,
+        deleteDoc,
+        orderBy
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    const firebaseConfig = {
+        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+        authDomain: "rpgforce-e3227.firebaseapp.com",
+        projectId: "rpgforce-e3227",
+        storageBucket: "rpgforce-e3227.firebasestorage.app",
+        messagingSenderId: "984517342332",
+        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const displayIdPc = document.getElementById('displayIdPc');
+    const displayNickname = document.getElementById('displayNickname');
+    const btnSair = document.getElementById('btnSair');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const charactersGrid = document.getElementById('charactersGrid');
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const totalPersonagens = document.getElementById('totalPersonagens');
+    const totalVinculados = document.getElementById('totalVinculados');
+    const totalRascunhos = document.getElementById('totalRascunhos');
+    
+    const modalConfirmarExclusao = document.getElementById('modalConfirmarExclusao');
+    const modalVinculado = document.getElementById('modalVinculado');
+    const cancelarExclusao = document.getElementById('cancelarExclusao');
+    const confirmarExclusao = document.getElementById('confirmarExclusao');
+    const fecharModalVinculado = document.getElementById('fecharModalVinculado');
+
+    let currentUser = null;
+    let userData = null;
+    let personagens = [];
+    let personagemParaExcluir = null;
+    let filtroAtual = 'todos';
+    let buscaAtual = '';
+
+    function showLoading() {
+        loadingOverlay.classList.add('active');
+    }
+
+    function hideLoading() {
+        loadingOverlay.classList.remove('active');
+    }
+
+    function formatarData(data) {
+        if (!data) return 'Data desconhecida';
+        const date = data.toDate ? data.toDate() : new Date(data);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 1) return 'Agora mesmo';
+        if (diffMins < 60) return `Há ${diffMins} minutos`;
+        if (diffHours < 24) return `Há ${diffHours} horas`;
+        if (diffDays < 7) return `Há ${diffDays} dias`;
+        return date.toLocaleDateString('pt-BR');
+    }
+
+    function getClasseIcon(classe) {
+        const icons = {
+            guerreiro: 'fa-shield-alt',
+            mago: 'fa-magic',
+            ladino: 'fa-mask',
+            clerigo: 'fa-cross',
+            barbaro: 'fa-axe'
         };
+        return icons[classe] || 'fa-user';
+    }
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    function getClasseNome(classe) {
+        const nomes = {
+            guerreiro: 'Guerreiro',
+            mago: 'Mago',
+            ladino: 'Ladino',
+            clerigo: 'Clérigo',
+            barbaro: 'Bárbaro'
+        };
+        return nomes[classe] || classe;
+    }
 
-        const displayIdPc = document.getElementById('displayIdPc');
-        const displayNickname = document.getElementById('displayNickname');
-        const btnSair = document.getElementById('btnSair');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const charactersGrid = document.getElementById('charactersGrid');
-        const searchInput = document.getElementById('searchInput');
-        const searchButton = document.getElementById('searchButton');
-        const filterButtons = document.querySelectorAll('.filter-btn');
-        const totalPersonagens = document.getElementById('totalPersonagens');
-        const totalVinculados = document.getElementById('totalVinculados');
-        const totalRascunhos = document.getElementById('totalRascunhos');
+    function filtrarPersonagens() {
+        return personagens.filter(p => {
+            if (filtroAtual !== 'todos') {
+                if (filtroAtual === 'vinculado' && !p.vinculado) return false;
+                if (filtroAtual === 'rascunho' && p.vinculado) return false;
+                if (filtroAtual !== 'vinculado' && filtroAtual !== 'rascunho' && p.classe !== filtroAtual) return false;
+            }
+            
+            if (buscaAtual) {
+                const busca = buscaAtual.toLowerCase();
+                return p.nome.toLowerCase().includes(busca) || 
+                       getClasseNome(p.classe).toLowerCase().includes(busca);
+            }
+            
+            return true;
+        });
+    }
+
+    function iniciarAventuraSolo(personagemId, event) {
+        event.stopPropagation();
+        window.location.href = `aventura-solo.html?personagem=${personagemId}`;
+    }
+
+    function tentarEditar(personagem, event) {
+        event.stopPropagation();
         
-        const modalConfirmarExclusao = document.getElementById('modalConfirmarExclusao');
-        const modalVinculado = document.getElementById('modalVinculado');
-        const cancelarExclusao = document.getElementById('cancelarExclusao');
-        const confirmarExclusao = document.getElementById('confirmarExclusao');
-        const fecharModalVinculado = document.getElementById('fecharModalVinculado');
+        if (personagem.vinculado) {
+            modalVinculado.classList.add('active');
+        } else {
+            window.location.href = `criar-personagem.html?id=${personagem.id}`;
+        }
+    }
 
-        let currentUser = null;
-        let userData = null;
-        let personagens = [];
-        let personagemParaExcluir = null;
-        let filtroAtual = 'todos';
-        let buscaAtual = '';
-
-        function showLoading() {
-            loadingOverlay.classList.add('active');
+    function renderizarPersonagens() {
+        const filtrados = filtrarPersonagens();
+        
+        if (filtrados.length === 0) {
+            charactersGrid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-dragon"></i>
+                    <h3>Nenhum personagem encontrado</h3>
+                    <p>${personagens.length === 0 ? 'Comece criando seu primeiro herói!' : 'Tente buscar com outros termos'}</p>
+                    ${personagens.length === 0 ? `
+                        <a href="criar-personagem.html" class="btn-primary" style="display: inline-flex; width: auto;">
+                            <i class="fas fa-plus-circle"></i> Criar Personagem
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+            return;
         }
 
-        function hideLoading() {
-            loadingOverlay.classList.remove('active');
-        }
-
-        function formatarData(data) {
-            if (!data) return 'Data desconhecida';
-            const date = data.toDate ? data.toDate() : new Date(data);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMins / 60);
-            const diffDays = Math.floor(diffHours / 24);
-
-            if (diffMins < 1) return 'Agora mesmo';
-            if (diffMins < 60) return `Há ${diffMins} minutos`;
-            if (diffHours < 24) return `Há ${diffHours} horas`;
-            if (diffDays < 7) return `Há ${diffDays} dias`;
-            return date.toLocaleDateString('pt-BR');
-        }
-
-        function getClasseIcon(classe) {
-            const icons = {
-                guerreiro: 'fa-shield-alt',
-                mago: 'fa-magic',
-                ladino: 'fa-mask',
-                clerigo: 'fa-cross',
-                barbaro: 'fa-axe'
-            };
-            return icons[classe] || 'fa-user';
-        }
-
-        function getClasseNome(classe) {
-            const nomes = {
-                guerreiro: 'Guerreiro',
-                mago: 'Mago',
-                ladino: 'Ladino',
-                clerigo: 'Clérigo',
-                barbaro: 'Bárbaro'
-            };
-            return nomes[classe] || classe;
-        }
-
-        function filtrarPersonagens() {
-            return personagens.filter(p => {
-                if (filtroAtual !== 'todos') {
-                    if (filtroAtual === 'vinculado' && !p.vinculado) return false;
-                    if (filtroAtual === 'rascunho' && p.vinculado) return false;
-                    if (filtroAtual !== 'vinculado' && filtroAtual !== 'rascunho' && p.classe !== filtroAtual) return false;
-                }
-                
-                if (buscaAtual) {
-                    const busca = buscaAtual.toLowerCase();
-                    return p.nome.toLowerCase().includes(busca) || 
-                           getClasseNome(p.classe).toLowerCase().includes(busca);
-                }
-                
-                return true;
-            });
-        }
-
-        function iniciarAventuraSolo(personagemId, event) {
-            event.stopPropagation();
-            window.location.href = `aventura-solo.html?personagem=${personagemId}`;
-        }
-
-        function tentarEditar(personagem, event) {
-            event.stopPropagation();
+        charactersGrid.innerHTML = filtrados.map(p => {
+            const classeIcon = getClasseIcon(p.classe);
+            const classeNome = getClasseNome(p.classe);
             
-            if (personagem.vinculado) {
-                modalVinculado.classList.add('active');
-            } else {
-                window.location.href = `criar-personagem.html?id=${personagem.id}`;
-            }
-        }
-
-        function renderizarPersonagens() {
-            const filtrados = filtrarPersonagens();
+            let statusClass = 'status-rascunho';
+            let statusText = 'Rascunho';
             
-            if (filtrados.length === 0) {
-                charactersGrid.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-dragon"></i>
-                        <h3>Nenhum personagem encontrado</h3>
-                        <p>${personagens.length === 0 ? 'Comece criando seu primeiro herói!' : 'Tente buscar com outros termos'}</p>
-                        ${personagens.length === 0 ? `
-                            <a href="criar-personagem.html" class="btn-primary" style="display: inline-flex; width: auto;">
-                                <i class="fas fa-plus-circle"></i> Criar Personagem
-                            </a>
-                        ` : ''}
-                    </div>
-                `;
-                return;
+            if (p.vinculado) {
+                statusClass = 'status-vinculado';
+                statusText = 'Vinculado';
+            } else if (p.status === 'finalizado') {
+                statusClass = 'status-finalizado';
+                statusText = 'Finalizado';
             }
-
-            charactersGrid.innerHTML = filtrados.map(p => {
-                const classeIcon = getClasseIcon(p.classe);
-                const classeNome = getClasseNome(p.classe);
-                
-                let statusClass = 'status-rascunho';
-                let statusText = 'Rascunho';
-                
-                if (p.vinculado) {
-                    statusClass = 'status-vinculado';
-                    statusText = 'Vinculado';
-                } else if (p.status === 'finalizado') {
-                    statusClass = 'status-finalizado';
-                    statusText = 'Finalizado';
-                }
-                
-                const st = p.atributos?.st?.esferas || 0;
-                const dx = p.atributos?.dx?.esferas || 0;
-                const iq = p.atributos?.iq?.esferas || 0;
-                
-                const dataAtualizacao = p.updatedAt ? formatarData(p.updatedAt) : 'Data desconhecida';
-                
-                // Botão de editar desabilitado se vinculado
-                const editButtonClass = p.vinculado ? 'btn-icon disabled' : 'btn-icon edit-character';
-                
-                return `
-                    <div class="character-card" data-id="${p.id}" data-vinculado="${p.vinculado}">
-                        <div class="character-status ${statusClass}">${statusText}</div>
-                        <div class="character-header">
-                            <div class="character-avatar">
-                                ${p.fotoURL ? 
-                                    `<img src="${p.fotoURL}" alt="${p.nome}">` : 
-                                    `<i class="fas ${classeIcon}"></i>`
-                                }
-                            </div>
-                            <div class="character-info">
-                                <div class="character-name">${p.nome}</div>
-                                <div class="character-class">
-                                    <i class="fas ${classeIcon}"></i>
-                                    ${classeNome}
-                                </div>
-                            </div>
+            
+            const st = p.atributos?.st?.esferas || 0;
+            const dx = p.atributos?.dx?.esferas || 0;
+            const iq = p.atributos?.iq?.esferas || 0;
+            
+            const dataAtualizacao = p.updatedAt ? formatarData(p.updatedAt) : 'Data desconhecida';
+            
+            const editButtonClass = p.vinculado ? 'btn-icon disabled' : 'btn-icon edit-character';
+            
+            return `
+                <div class="character-card" data-id="${p.id}" data-vinculado="${p.vinculado}">
+                    <div class="character-status ${statusClass}">${statusText}</div>
+                    <div class="character-header">
+                        <div class="character-avatar">
+                            ${p.fotoURL ? 
+                                `<img src="${p.fotoURL}" alt="${p.nome}">` : 
+                                `<i class="fas ${classeIcon}"></i>`
+                            }
                         </div>
-                        
-                        <div class="character-stats">
-                            <div class="stat-item">
-                                <div class="stat-label">ST</div>
-                                <div class="stat-value">${st}</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">DX</div>
-                                <div class="stat-value">${dx}</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">IQ</div>
-                                <div class="stat-value">${iq}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="character-footer">
-                            <div class="character-date">
-                                <i class="fas fa-clock"></i>
-                                ${dataAtualizacao}
-                            </div>
-                            <div class="character-actions">
-                                <button class="btn-solo solo-character" title="Jogar Aventura Solo">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <button class="${editButtonClass}" title="${p.vinculado ? 'Personagem vinculado não pode ser editado' : 'Editar'}">
-                                    <i class="fas fa-pencil-alt"></i>
-                                </button>
-                                <button class="btn-icon delete delete-character" title="Excluir">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                        <div class="character-info">
+                            <div class="character-name">${p.nome}</div>
+                            <div class="character-class">
+                                <i class="fas ${classeIcon}"></i>
+                                ${classeNome}
                             </div>
                         </div>
                     </div>
-                `;
-            }).join('');
+                    
+                    <div class="character-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">ST</div>
+                            <div class="stat-value">${st}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">DX</div>
+                            <div class="stat-value">${dx}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">IQ</div>
+                            <div class="stat-value">${iq}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="character-footer">
+                        <div class="character-date">
+                            <i class="fas fa-clock"></i>
+                            ${dataAtualizacao}
+                        </div>
+                        <div class="character-actions">
+                            <button class="btn-solo solo-character" title="Jogar Aventura Solo">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <button class="${editButtonClass}" title="${p.vinculado ? 'Personagem vinculado não pode ser editado' : 'Editar'}">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                            <button class="btn-icon delete delete-character" title="Excluir">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
-            // Event listeners para os cards
-            document.querySelectorAll('.character-card').forEach(card => {
-                const personagemId = card.dataset.id;
-                const personagem = personagens.find(p => p.id === personagemId);
-                
-                card.addEventListener('click', (e) => {
-                    if (!e.target.closest('.character-actions')) {
-                        if (personagem?.vinculado) {
-                            modalVinculado.classList.add('active');
-                        } else {
-                            window.location.href = `criar-personagem.html?id=${card.dataset.id}`;
-                        }
+        document.querySelectorAll('.character-card').forEach(card => {
+            const personagemId = card.dataset.id;
+            const personagem = personagens.find(p => p.id === personagemId);
+            
+            card.addEventListener('click', (e) => {
+                if (!e.target.closest('.character-actions')) {
+                    if (personagem?.vinculado) {
+                        modalVinculado.classList.add('active');
+                    } else {
+                        window.location.href = `criar-personagem.html?id=${card.dataset.id}`;
                     }
-                });
-            });
-
-            // Event listeners para botões de editar
-            document.querySelectorAll('.edit-character').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const card = btn.closest('.character-card');
-                    const personagem = personagens.find(p => p.id === card.dataset.id);
-                    tentarEditar(personagem, e);
-                });
-            });
-
-            // Event listeners para botões de aventura solo
-            document.querySelectorAll('.solo-character').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const card = btn.closest('.character-card');
-                    iniciarAventuraSolo(card.dataset.id, e);
-                });
-            });
-
-            // Event listeners para botões de excluir
-            document.querySelectorAll('.delete-character').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const card = btn.closest('.character-card');
-                    personagemParaExcluir = card.dataset.id;
-                    modalConfirmarExclusao.classList.add('active');
-                });
-            });
-        }
-
-        async function carregarPersonagens() {
-            if (!currentUser) return;
-            
-            try {
-                showLoading();
-                
-                const q = query(
-                    collection(db, "personagens"),
-                    where("userId", "==", currentUser.uid),
-                    orderBy("updatedAt", "desc")
-                );
-                
-                const querySnapshot = await getDocs(q);
-                
-                personagens = [];
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    personagens.push({
-                        id: doc.id,
-                        vinculado: data.vinculado || false,
-                        status: data.status || 'rascunho',
-                        ...data
-                    });
-                });
-                
-                const total = personagens.length;
-                const vinculados = personagens.filter(p => p.vinculado === true).length;
-                const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
-                
-                totalPersonagens.textContent = total;
-                totalVinculados.textContent = vinculados;
-                totalRascunhos.textContent = rascunhos;
-                
-                renderizarPersonagens();
-                
-            } catch (error) {
-                console.error('Erro ao carregar personagens:', error);
-                charactersGrid.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Erro ao carregar personagens</h3>
-                        <p>${error.message}</p>
-                    </div>
-                `;
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function excluirPersonagem(id) {
-            try {
-                showLoading();
-                
-                const docRef = doc(db, "personagens", id);
-                await deleteDoc(docRef);
-                
-                personagens = personagens.filter(p => p.id !== id);
-                
-                const total = personagens.length;
-                const vinculados = personagens.filter(p => p.vinculado === true).length;
-                const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
-                
-                totalPersonagens.textContent = total;
-                totalVinculados.textContent = vinculados;
-                totalRascunhos.textContent = rascunhos;
-                
-                renderizarPersonagens();
-                
-            } catch (error) {
-                console.error('Erro ao excluir personagem:', error);
-                alert('Erro ao excluir personagem');
-            } finally {
-                hideLoading();
-            }
-        }
-
-        async function carregarDadosUsuario(user) {
-            if (!user) return;
-            
-            try {
-                currentUser = user;
-                
-                const docRef = doc(db, "usuarios", user.uid);
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    displayIdPc.textContent = userData.id_pc || '--------';
-                    displayNickname.textContent = userData.nickname || 'Aventureiro';
                 }
-                
-                await carregarPersonagens();
-                
-            } catch (error) {
-                console.error('Erro ao carregar dados:', error);
-            }
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                await carregarDadosUsuario(user);
-            } else {
-                window.location.href = 'index.html';
-            }
-        });
-
-        btnSair.addEventListener('click', async () => {
-            try {
-                showLoading();
-                await signOut(auth);
-                sessionStorage.clear();
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Erro ao sair:', error);
-                hideLoading();
-            }
-        });
-
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filterButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                filtroAtual = btn.dataset.filter;
-                renderizarPersonagens();
             });
         });
 
-        searchInput.addEventListener('input', (e) => {
-            buscaAtual = e.target.value;
-            renderizarPersonagens();
+        document.querySelectorAll('.edit-character').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.character-card');
+                const personagem = personagens.find(p => p.id === card.dataset.id);
+                tentarEditar(personagem, e);
+            });
         });
 
-        searchButton.addEventListener('click', () => {
-            renderizarPersonagens();
+        document.querySelectorAll('.solo-character').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.character-card');
+                iniciarAventuraSolo(card.dataset.id, e);
+            });
         });
 
-        cancelarExclusao.addEventListener('click', () => {
+        document.querySelectorAll('.delete-character').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const card = btn.closest('.character-card');
+                personagemParaExcluir = card.dataset.id;
+                modalConfirmarExclusao.classList.add('active');
+            });
+        });
+    }
+
+    // ===== FUNÇÃO CORRIGIDA QUE BUSCA OS VÍNCULOS REAIS =====
+    async function carregarPersonagens() {
+        if (!currentUser) return;
+        
+        try {
+            showLoading();
+            
+            // 1. Buscar personagens do usuário
+            const q = query(
+                collection(db, "personagens"),
+                where("userId", "==", currentUser.uid),
+                orderBy("updatedAt", "desc")
+            );
+            
+            const querySnapshot = await getDocs(q);
+            
+            // 2. Buscar TODOS os vínculos do usuário (para saber quais personagens estão vinculados)
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("jogador_uid", "==", currentUser.uid)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            
+            // 3. Criar um Set com os IDs dos personagens vinculados
+            const personagensVinculados = new Set();
+            vinculosSnap.forEach(doc => {
+                const data = doc.data();
+                if (data.personagem_id) {
+                    personagensVinculados.add(data.personagem_id);
+                    console.log('🔗 Personagem vinculado encontrado:', data.personagem_id, data.personagem_nome);
+                }
+            });
+            
+            console.log('📊 Total de personagens vinculados:', personagensVinculados.size);
+            
+            // 4. Montar array de personagens com flag vinculado
+            personagens = [];
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const estaVinculado = personagensVinculados.has(doc.id);
+                
+                console.log(`📄 Personagem ${data.nome}: ${estaVinculado ? 'VINCULADO' : 'não vinculado'}`);
+                
+                personagens.push({
+                    id: doc.id,
+                    vinculado: estaVinculado, // ← AGORA VEM DOS VÍNCULOS REAIS
+                    status: data.status || 'rascunho',
+                    ...data
+                });
+            });
+            
+            // 5. Atualizar estatísticas
+            const total = personagens.length;
+            const vinculados = personagens.filter(p => p.vinculado === true).length;
+            const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
+            
+            totalPersonagens.textContent = total;
+            totalVinculados.textContent = vinculados;
+            totalRascunhos.textContent = rascunhos;
+            
+            // 6. Renderizar
+            renderizarPersonagens();
+            
+        } catch (error) {
+            console.error('❌ Erro ao carregar personagens:', error);
+            charactersGrid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Erro ao carregar personagens</h3>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function excluirPersonagem(id) {
+        try {
+            showLoading();
+            
+            const docRef = doc(db, "personagens", id);
+            await deleteDoc(docRef);
+            
+            personagens = personagens.filter(p => p.id !== id);
+            
+            const total = personagens.length;
+            const vinculados = personagens.filter(p => p.vinculado === true).length;
+            const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
+            
+            totalPersonagens.textContent = total;
+            totalVinculados.textContent = vinculados;
+            totalRascunhos.textContent = rascunhos;
+            
+            renderizarPersonagens();
+            
+        } catch (error) {
+            console.error('Erro ao excluir personagem:', error);
+            alert('Erro ao excluir personagem');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function carregarDadosUsuario(user) {
+        if (!user) return;
+        
+        try {
+            currentUser = user;
+            
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                userData = docSnap.data();
+                displayIdPc.textContent = userData.id_pc || '--------';
+                displayNickname.textContent = userData.nickname || 'Aventureiro';
+            }
+            
+            await carregarPersonagens();
+            
+        } catch (error) {
+            console.error('Erro ao carregar dados:', error);
+        }
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            await carregarDadosUsuario(user);
+        } else {
+            window.location.href = 'index.html';
+        }
+    });
+
+    btnSair.addEventListener('click', async () => {
+        try {
+            showLoading();
+            await signOut(auth);
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        } catch (error) {
+            console.error('Erro ao sair:', error);
+            hideLoading();
+        }
+    });
+
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            filtroAtual = btn.dataset.filter;
+            renderizarPersonagens();
+        });
+    });
+
+    searchInput.addEventListener('input', (e) => {
+        buscaAtual = e.target.value;
+        renderizarPersonagens();
+    });
+
+    searchButton.addEventListener('click', () => {
+        renderizarPersonagens();
+    });
+
+    cancelarExclusao.addEventListener('click', () => {
+        modalConfirmarExclusao.classList.remove('active');
+        personagemParaExcluir = null;
+    });
+
+    confirmarExclusao.addEventListener('click', async () => {
+        if (personagemParaExcluir) {
+            await excluirPersonagem(personagemParaExcluir);
             modalConfirmarExclusao.classList.remove('active');
             personagemParaExcluir = null;
-        });
+        }
+    });
 
-        confirmarExclusao.addEventListener('click', async () => {
-            if (personagemParaExcluir) {
-                await excluirPersonagem(personagemParaExcluir);
-                modalConfirmarExclusao.classList.remove('active');
-                personagemParaExcluir = null;
-            }
-        });
-
-        fecharModalVinculado.addEventListener('click', () => {
-            modalVinculado.classList.remove('active');
-        });
-    </script>
+    fecharModalVinculado.addEventListener('click', () => {
+        modalVinculado.classList.remove('active');
+    });
+</script>
 </body>
 </html>
