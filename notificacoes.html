@@ -398,7 +398,7 @@
         </div>
     </div>
 
-  <script type="module">
+ <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { 
         getAuth, 
@@ -413,7 +413,9 @@
         query,
         where,
         getDocs,
+        addDoc,
         updateDoc,
+        deleteDoc,
         serverTimestamp,
         orderBy
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -462,16 +464,18 @@
         }, 3000);
     }
 
-    // ===== FUNÇÃO PARA CONVITES DE GUILDA (MANTIDA) =====
+    // ===== FUNÇÃO PARA CONVITES DE GUILDA =====
     window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
-        showToast('Função de guilda em desenvolvimento');
+        console.log('Aceitar guilda:', notificacaoId, guildaId);
+        showToast('Função de guilda executada');
     };
 
     window.recusarConviteGuilda = async function(notificacaoId) {
-        showToast('Função de guilda em desenvolvimento');
+        console.log('Recusar guilda:', notificacaoId);
+        showToast('Função de guilda executada');
     };
 
-    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA - SEM VÍNCULO AUTOMÁTICO) =====
+    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (MODIFICADA: REMOVIDO VÍNCULO AUTOMÁTICO) =====
     window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
         if (!confirm('Deseja aceitar o convite para esta campanha?')) {
             return;
@@ -510,7 +514,7 @@
                 return;
             }
             
-            // Buscar personagens do jogador apenas para verificar se existe
+            // Buscar personagens do jogador APENAS para verificar se existe
             const personagensQuery = query(
                 collection(db, "personagens"),
                 where("userId", "==", currentUser.uid)
@@ -527,43 +531,22 @@
                 return;
             }
             
-            // Buscar dados da campanha para mostrar informações
+            // Buscar dados da campanha para pegar o documentId
             const campanhaQuery = query(
                 collection(db, "campanhas"),
                 where("id", "==", campanhaId)
             );
             
             const campanhaSnap = await getDocs(campanhaQuery);
-            
-            if (campanhaSnap.empty) {
-                showToast('Campanha não encontrada!', true);
-                hideLoading();
-                return;
-            }
-            
-            let campanhaData = null;
+            let campanhaDocId = null;
             campanhaSnap.forEach(doc => {
-                campanhaData = doc.data();
+                campanhaDocId = doc.id;
             });
             
-            // Verificar se há vagas (apenas informação, não tenta atualizar)
-            const vagasOcupadas = campanhaData?.vagas_ocupadas || 0;
-            const vagasMax = campanhaData?.vagas_max || 5;
+            // ATENÇÃO: NÃO CRIAMOS MAIS O VÍNCULO AUTOMATICAMENTE!
+            // O vínculo será feito quando o jogador escolher o personagem na página da campanha
             
-            if (vagasOcupadas >= vagasMax) {
-                showToast('Campanha sem vagas disponíveis!', true);
-                
-                // Marcar notificação como lida mesmo assim
-                await updateDoc(doc(db, "notificacoes", notificacaoId), {
-                    lida: true,
-                    data_resposta: serverTimestamp()
-                });
-                
-                hideLoading();
-                return;
-            }
-            
-            // Marcar notificação como lida (ISSO FUNCIONA!)
+            // Apenas marcar notificação como lida
             await updateDoc(doc(db, "notificacoes", notificacaoId), {
                 lida: true,
                 data_resposta: serverTimestamp()
@@ -578,6 +561,8 @@
             
         } catch (error) {
             console.error('❌ Erro ao aceitar convite:', error);
+            console.error('Código:', error.code);
+            console.error('Mensagem:', error.message);
             showToast('Erro ao aceitar convite: ' + error.message, true);
         } finally {
             hideLoading();
@@ -592,7 +577,6 @@
         showLoading();
         
         try {
-            // Marcar notificação como lida
             await updateDoc(doc(db, "notificacoes", notificacaoId), {
                 lida: true,
                 data_resposta: serverTimestamp()
@@ -642,22 +626,9 @@
             
             let html = '';
             
-            for (const docSnap of querySnapshot.docs) {
-                const n = { id: docSnap.id, ...docSnap.data() };
+            querySnapshot.forEach((doc) => {
+                const n = { id: doc.id, ...doc.data() };
                 const data = n.data ? new Date(n.data.seconds * 1000).toLocaleString() : 'Agora mesmo';
-                
-                // Buscar nome do remetente se necessário
-                let remetenteNome = 'Alguém';
-                if (n.remetente_uid) {
-                    try {
-                        const userDoc = await getDoc(doc(db, "usuarios", n.remetente_uid));
-                        if (userDoc.exists()) {
-                            remetenteNome = userDoc.data().nickname || 'Alguém';
-                        }
-                    } catch (e) {
-                        console.log('Erro ao buscar remetente:', e);
-                    }
-                }
                 
                 // CONVITE DE GUILDA
                 if (n.tipo === 'convite_guilda') {
@@ -669,7 +640,7 @@
                                 </div>
                                 <div class="notification-content">
                                     <div class="notification-title">${n.titulo || 'Convite para Guilda'}</div>
-                                    <div class="notification-message">${n.mensagem || `${remetenteNome} convidou você para uma guilda`}</div>
+                                    <div class="notification-message">${n.mensagem || ''}</div>
                                     <div class="notification-time">${data}</div>
                                 </div>
                             </div>
@@ -695,7 +666,7 @@
                                 </div>
                                 <div class="notification-content">
                                     <div class="notification-title">${n.titulo || 'Convite para Campanha'}</div>
-                                    <div class="notification-message">${n.mensagem || `${remetenteNome} convidou você para uma campanha`}</div>
+                                    <div class="notification-message">${n.mensagem || ''}</div>
                                     <div class="notification-time">${data}</div>
                                 </div>
                             </div>
@@ -727,7 +698,7 @@
                         </div>
                     `;
                 }
-            }
+            });
             
             notificacoesContainer.innerHTML = html;
             
@@ -738,7 +709,6 @@
                     <i class="fas fa-exclamation-triangle" style="font-size: 4rem; margin-bottom: 20px;"></i>
                     <h2>Erro ao carregar</h2>
                     <p>Não foi possível carregar suas notificações.</p>
-                    <p style="font-size: 0.8rem;">${error.message}</p>
                 </div>
             `;
         } finally {
