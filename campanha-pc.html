@@ -853,6 +853,24 @@
         return urlParams.get('id');
     }
 
+    // ===== FUNÇÃO PARA BUSCAR VAGAS REAIS =====
+    async function buscarVagasReais() {
+        if (!campanhaAtual) return 0;
+        
+        try {
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("campanha_id", "==", campanhaAtual.id)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            return vinculosSnap.size;
+        } catch (error) {
+            console.error('Erro ao buscar vagas reais:', error);
+            return campanhaAtual.vagas_ocupadas || 0;
+        }
+    }
+
     // Carregar campanha
     async function carregarCampanha() {
         campanhaId = getCampanhaIdFromUrl();
@@ -886,7 +904,7 @@
                 };
             });
             
-            atualizarInterface();
+            await atualizarInterface();
             await carregarVinculoAtual();
             await carregarPersonagens();
             await carregarSessoes();
@@ -899,7 +917,8 @@
         }
     }
 
-    function atualizarInterface() {
+    // Atualizar interface com dados REAIS das vagas
+    async function atualizarInterface() {
         if (!campanhaAtual) return;
         
         campanhaTitulo.textContent = campanhaAtual.nome || 'Sem nome';
@@ -917,7 +936,10 @@
         campanhaStatus.className = `campanha-status ${statusClass}`;
         campanhaStatus.textContent = statusText;
         
-        vagas.textContent = `${campanhaAtual.vagas_ocupadas || 0}/${campanhaAtual.vagas_max || 5}`;
+        // BUSCAR VAGAS REAIS
+        const vagasReais = await buscarVagasReais();
+        vagas.textContent = `${vagasReais}/${campanhaAtual.vagas_max || 5}`;
+        
         nivelMin.textContent = campanhaAtual.nivel_min || 1;
         nivelMax.textContent = campanhaAtual.nivel_max || 5;
         diasHorarios.textContent = campanhaAtual.dias_horarios || 'Não definido';
@@ -1092,6 +1114,9 @@
             
             showToast('✅ Personagem vinculado!');
             
+            // ATUALIZAR VAGAS na interface
+            await atualizarInterface();
+            
             // Recarregar vínculo e personagens
             await carregarVinculoAtual();
             await carregarPersonagens();
@@ -1126,6 +1151,9 @@
             vinculoAtual = null;
             
             showToast('✅ Personagem desvinculado!');
+            
+            // ATUALIZAR VAGAS na interface
+            await atualizarInterface();
             
             // Recarregar personagens (atualiza os botões)
             await carregarPersonagens();
