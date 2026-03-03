@@ -1135,7 +1135,7 @@ function getCampanhaIdFromUrl() {
     return urlParams.get('id');
 }
 
-// ===== FUNÇÃO DE CONVITE SIMPLIFICADA E 100% FUNCIONAL =====
+// ===== FUNÇÃO DE CONVITE =====
 window.enviarConvite = async function() {
     const idPC = convidarIdPC.value.trim();
     
@@ -1181,9 +1181,8 @@ window.enviarConvite = async function() {
             return;
         }
         
-        // ===== CONVITE SIMPLES (DO JEITO QUE FUNCIONA) =====
+        // Criar convite
         const conviteData = {
-            // Campos obrigatórios que sua regra exige
             tipo: "campanha",
             remetente_uid: auth.currentUser.uid,
             remetente_nick: userData?.nickname || 'Mestre',
@@ -1191,17 +1190,13 @@ window.enviarConvite = async function() {
             destinatario_nick: jogadorNick,
             status: "pendente",
             data_envio: new Date().toISOString(),
-            
-            // Campos extras (são permitidos, não bloqueiam)
             campanha_id: campanhaAtual.id,
             campanha_nome: campanhaAtual.nome,
             gm_uid: auth.currentUser.uid,
             lido: false
         };
         
-        // Criar o convite
         const docRef = await addDoc(collection(db, "convites"), conviteData);
-        console.log('Convite criado com ID:', docRef.id);
         
         // Criar notificação
         await addDoc(collection(db, "notificacoes"), {
@@ -1314,11 +1309,14 @@ function atualizarInterface() {
     selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
 }
 
-// Carregar jogadores
+// ===== FUNÇÃO CORRIGIDA PARA CARREGAR JOGADORES =====
 async function carregarJogadores() {
     if (!campanhaAtual) return;
     
     try {
+        console.log('🔍 Buscando vínculos para campanha:', campanhaAtual.id);
+        
+        // Buscar TODOS os vínculos
         const vinculosQuery = query(
             collection(db, "campanha_personagens"),
             where("campanha_id", "==", campanhaAtual.id)
@@ -1326,11 +1324,22 @@ async function carregarJogadores() {
         
         const vinculosSnap = await getDocs(vinculosQuery);
         
+        console.log('📊 Total de vínculos encontrados:', vinculosSnap.size);
+        
+        // Array para armazenar os vínculos
         const vinculos = [];
-        vinculosSnap.forEach(doc => vinculos.push({ id: doc.id, ...doc.data() }));
+        vinculosSnap.forEach(doc => {
+            const data = doc.data();
+            console.log('📄 Vínculo encontrado:', { id: doc.id, ...data });
+            vinculos.push({ id: doc.id, ...data });
+        });
         
-        statJogadores.textContent = vinculos.length;
+        // ATUALIZAR VAGAS - CORREÇÃO AQUI!
+        const totalJogadores = vinculos.length;
+        statJogadores.textContent = totalJogadores;
+        vagas.textContent = `${totalJogadores}/${campanhaAtual.vagas_max || 5}`;
         
+        // Se não tiver jogadores
         if (vinculos.length === 0) {
             jogadoresContainer.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
@@ -1342,14 +1351,19 @@ async function carregarJogadores() {
             return;
         }
         
+        // CONSTRUIR HTML
         let html = '';
         
         for (const vinculo of vinculos) {
-            const userDoc = await getDoc(doc(db, "usuarios", vinculo.jogador_uid));
-            
-            if (userDoc.exists()) {
-                const jogador = userDoc.data();
+            try {
+                // Buscar dados do usuário
+                const userDoc = await getDoc(doc(db, "usuarios", vinculo.jogador_uid));
+                const jogador = userDoc.exists() ? userDoc.data() : { 
+                    nickname: vinculo.jogador_nick || 'Jogador',
+                    id_pc: '---'
+                };
                 
+                // Buscar dados do personagem
                 const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
                 const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
                 
@@ -1360,31 +1374,48 @@ async function carregarJogadores() {
                                 <i class="fas fa-user"></i>
                             </div>
                             <div class="jogador-info">
-                                <h4>${jogador.nickname || 'Jogador'}</h4>
+                                <h4>${jogador.nickname || vinculo.jogador_nick || 'Jogador'}</h4>
                                 <p>ID: ${jogador.id_pc || '---'}</p>
-                                <span class="jogador-status ${personagem ? 'status-ativo' : 'status-pendente'}">
-                                    ${personagem ? 'Personagem vinculado' : 'Aguardando personagem'}
+                                <span class="jogador-status status-ativo">
+                                    ✅ Personagem vinculado
                                 </span>
                             </div>
                         </div>
-                        ${personagem ? `
-                            <div class="personagem-card">
-                                <div class="personagem-header">
-                                    <h5><i class="fas fa-dragon"></i> ${personagem.nome || 'Sem nome'}</h5>
-                                    <span class="personagem-classe">${personagem.classe || 'Sem classe'}</span>
-                                </div>
-                                <div class="personagem-atributos">
-                                    <span><i class="fas fa-fist-raised"></i> ST ${personagem.atributos?.st?.esferas || 0}</span>
-                                    <span><i class="fas fa-running"></i> DX ${personagem.atributos?.dx?.esferas || 0}</span>
-                                    <span><i class="fas fa-brain"></i> IQ ${personagem.atributos?.iq?.esferas || 0}</span>
-                                    <span><i class="fas fa-heart"></i> VG ${personagem.atributos?.vigor?.esferas || 0}</span>
-                                </div>
-                                <div class="personagem-stats">
-                                    <span><i class="fas fa-heartbeat"></i> Vida: ${personagem.statusCombate?.vidaAtual || 0}/${personagem.statusCombate?.vidaMax || 0}</span>
-                                    <span><i class="fas fa-magic"></i> Mana: ${personagem.statusCombate?.manaAtual || 0}/${personagem.statusCombate?.manaMax || 0}</span>
-                                </div>
+                        <div class="personagem-card">
+                            <div class="personagem-header">
+                                <h5><i class="fas fa-dragon"></i> ${personagem?.nome || vinculo.personagem_nome || 'Sem nome'}</h5>
+                                <span class="personagem-classe">${personagem?.classe || 'Desconhecida'}</span>
                             </div>
-                        ` : ''}
+                            <div class="personagem-atributos">
+                                <span><i class="fas fa-fist-raised"></i> ST ${personagem?.atributos?.st?.esferas || 0}</span>
+                                <span><i class="fas fa-running"></i> DX ${personagem?.atributos?.dx?.esferas || 0}</span>
+                                <span><i class="fas fa-brain"></i> IQ ${personagem?.atributos?.iq?.esferas || 0}</span>
+                                <span><i class="fas fa-heart"></i> VG ${personagem?.atributos?.vigor?.esferas || 0}</span>
+                            </div>
+                            <div class="personagem-stats">
+                                <span><i class="fas fa-heartbeat"></i> Vida: ${personagem?.statusCombate?.vidaAtual || 0}/${personagem?.statusCombate?.vidaMax || 0}</span>
+                                <span><i class="fas fa-magic"></i> Mana: ${personagem?.statusCombate?.manaAtual || 0}/${personagem?.statusCombate?.manaMax || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                console.warn('Erro ao carregar detalhes do jogador:', err);
+                // Fallback: mostrar só os dados do vínculo
+                html += `
+                    <div class="jogador-card">
+                        <div class="jogador-header">
+                            <div class="jogador-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="jogador-info">
+                                <h4>${vinculo.jogador_nick || 'Jogador'}</h4>
+                                <p>UID: ${vinculo.jogador_uid.substring(0, 8)}...</p>
+                                <span class="jogador-status status-ativo">
+                                    ✅ Personagem: ${vinculo.personagem_nome || 'Desconhecido'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 `;
             }
@@ -1393,7 +1424,13 @@ async function carregarJogadores() {
         jogadoresContainer.innerHTML = html;
         
     } catch (error) {
-        console.error('Erro ao carregar jogadores:', error);
+        console.error('❌ Erro ao carregar jogadores:', error);
+        jogadoresContainer.innerHTML = `
+            <div style="text-align: center; color: #ff6b6b;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Erro ao carregar jogadores</p>
+            </div>
+        `;
     }
 }
 
