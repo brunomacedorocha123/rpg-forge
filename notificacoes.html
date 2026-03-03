@@ -464,15 +464,13 @@
         }, 3000);
     }
 
-    // ===== FUNÇÃO PARA CONVITES DE GUILDA (JÁ FUNCIONA) =====
+    // ===== FUNÇÃO PARA CONVITES DE GUILDA (MANTIDA IGUAL) =====
     window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
-        // Sua função de guilda já existente
         console.log('Aceitar guilda:', notificacaoId, guildaId);
         showToast('Função de guilda executada');
     };
 
     window.recusarConviteGuilda = async function(notificacaoId) {
-        // Sua função de guilda já existente
         console.log('Recusar guilda:', notificacaoId);
         showToast('Função de guilda executada');
     };
@@ -516,7 +514,7 @@
                 return;
             }
             
-            // Buscar personagens do jogador
+            // Buscar personagens do jogador apenas para verificar se existe
             const personagensQuery = query(
                 collection(db, "personagens"),
                 where("userId", "==", currentUser.uid)
@@ -526,62 +524,61 @@
             
             if (personagensSnap.empty) {
                 showToast('Você precisa criar um personagem primeiro!', true);
-                window.location.href = 'criar-personagem.html?return=notificacoes';
+                // Redirecionar para criar personagem com parâmetro de retorno
+                setTimeout(() => {
+                    window.location.href = `criar-personagem.html?return=campanha&campanha=${campanhaId}`;
+                }, 2000);
                 hideLoading();
                 return;
             }
             
-            // Usar o primeiro personagem (simplificado)
-            let personagemId = null;
-            let personagemNome = null;
-            personagensSnap.forEach(doc => {
-                if (!personagemId) {
-                    personagemId = doc.id;
-                    personagemNome = doc.data().nome;
-                }
-            });
-            
-            // Buscar dados da campanha para pegar o documentId
+            // Buscar dados da campanha para validar se ainda há vagas
             const campanhaQuery = query(
                 collection(db, "campanhas"),
                 where("id", "==", campanhaId)
             );
             
             const campanhaSnap = await getDocs(campanhaQuery);
+            
+            if (campanhaSnap.empty) {
+                showToast('Campanha não encontrada!', true);
+                hideLoading();
+                return;
+            }
+            
             let campanhaDocId = null;
+            let campanhaData = null;
             campanhaSnap.forEach(doc => {
                 campanhaDocId = doc.id;
+                campanhaData = doc.data();
             });
             
-            // ===== PARTE CRÍTICA: CRIAR VÍNCULO COM TODOS OS CAMPOS =====
-            console.log('Criando vínculo com jogador_uid:', currentUser.uid);
+            // Verificar se há vagas disponíveis
+            const vagasOcupadas = campanhaData?.vagas_ocupadas || 0;
+            const vagasMax = campanhaData?.vagas_max || 5;
             
-            const vinculoData = {
-                campanha_id: campanhaId,
-                campanha_nome: notifData.campanha_nome || 'Campanha',
-                jogador_uid: currentUser.uid,  // ← CAMPO OBRIGATÓRIO!
-                jogador_nick: userData?.nickname || 'Jogador',
-                personagem_id: personagemId,
-                personagem_nome: personagemNome,
-                data_vinculo: serverTimestamp(),
-                status: 'ativo'
-            };
+            if (vagasOcupadas >= vagasMax) {
+                showToast('Campanha sem vagas disponíveis!', true);
+                
+                // Marcar notificação como lida mesmo assim
+                await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                    lida: true,
+                    data_resposta: serverTimestamp()
+                });
+                
+                hideLoading();
+                return;
+            }
             
-            console.log('Dados do vínculo:', vinculoData);
+            // ✅ CORREÇÃO: NÃO criar vínculo automático!
+            // Apenas marcar notificação como lida e atualizar vagas da campanha
             
-            // Criar vínculo
-            await addDoc(collection(db, "campanha_personagens"), vinculoData);
-            
-            // Atualizar vagas na campanha
+            // Atualizar vagas na campanha (incrementar contador de ocupadas)
             if (campanhaDocId) {
                 const campanhaRef = doc(db, "campanhas", campanhaDocId);
-                const campanhaDoc = await getDoc(campanhaRef);
-                if (campanhaDoc.exists()) {
-                    const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
-                    await updateDoc(campanhaRef, { 
-                        vagas_ocupadas: vagasOcupadas 
-                    });
-                }
+                await updateDoc(campanhaRef, { 
+                    vagas_ocupadas: vagasOcupadas + 1 
+                });
             }
             
             // Marcar notificação como lida
@@ -590,12 +587,12 @@
                 data_resposta: serverTimestamp()
             });
             
-            showToast('✅ Você entrou na campanha!');
+            showToast('✅ Convite aceito! Agora escolha seu personagem na campanha.');
             
-            // Recarregar página após 1.5 segundos
+            // Redirecionar para a página da campanha (SEM personagem vinculado)
             setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+                window.location.href = `campanha.html?id=${campanhaId}`;
+            }, 2000);
             
         } catch (error) {
             console.error('❌ Erro ao aceitar convite:', error);
@@ -615,6 +612,36 @@
         showLoading();
         
         try {
+            // Buscar dados da notificação para saber qual campanha
+            const notifDoc = await getDoc(doc(db, "notificacoes", notificacaoId));
+            
+            if (notifDoc.exists()) {
+                const notifData = notifDoc.data();
+                
+                // Se a notificação tem campanha_id, podemos liberar a vaga se necessário
+                if (notifData.campanha_id) {
+                    // Buscar campanha para decrementar vagas (se já tinha incrementado antes)
+                    const campanhaQuery = query(
+                        collection(db, "campanhas"),
+                        where("id", "==", notifData.campanha_id)
+                    );
+                    
+                    const campanhaSnap = await getDocs(campanhaQuery);
+                    
+                    campanhaSnap.forEach(async (doc) => {
+                        const campanhaDocId = doc.id;
+                        const vagasOcupadas = doc.data().vagas_ocupadas || 1;
+                        
+                        if (vagasOcupadas > 0) {
+                            await updateDoc(doc(db, "campanhas", campanhaDocId), {
+                                vagas_ocupadas: vagasOcupadas - 1
+                            });
+                        }
+                    });
+                }
+            }
+            
+            // Marcar notificação como lida
             await updateDoc(doc(db, "notificacoes", notificacaoId), {
                 lida: true,
                 data_resposta: serverTimestamp()
