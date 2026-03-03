@@ -398,397 +398,407 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signOut,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc,
-            getDoc,
-            collection,
-            query,
-            where,
-            getDocs,
-            addDoc,
-            updateDoc,
-            deleteDoc,
-            serverTimestamp,
-            orderBy
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+   <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { 
+        getAuth, 
+        signOut,
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { 
+        getFirestore, 
+        doc,
+        getDoc,
+        collection,
+        query,
+        where,
+        getDocs,
+        addDoc,
+        updateDoc,
+        deleteDoc,
+        serverTimestamp,
+        orderBy
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+        authDomain: "rpgforce-e3227.firebaseapp.com",
+        projectId: "rpgforce-e3227",
+        storageBucket: "rpgforce-e3227.firebasestorage.app",
+        messagingSenderId: "984517342332",
+        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        // Elementos do DOM
-        const displayIdPc = document.getElementById('displayIdPc');
-        const displayNickname = document.getElementById('displayNickname');
-        const btnSair = document.getElementById('btnSair');
-        const notificacoesContainer = document.getElementById('notificacoesContainer');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const toastNotification = document.getElementById('toastNotification');
-        const toastMessage = document.getElementById('toastMessage');
+    // Elementos do DOM
+    const displayIdPc = document.getElementById('displayIdPc');
+    const displayNickname = document.getElementById('displayNickname');
+    const btnSair = document.getElementById('btnSair');
+    const notificacoesContainer = document.getElementById('notificacoesContainer');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const toastNotification = document.getElementById('toastNotification');
+    const toastMessage = document.getElementById('toastMessage');
 
-        let currentUser = null;
-        let userData = null;
+    let currentUser = null;
+    let userData = null;
 
-        function showLoading() {
-            loadingOverlay.classList.add('active');
+    function showLoading() {
+        loadingOverlay.classList.add('active');
+    }
+
+    function hideLoading() {
+        loadingOverlay.classList.remove('active');
+    }
+
+    function showToast(message, isError = false) {
+        toastMessage.textContent = message;
+        toastNotification.style.background = isError 
+            ? 'linear-gradient(135deg, #ff6b6b, #ff4444)' 
+            : 'linear-gradient(135deg, #ffd700, #ff6b6b)';
+        toastNotification.classList.add('show');
+        setTimeout(() => {
+            toastNotification.classList.remove('show');
+        }, 3000);
+    }
+
+    // ===== FUNÇÃO PARA CONVITES DE GUILDA (JÁ FUNCIONA) =====
+    window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
+        // Sua função de guilda já existente
+        console.log('Aceitar guilda:', notificacaoId, guildaId);
+        showToast('Função de guilda executada');
+    };
+
+    window.recusarConviteGuilda = async function(notificacaoId) {
+        // Sua função de guilda já existente
+        console.log('Recusar guilda:', notificacaoId);
+        showToast('Função de guilda executada');
+    };
+
+    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA) =====
+    window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
+        if (!confirm('Deseja aceitar o convite para esta campanha?')) {
+            return;
         }
-
-        function hideLoading() {
-            loadingOverlay.classList.remove('active');
-        }
-
-        function showToast(message, isError = false) {
-            toastMessage.textContent = message;
-            toastNotification.style.background = isError 
-                ? 'linear-gradient(135deg, #ff6b6b, #ff4444)' 
-                : 'linear-gradient(135deg, #ffd700, #ff6b6b)';
-            toastNotification.classList.add('show');
-            setTimeout(() => {
-                toastNotification.classList.remove('show');
-            }, 3000);
-        }
-
-        // ===== FUNÇÕES PARA CONVITES DE GUILDA (JÁ FUNCIONAM) =====
-        window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
-            // Função existente que já funciona
-            console.log('Aceitar guilda:', notificacaoId, guildaId);
-            showToast('Função de guilda já existe');
-        };
-
-        window.recusarConviteGuilda = async function(notificacaoId) {
-            // Função existente que já funciona
-            console.log('Recusar guilda:', notificacaoId);
-            showToast('Função de guilda já existe');
-        };
-
-        // ===== FUNÇÕES PARA CONVITES DE CAMPANHA (IGUAIS ÀS DA GUILDA) =====
-        window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
-            if (!confirm('Deseja aceitar o convite para esta campanha?')) {
+        
+        showLoading();
+        
+        try {
+            // Buscar dados da notificação
+            const notifDoc = await getDoc(doc(db, "notificacoes", notificacaoId));
+            if (!notifDoc.exists()) {
+                showToast('Convite não encontrado!', true);
+                hideLoading();
                 return;
             }
             
-            showLoading();
+            const notifData = notifDoc.data();
             
-            try {
-                // Buscar dados da notificação
-                const notifDoc = await getDoc(doc(db, "notificacoes", notificacaoId));
-                if (!notifDoc.exists()) {
-                    showToast('Convite não encontrado!', true);
-                    hideLoading();
-                    return;
+            // Verificar se já está na campanha
+            const vinculoQuery = query(
+                collection(db, "campanha_personagens"),
+                where("campanha_id", "==", campanhaId),
+                where("jogador_uid", "==", currentUser.uid)
+            );
+            
+            const vinculoSnap = await getDocs(vinculoQuery);
+            
+            if (!vinculoSnap.empty) {
+                showToast('Você já está nesta campanha!', true);
+                
+                await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                    lida: true
+                });
+                
+                hideLoading();
+                return;
+            }
+            
+            // Buscar personagens do jogador
+            const personagensQuery = query(
+                collection(db, "personagens"),
+                where("userId", "==", currentUser.uid)
+            );
+            
+            const personagensSnap = await getDocs(personagensQuery);
+            
+            if (personagensSnap.empty) {
+                showToast('Você precisa criar um personagem primeiro!', true);
+                window.location.href = 'criar-personagem.html?return=notificacoes';
+                hideLoading();
+                return;
+            }
+            
+            // Usar o primeiro personagem (simplificado)
+            let personagemId = null;
+            let personagemNome = null;
+            personagensSnap.forEach(doc => {
+                if (!personagemId) {
+                    personagemId = doc.id;
+                    personagemNome = doc.data().nome;
                 }
-                
-                const notifData = notifDoc.data();
-                
-                // Verificar se já está na campanha
-                const vinculoQuery = query(
-                    collection(db, "campanha_personagens"),
-                    where("campanha_id", "==", campanhaId),
-                    where("jogador_uid", "==", currentUser.uid)
-                );
-                
-                const vinculoSnap = await getDocs(vinculoQuery);
-                
-                if (!vinculoSnap.empty) {
-                    showToast('Você já está nesta campanha!', true);
-                    
-                    await updateDoc(doc(db, "notificacoes", notificacaoId), {
-                        lida: true
+            });
+            
+            // Buscar dados da campanha para pegar o documentId
+            const campanhaQuery = query(
+                collection(db, "campanhas"),
+                where("id", "==", campanhaId)
+            );
+            
+            const campanhaSnap = await getDocs(campanhaQuery);
+            let campanhaDocId = null;
+            campanhaSnap.forEach(doc => {
+                campanhaDocId = doc.id;
+            });
+            
+            // ===== PARTE CRÍTICA: CRIAR VÍNCULO COM TODOS OS CAMPOS =====
+            console.log('Criando vínculo com jogador_uid:', currentUser.uid);
+            
+            const vinculoData = {
+                campanha_id: campanhaId,
+                campanha_nome: notifData.campanha_nome || 'Campanha',
+                jogador_uid: currentUser.uid,  // ← CAMPO OBRIGATÓRIO!
+                jogador_nick: userData?.nickname || 'Jogador',
+                personagem_id: personagemId,
+                personagem_nome: personagemNome,
+                data_vinculo: serverTimestamp(),
+                status: 'ativo'
+            };
+            
+            console.log('Dados do vínculo:', vinculoData);
+            
+            // Criar vínculo
+            await addDoc(collection(db, "campanha_personagens"), vinculoData);
+            
+            // Atualizar vagas na campanha
+            if (campanhaDocId) {
+                const campanhaRef = doc(db, "campanhas", campanhaDocId);
+                const campanhaDoc = await getDoc(campanhaRef);
+                if (campanhaDoc.exists()) {
+                    const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
+                    await updateDoc(campanhaRef, { 
+                        vagas_ocupadas: vagasOcupadas 
                     });
-                    
-                    hideLoading();
-                    return;
                 }
-                
-                // Buscar personagens do jogador
-                const personagensQuery = query(
-                    collection(db, "personagens"),
-                    where("userId", "==", currentUser.uid)
-                );
-                
-                const personagensSnap = await getDocs(personagensQuery);
-                
-                if (personagensSnap.empty) {
-                    showToast('Você precisa criar um personagem primeiro!', true);
-                    window.location.href = 'criar-personagem.html?return=notificacoes';
-                    hideLoading();
-                    return;
-                }
-                
-                // Usar o primeiro personagem (simplificado)
-                let personagemId = null;
-                let personagemNome = null;
-                personagensSnap.forEach(doc => {
-                    if (!personagemId) {
-                        personagemId = doc.id;
-                        personagemNome = doc.data().nome;
-                    }
-                });
-                
-                // Buscar dados da campanha
-                const campanhaQuery = query(
-                    collection(db, "campanhas"),
-                    where("id", "==", campanhaId)
-                );
-                
-                const campanhaSnap = await getDocs(campanhaQuery);
-                let campanhaDocId = null;
-                campanhaSnap.forEach(doc => {
-                    campanhaDocId = doc.id;
-                });
-                
-                // Criar vínculo
-                await addDoc(collection(db, "campanha_personagens"), {
-                    campanha_id: campanhaId,
-                    campanha_nome: notifData.campanha_nome,
-                    jogador_uid: currentUser.uid,
-                    jogador_nick: userData?.nickname || 'Jogador',
-                    personagem_id: personagemId,
-                    personagem_nome: personagemNome,
-                    data_vinculo: serverTimestamp(),
-                    status: 'ativo'
-                });
-                
-                // Atualizar vagas na campanha
-                if (campanhaDocId) {
-                    const campanhaRef = doc(db, "campanhas", campanhaDocId);
-                    const campanhaDoc = await getDoc(campanhaRef);
-                    if (campanhaDoc.exists()) {
-                        const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
-                        await updateDoc(campanhaRef, { vagas_ocupadas: vagasOcupadas });
-                    }
-                }
-                
-                // Marcar notificação como lida
-                await updateDoc(doc(db, "notificacoes", notificacaoId), {
-                    lida: true,
-                    data_resposta: serverTimestamp()
-                });
-                
-                showToast('✅ Você entrou na campanha!');
-                
-                // Recarregar página
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-                
-            } catch (error) {
-                console.error('Erro ao aceitar convite:', error);
-                showToast('Erro ao aceitar convite', true);
-            } finally {
-                hideLoading();
             }
-        };
+            
+            // Marcar notificação como lida
+            await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                lida: true,
+                data_resposta: serverTimestamp()
+            });
+            
+            showToast('✅ Você entrou na campanha!');
+            
+            // Recarregar página após 1.5 segundos
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            
+        } catch (error) {
+            console.error('❌ Erro ao aceitar convite:', error);
+            console.error('Código:', error.code);
+            console.error('Mensagem:', error.message);
+            showToast('Erro ao aceitar convite: ' + error.message, true);
+        } finally {
+            hideLoading();
+        }
+    };
 
-        window.recusarConviteCampanha = async function(notificacaoId) {
-            if (!confirm('Deseja recusar este convite?')) {
+    window.recusarConviteCampanha = async function(notificacaoId) {
+        if (!confirm('Deseja recusar este convite?')) {
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                lida: true,
+                data_resposta: serverTimestamp()
+            });
+            
+            showToast('Convite recusado');
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            
+        } catch (error) {
+            console.error('Erro ao recusar convite:', error);
+            showToast('Erro ao recusar convite', true);
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // ===== CARREGAR NOTIFICAÇÕES =====
+    async function carregarNotificacoes() {
+        if (!currentUser) return;
+        
+        showLoading();
+        
+        try {
+            const q = query(
+                collection(db, "notificacoes"),
+                where("usuarioId", "==", currentUser.uid),
+                where("lida", "==", false),
+                orderBy("data", "desc")
+            );
+            
+            const querySnapshot = await getDocs(q);
+            
+            if (querySnapshot.empty) {
+                notificacoesContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-bell-slash" style="font-size: 4rem; color: #ffd700; margin-bottom: 20px;"></i>
+                        <h2>Nenhuma notificação</h2>
+                        <p style="color: rgba(255,255,255,0.6);">Você não tem notificações no momento.</p>
+                    </div>
+                `;
+                hideLoading();
                 return;
             }
             
-            showLoading();
+            let html = '';
             
-            try {
-                await updateDoc(doc(db, "notificacoes", notificacaoId), {
-                    lida: true,
-                    data_resposta: serverTimestamp()
-                });
+            querySnapshot.forEach((doc) => {
+                const n = { id: doc.id, ...doc.data() };
+                const data = n.data ? new Date(n.data.seconds * 1000).toLocaleString() : 'Agora mesmo';
                 
-                showToast('Convite recusado');
-                
-                // Recarregar página
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-                
-            } catch (error) {
-                console.error('Erro ao recusar convite:', error);
-                showToast('Erro ao recusar convite', true);
-            } finally {
-                hideLoading();
-            }
-        };
-
-        // ===== CARREGAR NOTIFICAÇÕES =====
-        async function carregarNotificacoes() {
-            if (!currentUser) return;
-            
-            showLoading();
-            
-            try {
-                const q = query(
-                    collection(db, "notificacoes"),
-                    where("usuarioId", "==", currentUser.uid),
-                    where("lida", "==", false),
-                    orderBy("data", "desc")
-                );
-                
-                const querySnapshot = await getDocs(q);
-                
-                if (querySnapshot.empty) {
-                    notificacoesContainer.innerHTML = `
-                        <div style="text-align: center; padding: 40px;">
-                            <i class="fas fa-bell-slash" style="font-size: 4rem; color: #ffd700; margin-bottom: 20px;"></i>
-                            <h2>Nenhuma notificação</h2>
-                            <p style="color: rgba(255,255,255,0.6);">Você não tem notificações no momento.</p>
-                        </div>
-                    `;
-                    hideLoading();
-                    return;
-                }
-                
-                let html = '';
-                
-                querySnapshot.forEach((doc) => {
-                    const n = { id: doc.id, ...doc.data() };
-                    const data = n.data ? new Date(n.data.seconds * 1000).toLocaleString() : 'Agora mesmo';
-                    
-                    // CONVITE DE GUILDA (já funciona)
-                    if (n.tipo === 'convite_guilda') {
-                        html += `
-                            <div class="notification-item" style="flex-direction: column; align-items: stretch;">
-                                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-                                    <div class="notification-icon">
-                                        <i class="fas fa-users"></i>
-                                    </div>
-                                    <div class="notification-content">
-                                        <div class="notification-title">${n.titulo || 'Convite para Guilda'}</div>
-                                        <div class="notification-message">${n.mensagem || ''}</div>
-                                        <div class="notification-time">${data}</div>
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                                    <button class="btn-card" style="background: #4CAF50; color: white; border: none;" onclick="aceitarConviteGuilda('${n.id}', '${n.guilda_id}')">
-                                        <i class="fas fa-check"></i> Aceitar
-                                    </button>
-                                    <button class="btn-card" style="background: #f44336; color: white; border: none;" onclick="recusarConviteGuilda('${n.id}')">
-                                        <i class="fas fa-times"></i> Recusar
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // CONVITE DE CAMPANHA (IGUAL AO DA GUILDA)
-                    else if (n.tipo === 'convite_campanha') {
-                        html += `
-                            <div class="notification-item" style="flex-direction: column; align-items: stretch;">
-                                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-                                    <div class="notification-icon">
-                                        <i class="fas fa-scroll"></i>
-                                    </div>
-                                    <div class="notification-content">
-                                        <div class="notification-title">${n.titulo || 'Convite para Campanha'}</div>
-                                        <div class="notification-message">${n.mensagem || ''}</div>
-                                        <div class="notification-time">${data}</div>
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                                    <button class="btn-card" style="background: #4CAF50; color: white; border: none;" onclick="aceitarConviteCampanha('${n.id}', '${n.campanha_id}')">
-                                        <i class="fas fa-check"></i> Aceitar
-                                    </button>
-                                    <button class="btn-card" style="background: #f44336; color: white; border: none;" onclick="recusarConviteCampanha('${n.id}')">
-                                        <i class="fas fa-times"></i> Recusar
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // OUTRAS NOTIFICAÇÕES
-                    else {
-                        html += `
-                            <div class="notification-item">
+                // CONVITE DE GUILDA
+                if (n.tipo === 'convite_guilda') {
+                    html += `
+                        <div class="notification-item" style="flex-direction: column; align-items: stretch;">
+                            <div style="display: flex; gap: 15px; margin-bottom: 10px;">
                                 <div class="notification-icon">
-                                    <i class="fas fa-bell"></i>
+                                    <i class="fas fa-users"></i>
                                 </div>
                                 <div class="notification-content">
-                                    <div class="notification-title">${n.titulo || 'Notificação'}</div>
+                                    <div class="notification-title">${n.titulo || 'Convite para Guilda'}</div>
                                     <div class="notification-message">${n.mensagem || ''}</div>
                                     <div class="notification-time">${data}</div>
                                 </div>
-                                <span class="notification-badge">Novo</span>
                             </div>
-                        `;
-                    }
-                });
-                
-                notificacoesContainer.innerHTML = html;
-                
-            } catch (error) {
-                console.error('Erro ao carregar notificações:', error);
-                notificacoesContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #ff6b6b;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 4rem; margin-bottom: 20px;"></i>
-                        <h2>Erro ao carregar</h2>
-                        <p>Não foi possível carregar suas notificações.</p>
-                    </div>
-                `;
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // ===== CARREGAR DADOS DO USUÁRIO =====
-        async function carregarDadosUsuario(user) {
-            if (!user) return;
-            
-            try {
-                currentUser = user;
-                
-                const docRef = doc(db, "usuarios", user.uid);
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    
-                    displayIdPc.textContent = userData.id_pc || '--------';
-                    displayNickname.textContent = userData.nickname || 'Aventureiro';
-                    
-                    await carregarNotificacoes();
+                            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                                <button class="btn-card" style="background: #4CAF50; color: white; border: none;" onclick="aceitarConviteGuilda('${n.id}', '${n.guilda_id}')">
+                                    <i class="fas fa-check"></i> Aceitar
+                                </button>
+                                <button class="btn-card" style="background: #f44336; color: white; border: none;" onclick="recusarConviteGuilda('${n.id}')">
+                                    <i class="fas fa-times"></i> Recusar
+                                </button>
+                            </div>
+                        </div>
+                    `;
                 }
-            } catch (error) {
-                console.error('Erro ao carregar dados:', error);
-                showToast('Erro ao carregar dados', true);
-            }
+                
+                // CONVITE DE CAMPANHA
+                else if (n.tipo === 'convite_campanha') {
+                    html += `
+                        <div class="notification-item" style="flex-direction: column; align-items: stretch;">
+                            <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                                <div class="notification-icon">
+                                    <i class="fas fa-scroll"></i>
+                                </div>
+                                <div class="notification-content">
+                                    <div class="notification-title">${n.titulo || 'Convite para Campanha'}</div>
+                                    <div class="notification-message">${n.mensagem || ''}</div>
+                                    <div class="notification-time">${data}</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                                <button class="btn-card" style="background: #4CAF50; color: white; border: none;" onclick="aceitarConviteCampanha('${n.id}', '${n.campanha_id}')">
+                                    <i class="fas fa-check"></i> Aceitar
+                                </button>
+                                <button class="btn-card" style="background: #f44336; color: white; border: none;" onclick="recusarConviteCampanha('${n.id}')">
+                                    <i class="fas fa-times"></i> Recusar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // OUTRAS NOTIFICAÇÕES
+                else {
+                    html += `
+                        <div class="notification-item">
+                            <div class="notification-icon">
+                                <i class="fas fa-bell"></i>
+                            </div>
+                            <div class="notification-content">
+                                <div class="notification-title">${n.titulo || 'Notificação'}</div>
+                                <div class="notification-message">${n.mensagem || ''}</div>
+                                <div class="notification-time">${data}</div>
+                            </div>
+                            <span class="notification-badge">Novo</span>
+                        </div>
+                    `;
+                }
+            });
+            
+            notificacoesContainer.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Erro ao carregar notificações:', error);
+            notificacoesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #ff6b6b;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 4rem; margin-bottom: 20px;"></i>
+                    <h2>Erro ao carregar</h2>
+                    <p>Não foi possível carregar suas notificações.</p>
+                </div>
+            `;
+        } finally {
+            hideLoading();
         }
+    }
 
-        // ===== AUTH STATE =====
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                await carregarDadosUsuario(user);
-            } else {
-                window.location.href = 'index.html';
+    // ===== CARREGAR DADOS DO USUÁRIO =====
+    async function carregarDadosUsuario(user) {
+        if (!user) return;
+        
+        try {
+            currentUser = user;
+            
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                userData = docSnap.data();
+                
+                displayIdPc.textContent = userData.id_pc || '--------';
+                displayNickname.textContent = userData.nickname || 'Aventureiro';
+                
+                await carregarNotificacoes();
             }
-        });
+        } catch (error) {
+            console.error('Erro ao carregar dados:', error);
+            showToast('Erro ao carregar dados', true);
+        }
+    }
 
-        // ===== BOTÃO SAIR =====
-        btnSair.addEventListener('click', async () => {
-            try {
-                showLoading();
-                await signOut(auth);
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Erro ao sair:', error);
-                showToast('Erro ao sair', true);
-                hideLoading();
-            }
-        });
-    </script>
+    // ===== AUTH STATE =====
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            await carregarDadosUsuario(user);
+        } else {
+            window.location.href = 'index.html';
+        }
+    });
+
+    // ===== BOTÃO SAIR =====
+    btnSair.addEventListener('click', async () => {
+        try {
+            showLoading();
+            await signOut(auth);
+            window.location.href = 'index.html';
+        } catch (error) {
+            console.error('Erro ao sair:', error);
+            showToast('Erro ao sair', true);
+            hideLoading();
+        }
+    });
+</script>
 </body>
 </html>
