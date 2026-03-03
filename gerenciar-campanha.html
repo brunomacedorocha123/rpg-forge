@@ -1406,7 +1406,7 @@
         document.getElementById('sessaoDescricao').value = '';
     }
 
-    // ===== FUNÇÃO DE CONVITE OTIMIZADA - USANDO COLEÇÃO ÚNICA "CONVITES" =====
+    // ===== FUNÇÃO DE CONVITE CORRIGIDA - AGORA FUNCIONA COM AS NOVAS REGRAS =====
     window.enviarConvite = async function() {
         const idPC = convidarIdPC.value.trim();
         
@@ -1449,7 +1449,7 @@
                 return;
             }
             
-            // Verificar se já existe convite pendente na coleção ÚNICA "convites"
+            // Verificar se já existe convite pendente
             const conviteQuery = query(
                 collection(db, "convites"),
                 where("destinatario_uid", "==", jogadorUid),
@@ -1465,10 +1465,12 @@
                 return;
             }
             
-            // Dados do convite na coleção ÚNICA "convites"
+            // Dados do convite - AGORA COM O CAMPO "tipo"
             const conviteData = {
-                // Campos genéricos (para qualquer tipo de convite)
-                tipo: "campanha", // Diferencia se é convite de guilda, campanha, etc
+                // Campo obrigatório para as novas regras
+                tipo: "campanha",
+                
+                // Campos genéricos
                 remetente_uid: currentUser.uid,
                 remetente_nick: userData?.nickname || 'Mestre',
                 destinatario_uid: jogadorUid,
@@ -1485,7 +1487,7 @@
                 gm_nick: userData?.nickname || 'Mestre'
             };
             
-            // Salvar na coleção ÚNICA "convites"
+            // Salvar na coleção "convites"
             const docRef = await addDoc(collection(db, "convites"), conviteData);
             
             // Criar notificação para o jogador
@@ -1501,7 +1503,7 @@
                 data: serverTimestamp()
             });
             
-            alert('✅ Convite enviado com sucesso! O jogador receberá a notificação.');
+            alert('✅ Convite enviado com sucesso!');
             fecharModalConvidar();
             
         } catch (error) {
@@ -1509,6 +1511,7 @@
             
             if (error.code === 'permission-denied') {
                 alert('Erro de permissão! Verifique as regras do Firestore.');
+                console.log('Detalhes do erro:', error.message);
             } else {
                 alert('Erro ao enviar convite: ' + error.message);
             }
