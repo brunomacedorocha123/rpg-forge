@@ -444,186 +444,263 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signOut,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc,
-            getDoc,
-            collection,
-            query,
-            where,
-            getDocs
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { 
+        getAuth, 
+        signOut,
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { 
+        getFirestore, 
+        doc,
+        getDoc,
+        collection,
+        query,
+        where,
+        getDocs
+    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+        authDomain: "rpgforce-e3227.firebaseapp.com",
+        projectId: "rpgforce-e3227",
+        storageBucket: "rpgforce-e3227.firebasestorage.app",
+        messagingSenderId: "984517342332",
+        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        // Elementos do DOM
-        const displayIdPc = document.getElementById('displayIdPc');
-        const btnSair = document.getElementById('btnSair');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const campanhasContainer = document.getElementById('campanhasContainer');
+    // Elementos do DOM
+    const displayIdPc = document.getElementById('displayIdPc');
+    const btnSair = document.getElementById('btnSair');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const campanhasContainer = document.getElementById('campanhasContainer');
 
-        let currentUser = null;
-        let userData = null;
+    let currentUser = null;
+    let userData = null;
 
-        function showLoading() {
-            loadingOverlay.classList.add('active');
-        }
+    function showLoading() {
+        loadingOverlay.classList.add('active');
+    }
 
-        function hideLoading() {
-            loadingOverlay.classList.remove('active');
-        }
+    function hideLoading() {
+        loadingOverlay.classList.remove('active');
+    }
 
-        // Carregar campanhas do jogador
-        async function carregarCampanhas() {
-            if (!currentUser) return;
+    // Carregar campanhas do jogador (MESMO AS DESVINCULADAS)
+    async function carregarCampanhas() {
+        if (!currentUser) return;
+        
+        showLoading();
+        
+        try {
+            // 1. Buscar TODOS os vínculos do jogador (histórico completo)
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("jogador_uid", "==", currentUser.uid)
+            );
             
-            showLoading();
+            const vinculosSnap = await getDocs(vinculosQuery);
             
-            try {
-                // Buscar vínculos do jogador
-                const vinculosQuery = query(
-                    collection(db, "campanha_personagens"),
-                    where("jogador_uid", "==", currentUser.uid)
-                );
-                
-                const vinculosSnap = await getDocs(vinculosQuery);
-                
-                if (vinculosSnap.empty) {
-                    campanhasContainer.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fas fa-scroll"></i>
-                            <h2>Nenhuma campanha ainda</h2>
-                            <p>Você ainda não participa de nenhuma campanha.<br>Aceite um convite para começar sua jornada!</p>
-                            <a href="notificacoes.html" class="btn-convites">
-                                <i class="fas fa-envelope"></i> Ver Convites
-                            </a>
-                        </div>
-                    `;
-                    hideLoading();
-                    return;
-                }
-                
-                // Pegar IDs das campanhas
-                const campanhasIds = [];
-                vinculosSnap.forEach(doc => {
-                    campanhasIds.push(doc.data().campanha_id);
+            // Criar mapa de campanhas que o jogador JÁ PARTICIPOU (mesmo se desvinculou)
+            const campanhasQueParticipou = new Map();
+            vinculosSnap.forEach(doc => {
+                const data = doc.data();
+                campanhasQueParticipou.set(data.campanha_id, {
+                    personagem: data.personagem_nome,
+                    dataVinculo: data.data_vinculo,
+                    vinculoId: doc.id,
+                    ativo: true // Consideramos ativo porque tem registro
                 });
+            });
+            
+            // 2. Buscar TODAS as campanhas disponíveis
+            const campanhasQuery = query(
+                collection(db, "campanhas")
+                // SEM where de status - pega todas
+            );
+            
+            const campanhasSnap = await getDocs(campanhasQuery);
+            
+            // Array para armazenar as campanhas que serão mostradas
+            const campanhasParaMostrar = [];
+            
+            campanhasSnap.forEach(doc => {
+                const campanha = {
+                    docId: doc.id,
+                    ...doc.data()
+                };
                 
-                // Buscar dados de cada campanha
-                const campanhas = [];
-                for (const campanhaId of campanhasIds) {
-                    const campanhaQuery = query(
-                        collection(db, "campanhas"),
-                        where("id", "==", campanhaId)
-                    );
-                    
-                    const campanhaSnap = await getDocs(campanhaQuery);
-                    campanhaSnap.forEach(doc => {
-                        campanhas.push({
-                            docId: doc.id,
-                            ...doc.data()
-                        });
+                // Verifica se o jogador já participou desta campanha
+                const jaParticipou = campanhasQueParticipou.has(campanha.id);
+                
+                if (jaParticipou) {
+                    // Se já participou, mostra com badge "Jogador" ou "Ex-jogador"
+                    campanhasParaMostrar.push({
+                        ...campanha,
+                        jaParticipou: true,
+                        statusVinculo: 'ja_participou',
+                        personagemVinculado: campanhasQueParticipou.get(campanha.id).personagem
+                    });
+                } else {
+                    // Se nunca participou, mostra como campanha disponível
+                    campanhasParaMostrar.push({
+                        ...campanha,
+                        jaParticipou: false,
+                        statusVinculo: 'nao_participa'
                     });
                 }
-                
-                // Renderizar cards
-                let html = '';
-                campanhas.forEach(camp => {
-                    const statusClass = camp.status === 'aberto' ? 'status-aberto' :
-                                       camp.status === 'andamento' ? 'status-andamento' :
-                                       camp.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
-                    
-                    const statusText = camp.status === 'aberto' ? 'Recrutando' :
-                                      camp.status === 'andamento' ? 'Em Andamento' :
-                                      camp.status === 'fechado' ? 'Fechado' : 'Encerrado';
-                    
-                    html += `
-                        <div class="campanha-card" onclick="window.location.href='campanha-pc.html?id=${camp.id}'">
-                            <div class="campanha-capa" ${camp.imagem_capa ? `style="background-image: url('${camp.imagem_capa}')"` : ''}>
-                                ${!camp.imagem_capa ? '<i class="fas fa-scroll"></i>' : ''}
-                            </div>
-                            <div class="campanha-info">
-                                <h2>${camp.nome || 'Campanha sem nome'}</h2>
-                                <div class="campanha-meta">
-                                    <span><i class="fas fa-crown"></i> ${camp.gm_nick || 'Mestre'}</span>
-                                    <span><i class="fas fa-users"></i> ${camp.vagas_ocupadas || 0}/${camp.vagas_max || 5}</span>
-                                    <span><i class="fas fa-level-up-alt"></i> Nv ${camp.nivel_min || 1}-${camp.nivel_max || 5}</span>
-                                </div>
-                                <div class="campanha-descricao">
-                                    ${camp.descricao_curta || 'Sem descrição disponível'}
-                                </div>
-                                <div class="campanha-footer">
-                                    <span class="campanha-status ${statusClass}">${statusText}</span>
-                                    <span class="btn-acessar">
-                                        Acessar <i class="fas fa-arrow-right"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                campanhasContainer.innerHTML = html;
-                
-            } catch (error) {
-                console.error('Erro ao carregar campanhas:', error);
+            });
+            
+            // Ordenar: primeiro as que participa ativamente, depois as que já participou, depois disponíveis
+            campanhasParaMostrar.sort((a, b) => {
+                if (a.jaParticipou && !b.jaParticipou) return -1;
+                if (!a.jaParticipou && b.jaParticipou) return 1;
+                return 0;
+            });
+            
+            if (campanhasParaMostrar.length === 0) {
                 campanhasContainer.innerHTML = `
-                    <div class="empty-state" style="color: #ff6b6b;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h2>Erro ao carregar</h2>
-                        <p>Não foi possível carregar suas campanhas.</p>
+                    <div class="empty-state">
+                        <i class="fas fa-scroll"></i>
+                        <h2>Nenhuma campanha encontrada</h2>
+                        <p>No momento não há campanhas disponíveis para participar.</p>
+                        <a href="notificacoes.html" class="btn-convites">
+                            <i class="fas fa-envelope"></i> Ver Convites
+                        </a>
                     </div>
                 `;
-            } finally {
                 hideLoading();
+                return;
             }
+            
+            // Renderizar cards
+            let html = '';
+            campanhasParaMostrar.forEach(camp => {
+                const statusClass = camp.status === 'aberto' ? 'status-aberto' :
+                                   camp.status === 'andamento' ? 'status-andamento' :
+                                   camp.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
+                
+                const statusText = camp.status === 'aberto' ? 'Recrutando' :
+                                  camp.status === 'andamento' ? 'Em Andamento' :
+                                  camp.status === 'fechado' ? 'Fechado' : 'Encerrado';
+                
+                // Badge de participação
+                let badgeParticipacao = '';
+                if (camp.jaParticipou) {
+                    badgeParticipacao = `
+                        <span style="
+                            position: absolute;
+                            top: 10px;
+                            left: 10px;
+                            background: #ffd700;
+                            color: #0a0a1a;
+                            padding: 4px 12px;
+                            border-radius: 20px;
+                            font-size: 0.75rem;
+                            font-weight: 600;
+                            z-index: 2;
+                        ">
+                            <i class="fas fa-check-circle"></i> Jogador
+                        </span>
+                    `;
+                }
+                
+                html += `
+                    <div class="campanha-card" onclick="window.location.href='campanha-pc.html?id=${camp.id}'" style="position: relative;">
+                        ${badgeParticipacao}
+                        <div class="campanha-capa" ${camp.imagem_capa ? `style="background-image: url('${camp.imagem_capa}')"` : ''}>
+                            ${!camp.imagem_capa ? '<i class="fas fa-scroll"></i>' : ''}
+                        </div>
+                        <div class="campanha-info">
+                            <h2>${camp.nome || 'Campanha sem nome'}</h2>
+                            <div class="campanha-meta">
+                                <span><i class="fas fa-crown"></i> ${camp.gm_nick || 'Mestre'}</span>
+                                <span><i class="fas fa-users"></i> ${camp.vagas_ocupadas || 0}/${camp.vagas_max || 5}</span>
+                                <span><i class="fas fa-level-up-alt"></i> Nv ${camp.nivel_min || 1}-${camp.nivel_max || 5}</span>
+                            </div>
+                            <div class="campanha-descricao">
+                                ${camp.descricao_curta || 'Sem descrição disponível'}
+                            </div>
+                            <div class="campanha-footer">
+                                <span class="campanha-status ${statusClass}">${statusText}</span>
+                                <span class="btn-acessar">
+                                    Acessar <i class="fas fa-arrow-right"></i>
+                                </span>
+                            </div>
+                            ${camp.jaParticipou ? `
+                                <div style="
+                                    margin-top: 10px;
+                                    padding-top: 10px;
+                                    border-top: 1px solid rgba(255,215,0,0.2);
+                                    font-size: 0.85rem;
+                                    color: #ffd700;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 5px;
+                                ">
+                                    <i class="fas fa-dragon"></i>
+                                    <span>Personagem: ${camp.personagemVinculado || 'Desvinculado'}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            campanhasContainer.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Erro ao carregar campanhas:', error);
+            campanhasContainer.innerHTML = `
+                <div class="empty-state" style="color: #ff6b6b;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h2>Erro ao carregar</h2>
+                    <p>Não foi possível carregar suas campanhas. Tente novamente mais tarde.</p>
+                </div>
+            `;
+        } finally {
+            hideLoading();
         }
+    }
 
-        // Sair
-        btnSair.addEventListener('click', async () => {
+    // Sair
+    btnSair.addEventListener('click', async () => {
+        try {
+            showLoading();
             await signOut(auth);
             window.location.href = 'index.html';
-        });
+        } catch (error) {
+            console.error('Erro ao sair:', error);
+            hideLoading();
+        }
+    });
 
-        // Verificar login
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
+    // Verificar login
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            
+            try {
+                const docRef = doc(db, "usuarios", user.uid);
+                const docSnap = await getDoc(docRef);
                 
-                try {
-                    const docRef = doc(db, "usuarios", user.uid);
-                    const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    userData = docSnap.data();
+                    displayIdPc.textContent = userData.id_pc || '---';
                     
-                    if (docSnap.exists()) {
-                        userData = docSnap.data();
-                        displayIdPc.textContent = userData.id_pc || '---';
-                        
-                        await carregarCampanhas();
-                    }
-                } catch (error) {
-                    console.error('Erro:', error);
+                    await carregarCampanhas();
                 }
-            } else {
-                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Erro ao carregar dados do usuário:', error);
             }
-        });
-    </script>
+        } else {
+            window.location.href = 'index.html';
+        }
+    });
+</script>
 </body>
 </html>
