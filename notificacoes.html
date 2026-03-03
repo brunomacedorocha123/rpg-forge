@@ -398,7 +398,7 @@
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { 
         getAuth, 
@@ -413,9 +413,7 @@
         query,
         where,
         getDocs,
-        addDoc,
         updateDoc,
-        deleteDoc,
         serverTimestamp,
         orderBy
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -464,18 +462,16 @@
         }, 3000);
     }
 
-    // ===== FUNÇÃO PARA CONVITES DE GUILDA (MANTIDA IGUAL) =====
+    // ===== FUNÇÃO PARA CONVITES DE GUILDA (MANTIDA) =====
     window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
-        console.log('Aceitar guilda:', notificacaoId, guildaId);
-        showToast('Função de guilda executada');
+        showToast('Função de guilda em desenvolvimento');
     };
 
     window.recusarConviteGuilda = async function(notificacaoId) {
-        console.log('Recusar guilda:', notificacaoId);
-        showToast('Função de guilda executada');
+        showToast('Função de guilda em desenvolvimento');
     };
 
-    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA) =====
+    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA - SEM VÍNCULO AUTOMÁTICO) =====
     window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
         if (!confirm('Deseja aceitar o convite para esta campanha?')) {
             return;
@@ -524,7 +520,6 @@
             
             if (personagensSnap.empty) {
                 showToast('Você precisa criar um personagem primeiro!', true);
-                // Redirecionar para criar personagem com parâmetro de retorno
                 setTimeout(() => {
                     window.location.href = `criar-personagem.html?return=campanha&campanha=${campanhaId}`;
                 }, 2000);
@@ -532,7 +527,7 @@
                 return;
             }
             
-            // Buscar dados da campanha para validar se ainda há vagas
+            // Buscar dados da campanha para mostrar informações
             const campanhaQuery = query(
                 collection(db, "campanhas"),
                 where("id", "==", campanhaId)
@@ -546,14 +541,12 @@
                 return;
             }
             
-            let campanhaDocId = null;
             let campanhaData = null;
             campanhaSnap.forEach(doc => {
-                campanhaDocId = doc.id;
                 campanhaData = doc.data();
             });
             
-            // Verificar se há vagas disponíveis
+            // Verificar se há vagas (apenas informação, não tenta atualizar)
             const vagasOcupadas = campanhaData?.vagas_ocupadas || 0;
             const vagasMax = campanhaData?.vagas_max || 5;
             
@@ -570,18 +563,7 @@
                 return;
             }
             
-            // ✅ CORREÇÃO: NÃO criar vínculo automático!
-            // Apenas marcar notificação como lida e atualizar vagas da campanha
-            
-            // Atualizar vagas na campanha (incrementar contador de ocupadas)
-            if (campanhaDocId) {
-                const campanhaRef = doc(db, "campanhas", campanhaDocId);
-                await updateDoc(campanhaRef, { 
-                    vagas_ocupadas: vagasOcupadas + 1 
-                });
-            }
-            
-            // Marcar notificação como lida
+            // Marcar notificação como lida (ISSO FUNCIONA!)
             await updateDoc(doc(db, "notificacoes", notificacaoId), {
                 lida: true,
                 data_resposta: serverTimestamp()
@@ -596,8 +578,6 @@
             
         } catch (error) {
             console.error('❌ Erro ao aceitar convite:', error);
-            console.error('Código:', error.code);
-            console.error('Mensagem:', error.message);
             showToast('Erro ao aceitar convite: ' + error.message, true);
         } finally {
             hideLoading();
@@ -612,35 +592,6 @@
         showLoading();
         
         try {
-            // Buscar dados da notificação para saber qual campanha
-            const notifDoc = await getDoc(doc(db, "notificacoes", notificacaoId));
-            
-            if (notifDoc.exists()) {
-                const notifData = notifDoc.data();
-                
-                // Se a notificação tem campanha_id, podemos liberar a vaga se necessário
-                if (notifData.campanha_id) {
-                    // Buscar campanha para decrementar vagas (se já tinha incrementado antes)
-                    const campanhaQuery = query(
-                        collection(db, "campanhas"),
-                        where("id", "==", notifData.campanha_id)
-                    );
-                    
-                    const campanhaSnap = await getDocs(campanhaQuery);
-                    
-                    campanhaSnap.forEach(async (doc) => {
-                        const campanhaDocId = doc.id;
-                        const vagasOcupadas = doc.data().vagas_ocupadas || 1;
-                        
-                        if (vagasOcupadas > 0) {
-                            await updateDoc(doc(db, "campanhas", campanhaDocId), {
-                                vagas_ocupadas: vagasOcupadas - 1
-                            });
-                        }
-                    });
-                }
-            }
-            
             // Marcar notificação como lida
             await updateDoc(doc(db, "notificacoes", notificacaoId), {
                 lida: true,
@@ -691,9 +642,22 @@
             
             let html = '';
             
-            querySnapshot.forEach((doc) => {
-                const n = { id: doc.id, ...doc.data() };
+            for (const docSnap of querySnapshot.docs) {
+                const n = { id: docSnap.id, ...docSnap.data() };
                 const data = n.data ? new Date(n.data.seconds * 1000).toLocaleString() : 'Agora mesmo';
+                
+                // Buscar nome do remetente se necessário
+                let remetenteNome = 'Alguém';
+                if (n.remetente_uid) {
+                    try {
+                        const userDoc = await getDoc(doc(db, "usuarios", n.remetente_uid));
+                        if (userDoc.exists()) {
+                            remetenteNome = userDoc.data().nickname || 'Alguém';
+                        }
+                    } catch (e) {
+                        console.log('Erro ao buscar remetente:', e);
+                    }
+                }
                 
                 // CONVITE DE GUILDA
                 if (n.tipo === 'convite_guilda') {
@@ -705,7 +669,7 @@
                                 </div>
                                 <div class="notification-content">
                                     <div class="notification-title">${n.titulo || 'Convite para Guilda'}</div>
-                                    <div class="notification-message">${n.mensagem || ''}</div>
+                                    <div class="notification-message">${n.mensagem || `${remetenteNome} convidou você para uma guilda`}</div>
                                     <div class="notification-time">${data}</div>
                                 </div>
                             </div>
@@ -731,7 +695,7 @@
                                 </div>
                                 <div class="notification-content">
                                     <div class="notification-title">${n.titulo || 'Convite para Campanha'}</div>
-                                    <div class="notification-message">${n.mensagem || ''}</div>
+                                    <div class="notification-message">${n.mensagem || `${remetenteNome} convidou você para uma campanha`}</div>
                                     <div class="notification-time">${data}</div>
                                 </div>
                             </div>
@@ -763,7 +727,7 @@
                         </div>
                     `;
                 }
-            });
+            }
             
             notificacoesContainer.innerHTML = html;
             
@@ -774,6 +738,7 @@
                     <i class="fas fa-exclamation-triangle" style="font-size: 4rem; margin-bottom: 20px;"></i>
                     <h2>Erro ao carregar</h2>
                     <p>Não foi possível carregar suas notificações.</p>
+                    <p style="font-size: 0.8rem;">${error.message}</p>
                 </div>
             `;
         } finally {
