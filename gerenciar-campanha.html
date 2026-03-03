@@ -1054,653 +1054,593 @@
     </div>
 
     <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import { 
-        getAuth, 
-        signOut,
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-    import { 
-        getFirestore, 
-        doc,
-        getDoc,
-        collection,
-        query,
-        where,
-        getDocs,
-        updateDoc,
-        deleteDoc,
-        addDoc,
-        setDoc,
-        serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { 
+    getAuth, 
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    updateDoc,
+    deleteDoc,
+    addDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    // Configuração do Firebase
-    const firebaseConfig = {
-        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-        authDomain: "rpgforce-e3227.firebaseapp.com",
-        projectId: "rpgforce-e3227",
-        storageBucket: "rpgforce-e3227.firebasestorage.app",
-        messagingSenderId: "984517342332",
-        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-    };
+// Configuração do Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+    authDomain: "rpgforce-e3227.firebaseapp.com",
+    projectId: "rpgforce-e3227",
+    storageBucket: "rpgforce-e3227.firebasestorage.app",
+    messagingSenderId: "984517342332",
+    appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    // Elementos do DOM
-    const displayIdGm = document.getElementById('displayIdGm');
-    const btnSair = document.getElementById('btnSair');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const campanhaTitulo = document.getElementById('campanhaTitulo');
-    const campanhaDescricao = document.getElementById('campanhaDescricao');
-    const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
-    const campanhaStatus = document.getElementById('campanhaStatus');
-    const vagas = document.getElementById('vagas');
-    const nivelMin = document.getElementById('nivelMin');
-    const nivelMax = document.getElementById('nivelMax');
-    const diasHorarios = document.getElementById('diasHorarios');
-    const resumoMundo = document.getElementById('resumoMundo');
-    const regrasCasa = document.getElementById('regrasCasa');
-    const statId = document.getElementById('statId');
-    const statJogadores = document.getElementById('statJogadores');
-    const statSessoes = document.getElementById('statSessoes');
-    const statProxima = document.getElementById('statProxima');
-    const selectStatus = document.getElementById('selectStatus');
-    const selectVisibilidade = document.getElementById('selectVisibilidade');
-    const jogadoresContainer = document.getElementById('jogadoresContainer');
-    const sessoesContainer = document.getElementById('sessoesContainer');
+// Elementos do DOM
+const displayIdGm = document.getElementById('displayIdGm');
+const btnSair = document.getElementById('btnSair');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const campanhaTitulo = document.getElementById('campanhaTitulo');
+const campanhaDescricao = document.getElementById('campanhaDescricao');
+const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
+const campanhaStatus = document.getElementById('campanhaStatus');
+const vagas = document.getElementById('vagas');
+const nivelMin = document.getElementById('nivelMin');
+const nivelMax = document.getElementById('nivelMax');
+const diasHorarios = document.getElementById('diasHorarios');
+const resumoMundo = document.getElementById('resumoMundo');
+const regrasCasa = document.getElementById('regrasCasa');
+const statId = document.getElementById('statId');
+const statJogadores = document.getElementById('statJogadores');
+const statSessoes = document.getElementById('statSessoes');
+const statProxima = document.getElementById('statProxima');
+const selectStatus = document.getElementById('selectStatus');
+const selectVisibilidade = document.getElementById('selectVisibilidade');
+const jogadoresContainer = document.getElementById('jogadoresContainer');
+const sessoesContainer = document.getElementById('sessoesContainer');
 
-    // Modais
-    const modalConvidar = document.getElementById('modalConvidar');
-    const modalSessao = document.getElementById('modalSessao');
-    const convidarIdPC = document.getElementById('convidarIdPC');
+// Modais
+const modalConvidar = document.getElementById('modalConvidar');
+const modalSessao = document.getElementById('modalSessao');
+const convidarIdPC = document.getElementById('convidarIdPC');
 
-    // Variáveis globais
-    let currentUser = null;
-    let userData = null;
-    let campanhaAtual = null;
-    let campanhaId = null;
+// Variáveis globais
+let currentUser = null;
+let userData = null;
+let campanhaAtual = null;
+let campanhaId = null;
 
-    function showLoading() {
-        loadingOverlay.classList.add('active');
+function showLoading() {
+    loadingOverlay.classList.add('active');
+}
+
+function hideLoading() {
+    loadingOverlay.classList.remove('active');
+}
+
+function getCampanhaIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('id');
+}
+
+// ===== FUNÇÃO DE CONVITE SIMPLIFICADA E 100% FUNCIONAL =====
+window.enviarConvite = async function() {
+    const idPC = convidarIdPC.value.trim();
+    
+    if (!idPC) {
+        alert('Digite o ID do jogador');
+        return;
     }
-
-    function hideLoading() {
-        loadingOverlay.classList.remove('active');
-    }
-
-    function getCampanhaIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id');
-    }
-
-    // Carregar campanha
-    async function carregarCampanha() {
-        campanhaId = getCampanhaIdFromUrl();
+    
+    showLoading();
+    
+    try {
+        // Buscar jogador pelo ID_PC
+        const jogadorQuery = query(
+            collection(db, "usuarios"), 
+            where("id_pc", "==", idPC)
+        );
+        const jogadorSnap = await getDocs(jogadorQuery);
         
-        if (!campanhaId) {
-            alert('ID da campanha não encontrado!');
-            window.location.href = 'campanha-gm.html';
-            return;
-        }
-
-        showLoading();
-        
-        try {
-            // Buscar campanha pelo campo "id" (não pelo document ID)
-            const q = query(
-                collection(db, "campanhas"),
-                where("id", "==", campanhaId)
-            );
-            
-            const querySnapshot = await getDocs(q);
-            
-            if (querySnapshot.empty) {
-                alert('Campanha não encontrada!');
-                window.location.href = 'campanha-gm.html';
-                return;
-            }
-            
-            // Pegar a primeira (deve ser única)
-            querySnapshot.forEach((doc) => {
-                campanhaAtual = {
-                    docId: doc.id, // ID do documento Firestore
-                    ...doc.data()
-                };
-            });
-            
-            // Verificar se o GM autenticado é o dono da campanha
-            if (campanhaAtual.gm_uid !== currentUser.uid) {
-                alert('Você não é o GM desta campanha!');
-                window.location.href = 'campanha-gm.html';
-                return;
-            }
-            
-            atualizarInterface();
-            await carregarJogadores();
-            await carregarSessoes();
-            
-        } catch (error) {
-            console.error('Erro:', error);
-            alert('Erro ao carregar campanha: ' + error.message);
-        } finally {
+        if (jogadorSnap.empty) {
+            alert('❌ Jogador não encontrado!');
             hideLoading();
-        }
-    }
-
-    function atualizarInterface() {
-        if (!campanhaAtual) return;
-        
-        campanhaTitulo.textContent = campanhaAtual.nome || 'Sem nome';
-        campanhaNomeBreadcrumb.textContent = campanhaAtual.nome || 'Campanha';
-        campanhaDescricao.textContent = campanhaAtual.descricao_curta || 'Sem descrição';
-        
-        const statusClass = campanhaAtual.status === 'aberto' ? 'status-aberto' :
-                           campanhaAtual.status === 'andamento' ? 'status-andamento' :
-                           campanhaAtual.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
-        
-        const statusText = campanhaAtual.status === 'aberto' ? 'Aberto' :
-                          campanhaAtual.status === 'andamento' ? 'Em Andamento' :
-                          campanhaAtual.status === 'fechado' ? 'Fechado' : 'Encerrado';
-        
-        campanhaStatus.className = `campanha-status ${statusClass}`;
-        campanhaStatus.textContent = statusText;
-        
-        vagas.textContent = `${campanhaAtual.vagas_ocupadas || 0}/${campanhaAtual.vagas_max || 5}`;
-        nivelMin.textContent = campanhaAtual.nivel_min || 1;
-        nivelMax.textContent = campanhaAtual.nivel_max || 5;
-        diasHorarios.textContent = campanhaAtual.dias_horarios || 'Não definido';
-        resumoMundo.textContent = campanhaAtual.resumo_mundo || 'Sem resumo';
-        regrasCasa.textContent = campanhaAtual.regras_casa || 'Nenhuma regra definida.';
-        statId.textContent = campanhaAtual.id || 'CAMP-0000';
-        
-        if (campanhaAtual.imagem_capa) {
-            const capa = document.getElementById('campanhaCapa');
-            capa.style.backgroundImage = `url('${campanhaAtual.imagem_capa}')`;
-            capa.innerHTML = '';
-        }
-        
-        selectStatus.value = campanhaAtual.status || 'aberto';
-        selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
-    }
-
-    // Carregar jogadores e seus personagens
-    async function carregarJogadores() {
-        if (!campanhaAtual) return;
-        
-        try {
-            // Buscar vínculos na coleção campanha_personagens
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("campanha_id", "==", campanhaAtual.id)
-            );
-            
-            const vinculosSnap = await getDocs(vinculosQuery);
-            
-            const vinculos = [];
-            vinculosSnap.forEach(doc => vinculos.push({ id: doc.id, ...doc.data() }));
-            
-            statJogadores.textContent = vinculos.length;
-            
-            if (vinculos.length === 0) {
-                jogadoresContainer.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
-                        <i class="fas fa-users" style="font-size: 3rem; color: #c62828; margin-bottom: 15px;"></i>
-                        <h3>Nenhum jogador na campanha</h3>
-                        <p>Convide jogadores para sua campanha!</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            
-            for (const vinculo of vinculos) {
-                const userDoc = await getDoc(doc(db, "usuarios", vinculo.jogador_uid));
-                
-                if (userDoc.exists()) {
-                    const jogador = userDoc.data();
-                    
-                    const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
-                    const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
-                    
-                    html += `
-                        <div class="jogador-card">
-                            <div class="jogador-header">
-                                <div class="jogador-avatar">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                <div class="jogador-info">
-                                    <h4>${jogador.nickname || 'Jogador'}</h4>
-                                    <p>ID: ${jogador.id_pc || '---'}</p>
-                                    <span class="jogador-status ${personagem ? 'status-ativo' : 'status-pendente'}">
-                                        ${personagem ? 'Personagem vinculado' : 'Aguardando personagem'}
-                                    </span>
-                                </div>
-                            </div>
-                            ${personagem ? `
-                                <div class="personagem-card">
-                                    <div class="personagem-header">
-                                        <h5><i class="fas fa-dragon"></i> ${personagem.nome || 'Sem nome'}</h5>
-                                        <span class="personagem-classe">${personagem.classe || 'Sem classe'}</span>
-                                    </div>
-                                    <div class="personagem-atributos">
-                                        <span><i class="fas fa-fist-raised"></i> ST ${personagem.atributos?.st?.esferas || 0}</span>
-                                        <span><i class="fas fa-running"></i> DX ${personagem.atributos?.dx?.esferas || 0}</span>
-                                        <span><i class="fas fa-brain"></i> IQ ${personagem.atributos?.iq?.esferas || 0}</span>
-                                        <span><i class="fas fa-heart"></i> VG ${personagem.atributos?.vigor?.esferas || 0}</span>
-                                    </div>
-                                    <div class="personagem-stats">
-                                        <span><i class="fas fa-heartbeat"></i> Vida: ${personagem.statusCombate?.vidaAtual || 0}/${personagem.statusCombate?.vidaMax || 0}</span>
-                                        <span><i class="fas fa-magic"></i> Mana: ${personagem.statusCombate?.manaAtual || 0}/${personagem.statusCombate?.manaMax || 0}</span>
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }
-            }
-            
-            jogadoresContainer.innerHTML = html;
-            
-        } catch (error) {
-            console.error('Erro ao carregar jogadores:', error);
-        }
-    }
-
-    // Carregar sessões
-    async function carregarSessoes() {
-        if (!campanhaAtual) return;
-        
-        try {
-            const q = query(
-                collection(db, "sessoes"),
-                where("campanha_id", "==", campanhaAtual.id)
-            );
-            
-            const querySnapshot = await getDocs(q);
-            
-            const sessoes = [];
-            querySnapshot.forEach((doc) => {
-                sessoes.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            statSessoes.textContent = sessoes.length;
-            
-            if (sessoes.length === 0) {
-                sessoesContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
-                        <i class="fas fa-calendar" style="font-size: 3rem; color: #c62828; margin-bottom: 15px;"></i>
-                        <h3>Nenhuma sessão agendada</h3>
-                        <p>Crie sua primeira sessão!</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            let proximaSessao = null;
-            
-            sessoes.sort((a, b) => {
-                const dataA = a.data?.seconds || 0;
-                const dataB = b.data?.seconds || 0;
-                return dataA - dataB;
-            });
-            
-            sessoes.forEach(sessao => {
-                const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
-                const dia = data.getDate().toString().padStart(2, '0');
-                const mes = (data.getMonth() + 1).toString().padStart(2, '0');
-                
-                if (!sessao.realizada && !proximaSessao) {
-                    proximaSessao = `${dia}/${mes}`;
-                }
-                
-                html += `
-                    <div class="sessao-item">
-                        <div class="sessao-data">
-                            <div class="dia">${dia}</div>
-                            <div class="mes">${mes}</div>
-                        </div>
-                        <div class="sessao-info">
-                            <h4>${sessao.titulo || 'Sessão'}</h4>
-                            <p>${sessao.descricao || 'Sem descrição'}</p>
-                        </div>
-                        <div class="sessao-status ${sessao.realizada ? 'sessao-realizada' : 'sessao-pendente'}">
-                            ${sessao.realizada ? 'Realizada' : 'Pendente'}
-                        </div>
-                        <div class="sessao-buttons">
-                            <button class="btn-sessao" onclick="iniciarSessao('${sessao.id}')">
-                                <i class="fas fa-play"></i> Iniciar
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            statProxima.textContent = proximaSessao || '--/--';
-            sessoesContainer.innerHTML = html;
-            
-        } catch (error) {
-            console.error('Erro ao carregar sessões:', error);
-        }
-    }
-
-    // Funções de Modal
-    window.abrirModalConvidar = function() {
-        modalConvidar.classList.add('active');
-    }
-
-    window.fecharModalConvidar = function() {
-        modalConvidar.classList.remove('active');
-        convidarIdPC.value = '';
-    }
-
-    window.abrirModalSessao = function() {
-        modalSessao.classList.add('active');
-        const hoje = new Date().toISOString().split('T')[0];
-        document.getElementById('sessaoData').value = hoje;
-    }
-
-    window.fecharModalSessao = function() {
-        modalSessao.classList.remove('active');
-        document.getElementById('sessaoTitulo').value = '';
-        document.getElementById('sessaoData').value = '';
-        document.getElementById('sessaoHora').value = '20:00';
-        document.getElementById('sessaoDescricao').value = '';
-    }
-
-    // ===== FUNÇÃO DE CONVITE 100% FUNCIONAL =====
-    window.enviarConvite = async function() {
-        const idPC = convidarIdPC.value.trim();
-        
-        if (!idPC) {
-            alert('Digite o ID do jogador (ID PC)');
             return;
         }
         
-        // Verificar autenticação
-        if (!auth.currentUser) {
-            alert('Erro: Não autenticado');
-            return;
-        }
-        
-        const gmAuthUid = auth.currentUser.uid;
-        console.log('🔐 GM UID:', gmAuthUid);
-        
-        showLoading();
-        
-        try {
-            // Buscar jogador pelo ID_PC
-            const userQuery = query(
-                collection(db, "usuarios"), 
-                where("id_pc", "==", idPC)
-            );
-            const userSnap = await getDocs(userQuery);
-            
-            if (userSnap.empty) {
-                alert('❌ Jogador não encontrado! Verifique o ID_PC.');
-                hideLoading();
-                return;
-            }
-            
-            let jogadorUid = null;
-            let jogadorData = null;
-            userSnap.forEach(doc => {
-                jogadorUid = doc.id;
-                jogadorData = doc.data();
-            });
-            
-            console.log('👤 Jogador UID:', jogadorUid);
-            console.log('👤 Jogador Data:', jogadorData);
-            
-            // Verificar se é o próprio GM
-            if (jogadorUid === gmAuthUid) {
-                alert('❌ Você não pode convidar a si mesmo!');
-                hideLoading();
-                return;
-            }
-            
-            // Verificar se jogador já está na campanha
-            const vinculoQuery = query(
-                collection(db, "campanha_personagens"),
-                where("campanha_id", "==", campanhaAtual.id),
-                where("jogador_uid", "==", jogadorUid)
-            );
-            const vinculoSnap = await getDocs(vinculoQuery);
-            
-            if (!vinculoSnap.empty) {
-                alert('⚠️ Este jogador já está participando da campanha!');
-                hideLoading();
-                return;
-            }
-            
-            // Verificar se já existe convite pendente
-            const conviteQuery = query(
-                collection(db, "convites"),
-                where("destinatario_uid", "==", jogadorUid),
-                where("campanha_id", "==", campanhaAtual.id),
-                where("status", "==", "pendente")
-            );
-            const conviteSnap = await getDocs(conviteQuery);
-            
-            if (!conviteSnap.empty) {
-                alert('⏳ Já existe um convite pendente para este jogador!');
-                hideLoading();
-                return;
-            }
-            
-            // Criar ID único para o convite (igual funciona na guilda)
-            const conviteId = `${campanhaAtual.id}_${jogadorUid}_${Date.now()}`;
-            
-            // Dados do convite - ESTRUTURA SIMPLIFICADA E FUNCIONAL
-            const conviteData = {
-                // Identificação
-                tipo: "campanha",
-                
-                // Remetente (GM)
-                remetente_uid: gmAuthUid,
-                remetente_nick: userData?.nickname || 'Mestre',
-                
-                // Destinatário (Jogador)
-                destinatario_uid: jogadorUid,
-                destinatario_nick: jogadorData.nickname || 'Jogador',
-                
-                // Status e metadados
-                status: "pendente",
-                data_envio: new Date().toISOString(),
-                lido: false,
-                
-                // Dados da campanha
-                campanha_id: campanhaAtual.id,
-                campanha_nome: campanhaAtual.nome,
-                campanha_descricao: campanhaAtual.descricao_curta || '',
-                
-                // Dados do GM (mesmo que remetente)
-                gm_uid: gmAuthUid,
-                gm_nick: userData?.nickname || 'Mestre'
-            };
-            
-            console.log('📤 Criando convite:', conviteData);
-            
-            // Usar setDoc com ID específico (igual na guilda)
-            await setDoc(doc(db, "convites", conviteId), conviteData);
-            console.log('✅ Convite criado com ID:', conviteId);
-            
-            // Criar notificação para o jogador
-            const notifId = `notif_${jogadorUid}_${Date.now()}`;
-            const notifData = {
-                usuarioId: jogadorUid,
-                tipo: "convite_campanha",
-                titulo: `📜 Convite: ${campanhaAtual.nome}`,
-                mensagem: `Mestre ${userData?.nickname || 'Mestre'} convidou você para "${campanhaAtual.nome}".`,
-                campanha_id: campanhaAtual.id,
-                campanha_nome: campanhaAtual.nome,
-                convite_id: conviteId,
-                lida: false,
-                data: new Date().toISOString()
-            };
-            
-            console.log('📤 Criando notificação:', notifData);
-            await setDoc(doc(db, "notificacoes", notifId), notifData);
-            
-            alert('✅ Convite enviado com sucesso!');
-            fecharModalConvidar();
-            
-        } catch (error) {
-            console.error('❌ ERRO:', error);
-            console.error('Código:', error.code);
-            console.error('Mensagem:', error.message);
-            alert('❌ Erro ao enviar convite: ' + error.message);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Criar sessão
-    window.criarSessao = async function() {
-        const titulo = document.getElementById('sessaoTitulo').value;
-        const data = document.getElementById('sessaoData').value;
-        const hora = document.getElementById('sessaoHora').value;
-        const descricao = document.getElementById('sessaoDescricao').value;
-        
-        if (!titulo || !data) {
-            alert('Preencha título e data da sessão');
-            return;
-        }
-        
-        showLoading();
-        
-        try {
-            const dataHora = new Date(`${data}T${hora || '20:00'}`);
-            
-            await addDoc(collection(db, "sessoes"), {
-                campanha_id: campanhaAtual.id,
-                campanha_nome: campanhaAtual.nome,
-                gm_uid: currentUser.uid,
-                titulo: titulo,
-                descricao: descricao,
-                data: dataHora,
-                realizada: false,
-                data_criacao: serverTimestamp()
-            });
-            
-            alert('Sessão criada com sucesso!');
-            fecharModalSessao();
-            await carregarSessoes();
-            
-        } catch (error) {
-            console.error('Erro ao criar sessão:', error);
-            alert('Erro ao criar sessão');
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Iniciar sessão
-    window.iniciarSessao = function(sessaoId) {
-        window.location.href = `mesa-jogo.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
-    }
-
-    // Salvar configurações
-    window.salvarConfiguracoes = async function() {
-        showLoading();
-        
-        try {
-            const docRef = doc(db, "campanhas", campanhaAtual.docId);
-            await updateDoc(docRef, {
-                status: selectStatus.value,
-                visibilidade: selectVisibilidade.value
-            });
-            
-            campanhaAtual.status = selectStatus.value;
-            campanhaAtual.visibilidade = selectVisibilidade.value;
-            
-            atualizarInterface();
-            alert('Configurações salvas!');
-            
-        } catch (error) {
-            console.error('Erro ao salvar:', error);
-            alert('Erro ao salvar configurações');
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Excluir campanha
-    window.excluirCampanha = async function() {
-        if (!confirm('Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita!')) {
-            return;
-        }
-        
-        showLoading();
-        
-        try {
-            await deleteDoc(doc(db, "campanhas", campanhaAtual.docId));
-            alert('Campanha excluída!');
-            window.location.href = 'campanha-gm.html';
-        } catch (error) {
-            console.error('Erro ao excluir:', error);
-            alert('Erro ao excluir campanha');
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Mudar aba
-    window.mudarAba = function(aba) {
-        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        document.querySelectorAll('.aba-conteudo').forEach(conteudo => {
-            conteudo.style.display = 'none';
+        // Pegar dados do jogador
+        let jogadorUid, jogadorNick;
+        jogadorSnap.forEach(doc => {
+            jogadorUid = doc.id;
+            jogadorNick = doc.data().nickname || 'Jogador';
         });
         
-        document.getElementById(`aba-${aba}`).style.display = 'block';
+        // Verificar se já está na campanha
+        const vinculoQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaAtual.id),
+            where("jogador_uid", "==", jogadorUid)
+        );
+        const vinculoSnap = await getDocs(vinculoQuery);
+        
+        if (!vinculoSnap.empty) {
+            alert('⚠️ Jogador já está na campanha!');
+            hideLoading();
+            return;
+        }
+        
+        // ===== CONVITE SIMPLES (DO JEITO QUE FUNCIONA) =====
+        const conviteData = {
+            // Campos obrigatórios que sua regra exige
+            tipo: "campanha",
+            remetente_uid: auth.currentUser.uid,
+            remetente_nick: userData?.nickname || 'Mestre',
+            destinatario_uid: jogadorUid,
+            destinatario_nick: jogadorNick,
+            status: "pendente",
+            data_envio: new Date().toISOString(),
+            
+            // Campos extras (são permitidos, não bloqueiam)
+            campanha_id: campanhaAtual.id,
+            campanha_nome: campanhaAtual.nome,
+            gm_uid: auth.currentUser.uid,
+            lido: false
+        };
+        
+        // Criar o convite
+        const docRef = await addDoc(collection(db, "convites"), conviteData);
+        console.log('Convite criado com ID:', docRef.id);
+        
+        // Criar notificação
+        await addDoc(collection(db, "notificacoes"), {
+            usuarioId: jogadorUid,
+            tipo: "convite_campanha",
+            titulo: `📜 Convite: ${campanhaAtual.nome}`,
+            mensagem: `Mestre ${userData?.nickname || 'Mestre'} convidou você para participar da campanha!`,
+            campanha_id: campanhaAtual.id,
+            campanha_nome: campanhaAtual.nome,
+            convite_id: docRef.id,
+            lida: false,
+            data: new Date().toISOString()
+        });
+        
+        alert('✅ Convite enviado com sucesso!');
+        fecharModalConvidar();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('❌ Erro: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Carregar campanha
+async function carregarCampanha() {
+    campanhaId = getCampanhaIdFromUrl();
+    
+    if (!campanhaId) {
+        alert('ID da campanha não encontrado!');
+        window.location.href = 'campanha-gm.html';
+        return;
     }
 
-    // Sair
-    btnSair.addEventListener('click', async () => {
-        await signOut(auth);
-        window.location.href = 'index.html';
-    });
-
-    // Verificar login
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            showLoading();
-            
-            try {
-                const docRef = doc(db, "usuarios", user.uid);
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    displayIdGm.textContent = userData.id_gm || '---';
-                    
-                    if (!userData.id_gm) {
-                        alert('Área exclusiva para Mestres!');
-                        window.location.href = 'dashboard-pc.html';
-                        return;
-                    }
-                    
-                    await carregarCampanha();
-                }
-            } catch (error) {
-                console.error('Erro:', error);
-            } finally {
-                hideLoading();
-            }
-        } else {
-            window.location.href = 'index.html';
+    showLoading();
+    
+    try {
+        const q = query(
+            collection(db, "campanhas"),
+            where("id", "==", campanhaId)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            alert('Campanha não encontrada!');
+            window.location.href = 'campanha-gm.html';
+            return;
         }
+        
+        querySnapshot.forEach((doc) => {
+            campanhaAtual = {
+                docId: doc.id,
+                ...doc.data()
+            };
+        });
+        
+        if (campanhaAtual.gm_uid !== currentUser.uid) {
+            alert('Você não é o GM desta campanha!');
+            window.location.href = 'campanha-gm.html';
+            return;
+        }
+        
+        atualizarInterface();
+        await carregarJogadores();
+        await carregarSessoes();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao carregar campanha: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function atualizarInterface() {
+    if (!campanhaAtual) return;
+    
+    campanhaTitulo.textContent = campanhaAtual.nome || 'Sem nome';
+    campanhaNomeBreadcrumb.textContent = campanhaAtual.nome || 'Campanha';
+    campanhaDescricao.textContent = campanhaAtual.descricao_curta || 'Sem descrição';
+    
+    const statusClass = campanhaAtual.status === 'aberto' ? 'status-aberto' :
+                       campanhaAtual.status === 'andamento' ? 'status-andamento' :
+                       campanhaAtual.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
+    
+    const statusText = campanhaAtual.status === 'aberto' ? 'Aberto' :
+                      campanhaAtual.status === 'andamento' ? 'Em Andamento' :
+                      campanhaAtual.status === 'fechado' ? 'Fechado' : 'Encerrado';
+    
+    campanhaStatus.className = `campanha-status ${statusClass}`;
+    campanhaStatus.textContent = statusText;
+    
+    vagas.textContent = `${campanhaAtual.vagas_ocupadas || 0}/${campanhaAtual.vagas_max || 5}`;
+    nivelMin.textContent = campanhaAtual.nivel_min || 1;
+    nivelMax.textContent = campanhaAtual.nivel_max || 5;
+    diasHorarios.textContent = campanhaAtual.dias_horarios || 'Não definido';
+    resumoMundo.textContent = campanhaAtual.resumo_mundo || 'Sem resumo';
+    regrasCasa.textContent = campanhaAtual.regras_casa || 'Nenhuma regra definida.';
+    statId.textContent = campanhaAtual.id || 'CAMP-0000';
+    
+    if (campanhaAtual.imagem_capa) {
+        const capa = document.getElementById('campanhaCapa');
+        capa.style.backgroundImage = `url('${campanhaAtual.imagem_capa}')`;
+        capa.innerHTML = '';
+    }
+    
+    selectStatus.value = campanhaAtual.status || 'aberto';
+    selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
+}
+
+// Carregar jogadores
+async function carregarJogadores() {
+    if (!campanhaAtual) return;
+    
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaAtual.id)
+        );
+        
+        const vinculosSnap = await getDocs(vinculosQuery);
+        
+        const vinculos = [];
+        vinculosSnap.forEach(doc => vinculos.push({ id: doc.id, ...doc.data() }));
+        
+        statJogadores.textContent = vinculos.length;
+        
+        if (vinculos.length === 0) {
+            jogadoresContainer.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
+                    <i class="fas fa-users" style="font-size: 3rem; color: #c62828; margin-bottom: 15px;"></i>
+                    <h3>Nenhum jogador na campanha</h3>
+                    <p>Convide jogadores para sua campanha!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        for (const vinculo of vinculos) {
+            const userDoc = await getDoc(doc(db, "usuarios", vinculo.jogador_uid));
+            
+            if (userDoc.exists()) {
+                const jogador = userDoc.data();
+                
+                const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
+                const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
+                
+                html += `
+                    <div class="jogador-card">
+                        <div class="jogador-header">
+                            <div class="jogador-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="jogador-info">
+                                <h4>${jogador.nickname || 'Jogador'}</h4>
+                                <p>ID: ${jogador.id_pc || '---'}</p>
+                                <span class="jogador-status ${personagem ? 'status-ativo' : 'status-pendente'}">
+                                    ${personagem ? 'Personagem vinculado' : 'Aguardando personagem'}
+                                </span>
+                            </div>
+                        </div>
+                        ${personagem ? `
+                            <div class="personagem-card">
+                                <div class="personagem-header">
+                                    <h5><i class="fas fa-dragon"></i> ${personagem.nome || 'Sem nome'}</h5>
+                                    <span class="personagem-classe">${personagem.classe || 'Sem classe'}</span>
+                                </div>
+                                <div class="personagem-atributos">
+                                    <span><i class="fas fa-fist-raised"></i> ST ${personagem.atributos?.st?.esferas || 0}</span>
+                                    <span><i class="fas fa-running"></i> DX ${personagem.atributos?.dx?.esferas || 0}</span>
+                                    <span><i class="fas fa-brain"></i> IQ ${personagem.atributos?.iq?.esferas || 0}</span>
+                                    <span><i class="fas fa-heart"></i> VG ${personagem.atributos?.vigor?.esferas || 0}</span>
+                                </div>
+                                <div class="personagem-stats">
+                                    <span><i class="fas fa-heartbeat"></i> Vida: ${personagem.statusCombate?.vidaAtual || 0}/${personagem.statusCombate?.vidaMax || 0}</span>
+                                    <span><i class="fas fa-magic"></i> Mana: ${personagem.statusCombate?.manaAtual || 0}/${personagem.statusCombate?.manaMax || 0}</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        }
+        
+        jogadoresContainer.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Erro ao carregar jogadores:', error);
+    }
+}
+
+// Carregar sessões
+async function carregarSessoes() {
+    if (!campanhaAtual) return;
+    
+    try {
+        const q = query(
+            collection(db, "sessoes"),
+            where("campanha_id", "==", campanhaAtual.id)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        const sessoes = [];
+        querySnapshot.forEach((doc) => {
+            sessoes.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        statSessoes.textContent = sessoes.length;
+        
+        if (sessoes.length === 0) {
+            sessoesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
+                    <i class="fas fa-calendar" style="font-size: 3rem; color: #c62828; margin-bottom: 15px;"></i>
+                    <h3>Nenhuma sessão agendada</h3>
+                    <p>Crie sua primeira sessão!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        let proximaSessao = null;
+        
+        sessoes.sort((a, b) => {
+            const dataA = a.data?.seconds || 0;
+            const dataB = b.data?.seconds || 0;
+            return dataA - dataB;
+        });
+        
+        sessoes.forEach(sessao => {
+            const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
+            const dia = data.getDate().toString().padStart(2, '0');
+            const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+            
+            if (!sessao.realizada && !proximaSessao) {
+                proximaSessao = `${dia}/${mes}`;
+            }
+            
+            html += `
+                <div class="sessao-item">
+                    <div class="sessao-data">
+                        <div class="dia">${dia}</div>
+                        <div class="mes">${mes}</div>
+                    </div>
+                    <div class="sessao-info">
+                        <h4>${sessao.titulo || 'Sessão'}</h4>
+                        <p>${sessao.descricao || 'Sem descrição'}</p>
+                    </div>
+                    <div class="sessao-status ${sessao.realizada ? 'sessao-realizada' : 'sessao-pendente'}">
+                        ${sessao.realizada ? 'Realizada' : 'Pendente'}
+                    </div>
+                    <div class="sessao-buttons">
+                        <button class="btn-sessao" onclick="iniciarSessao('${sessao.id}')">
+                            <i class="fas fa-play"></i> Iniciar
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        statProxima.textContent = proximaSessao || '--/--';
+        sessoesContainer.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Erro ao carregar sessões:', error);
+    }
+}
+
+// Funções de Modal
+window.abrirModalConvidar = function() {
+    modalConvidar.classList.add('active');
+}
+
+window.fecharModalConvidar = function() {
+    modalConvidar.classList.remove('active');
+    convidarIdPC.value = '';
+}
+
+window.abrirModalSessao = function() {
+    modalSessao.classList.add('active');
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('sessaoData').value = hoje;
+}
+
+window.fecharModalSessao = function() {
+    modalSessao.classList.remove('active');
+    document.getElementById('sessaoTitulo').value = '';
+    document.getElementById('sessaoData').value = '';
+    document.getElementById('sessaoHora').value = '20:00';
+    document.getElementById('sessaoDescricao').value = '';
+}
+
+// Criar sessão
+window.criarSessao = async function() {
+    const titulo = document.getElementById('sessaoTitulo').value;
+    const data = document.getElementById('sessaoData').value;
+    const hora = document.getElementById('sessaoHora').value;
+    const descricao = document.getElementById('sessaoDescricao').value;
+    
+    if (!titulo || !data) {
+        alert('Preencha título e data da sessão');
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const dataHora = new Date(`${data}T${hora || '20:00'}`);
+        
+        await addDoc(collection(db, "sessoes"), {
+            campanha_id: campanhaAtual.id,
+            campanha_nome: campanhaAtual.nome,
+            gm_uid: currentUser.uid,
+            titulo: titulo,
+            descricao: descricao,
+            data: dataHora,
+            realizada: false,
+            data_criacao: serverTimestamp()
+        });
+        
+        alert('Sessão criada com sucesso!');
+        fecharModalSessao();
+        await carregarSessoes();
+        
+    } catch (error) {
+        console.error('Erro ao criar sessão:', error);
+        alert('Erro ao criar sessão');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Iniciar sessão
+window.iniciarSessao = function(sessaoId) {
+    window.location.href = `mesa-jogo.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
+}
+
+// Salvar configurações
+window.salvarConfiguracoes = async function() {
+    showLoading();
+    
+    try {
+        const docRef = doc(db, "campanhas", campanhaAtual.docId);
+        await updateDoc(docRef, {
+            status: selectStatus.value,
+            visibilidade: selectVisibilidade.value
+        });
+        
+        campanhaAtual.status = selectStatus.value;
+        campanhaAtual.visibilidade = selectVisibilidade.value;
+        
+        atualizarInterface();
+        alert('Configurações salvas!');
+        
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        alert('Erro ao salvar configurações');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Excluir campanha
+window.excluirCampanha = async function() {
+    if (!confirm('Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita!')) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        await deleteDoc(doc(db, "campanhas", campanhaAtual.docId));
+        alert('Campanha excluída!');
+        window.location.href = 'campanha-gm.html';
+    } catch (error) {
+        console.error('Erro ao excluir:', error);
+        alert('Erro ao excluir campanha');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Mudar aba
+window.mudarAba = function(aba) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    document.querySelectorAll('.aba-conteudo').forEach(conteudo => {
+        conteudo.style.display = 'none';
     });
+    
+    document.getElementById(`aba-${aba}`).style.display = 'block';
+}
+
+// Sair
+btnSair.addEventListener('click', async () => {
+    await signOut(auth);
+    window.location.href = 'index.html';
+});
+
+// Verificar login
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        showLoading();
+        
+        try {
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                userData = docSnap.data();
+                displayIdGm.textContent = userData.id_gm || '---';
+                
+                if (!userData.id_gm) {
+                    alert('Área exclusiva para Mestres!');
+                    window.location.href = 'dashboard-pc.html';
+                    return;
+                }
+                
+                await carregarCampanha();
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+        } finally {
+            hideLoading();
+        }
+    } else {
+        window.location.href = 'index.html';
+    }
+});
 </script>
 </body>
 </html> 
