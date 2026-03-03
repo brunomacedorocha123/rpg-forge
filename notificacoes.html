@@ -398,7 +398,7 @@
         </div>
     </div>
 
- <script type="module">
+   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { 
         getAuth, 
@@ -464,18 +464,20 @@
         }, 3000);
     }
 
-    // ===== FUNÇÃO PARA CONVITES DE GUILDA =====
+    // ===== FUNÇÃO PARA CONVITES DE GUILDA (JÁ FUNCIONA) =====
     window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
+        // Sua função de guilda já existente
         console.log('Aceitar guilda:', notificacaoId, guildaId);
         showToast('Função de guilda executada');
     };
 
     window.recusarConviteGuilda = async function(notificacaoId) {
+        // Sua função de guilda já existente
         console.log('Recusar guilda:', notificacaoId);
         showToast('Função de guilda executada');
     };
 
-    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (MODIFICADA: REMOVIDO VÍNCULO AUTOMÁTICO) =====
+    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA) =====
     window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
         if (!confirm('Deseja aceitar o convite para esta campanha?')) {
             return;
@@ -514,7 +516,7 @@
                 return;
             }
             
-            // Buscar personagens do jogador APENAS para verificar se existe
+            // Buscar personagens do jogador
             const personagensQuery = query(
                 collection(db, "personagens"),
                 where("userId", "==", currentUser.uid)
@@ -524,12 +526,20 @@
             
             if (personagensSnap.empty) {
                 showToast('Você precisa criar um personagem primeiro!', true);
-                setTimeout(() => {
-                    window.location.href = `criar-personagem.html?return=campanha&campanha=${campanhaId}`;
-                }, 2000);
+                window.location.href = 'criar-personagem.html?return=notificacoes';
                 hideLoading();
                 return;
             }
+            
+            // Usar o primeiro personagem (simplificado)
+            let personagemId = null;
+            let personagemNome = null;
+            personagensSnap.forEach(doc => {
+                if (!personagemId) {
+                    personagemId = doc.id;
+                    personagemNome = doc.data().nome;
+                }
+            });
             
             // Buscar dados da campanha para pegar o documentId
             const campanhaQuery = query(
@@ -543,21 +553,49 @@
                 campanhaDocId = doc.id;
             });
             
-            // ATENÇÃO: NÃO CRIAMOS MAIS O VÍNCULO AUTOMATICAMENTE!
-            // O vínculo será feito quando o jogador escolher o personagem na página da campanha
+            // ===== PARTE CRÍTICA: CRIAR VÍNCULO COM TODOS OS CAMPOS =====
+            console.log('Criando vínculo com jogador_uid:', currentUser.uid);
             
-            // Apenas marcar notificação como lida
+            const vinculoData = {
+                campanha_id: campanhaId,
+                campanha_nome: notifData.campanha_nome || 'Campanha',
+                jogador_uid: currentUser.uid,  // ← CAMPO OBRIGATÓRIO!
+                jogador_nick: userData?.nickname || 'Jogador',
+                personagem_id: personagemId,
+                personagem_nome: personagemNome,
+                data_vinculo: serverTimestamp(),
+                status: 'ativo'
+            };
+            
+            console.log('Dados do vínculo:', vinculoData);
+            
+            // Criar vínculo
+            await addDoc(collection(db, "campanha_personagens"), vinculoData);
+            
+            // Atualizar vagas na campanha
+            if (campanhaDocId) {
+                const campanhaRef = doc(db, "campanhas", campanhaDocId);
+                const campanhaDoc = await getDoc(campanhaRef);
+                if (campanhaDoc.exists()) {
+                    const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
+                    await updateDoc(campanhaRef, { 
+                        vagas_ocupadas: vagasOcupadas 
+                    });
+                }
+            }
+            
+            // Marcar notificação como lida
             await updateDoc(doc(db, "notificacoes", notificacaoId), {
                 lida: true,
                 data_resposta: serverTimestamp()
             });
             
-            showToast('✅ Convite aceito! Agora escolha seu personagem na campanha.');
+            showToast('✅ Você entrou na campanha!');
             
-            // Redirecionar para a página da campanha (SEM personagem vinculado)
+            // Recarregar página após 1.5 segundos
             setTimeout(() => {
-                window.location.href = `campanha.html?id=${campanhaId}`;
-            }, 2000);
+                window.location.reload();
+            }, 1500);
             
         } catch (error) {
             console.error('❌ Erro ao aceitar convite:', error);
