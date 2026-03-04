@@ -1366,10 +1366,9 @@ const btnSair = document.getElementById('btnSair');
 const modalGanharEsfera = document.getElementById('modalGanharEsfera');
 const fecharModalEsfera = document.getElementById('fecharModalEsfera');
 const linkCampanha = document.getElementById('linkCampanha');
-const textoVoltar = document.getElementById('textoVoltar');
 
 // ============================================
-// TABELA DE XP CORRETA
+// TABELA DE XP
 // ============================================
 function getXpProximoNivel(nivelAtual) {
     const tabela = {
@@ -1466,25 +1465,18 @@ function showToast(msg, erro = false) {
 
 function getParametrosUrl() {
     const urlParams = new URLSearchParams(window.location.search);
-    personagemId = urlParams.get('id') || urlParams.get('personagemId');
+    
+    personagemId = urlParams.get('personagemId') || urlParams.get('id');
     modoVisualizacao = urlParams.get('modo') || 'pc';
     campanhaId = urlParams.get('campanhaId');
     jogadorUid = urlParams.get('jogadorUid');
-    
-    console.log('📌 Modo de visualização:', modoVisualizacao);
-    console.log('📌 Personagem ID:', personagemId);
-    console.log('📌 Campanha ID:', campanhaId);
-    console.log('📌 Jogador UID:', jogadorUid);
 }
 
 // ============================================
 // CONFIGURAR INTERFACE POR MODO
 // ============================================
 function configurarInterfacePorModo() {
-    console.log('🔧 Configurando modo:', modoVisualizacao);
-    
     if (modoVisualizacao === 'gm') {
-        // Criar badge de GM se não existir
         let badgeGm = document.getElementById('gmBadge');
         if (!badgeGm) {
             const header = document.querySelector('.personagem-header .personagem-info h1');
@@ -1506,15 +1498,11 @@ function configurarInterfacePorModo() {
             }
         }
         
-        // Configurar link de voltar
         if (linkCampanha && campanhaId) {
             linkCampanha.href = `gerenciar-campanha.html?id=${campanhaId}`;
-        }
-        if (textoVoltar) {
-            textoVoltar.textContent = 'Voltar à Campanha';
+            linkCampanha.innerHTML = '<i class="fas fa-arrow-left"></i> Voltar à Campanha';
         }
         
-        // Desabilitar TODOS os botões de interação
         document.querySelectorAll('button').forEach(btn => {
             const btnText = btn.textContent || '';
             if (!btnText.includes('Sair') && 
@@ -1528,36 +1516,27 @@ function configurarInterfacePorModo() {
             }
         });
         
-        // Desabilitar cliques em atributos
         document.querySelectorAll('.atributo-item').forEach(el => {
             el.style.cursor = 'default';
             el.onclick = null;
         });
         
-        // Desabilitar cliques em magias
         document.querySelectorAll('.magia-card').forEach(el => {
             el.style.cursor = 'default';
             el.onclick = null;
         });
         
-        // Remover todos os eventos de clique dos botões de recurso
         document.querySelectorAll('.btn-recurso, .btn-xp, .btn-pericia, .btn-item').forEach(el => {
             el.onclick = null;
         });
         
-        console.log('✅ Modo GM configurado - todos os botões desabilitados');
-        
     } else {
-        // Modo PC - remover badge se existir
         const badgeGm = document.getElementById('gmBadge');
         if (badgeGm) badgeGm.remove();
         
-        // Configurar link de voltar normal
         if (linkCampanha) {
             linkCampanha.href = 'campanhas.html';
-        }
-        if (textoVoltar) {
-            textoVoltar.textContent = 'Voltar às Campanhas';
+            linkCampanha.innerHTML = '<i class="fas fa-arrow-left"></i> Voltar às Campanhas';
         }
     }
 }
@@ -1794,30 +1773,25 @@ async function carregarPersonagem() {
             ...personagemSnap.data()
         };
 
-        // VERIFICAÇÕES DE PERMISSÃO
         if (modoVisualizacao === 'pc') {
-            // Modo PC: só o dono pode ver
             if (personagemAtual.userId !== currentUser?.uid) {
                 showToast('Você não tem permissão para ver este personagem!', true);
                 setTimeout(() => window.location.href = 'campanhas.html', 2000);
                 return;
             }
         } else if (modoVisualizacao === 'gm') {
-            // Modo GM: verificar se é realmente o GM da campanha
             if (!campanhaId || !jogadorUid) {
                 showToast('Parâmetros de campanha não encontrados!', true);
                 setTimeout(() => window.location.href = 'campanha-gm.html', 2000);
                 return;
             }
             
-            // Verificar se o personagem pertence ao jogador correto
             if (personagemAtual.userId !== jogadorUid) {
                 showToast('Este personagem não pertence ao jogador especificado!', true);
                 setTimeout(() => window.location.href = `gerenciar-campanha.html?id=${campanhaId}`, 2000);
                 return;
             }
             
-            // Verificar se o usuário atual é o GM da campanha
             const campanhaQuery = query(
                 collection(db, "campanhas"),
                 where("id", "==", campanhaId)
@@ -1845,7 +1819,6 @@ async function carregarPersonagem() {
             }
         }
 
-        // Buscar vínculo com campanha (se existir)
         if (!campanhaAtual) {
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
@@ -1873,7 +1846,6 @@ async function carregarPersonagem() {
             }
         }
         
-        // Calcular nível baseado nas esferas
         const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
                             (personagemAtual.atributos?.dx?.esferas || 0) +
                             (personagemAtual.atributos?.iq?.esferas || 0) +
@@ -1887,13 +1859,10 @@ async function carregarPersonagem() {
             if (modoVisualizacao === 'pc') {
                 try {
                     await updateDoc(personagemRef, { nivel: nivelCalculado });
-                } catch (e) {
-                    console.log('Erro ao atualizar nível:', e);
-                }
+                } catch (e) {}
             }
         }
         
-        // Inicializar status de combate se necessário
         if (!personagemAtual.statusCombate) {
             personagemAtual.statusCombate = {
                 vidaAtual: personagemAtual.vidaMax || 0,
@@ -1905,17 +1874,13 @@ async function carregarPersonagem() {
             };
         }
         
-        // Configurar interface baseado no modo
         configurarInterfacePorModo();
-        
-        // Renderizar ficha
         await renderizarFicha();
         
         showToast(modoVisualizacao === 'gm' ? '👁️ Visualizando como Mestre' : '✅ Ficha carregada');
         
     } catch (error) {
-        console.error('Erro:', error);
-        showToast('Erro ao carregar personagem: ' + error.message, true);
+        showToast('Erro ao carregar personagem', true);
     } finally {
         hideLoading();
     }
@@ -2192,7 +2157,7 @@ function renderizarMagias() {
 }
 
 // ============================================
-// FUNÇÕES DE AÇÃO (APENAS PARA PC)
+// FUNÇÕES DE AÇÃO
 // ============================================
 window.alterarXP = async function(valor) {
     if (modoVisualizacao !== 'pc') return;
@@ -2214,7 +2179,6 @@ window.alterarXP = async function(valor) {
             modalGanharEsfera.classList.add('active');
             showToast('🎉 Ganhou 1 esfera! Escolha onde gastar.');
         } catch (error) {
-            console.error('Erro:', error);
             showToast('Erro ao ganhar esfera', true);
             esferaPendente = false;
         }
@@ -2224,7 +2188,6 @@ window.alterarXP = async function(valor) {
             await updateDoc(personagemRef, { xpAtual: novoXP });
             personagemAtual.xpAtual = novoXP;
         } catch (error) {
-            console.error('Erro:', error);
             showToast('Erro ao alterar XP', true);
         }
     }
@@ -2258,7 +2221,6 @@ window.gastarEsfera = async function(atributo) {
         showToast(`✅ Esfera gasta em ${atributo.toUpperCase()}!`);
         
     } catch (error) {
-        console.error('Erro ao gastar esfera:', error);
         showToast('Erro ao gastar esfera', true);
     }
 };
@@ -2319,7 +2281,6 @@ window.alterarRecurso = async function(tipo, valor) {
         showToast(`${tipo.toUpperCase()} alterado!`);
         
     } catch (error) {
-        console.error('Erro:', error);
         showToast('Erro ao alterar recurso', true);
     }
 };
@@ -2341,7 +2302,6 @@ window.alterarDinheiro = async function(valor) {
         showToast('Dinheiro alterado!');
         
     } catch (error) {
-        console.error('Erro:', error);
         showToast('Erro ao alterar dinheiro', true);
     }
 };
@@ -2351,10 +2311,7 @@ async function atualizarInventarioNoFirestore() {
     try {
         const personagemRef = doc(db, "personagens", personagemAtual.id);
         await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
-    } catch (error) {
-        console.error('Erro ao atualizar inventário:', error);
-        showToast('Erro ao atualizar inventário', true);
-    }
+    } catch (error) {}
 }
 
 window.moverItem = async function(itemId, origem, destino) {
@@ -2427,7 +2384,6 @@ window.venderItem = async function(itemId, local) {
         showToast(`Item vendido por $${valorVenda}!`);
         
     } catch (error) {
-        console.error('Erro ao vender:', error);
         showToast('Erro ao vender', true);
     }
 };
@@ -2541,7 +2497,6 @@ document.getElementById('modalPericiaConfirmar').addEventListener('click', async
         showToast('Perícia atualizada!');
         
     } catch (error) {
-        console.error('Erro:', error);
         showToast('Erro ao atualizar perícia', true);
     }
 });
@@ -2613,13 +2568,12 @@ document.getElementById('modalMagiaComprar').addEventListener('click', async () 
         showToast('Magia evoluída!');
         
     } catch (error) {
-        console.error('Erro:', error);
         showToast('Erro ao evoluir magia', true);
     }
 });
 
 // ============================================
-// SOBRESCREVER FUNÇÕES DE AÇÃO NO MODO GM
+// SOBRESCREVER FUNÇÕES NO MODO GM
 // ============================================
 if (modoVisualizacao === 'gm') {
     const funcoesBloqueadas = [
@@ -2630,14 +2584,13 @@ if (modoVisualizacao === 'gm') {
     
     funcoesBloqueadas.forEach(nomeFuncao => {
         window[nomeFuncao] = function() {
-            console.log('🚫 Ação bloqueada - modo visualização GM');
             return false;
         };
     });
 }
 
 // ============================================
-// SAIR E INICIALIZAÇÃO
+// INICIALIZAÇÃO
 // ============================================
 btnSair.addEventListener('click', async () => {
     await signOut(auth);
