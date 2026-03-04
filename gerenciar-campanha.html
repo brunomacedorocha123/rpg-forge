@@ -1346,7 +1346,7 @@ window.enviarConvite = async function() {
     await addDoc(collection(db, "notificacoes"), {
       usuarioId: jogadorUid,
       tipo: "convite_campanha",
-      titulo: ` Convite: ${campanhaAtual.nome}`,
+      titulo: `📜 Convite: ${campanhaAtual.nome}`,
       mensagem: `Mestre ${userData?.nickname || 'Mestre'} convidou você para participar da campanha!`,
       campanha_id: campanhaAtual.id,
       campanha_nome: campanhaAtual.nome,
@@ -1457,12 +1457,12 @@ function atualizarInterface() {
 }
 
 
-// ===== FUNÇÃO CORRIGIDA PARA CARREGAR JOGADORES =====
+// ===== FUNÇÃO CORRIGIDA PARA CARREGAR JOGADORES COM CARD CLICÁVEL =====
 async function carregarJogadores() {
   if (!campanhaAtual) return;
   
   try {
-    console.log(' Buscando vínculos para campanha:', campanhaAtual.id);
+    console.log('🔍 Buscando vínculos para campanha:', campanhaAtual.id);
     
     // Buscar TODOS os vínculos
     const vinculosQuery = query(
@@ -1472,17 +1472,17 @@ async function carregarJogadores() {
     
     const vinculosSnap = await getDocs(vinculosQuery);
     
-    console.log(' Total de vínculos encontrados:', vinculosSnap.size);
+    console.log('📊 Total de vínculos encontrados:', vinculosSnap.size);
     
     // Array para armazenar os vínculos
     const vinculos = [];
     vinculosSnap.forEach(doc => {
       const data = doc.data();
-      console.log(' Vínculo encontrado:', { id: doc.id, ...data });
+      console.log('📄 Vínculo encontrado:', { id: doc.id, ...data });
       vinculos.push({ id: doc.id, ...data });
     });
     
-    // ATUALIZAR VAGAS - CORREÇÃO AQUI!
+    // ATUALIZAR VAGAS
     const totalJogadores = vinculos.length;
     statJogadores.textContent = totalJogadores;
     vagas.textContent = `${totalJogadores}/${campanhaAtual.vagas_max || 5}`;
@@ -1515,6 +1515,7 @@ async function carregarJogadores() {
         const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
         const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
         
+        // ===== CARD DO PERSONAGEM AGORA É CLICÁVEL =====
         html += `
           <div class="jogador-card">
             <div class="jogador-header">
@@ -1529,22 +1530,32 @@ async function carregarJogadores() {
                 </span>
               </div>
             </div>
-            <div class="personagem-card">
-              <div class="personagem-header">
-                <h5><i class="fas fa-dragon"></i> ${personagem?.nome || vinculo.personagem_nome || 'Sem nome'}</h5>
-                <span class="personagem-classe">${personagem?.classe || 'Desconhecida'}</span>
+            
+            <!-- LINK PARA DETALHES DO PERSONAGEM -->
+            <a href="gm-personagem-detalhe.html?personagemId=${vinculo.personagem_id}" 
+               style="text-decoration: none; color: inherit; display: block;">
+              <div class="personagem-card" style="cursor: pointer; transition: all 0.2s; border: 1px solid transparent;">
+                <div class="personagem-header">
+                  <h5><i class="fas fa-dragon"></i> ${personagem?.nome || vinculo.personagem_nome || 'Sem nome'}</h5>
+                  <span class="personagem-classe">${personagem?.classe || 'Desconhecida'}</span>
+                </div>
+                <div class="personagem-atributos">
+                  <span><i class="fas fa-fist-raised"></i> ST ${personagem?.atributos?.st?.esferas || 0}</span>
+                  <span><i class="fas fa-running"></i> DX ${personagem?.atributos?.dx?.esferas || 0}</span>
+                  <span><i class="fas fa-brain"></i> IQ ${personagem?.atributos?.iq?.esferas || 0}</span>
+                  <span><i class="fas fa-heart"></i> VG ${personagem?.atributos?.vigor?.esferas || 0}</span>
+                </div>
+                <div class="personagem-stats">
+                  <span><i class="fas fa-heartbeat"></i> Vida: ${personagem?.statusCombate?.vidaAtual || 0}/${personagem?.statusCombate?.vidaMax || 0}</span>
+                  <span><i class="fas fa-magic"></i> Mana: ${personagem?.statusCombate?.manaAtual || 0}/${personagem?.statusCombate?.manaMax || 0}</span>
+                </div>
+                
+                <!-- INDICADOR DE CLIQUE -->
+                <div style="text-align: right; margin-top: 8px; color: #c62828; font-size: 12px;">
+                  <i class="fas fa-external-link-alt"></i> Clique para ver detalhes
+                </div>
               </div>
-              <div class="personagem-atributos">
-                <span><i class="fas fa-fist-raised"></i> ST ${personagem?.atributos?.st?.esferas || 0}</span>
-                <span><i class="fas fa-running"></i> DX ${personagem?.atributos?.dx?.esferas || 0}</span>
-                <span><i class="fas fa-brain"></i> IQ ${personagem?.atributos?.iq?.esferas || 0}</span>
-                <span><i class="fas fa-heart"></i> VG ${personagem?.atributos?.vigor?.esferas || 0}</span>
-              </div>
-              <div class="personagem-stats">
-                <span><i class="fas fa-heartbeat"></i> Vida: ${personagem?.statusCombate?.vidaAtual || 0}/${personagem?.statusCombate?.vidaMax || 0}</span>
-                <span><i class="fas fa-magic"></i> Mana: ${personagem?.statusCombate?.manaAtual || 0}/${personagem?.statusCombate?.manaMax || 0}</span>
-              </div>
-            </div>
+            </a>
           </div>
         `;
       } catch (err) {
@@ -1564,12 +1575,36 @@ async function carregarJogadores() {
                 </span>
               </div>
             </div>
+            
+            <!-- LINK DE FALLBACK -->
+            <a href="gm-personagem-detalhe.html?personagemId=${vinculo.personagem_id}" 
+               style="text-decoration: none; color: inherit;">
+              <div class="personagem-card" style="cursor: pointer;">
+                <p style="text-align: center; color: #c62828; margin: 10px 0;">
+                  <i class="fas fa-external-link-alt"></i> Ver detalhes do personagem
+                </p>
+              </div>
+            </a>
           </div>
         `;
       }
     }
     
     jogadoresContainer.innerHTML = html;
+    
+    // Adicionar efeito hover via JavaScript (opcional)
+    document.querySelectorAll('.personagem-card').forEach(card => {
+      card.addEventListener('mouseenter', function() {
+        this.style.borderColor = '#c62828';
+        this.style.transform = 'translateY(-2px)';
+        this.style.boxShadow = '0 5px 15px rgba(198, 40, 40, 0.3)';
+      });
+      card.addEventListener('mouseleave', function() {
+        this.style.borderColor = 'transparent';
+        this.style.transform = 'translateY(0)';
+        this.style.boxShadow = 'none';
+      });
+    });
     
   } catch (error) {
     console.error('❌ Erro ao carregar jogadores:', error);
