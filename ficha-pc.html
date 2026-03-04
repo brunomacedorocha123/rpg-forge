@@ -1276,7 +1276,7 @@
     const db = getFirestore(app);
 
     // ============================================
-    // TABELA DE XP - CORRIGIDA
+    // TABELA DE XP - CORRETA
     // ============================================
     // XP necessário para subir DO nível ATUAL para o próximo
     function getXpProximoNivel(nivelAtual) {
@@ -1300,7 +1300,7 @@
         return 3000; // 61+
     }
 
-    // Calcula o XP total acumulado para atingir um determinado nível
+    // Calcula o XP ACUMULADO até chegar em determinado nível
     function getXpAcumuladoParaNivel(nivel) {
         if (nivel <= 1) return 0;
         
@@ -1732,7 +1732,7 @@
     }
 
     // ============================================
-    // RENDERIZAR FICHA
+    // RENDERIZAR FICHA (COM XP CORRIGIDO)
     // ============================================
     async function renderizarFicha() {
         if (!personagemAtual) return;
@@ -1779,15 +1779,28 @@
         document.getElementById('pmBarra').style.width = (pmAtual / pmMax) * 100 + '%';
         document.getElementById('pfBarra').style.width = (pfAtual / pfMax) * 100 + '%';
         
-        // XP - CORRIGIDO
+        // ===== XP CORRIGIDO =====
         const xpAtual = personagemAtual.xpAtual || 0;
         const nivelAtual = personagemAtual.nivel;
-        const xpNecessario = getXpProximoNivel(nivelAtual);
-        const xpAcumuladoAteAtual = getXpAcumuladoParaNivel(nivelAtual);
-        const xpNoNivelAtual = xpAtual - xpAcumuladoAteAtual;
-        const percentualXp = (xpNoNivelAtual / xpNecessario) * 100;
         
-        document.getElementById('xpTexto').textContent = `${xpAtual} / ${xpAcumuladoAteAtual + xpNecessario}`;
+        // XP necessário para subir do nível atual para o próximo
+        const xpNecessarioProximoNivel = getXpProximoNivel(nivelAtual);
+        
+        // XP acumulado até chegar no nível atual
+        const xpAcumuladoAteEsteNivel = getXpAcumuladoParaNivel(nivelAtual);
+        
+        // XP que o personagem tem DENTRO do nível atual (nunca negativo)
+        const xpNoNivelAtual = Math.max(0, xpAtual - xpAcumuladoAteEsteNivel);
+        
+        // XP total acumulado até o próximo nível
+        const xpTotalProximoNivel = xpAcumuladoAteEsteNivel + xpNecessarioProximoNivel;
+        
+        // Percentual da barra
+        const percentualXp = (xpNoNivelAtual / xpNecessarioProximoNivel) * 100;
+        
+        // Atualizar interface
+        document.getElementById('xpTexto').textContent = `${xpNoNivelAtual} / ${xpNecessarioProximoNivel}`;
+        
         const xpBarra = document.getElementById('xpBarra');
         xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
         xpBarra.textContent = Math.round(percentualXp) + '%';
@@ -1880,7 +1893,7 @@
         document.getElementById('periciasContainer').innerHTML = periciasHTML;
         document.getElementById('ppPericias').textContent = (personagemAtual.ppGasto || 0) + ' PP';
         
-        // Vantagens - CORRIGIDO (sem duplicatas)
+        // Vantagens - SEM DUPLICATAS
         const vantagensMap = new Map();
         (personagemAtual.vantagens || []).forEach(v => {
             vantagensMap.set(v, true);
@@ -1893,7 +1906,7 @@
         }).join('');
         document.getElementById('vantagensContainer').innerHTML = vantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
         
-        // Desvantagens - CORRIGIDO (sem duplicatas)
+        // Desvantagens - SEM DUPLICATAS
         const desvantagensMap = new Map();
         (personagemAtual.desvantagens || []).forEach(d => {
             desvantagensMap.set(d, true);
@@ -2181,7 +2194,7 @@
         if (index === -1) return;
         
         const item = localArray[index];
-                const valorVenda = Math.floor((item.preco || 0) * 0.5 * (item.quantidade || 1));
+        const valorVenda = Math.floor((item.preco || 0) * 0.5 * (item.quantidade || 1));
         
         if (item.quantidade > 1) {
             item.quantidade--;
