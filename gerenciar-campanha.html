@@ -1309,6 +1309,7 @@ function atualizarInterface() {
 }
 
 // ===== FUNÇÃO PARA CARREGAR JOGADORES COM CARDS CLICÁVEIS =====
+// ===== VERSÃO CORRIGIDA COM CAMPANHAID FORÇADO =====
 async function carregarJogadores() {
     if (!campanhaAtual) return;
     
@@ -1366,21 +1367,19 @@ async function carregarJogadores() {
                 const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
                 const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
 
-                // ===== NOVO: ADICIONAR CAMPANHAID AO PERSONAGEM =====
+                // ===== CORREÇÃO DEFINITIVA: FORÇAR CAMPANHAID NO PERSONAGEM =====
                 if (personagemDoc.exists()) {
-                    const personagemData = personagemDoc.data();
+                    console.log(`🔧 Verificando personagem ${vinculo.personagem_nome}: campanhaId =`, personagemDoc.data().campanhaId);
                     
-                    // Se o personagem NÃO TEM campanhaId, ADICIONA AGORA
-                    if (!personagemData.campanhaId) {
-                        try {
-                            await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
-                                campanhaId: campanhaAtual.id,
-                                campanhaNome: campanhaAtual.nome
-                            });
-                            console.log(`✅ campanhaId adicionado ao personagem ${vinculo.personagem_nome}`);
-                        } catch (error) {
-                            console.error('❌ Erro ao adicionar campanhaId:', error);
-                        }
+                    // SEMPRE atualizar o campanhaId, mesmo se já existir (para garantir)
+                    try {
+                        await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
+                            campanhaId: campanhaAtual.id,
+                            campanhaNome: campanhaAtual.nome
+                        });
+                        console.log(`✅ campanhaId FORÇADO no personagem ${vinculo.personagem_nome}`);
+                    } catch (error) {
+                        console.error('❌ Erro ao forçar campanhaId:', error);
                     }
                 }
                 
