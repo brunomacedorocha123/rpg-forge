@@ -1308,14 +1308,14 @@ function atualizarInterface() {
     selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
 }
 
-// ===== FUNÇÃO PARA CARREGAR JOGADORES COM CARDS CLICÁVEIS =====
+// ===== FUNÇÃO PARA CARREGAR TODOS OS JOGADORES DA CAMPANHA =====
 async function carregarJogadores() {
     if (!campanhaAtual) return;
     
     try {
         console.log('🔍 Buscando vínculos para campanha:', campanhaAtual.id);
         
-        // Buscar TODOS os vínculos
+        // Buscar TODOS os vínculos da campanha
         const vinculosQuery = query(
             collection(db, "campanha_personagens"),
             where("campanha_id", "==", campanhaAtual.id)
@@ -1350,7 +1350,7 @@ async function carregarJogadores() {
             return;
         }
         
-        // CONSTRUIR HTML
+        // CONSTRUIR HTML com cards para CADA jogador
         let html = '';
         
         for (const vinculo of vinculos) {
@@ -1366,11 +1366,11 @@ async function carregarJogadores() {
                 const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
                 const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
 
-                // ===== CORREÇÃO: FORÇAR CAMPANHAID NO PERSONAGEM =====
+                // ===== GARANTIR QUE O PERSONAGEM TEM CAMPANHAID =====
                 if (personagemDoc.exists()) {
                     const personagemData = personagemDoc.data();
                     
-                    // Se o personagem NÃO TEM campanhaId, ADICIONA AGORA
+                    // Se NÃO TEM campanhaId, ADICIONA AGORA
                     if (!personagemData.campanhaId) {
                         try {
                             await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
@@ -1384,9 +1384,9 @@ async function carregarJogadores() {
                     }
                 }
                 
-                // ===== URL CORRIGIDA: USA userId EM VEZ DE campanhaId E jogadorUid =====
-                // Isso faz o Firebase pensar que é o JOGADOR acessando a própria ficha
-                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&userId=${vinculo.jogador_uid}`;
+                // ===== URL PARA ABRIR A FICHA DESTE PERSONAGEM EM MODO GM =====
+                // Cada card tem sua própria URL com o ID do personagem e do jogador
+                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&jogadorUid=${vinculo.jogador_uid}&campanhaId=${campanhaAtual.id}`;
                 
                 html += `
                     <div class="jogador-card" style="cursor: pointer;" onclick="window.location.href='${urlFicha}'">
@@ -1423,7 +1423,7 @@ async function carregarJogadores() {
             } catch (err) {
                 console.warn('Erro ao carregar detalhes do jogador:', err);
                 // Fallback: mostrar só os dados do vínculo
-                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&userId=${vinculo.jogador_uid}`;
+                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&jogadorUid=${vinculo.jogador_uid}&campanhaId=${campanhaAtual.id}`;
                 
                 html += `
                     <div class="jogador-card" style="cursor: pointer;" onclick="window.location.href='${urlFicha}'">
