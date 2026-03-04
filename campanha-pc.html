@@ -1094,7 +1094,8 @@
         }
     }
 
-    // Vincular personagem à campanha
+    // ===== FUNÇÃO CORRIGIDA: VINCULAR PERSONAGEM =====
+    // PRIMEIRO atualiza o personagem, DEPOIS cria o vínculo
     window.vincularPersonagem = async function(personagemId, personagemNome) {
         if (!currentUser || !campanhaAtual) return;
         
@@ -1110,8 +1111,19 @@
         showLoading();
         
         try {
-            // 1. CRIAR O VÍNCULO
-            await addDoc(collection(db, "campanha_personagens"), {
+            console.log('🔗 Vinculando personagem:', personagemId, 'à campanha:', campanhaAtual.id);
+            
+            // 1. PRIMEIRO: Atualizar o PERSONAGEM com campanhaId
+            // Isso é CRÍTICO para o GM conseguir acessar depois
+            const personagemRef = doc(db, "personagens", personagemId);
+            await updateDoc(personagemRef, {
+                campanhaId: campanhaAtual.id,
+                campanhaNome: campanhaAtual.nome
+            });
+            console.log('✅ campanhaId adicionado ao personagem');
+            
+            // 2. SEGUNDO: Criar o VÍNCULO na coleção campanha_personagens
+            const vinculoRef = await addDoc(collection(db, "campanha_personagens"), {
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
                 jogador_uid: currentUser.uid,
@@ -1121,14 +1133,9 @@
                 data_vinculo: serverTimestamp(),
                 status: 'ativo'
             });
+            console.log('✅ Vínculo criado com ID:', vinculoRef.id);
             
-            // ===== NOVO: ADICIONAR CAMPANHAID NO PERSONAGEM =====
-            await updateDoc(doc(db, "personagens", personagemId), {
-                campanhaId: campanhaAtual.id,
-                campanhaNome: campanhaAtual.nome
-            });
-            
-            showToast('✅ Personagem vinculado!');
+            showToast('✅ Personagem vinculado com sucesso!');
             
             // ATUALIZAR VAGAS na interface
             await atualizarInterface();
@@ -1138,14 +1145,15 @@
             await carregarPersonagens();
             
         } catch (error) {
-            console.error('Erro ao vincular:', error);
-            showToast('Erro ao vincular', true);
+            console.error('❌ Erro ao vincular:', error);
+            showToast('Erro ao vincular: ' + error.message, true);
         } finally {
             hideLoading();
         }
     };
 
-    // DESVINCULAR personagem da campanha
+    // ===== FUNÇÃO CORRIGIDA: DESVINCULAR PERSONAGEM =====
+    // PRIMEIRO remove campanhaId do personagem, DEPOIS deleta o vínculo
     window.desvincularPersonagem = async function(personagemId, personagemNome) {
         if (!currentUser || !campanhaAtual || !vinculoAtual) {
             showToast('Nenhum personagem vinculado', true);
@@ -1159,15 +1167,20 @@
         showLoading();
         
         try {
-            // Deletar o vínculo
-            const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
-            await deleteDoc(vinculoRef);
+            console.log('🔗 Desvinculando personagem:', personagemId);
             
-            // ===== NOVO: REMOVER CAMPANHAID DO PERSONAGEM =====
-            await updateDoc(doc(db, "personagens", personagemId), {
+            // 1. PRIMEIRO: Remover campanhaId do PERSONAGEM
+            const personagemRef = doc(db, "personagens", personagemId);
+            await updateDoc(personagemRef, {
                 campanhaId: null,
                 campanhaNome: null
             });
+            console.log('✅ campanhaId removido do personagem');
+            
+            // 2. SEGUNDO: Deletar o vínculo
+            const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
+            await deleteDoc(vinculoRef);
+            console.log('✅ Vínculo deletado');
             
             // Limpar vínculo atual
             vinculoAtual = null;
@@ -1181,8 +1194,8 @@
             await carregarPersonagens();
             
         } catch (error) {
-            console.error('Erro ao desvincular:', error);
-            showToast('Erro ao desvincular', true);
+            console.error('❌ Erro ao desvincular:', error);
+            showToast('Erro ao desvincular: ' + error.message, true);
         } finally {
             hideLoading();
         }
