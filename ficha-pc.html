@@ -1746,7 +1746,7 @@ function calcularNHMagia(magiaId, nivel) {
 }
 
 // ============================================
-// CARREGAR PERSONAGEM
+// CARREGAR PERSONAGEM - CORRIGIDO PARA NOVAS REGRAS
 // ============================================
 async function carregarPersonagem() {
     if (!personagemId) {
@@ -1772,26 +1772,50 @@ async function carregarPersonagem() {
             ...personagemSnap.data()
         };
 
-        // VERIFICAÇÕES DE PERMISSÃO - AGORA USANDO O VÍNCULO CORRETAMENTE
+        // ============================================================
+        // VERIFICAÇÃO DE PERMISSÃO SIMPLIFICADA - FUNCIONA COM NOVAS REGRAS
+        // ============================================================
+        
         if (modoVisualizacao === 'pc') {
+            // MODO JOGADOR: Apenas dono pode ver
             if (personagemAtual.userId !== currentUser?.uid) {
                 showToast('Você não tem permissão para ver este personagem!', true);
                 setTimeout(() => window.location.href = 'campanhas.html', 2000);
                 return;
             }
-        } else if (modoVisualizacao === 'gm') {
-            if (!campanhaId || !jogadorUid) {
-                showToast('Parâmetros de campanha não encontrados!', true);
+        } 
+        else if (modoVisualizacao === 'gm') {
+            // MODO GM: Verificar se é GM da campanha onde personagem está
+            if (!campanhaId) {
+                showToast('ID da campanha não fornecido!', true);
                 setTimeout(() => window.location.href = 'campanha-gm.html', 2000);
                 return;
             }
             
-            if (personagemAtual.userId !== jogadorUid) {
-                showToast('Este personagem não pertence ao jogador especificado!', true);
-                setTimeout(() => window.location.href = `gerenciar-campanha.html?id=${campanhaId}`, 2000);
-                return;
+            // Verificar se personagem tem campanhaId e se bate com o da URL
+            if (!personagemAtual.campanhaId || personagemAtual.campanhaId !== campanhaId) {
+                // Personagem ainda não foi vinculado corretamente - tentar buscar vínculo
+                console.log('⚠️ Personagem sem campanhaId ou ID diferente, verificando vínculo...');
+                
+                const vinculosQuery = query(
+                    collection(db, "campanha_personagens"),
+                    where("personagem_id", "==", personagemId),
+                    where("campanha_id", "==", campanhaId)
+                );
+                
+                const vinculosSnap = await getDocs(vinculosQuery);
+                
+                if (vinculosSnap.empty) {
+                    showToast('Este personagem não está vinculado a esta campanha!', true);
+                    setTimeout(() => window.location.href = `gerenciar-campanha.html?id=${campanhaId}`, 2000);
+                    return;
+                }
+                
+                // Atualizar personagem com campanhaId se necessário (será feito pelo gerenciar-campanha.html)
+                // Aqui apenas verificamos se o vínculo existe
             }
             
+            // Verificar se usuário atual é GM da campanha
             const campanhaQuery = query(
                 collection(db, "campanhas"),
                 where("id", "==", campanhaId)
@@ -1819,33 +1843,23 @@ async function carregarPersonagem() {
             }
         }
 
-        if (!campanhaAtual) {
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("personagem_id", "==", personagemId)
+        // Buscar dados da campanha se não tiver (para breadcrumb)
+        if (!campanhaAtual && personagemAtual.campanhaId) {
+            const campanhasQuery = query(
+                collection(db, "campanhas"),
+                where("id", "==", personagemAtual.campanhaId)
             );
+            const campanhasSnap = await getDocs(campanhasQuery);
             
-            const vinculosSnap = await getDocs(vinculosQuery);
-            
-            if (!vinculosSnap.empty) {
-                const vinculo = vinculosSnap.docs[0].data();
-                
-                const campanhasQuery = query(
-                    collection(db, "campanhas"),
-                    where("id", "==", vinculo.campanha_id)
-                );
-                
-                const campanhasSnap = await getDocs(campanhasQuery);
-                
-                if (!campanhasSnap.empty) {
-                    campanhaAtual = {
-                        docId: campanhasSnap.docs[0].id,
-                        ...campanhasSnap.docs[0].data()
-                    };
-                }
+            if (!campanhasSnap.empty) {
+                campanhaAtual = {
+                    docId: campanhasSnap.docs[0].id,
+                    ...campanhasSnap.docs[0].data()
+                };
             }
         }
         
+        // Calcular nível baseado em esferas
         const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
                             (personagemAtual.atributos?.dx?.esferas || 0) +
                             (personagemAtual.atributos?.iq?.esferas || 0) +
@@ -1856,6 +1870,7 @@ async function carregarPersonagem() {
         
         if (personagemAtual.nivel !== nivelCalculado) {
             personagemAtual.nivel = nivelCalculado;
+            // Apenas dono pode atualizar nível no Firestore
             if (modoVisualizacao === 'pc') {
                 try {
                     await updateDoc(personagemRef, { nivel: nivelCalculado });
@@ -1863,14 +1878,15 @@ async function carregarPersonagem() {
             }
         }
         
+        // Inicializar statusCombate se não existir
         if (!personagemAtual.statusCombate) {
             personagemAtual.statusCombate = {
-                vidaAtual: personagemAtual.vidaMax || 0,
-                vidaMax: personagemAtual.vidaMax || 0,
-                manaAtual: personagemAtual.manaMax || 0,
-                manaMax: personagemAtual.manaMax || 0,
-                fadigaAtual: personagemAtual.fadigaMax || 0,
-                fadigaMax: personagemAtual.fadigaMax || 0
+                vidaAtual: personagemAtual.vidaMax || calcularPV(),
+                vidaMax: personagemAtual.vidaMax || calcularPV(),
+                manaAtual: personagemAtual.manaMax || calcularPM(),
+                manaMax: personagemAtual.manaMax || calcularPM(),
+                fadigaAtual: personagemAtual.fadigaMax || calcularPF(),
+                fadigaMax: personagemAtual.fadigaMax || calcularPF()
             };
         }
         
@@ -1880,7 +1896,8 @@ async function carregarPersonagem() {
         showToast(modoVisualizacao === 'gm' ? '👁️ Visualizando como Mestre' : '✅ Ficha carregada');
         
     } catch (error) {
-        showToast('Erro ao carregar personagem', true);
+        console.error('❌ Erro ao carregar personagem:', error);
+        showToast('Erro ao carregar personagem: ' + error.message, true);
     } finally {
         hideLoading();
     }
@@ -1895,6 +1912,14 @@ async function renderizarFicha() {
     document.getElementById('personagemNome').textContent = personagemAtual.nome || 'Sem nome';
     document.getElementById('personagemClasse').textContent = personagemAtual.classe || 'Sem classe';
     document.getElementById('breadcrumbPersonagem').textContent = personagemAtual.nome || 'Ficha';
+    
+    // Atualizar breadcrumb da campanha se tiver
+    if (campanhaAtual) {
+        document.getElementById('breadcrumbCampanha').textContent = campanhaAtual.nome;
+        document.getElementById('breadcrumbCampanha').href = modoVisualizacao === 'gm' 
+            ? `gerenciar-campanha.html?id=${campanhaAtual.id}`
+            : 'campanha-pc.html';
+    }
     
     if (personagemAtual.fotoURL) {
         document.getElementById('personagemFoto').style.backgroundImage = `url('${personagemAtual.fotoURL}')`;

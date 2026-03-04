@@ -1366,20 +1366,28 @@ async function carregarJogadores() {
                 const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
                 const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
 
-                // ===== GARANTIR QUE O PERSONAGEM TEM CAMPANHAID =====
+                // ===== GARANTIR QUE O PERSONAGEM TEM CAMPANHAID E CAMPANHANOME =====
                 if (personagemDoc.exists()) {
                     const personagemData = personagemDoc.data();
+                    const atualizacoes = {};
                     
-                    // Se NÃO TEM campanhaId, ADICIONA AGORA
+                    // Se NÃO TEM campanhaId, ADICIONA
                     if (!personagemData.campanhaId) {
+                        atualizacoes.campanhaId = campanhaAtual.id;
+                    }
+                    
+                    // Se NÃO TEM campanhaNome, ADICIONA
+                    if (!personagemData.campanhaNome) {
+                        atualizacoes.campanhaNome = campanhaAtual.nome;
+                    }
+                    
+                    // Se precisa atualizar algum campo
+                    if (Object.keys(atualizacoes).length > 0) {
                         try {
-                            await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
-                                campanhaId: campanhaAtual.id,
-                                campanhaNome: campanhaAtual.nome
-                            });
-                            console.log(`✅ campanhaId adicionado ao personagem ${vinculo.personagem_nome}`);
+                            await updateDoc(doc(db, "personagens", vinculo.personagem_id), atualizacoes);
+                            console.log(`✅ Personagem ${vinculo.personagem_nome} atualizado:`, atualizacoes);
                         } catch (error) {
-                            console.error('❌ Erro ao adicionar campanhaId:', error);
+                            console.error('❌ Erro ao atualizar personagem:', error);
                         }
                     }
                 }
