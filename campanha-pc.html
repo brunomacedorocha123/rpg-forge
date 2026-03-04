@@ -770,548 +770,494 @@
     </div>
 
    <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import { 
-        getAuth, 
-        signOut,
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-    import { 
-        getFirestore, 
-        doc,
-        getDoc,
-        collection,
-        query,
-        where,
-        getDocs,
-        addDoc,
-        deleteDoc,
-        updateDoc,
-        serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { 
+    getAuth, 
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    addDoc,
+    deleteDoc,
+    updateDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-        authDomain: "rpgforce-e3227.firebaseapp.com",
-        projectId: "rpgforce-e3227",
-        storageBucket: "rpgforce-e3227.firebasestorage.app",
-        messagingSenderId: "984517342332",
-        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+    authDomain: "rpgforce-e3227.firebaseapp.com",
+    projectId: "rpgforce-e3227",
+    storageBucket: "rpgforce-e3227.firebasestorage.app",
+    messagingSenderId: "984517342332",
+    appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    // Elementos do DOM
-    const displayIdPc = document.getElementById('displayIdPc');
-    const btnSair = document.getElementById('btnSair');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const toast = document.getElementById('toastNotification');
-    const toastMessage = document.getElementById('toastMessage');
+// Elementos do DOM
+const displayIdPc = document.getElementById('displayIdPc');
+const btnSair = document.getElementById('btnSair');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const toast = document.getElementById('toastNotification');
+const toastMessage = document.getElementById('toastMessage');
+const campanhaTitulo = document.getElementById('campanhaTitulo');
+const campanhaDescricao = document.getElementById('campanhaDescricao');
+const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
+const campanhaStatus = document.getElementById('campanhaStatus');
+const vagas = document.getElementById('vagas');
+const nivelMin = document.getElementById('nivelMin');
+const nivelMax = document.getElementById('nivelMax');
+const diasHorarios = document.getElementById('diasHorarios');
+const resumoMundo = document.getElementById('resumoMundo');
+const regrasCasa = document.getElementById('regrasCasa');
+const personagensContainer = document.getElementById('personagensContainer');
+const sessoesContainer = document.getElementById('sessoesContainer');
+
+let currentUser = null;
+let userData = null;
+let campanhaAtual = null;
+let campanhaId = null;
+let vinculoAtual = null;
+
+function showLoading() {
+    loadingOverlay.classList.add('active');
+}
+
+function hideLoading() {
+    loadingOverlay.classList.remove('active');
+}
+
+function showToast(message, isError = false) {
+    toastMessage.textContent = message;
+    toast.style.background = isError 
+        ? 'linear-gradient(135deg, #ff6b6b, #ff4444)' 
+        : 'linear-gradient(135deg, #ffd700, #ff6b6b)';
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+function getCampanhaIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('id');
+}
+
+// ===== FUNÇÃO PARA BUSCAR VAGAS REAIS =====
+async function buscarVagasReais() {
+    if (!campanhaAtual) return 0;
     
-    const campanhaTitulo = document.getElementById('campanhaTitulo');
-    const campanhaDescricao = document.getElementById('campanhaDescricao');
-    const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
-    const campanhaStatus = document.getElementById('campanhaStatus');
-    const vagas = document.getElementById('vagas');
-    const nivelMin = document.getElementById('nivelMin');
-    const nivelMax = document.getElementById('nivelMax');
-    const diasHorarios = document.getElementById('diasHorarios');
-    const resumoMundo = document.getElementById('resumoMundo');
-    const regrasCasa = document.getElementById('regrasCasa');
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaAtual.id)
+        );
+        const vinculosSnap = await getDocs(vinculosQuery);
+        return vinculosSnap.size;
+    } catch (error) {
+        return campanhaAtual.vagas_ocupadas || 0;
+    }
+}
+
+// Carregar campanha
+async function carregarCampanha() {
+    campanhaId = getCampanhaIdFromUrl();
     
-    const personagensContainer = document.getElementById('personagensContainer');
-    const sessoesContainer = document.getElementById('sessoesContainer');
-
-    let currentUser = null;
-    let userData = null;
-    let campanhaAtual = null;
-    let campanhaId = null;
-    let vinculoAtual = null;
-
-    function showLoading() {
-        loadingOverlay.classList.add('active');
+    if (!campanhaId) {
+        showToast('ID da campanha não encontrado!', true);
+        setTimeout(() => window.location.href = 'campanhas.html', 2000);
+        return;
     }
 
-    function hideLoading() {
-        loadingOverlay.classList.remove('active');
-    }
-
-    function showToast(message, isError = false) {
-        toastMessage.textContent = message;
-        toast.style.background = isError 
-            ? 'linear-gradient(135deg, #ff6b6b, #ff4444)' 
-            : 'linear-gradient(135deg, #ffd700, #ff6b6b)';
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
-    }
-
-    function getCampanhaIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id');
-    }
-
-    // ===== FUNÇÃO PARA BUSCAR VAGAS REAIS =====
-    async function buscarVagasReais() {
-        if (!campanhaAtual) return 0;
+    showLoading();
+    
+    try {
+        const q = query(collection(db, "campanhas"), where("id", "==", campanhaId));
+        const querySnapshot = await getDocs(q);
         
-        try {
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("campanha_id", "==", campanhaAtual.id)
-            );
-            
-            const vinculosSnap = await getDocs(vinculosQuery);
-            return vinculosSnap.size;
-        } catch (error) {
-            console.error('Erro ao buscar vagas reais:', error);
-            return campanhaAtual.vagas_ocupadas || 0;
-        }
-    }
-
-    // Carregar campanha
-    async function carregarCampanha() {
-        campanhaId = getCampanhaIdFromUrl();
-        
-        if (!campanhaId) {
-            showToast('ID da campanha não encontrado!', true);
+        if (querySnapshot.empty) {
+            showToast('Campanha não encontrada!', true);
             setTimeout(() => window.location.href = 'campanhas.html', 2000);
             return;
         }
-
-        showLoading();
         
-        try {
-            const q = query(
-                collection(db, "campanhas"),
-                where("id", "==", campanhaId)
-            );
-            
-            const querySnapshot = await getDocs(q);
-            
-            if (querySnapshot.empty) {
-                showToast('Campanha não encontrada!', true);
-                setTimeout(() => window.location.href = 'campanhas.html', 2000);
-                return;
-            }
-            
-            querySnapshot.forEach((doc) => {
-                campanhaAtual = {
-                    docId: doc.id,
+        querySnapshot.forEach((doc) => {
+            campanhaAtual = {
+                docId: doc.id,
+                ...doc.data()
+            };
+        });
+        
+        await atualizarInterface();
+        await carregarVinculoAtual();
+        await carregarPersonagens();
+        await carregarSessoes();
+        
+    } catch (error) {
+        showToast('Erro ao carregar campanha', true);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Atualizar interface
+async function atualizarInterface() {
+    if (!campanhaAtual) return;
+    
+    campanhaTitulo.textContent = campanhaAtual.nome || 'Sem nome';
+    campanhaNomeBreadcrumb.textContent = campanhaAtual.nome || 'Campanha';
+    campanhaDescricao.textContent = campanhaAtual.descricao_curta || 'Sem descrição';
+    
+    const statusClass = campanhaAtual.status === 'aberto' ? 'status-aberto' :
+                       campanhaAtual.status === 'andamento' ? 'status-andamento' :
+                       campanhaAtual.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
+    
+    const statusText = campanhaAtual.status === 'aberto' ? 'Aberto' :
+                      campanhaAtual.status === 'andamento' ? 'Em Andamento' :
+                      campanhaAtual.status === 'fechado' ? 'Fechado' : 'Encerrado';
+    
+    campanhaStatus.className = `campanha-status ${statusClass}`;
+    campanhaStatus.textContent = statusText;
+    
+    const vagasReais = await buscarVagasReais();
+    vagas.textContent = `${vagasReais}/${campanhaAtual.vagas_max || 5}`;
+    
+    nivelMin.textContent = campanhaAtual.nivel_min || 1;
+    nivelMax.textContent = campanhaAtual.nivel_max || 5;
+    diasHorarios.textContent = campanhaAtual.dias_horarios || 'Não definido';
+    resumoMundo.textContent = campanhaAtual.resumo_mundo || 'Sem resumo';
+    regrasCasa.textContent = campanhaAtual.regras_casa || 'Nenhuma regra definida.';
+    
+    if (campanhaAtual.imagem_capa) {
+        const capa = document.getElementById('campanhaCapa');
+        capa.style.backgroundImage = `url('${campanhaAtual.imagem_capa}')`;
+        capa.innerHTML = '';
+    }
+}
+
+// Carregar vínculo atual
+async function carregarVinculoAtual() {
+    if (!currentUser || !campanhaAtual) return;
+    
+    try {
+        const q = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaAtual.id),
+            where("jogador_uid", "==", currentUser.uid)
+        );
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+            snapshot.forEach(doc => {
+                vinculoAtual = {
+                    id: doc.id,
                     ...doc.data()
                 };
             });
-            
-            await atualizarInterface();
-            await carregarVinculoAtual();
-            await carregarPersonagens();
-            await carregarSessoes();
-            
-        } catch (error) {
-            console.error('Erro:', error);
-            showToast('Erro ao carregar campanha', true);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Atualizar interface com dados REAIS das vagas
-    async function atualizarInterface() {
-        if (!campanhaAtual) return;
-        
-        campanhaTitulo.textContent = campanhaAtual.nome || 'Sem nome';
-        campanhaNomeBreadcrumb.textContent = campanhaAtual.nome || 'Campanha';
-        campanhaDescricao.textContent = campanhaAtual.descricao_curta || 'Sem descrição';
-        
-        const statusClass = campanhaAtual.status === 'aberto' ? 'status-aberto' :
-                           campanhaAtual.status === 'andamento' ? 'status-andamento' :
-                           campanhaAtual.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
-        
-        const statusText = campanhaAtual.status === 'aberto' ? 'Aberto' :
-                          campanhaAtual.status === 'andamento' ? 'Em Andamento' :
-                          campanhaAtual.status === 'fechado' ? 'Fechado' : 'Encerrado';
-        
-        campanhaStatus.className = `campanha-status ${statusClass}`;
-        campanhaStatus.textContent = statusText;
-        
-        // BUSCAR VAGAS REAIS
-        const vagasReais = await buscarVagasReais();
-        vagas.textContent = `${vagasReais}/${campanhaAtual.vagas_max || 5}`;
-        
-        nivelMin.textContent = campanhaAtual.nivel_min || 1;
-        nivelMax.textContent = campanhaAtual.nivel_max || 5;
-        diasHorarios.textContent = campanhaAtual.dias_horarios || 'Não definido';
-        resumoMundo.textContent = campanhaAtual.resumo_mundo || 'Sem resumo';
-        regrasCasa.textContent = campanhaAtual.regras_casa || 'Nenhuma regra definida.';
-        
-        if (campanhaAtual.imagem_capa) {
-            const capa = document.getElementById('campanhaCapa');
-            capa.style.backgroundImage = `url('${campanhaAtual.imagem_capa}')`;
-            capa.innerHTML = '';
-        }
-    }
-
-    // Verificar se já tem personagem vinculado
-    async function carregarVinculoAtual() {
-        if (!currentUser || !campanhaAtual) return;
-        
-        try {
-            const q = query(
-                collection(db, "campanha_personagens"),
-                where("campanha_id", "==", campanhaAtual.id),
-                where("jogador_uid", "==", currentUser.uid)
-            );
-            
-            const snapshot = await getDocs(q);
-            
-            if (!snapshot.empty) {
-                snapshot.forEach(doc => {
-                    vinculoAtual = {
-                        id: doc.id,
-                        ...doc.data()
-                    };
-                });
-            } else {
-                vinculoAtual = null;
-            }
-            
-        } catch (error) {
-            console.error('Erro ao carregar vínculo:', error);
+        } else {
             vinculoAtual = null;
         }
+    } catch (error) {
+        vinculoAtual = null;
     }
+}
 
-    // ===== FUNÇÃO PRINCIPAL: CARREGAR PERSONAGENS =====
-    async function carregarPersonagens() {
-        if (!currentUser) return;
-        
-        try {
-            const q = query(
-                collection(db, "personagens"),
-                where("userId", "==", currentUser.uid)
-            );
-            
-            const querySnapshot = await getDocs(q);
-            
-            const personagens = [];
-            querySnapshot.forEach((doc) => {
-                personagens.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            if (personagens.length === 0) {
-                personagensContainer.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(10,10,26,0.5); border-radius: 20px;">
-                        <i class="fas fa-dragon" style="font-size: 3rem; color: #ffd700; margin-bottom: 15px;"></i>
-                        <h3>Nenhum personagem criado</h3>
-                        <p>Crie um personagem primeiro para entrar na campanha.</p>
-                        <a href="criar-personagem.html" style="display: inline-block; margin-top: 15px; padding: 10px 25px; background: linear-gradient(45deg, #ffd700, #ff6b6b); color: #0a0a1a; text-decoration: none; border-radius: 30px; font-weight: 600;">
-                            <i class="fas fa-plus"></i> Criar Personagem
-                        </a>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            
-            for (const p of personagens) {
-                const estePersonagemEstaVinculado = vinculoAtual && vinculoAtual.personagem_id === p.id;
-                
-                html += `<div class="personagem-card" data-id="${p.id}">`;
-                
-                if (estePersonagemEstaVinculado) {
-                    html += `<div class="selo-vinculado"><i class="fas fa-check-circle"></i> Vinculado</div>`;
-                }
-                
-                html += `
-                    <div class="personagem-header">
-                        <div class="personagem-avatar">
-                            <i class="fas fa-dragon"></i>
-                        </div>
-                        <div class="personagem-info">
-                            <h3>${p.nome || 'Sem nome'}</h3>
-                            <span class="personagem-classe">${p.classe || 'Sem classe'}</span>
-                        </div>
-                    </div>
-                    <div class="personagem-atributos">
-                        <span><i class="fas fa-fist-raised"></i> ${p.atributos?.st?.esferas || 0}</span>
-                        <span><i class="fas fa-running"></i> ${p.atributos?.dx?.esferas || 0}</span>
-                        <span><i class="fas fa-brain"></i> ${p.atributos?.iq?.esferas || 0}</span>
-                        <span><i class="fas fa-heart"></i> ${p.atributos?.vigor?.esferas || 0}</span>
-                    </div>
-                    <div class="personagem-stats">
-                        <span><i class="fas fa-heartbeat"></i> ${p.statusCombate?.vidaAtual || 0}/${p.statusCombate?.vidaMax || 0}</span>
-                        <span><i class="fas fa-magic"></i> ${p.statusCombate?.manaAtual || 0}/${p.statusCombate?.manaMax || 0}</span>
-                    </div>
-                `;
-                
-                if (estePersonagemEstaVinculado) {
-                    html += `
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <a href="ficha-pc.html?id=${p.id}" style="flex: 1; text-decoration: none;">
-                                <button class="btn-vincular" style="background: linear-gradient(45deg, #ffd700, #ffaa00); margin: 0;">
-                                    <i class="fas fa-eye"></i> Acessar Ficha
-                                </button>
-                            </a>
-                            <button class="btn-desvincular" style="flex: 1; margin: 0;" onclick="desvincularPersonagem('${p.id}', '${p.nome}')">
-                                <i class="fas fa-unlink"></i> Desvincular
-                            </button>
-                        </div>
-                    `;
-                } else if (vinculoAtual) {
-                    html += `
-                        <div class="btn-ja-vinculado" style="background: rgba(255,0,0,0.2); border-color: #ff0000; color: #ff0000; text-align: center; padding: 10px; border-radius: 10px; margin-top: 10px;">
-                            <i class="fas fa-info-circle"></i> ${vinculoAtual.personagem_nome} vinculado
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')" style="margin-top: 10px;">
-                            <i class="fas fa-link"></i> Vincular à Campanha
-                        </button>
-                    `;
-                }
-                
-                html += `</div>`;
-            }
-            
-            personagensContainer.innerHTML = html;
-            
-        } catch (error) {
-            console.error('Erro ao carregar personagens:', error);
-            personagensContainer.innerHTML = `
-                <div style="text-align: center; color: #ff6b6b; grid-column: 1/-1; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                    <p>Erro ao carregar personagens</p>
-                </div>
-            `;
-        }
+// ===== FUNÇÃO DE VINCULAR PERSONAGEM (ORIGINAL, NÃO MODIFICADA) =====
+window.vincularPersonagem = async function(personagemId, personagemNome) {
+    if (!currentUser || !campanhaAtual) return;
+    
+    if (vinculoAtual) {
+        showToast('Você já tem um personagem vinculado a esta campanha!', true);
+        return;
     }
-
-    // ===== FUNÇÃO CORRIGIDA: VINCULAR PERSONAGEM =====
-    // PRIMEIRO atualiza o personagem, DEPOIS cria o vínculo
-    window.vincularPersonagem = async function(personagemId, personagemNome) {
-        if (!currentUser || !campanhaAtual) return;
-        
-        if (vinculoAtual) {
-            showToast('Você já tem um personagem vinculado a esta campanha!', true);
-            return;
-        }
-        
-        if (!confirm(`Vincular "${personagemNome}" a esta campanha?`)) {
-            return;
-        }
-        
-        showLoading();
-        
-        try {
-            console.log('🔗 Vinculando personagem:', personagemId, 'à campanha:', campanhaAtual.id);
-            
-            // 1. PRIMEIRO: Atualizar o PERSONAGEM com campanhaId
-            // Isso é CRÍTICO para o GM conseguir acessar depois
-            const personagemRef = doc(db, "personagens", personagemId);
-            await updateDoc(personagemRef, {
-                campanhaId: campanhaAtual.id,
-                campanhaNome: campanhaAtual.nome
-            });
-            console.log('✅ campanhaId adicionado ao personagem');
-            
-            // 2. SEGUNDO: Criar o VÍNCULO na coleção campanha_personagens
-            const vinculoRef = await addDoc(collection(db, "campanha_personagens"), {
-                campanha_id: campanhaAtual.id,
-                campanha_nome: campanhaAtual.nome,
-                jogador_uid: currentUser.uid,
-                jogador_nick: userData?.nickname || 'Jogador',
-                personagem_id: personagemId,
-                personagem_nome: personagemNome,
-                data_vinculo: serverTimestamp(),
-                status: 'ativo'
-            });
-            console.log('✅ Vínculo criado com ID:', vinculoRef.id);
-            
-            showToast('✅ Personagem vinculado com sucesso!');
-            
-            // ATUALIZAR VAGAS na interface
-            await atualizarInterface();
-            
-            // Recarregar vínculo e personagens
-            await carregarVinculoAtual();
-            await carregarPersonagens();
-            
-        } catch (error) {
-            console.error('❌ Erro ao vincular:', error);
-            showToast('Erro ao vincular: ' + error.message, true);
-        } finally {
-            hideLoading();
-        }
-    };
-
-    // ===== FUNÇÃO CORRIGIDA: DESVINCULAR PERSONAGEM =====
-    // PRIMEIRO remove campanhaId do personagem, DEPOIS deleta o vínculo
-    window.desvincularPersonagem = async function(personagemId, personagemNome) {
-        if (!currentUser || !campanhaAtual || !vinculoAtual) {
-            showToast('Nenhum personagem vinculado', true);
-            return;
-        }
-        
-        if (!confirm(`Desvincular "${vinculoAtual.personagem_nome}" da campanha?`)) {
-            return;
-        }
-        
-        showLoading();
-        
-        try {
-            console.log('🔗 Desvinculando personagem:', personagemId);
-            
-            // 1. PRIMEIRO: Remover campanhaId do PERSONAGEM
-            const personagemRef = doc(db, "personagens", personagemId);
-            await updateDoc(personagemRef, {
-                campanhaId: null,
-                campanhaNome: null
-            });
-            console.log('✅ campanhaId removido do personagem');
-            
-            // 2. SEGUNDO: Deletar o vínculo
-            const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
-            await deleteDoc(vinculoRef);
-            console.log('✅ Vínculo deletado');
-            
-            // Limpar vínculo atual
-            vinculoAtual = null;
-            
-            showToast('✅ Personagem desvinculado!');
-            
-            // ATUALIZAR VAGAS na interface
-            await atualizarInterface();
-            
-            // Recarregar personagens
-            await carregarPersonagens();
-            
-        } catch (error) {
-            console.error('❌ Erro ao desvincular:', error);
-            showToast('Erro ao desvincular: ' + error.message, true);
-        } finally {
-            hideLoading();
-        }
-    };
-
-    // Carregar sessões
-    async function carregarSessoes() {
-        if (!campanhaAtual) return;
-        
-        try {
-            const q = query(
-                collection(db, "sessoes"),
-                where("campanha_id", "==", campanhaAtual.id)
-            );
-            
-            const querySnapshot = await getDocs(q);
-            
-            const sessoes = [];
-            querySnapshot.forEach((doc) => {
-                sessoes.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            if (sessoes.length === 0) {
-                sessoesContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px; background: rgba(10,10,26,0.5); border-radius: 20px;">
-                        <i class="fas fa-calendar" style="font-size: 3rem; color: #ffd700; margin-bottom: 15px;"></i>
-                        <h3>Nenhuma sessão agendada</h3>
-                        <p>Aguarde o mestre criar as sessões.</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            let html = '';
-            
-            sessoes.sort((a, b) => {
-                const dataA = a.data?.seconds || 0;
-                const dataB = b.data?.seconds || 0;
-                return dataA - dataB;
-            });
-            
-            sessoes.forEach(sessao => {
-                const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
-                const dia = data.getDate().toString().padStart(2, '0');
-                const mes = (data.getMonth() + 1).toString().padStart(2, '0');
-                
-                html += `
-                    <div class="sessao-item">
-                        <div class="sessao-data">
-                            <div class="dia">${dia}</div>
-                            <div class="mes">${mes}</div>
-                        </div>
-                        <div class="sessao-info">
-                            <h4>${sessao.titulo || 'Sessão'}</h4>
-                            <p>${sessao.descricao || 'Sem descrição'}</p>
-                        </div>
-                        <div class="sessao-status ${sessao.realizada ? 'sessao-realizada' : 'sessao-pendente'}">
-                            ${sessao.realizada ? 'Realizada' : 'Pendente'}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            sessoesContainer.innerHTML = html;
-            
-        } catch (error) {
-            console.error('Erro ao carregar sessões:', error);
-        }
+    
+    if (!confirm(`Vincular "${personagemNome}" a esta campanha?`)) {
+        return;
     }
-
-    // Mudar aba
-    window.mudarAba = function(aba) {
-        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-        event.target.classList.add('active');
-        
-        document.querySelectorAll('.aba-conteudo').forEach(conteudo => {
-            conteudo.style.display = 'none';
+    
+    showLoading();
+    
+    try {
+        await addDoc(collection(db, "campanha_personagens"), {
+            campanha_id: campanhaAtual.id,
+            campanha_nome: campanhaAtual.nome,
+            jogador_uid: currentUser.uid,
+            jogador_nick: userData?.nickname || 'Jogador',
+            personagem_id: personagemId,
+            personagem_nome: personagemNome,
+            data_vinculo: serverTimestamp(),
+            status: 'ativo'
         });
         
-        document.getElementById(`aba-${aba}`).style.display = 'block';
+        showToast('✅ Personagem vinculado com sucesso!');
+        
+        await atualizarInterface();
+        await carregarVinculoAtual();
+        await carregarPersonagens();
+        
+    } catch (error) {
+        showToast('Erro ao vincular: ' + error.message, true);
+    } finally {
+        hideLoading();
     }
+};
 
-    // Sair
-    btnSair.addEventListener('click', async () => {
-        await signOut(auth);
-        window.location.href = 'index.html';
-    });
+// ===== FUNÇÃO DE DESVINCULAR PERSONAGEM (ORIGINAL) =====
+window.desvincularPersonagem = async function(personagemId, personagemNome) {
+    if (!currentUser || !campanhaAtual || !vinculoAtual) {
+        showToast('Nenhum personagem vinculado', true);
+        return;
+    }
+    
+    if (!confirm(`Desvincular "${vinculoAtual.personagem_nome}" da campanha?`)) {
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
+        await deleteDoc(vinculoRef);
+        
+        vinculoAtual = null;
+        
+        showToast('✅ Personagem desvinculado!');
+        
+        await atualizarInterface();
+        await carregarPersonagens();
+        
+    } catch (error) {
+        showToast('Erro ao desvincular: ' + error.message, true);
+    } finally {
+        hideLoading();
+    }
+};
 
-    // Verificar login
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            showLoading();
-            
-            try {
-                const docRef = doc(db, "usuarios", user.uid);
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    displayIdPc.textContent = userData.id_pc || '---';
-                    
-                    await carregarCampanha();
-                }
-            } catch (error) {
-                console.error('Erro:', error);
-            } finally {
-                hideLoading();
-            }
-        } else {
-            window.location.href = 'index.html';
+// Carregar personagens do jogador
+async function carregarPersonagens() {
+    if (!currentUser) return;
+    
+    try {
+        const q = query(
+            collection(db, "personagens"),
+            where("userId", "==", currentUser.uid)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        const personagens = [];
+        querySnapshot.forEach((doc) => {
+            personagens.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        if (personagens.length === 0) {
+            personagensContainer.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(10,10,26,0.5); border-radius: 20px;">
+                    <i class="fas fa-dragon" style="font-size: 3rem; color: #ffd700; margin-bottom: 15px;"></i>
+                    <h3>Nenhum personagem criado</h3>
+                    <p>Crie um personagem primeiro para entrar na campanha.</p>
+                    <a href="criar-personagem.html" style="display: inline-block; margin-top: 15px; padding: 10px 25px; background: linear-gradient(45deg, #ffd700, #ff6b6b); color: #0a0a1a; text-decoration: none; border-radius: 30px; font-weight: 600;">
+                        <i class="fas fa-plus"></i> Criar Personagem
+                    </a>
+                </div>
+            `;
+            return;
         }
+        
+        let html = '';
+        
+        for (const p of personagens) {
+            const estePersonagemEstaVinculado = vinculoAtual && vinculoAtual.personagem_id === p.id;
+            
+            html += `<div class="personagem-card" data-id="${p.id}">`;
+            
+            if (estePersonagemEstaVinculado) {
+                html += `<div class="selo-vinculado"><i class="fas fa-check-circle"></i> Vinculado</div>`;
+            }
+            
+            html += `
+                <div class="personagem-header">
+                    <div class="personagem-avatar">
+                        <i class="fas fa-dragon"></i>
+                    </div>
+                    <div class="personagem-info">
+                        <h3>${p.nome || 'Sem nome'}</h3>
+                        <span class="personagem-classe">${p.classe || 'Sem classe'}</span>
+                    </div>
+                </div>
+                <div class="personagem-atributos">
+                    <span><i class="fas fa-fist-raised"></i> ${p.atributos?.st?.esferas || 0}</span>
+                    <span><i class="fas fa-running"></i> ${p.atributos?.dx?.esferas || 0}</span>
+                    <span><i class="fas fa-brain"></i> ${p.atributos?.iq?.esferas || 0}</span>
+                    <span><i class="fas fa-heart"></i> ${p.atributos?.vigor?.esferas || 0}</span>
+                </div>
+                <div class="personagem-stats">
+                    <span><i class="fas fa-heartbeat"></i> ${p.statusCombate?.vidaAtual || 0}/${p.statusCombate?.vidaMax || 0}</span>
+                    <span><i class="fas fa-magic"></i> ${p.statusCombate?.manaAtual || 0}/${p.statusCombate?.manaMax || 0}</span>
+                </div>
+            `;
+            
+            if (estePersonagemEstaVinculado) {
+                html += `
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <a href="ficha-pc.html?personagemId=${p.id}" style="flex: 1; text-decoration: none;">
+                            <button class="btn-vincular" style="background: linear-gradient(45deg, #ffd700, #ffaa00); margin: 0;">
+                                <i class="fas fa-eye"></i> Acessar Ficha
+                            </button>
+                        </a>
+                        <button class="btn-desvincular" style="flex: 1; margin: 0;" onclick="desvincularPersonagem('${p.id}', '${p.nome}')">
+                            <i class="fas fa-unlink"></i> Desvincular
+                        </button>
+                    </div>
+                `;
+            } else if (vinculoAtual) {
+                html += `
+                    <div class="btn-ja-vinculado" style="background: rgba(255,0,0,0.2); border-color: #ff0000; color: #ff0000; text-align: center; padding: 10px; border-radius: 10px; margin-top: 10px;">
+                        <i class="fas fa-info-circle"></i> ${vinculoAtual.personagem_nome} vinculado
+                    </div>
+                `;
+            } else {
+                html += `
+                    <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')" style="margin-top: 10px;">
+                        <i class="fas fa-link"></i> Vincular à Campanha
+                    </button>
+                `;
+            }
+            
+            html += `</div>`;
+        }
+        
+        personagensContainer.innerHTML = html;
+        
+    } catch (error) {
+        personagensContainer.innerHTML = `
+            <div style="text-align: center; color: #ff6b6b; grid-column: 1/-1; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                <p>Erro ao carregar personagens</p>
+            </div>
+        `;
+    }
+}
+
+// Carregar sessões
+async function carregarSessoes() {
+    if (!campanhaAtual) return;
+    
+    try {
+        const q = query(
+            collection(db, "sessoes"),
+            where("campanha_id", "==", campanhaAtual.id)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        const sessoes = [];
+        querySnapshot.forEach((doc) => {
+            sessoes.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        if (sessoes.length === 0) {
+            sessoesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px; background: rgba(10,10,26,0.5); border-radius: 20px;">
+                    <i class="fas fa-calendar" style="font-size: 3rem; color: #ffd700; margin-bottom: 15px;"></i>
+                    <h3>Nenhuma sessão agendada</h3>
+                    <p>Aguarde o mestre criar as sessões.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        
+        sessoes.sort((a, b) => {
+            const dataA = a.data?.seconds || 0;
+            const dataB = b.data?.seconds || 0;
+            return dataA - dataB;
+        });
+        
+        sessoes.forEach(sessao => {
+            const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
+            const dia = data.getDate().toString().padStart(2, '0');
+            const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+            
+            html += `
+                <div class="sessao-item">
+                    <div class="sessao-data">
+                        <div class="dia">${dia}</div>
+                        <div class="mes">${mes}</div>
+                    </div>
+                    <div class="sessao-info">
+                        <h4>${sessao.titulo || 'Sessão'}</h4>
+                        <p>${sessao.descricao || 'Sem descrição'}</p>
+                    </div>
+                    <div class="sessao-status ${sessao.realizada ? 'sessao-realizada' : 'sessao-pendente'}">
+                        ${sessao.realizada ? 'Realizada' : 'Pendente'}
+                    </div>
+                </div>
+            `;
+        });
+        
+        sessoesContainer.innerHTML = html;
+        
+    } catch (error) {}
+}
+
+// Mudar aba
+window.mudarAba = function(aba) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    document.querySelectorAll('.aba-conteudo').forEach(conteudo => {
+        conteudo.style.display = 'none';
     });
+    
+    document.getElementById(`aba-${aba}`).style.display = 'block';
+}
+
+// Sair
+btnSair.addEventListener('click', async () => {
+    await signOut(auth);
+    window.location.href = 'index.html';
+});
+
+// Verificar login
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        showLoading();
+        
+        try {
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                userData = docSnap.data();
+                displayIdPc.textContent = userData.id_pc || '---';
+                await carregarCampanha();
+            }
+        } catch (error) {
+        } finally {
+            hideLoading();
+        }
+    } else {
+        window.location.href = 'index.html';
+    }
+});
 </script>
 </body>
 </html>
