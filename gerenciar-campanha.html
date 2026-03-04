@@ -1052,8 +1052,7 @@
             </div>
         </div>
     </div>
-
-    <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { 
     getAuth, 
@@ -1366,6 +1365,24 @@ async function carregarJogadores() {
                 // Buscar dados do personagem
                 const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
                 const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
+
+                // ===== NOVO: ADICIONAR CAMPANHAID AO PERSONAGEM =====
+                if (personagemDoc.exists()) {
+                    const personagemData = personagemDoc.data();
+                    
+                    // Se o personagem NÃO TEM campanhaId, ADICIONA AGORA
+                    if (!personagemData.campanhaId) {
+                        try {
+                            await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
+                                campanhaId: campanhaAtual.id,
+                                campanhaNome: campanhaAtual.nome
+                            });
+                            console.log(`✅ campanhaId adicionado ao personagem ${vinculo.personagem_nome}`);
+                        } catch (error) {
+                            console.error('❌ Erro ao adicionar campanhaId:', error);
+                        }
+                    }
+                }
                 
                 // CRIAR URL PARA FICHA DO PERSONAGEM NO MODO GM
                 const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&campanhaId=${campanhaAtual.id}&jogadorUid=${vinculo.jogador_uid}`;
