@@ -474,9 +474,9 @@
         showLoading();
         
         try {
-            console.log('🎯 Aceitando convite - Notificação:', notificacaoId, 'Guilda:', guildaId);
+            console.log('🎯 Aceitando convite - Notificação:', notificacaoId, 'Guilda ID recebido:', guildaId);
             
-            // 1️⃣ Buscar dados da notificação
+            // 1️⃣ Buscar dados COMPLETOS da notificação
             const notifRef = doc(db, "notificacoes", notificacaoId);
             const notifDoc = await getDoc(notifRef);
             
@@ -487,20 +487,94 @@
             }
             
             const notifData = notifDoc.data();
+            console.log('📄 Dados da notificação:', notifData);
             
-            // 2️⃣ Buscar dados da guilda
-            const guildaRef = doc(db, "guildas", guildaId);
-            const guildaDoc = await getDoc(guildaRef);
+            // 2️⃣ IDENTIFICAR O ID CORRETO DA GUILDA
+            let idGuildaReal = null;
             
-            if (!guildaDoc.exists()) {
+            // Pega o ID da guilda - pode estar em campos diferentes
+            if (guildaId) {
+                idGuildaReal = guildaId;
+            } else if (notifData.guilda_id) {
+                idGuildaReal = notifData.guilda_id;
+            } else if (notifData.guildaId) {
+                idGuildaReal = notifData.guildaId;
+            } else if (notifData.guilda) {
+                idGuildaReal = notifData.guilda;
+            }
+            
+            console.log('🔍 ID da guilda identificado:', idGuildaReal);
+            
+            if (!idGuildaReal) {
+                showToast('ID da guilda não encontrado!', true);
+                hideLoading();
+                return;
+            }
+            
+            // 3️⃣ BUSCAR A GUILDA - PRIMEIRO PELO CAMPO 'id' (que é o nome "Guilda das trevas")
+            console.log('🔍 Buscando guilda por campo id:', idGuildaReal);
+            
+            let guildaDoc = null;
+            let guildaRef = null;
+            let guildaData = null;
+            
+            // Tenta buscar pelo campo 'id' (que é o que você mostrou no Firestore)
+            const guildaQuery = query(
+                collection(db, "guildas"),
+                where("id", "==", idGuildaReal)
+            );
+            
+            const guildaSnap = await getDocs(guildaQuery);
+            
+            if (!guildaSnap.empty) {
+                guildaDoc = guildaSnap.docs[0];
+                guildaRef = doc(db, "guildas", guildaDoc.id);
+                guildaData = guildaDoc.data();
+                console.log('✅ Guilda encontrada por campo id! Documento ID:', guildaDoc.id);
+                console.log('📄 Dados da guilda:', guildaData);
+            } else {
+                // Se não achou, tenta como ID do documento
+                console.log('❌ Não encontrou por campo id, tentando como ID do documento...');
+                try {
+                    const docRef = doc(db, "guildas", idGuildaReal);
+                    const docSnap = await getDoc(docRef);
+                    
+                    if (docSnap.exists()) {
+                        guildaDoc = docSnap;
+                        guildaRef = docRef;
+                        guildaData = docSnap.data();
+                        console.log('✅ Guilda encontrada como documento ID!');
+                    }
+                } catch (e) {
+                    console.log('Erro ao buscar como documento:', e);
+                }
+            }
+            
+            // Se ainda não achou, tenta pelo nome
+            if (!guildaData) {
+                console.log('🔍 Tentando buscar por nome...');
+                const nomeQuery = query(
+                    collection(db, "guildas"),
+                    where("nome", "==", idGuildaReal)
+                );
+                const nomeSnap = await getDocs(nomeQuery);
+                
+                if (!nomeSnap.empty) {
+                    guildaDoc = nomeSnap.docs[0];
+                    guildaRef = doc(db, "guildas", guildaDoc.id);
+                    guildaData = guildaDoc.data();
+                    console.log('✅ Guilda encontrada por nome!');
+                }
+            }
+            
+            // Verificar se encontrou a guilda
+            if (!guildaData) {
                 showToast('Guilda não encontrada!', true);
                 hideLoading();
                 return;
             }
             
-            const guildaData = guildaDoc.data();
-            
-            // 3️⃣ Verificar se já é membro
+            // 4️⃣ Verificar se já é membro
             if (guildaData.membros && guildaData.membros.includes(currentUser.uid)) {
                 showToast('Você já é membro desta guilda!', true);
                 
@@ -515,7 +589,7 @@
                 return;
             }
             
-            // 4️⃣ ATUALIZAR A GUILDA - Adicionar membro
+            // 5️⃣ ATUALIZAR A GUILDA - Adicionar membro
             console.log('📝 Adicionando membro à guilda...');
             
             // Criar objeto do membro para membros_detalhes
@@ -534,17 +608,17 @@
                 total_membros: (guildaData.total_membros || 0) + 1
             });
             
-            // 5️⃣ Marcar notificação como lida
+            // 6️⃣ Marcar notificação como lida
             await updateDoc(notifRef, {
                 lida: true,
                 data_resposta: serverTimestamp()
             });
             
-            // 6️⃣ Deletar o convite da coleção de convites (opcional, mas bom)
+            // 7️⃣ Deletar o convite da coleção de convites (opcional)
             try {
                 const convitesQuery = query(
                     collection(db, "convites"),
-                    where("guilda_id", "==", guildaId),
+                    where("guilda_id", "==", guildaDoc.id),
                     where("destinatario_uid", "==", currentUser.uid),
                     where("status", "==", "pendente")
                 );
@@ -654,7 +728,7 @@
                 return;
             }
             
-            // Usar o primeiro personagem (simplificado)
+            // Usar o primeiro personagem
             let personagemId = null;
             let personagemNome = null;
             personagensSnap.forEach(doc => {
@@ -664,7 +738,7 @@
                 }
             });
             
-            // Buscar dados da campanha para pegar o documentId
+            // Buscar dados da campanha
             const campanhaQuery = query(
                 collection(db, "campanhas"),
                 where("id", "==", campanhaId)
@@ -785,6 +859,9 @@
                 
                 // CONVITE DE GUILDA
                 if (n.tipo === 'convite_guilda') {
+                    // Pega o ID da guilda - pode estar em campos diferentes
+                    const guildaId = n.guilda_id || n.guildaId || n.guilda;
+                    
                     html += `
                         <div class="notification-item" style="flex-direction: column; align-items: stretch;">
                             <div style="display: flex; gap: 15px; margin-bottom: 10px;">
@@ -798,7 +875,7 @@
                                 </div>
                             </div>
                             <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                                <button class="btn-card" style="background: #4CAF50; color: white; border: none;" onclick="aceitarConviteGuilda('${n.id}', '${n.guilda_id}')">
+                                <button class="btn-card" style="background: #4CAF50; color: white; border: none;" onclick="aceitarConviteGuilda('${n.id}', '${guildaId}')">
                                     <i class="fas fa-check"></i> Aceitar
                                 </button>
                                 <button class="btn-card" style="background: #f44336; color: white; border: none;" onclick="recusarConviteGuilda('${n.id}')">
