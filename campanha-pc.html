@@ -786,6 +786,7 @@
         getDocs,
         addDoc,
         deleteDoc,
+        updateDoc,
         serverTimestamp
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
@@ -984,7 +985,6 @@
     }
 
     // ===== FUNÇÃO PRINCIPAL: CARREGAR PERSONAGENS =====
-    // ===== COM O NOVO BOTÃO ACESSAR FICHA =====
     async function carregarPersonagens() {
         if (!currentUser) return;
         
@@ -1052,7 +1052,6 @@
                 `;
                 
                 if (estePersonagemEstaVinculado) {
-                    // PERSONAGEM VINCULADO: mostra botão ACESSAR FICHA e DESVINCULAR
                     html += `
                         <div style="display: flex; gap: 10px; margin-top: 10px;">
                             <a href="ficha-pc.html?id=${p.id}" style="flex: 1; text-decoration: none;">
@@ -1066,14 +1065,12 @@
                         </div>
                     `;
                 } else if (vinculoAtual) {
-                    // OUTRO personagem está vinculado
                     html += `
                         <div class="btn-ja-vinculado" style="background: rgba(255,0,0,0.2); border-color: #ff0000; color: #ff0000; text-align: center; padding: 10px; border-radius: 10px; margin-top: 10px;">
                             <i class="fas fa-info-circle"></i> ${vinculoAtual.personagem_nome} vinculado
                         </div>
                     `;
                 } else {
-                    // NENHUM vínculo: mostra botão VINCULAR
                     html += `
                         <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')" style="margin-top: 10px;">
                             <i class="fas fa-link"></i> Vincular à Campanha
@@ -1081,7 +1078,7 @@
                     `;
                 }
                 
-                html += `</div>`; // Fecha personagem-card
+                html += `</div>`;
             }
             
             personagensContainer.innerHTML = html;
@@ -1113,6 +1110,7 @@
         showLoading();
         
         try {
+            // 1. CRIAR O VÍNCULO
             await addDoc(collection(db, "campanha_personagens"), {
                 campanha_id: campanhaAtual.id,
                 campanha_nome: campanhaAtual.nome,
@@ -1122,6 +1120,12 @@
                 personagem_nome: personagemNome,
                 data_vinculo: serverTimestamp(),
                 status: 'ativo'
+            });
+            
+            // ===== NOVO: ADICIONAR CAMPANHAID NO PERSONAGEM =====
+            await updateDoc(doc(db, "personagens", personagemId), {
+                campanhaId: campanhaAtual.id,
+                campanhaNome: campanhaAtual.nome
             });
             
             showToast('✅ Personagem vinculado!');
@@ -1159,6 +1163,12 @@
             const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
             await deleteDoc(vinculoRef);
             
+            // ===== NOVO: REMOVER CAMPANHAID DO PERSONAGEM =====
+            await updateDoc(doc(db, "personagens", personagemId), {
+                campanhaId: null,
+                campanhaNome: null
+            });
+            
             // Limpar vínculo atual
             vinculoAtual = null;
             
@@ -1167,7 +1177,7 @@
             // ATUALIZAR VAGAS na interface
             await atualizarInterface();
             
-            // Recarregar personagens (atualiza os botões)
+            // Recarregar personagens
             await carregarPersonagens();
             
         } catch (error) {
