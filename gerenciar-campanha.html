@@ -1309,7 +1309,6 @@ function atualizarInterface() {
 }
 
 // ===== FUNÇÃO PARA CARREGAR JOGADORES COM CARDS CLICÁVEIS =====
-// ===== VERSÃO CORRIGIDA COM CAMPANHAID FORÇADO =====
 async function carregarJogadores() {
     if (!campanhaAtual) return;
     
@@ -1367,24 +1366,27 @@ async function carregarJogadores() {
                 const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
                 const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
 
-                // ===== CORREÇÃO DEFINITIVA: FORÇAR CAMPANHAID NO PERSONAGEM =====
+                // ===== CORREÇÃO: FORÇAR CAMPANHAID NO PERSONAGEM =====
                 if (personagemDoc.exists()) {
-                    console.log(`🔧 Verificando personagem ${vinculo.personagem_nome}: campanhaId =`, personagemDoc.data().campanhaId);
+                    const personagemData = personagemDoc.data();
                     
-                    // SEMPRE atualizar o campanhaId, mesmo se já existir (para garantir)
-                    try {
-                        await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
-                            campanhaId: campanhaAtual.id,
-                            campanhaNome: campanhaAtual.nome
-                        });
-                        console.log(`✅ campanhaId FORÇADO no personagem ${vinculo.personagem_nome}`);
-                    } catch (error) {
-                        console.error('❌ Erro ao forçar campanhaId:', error);
+                    // Se o personagem NÃO TEM campanhaId, ADICIONA AGORA
+                    if (!personagemData.campanhaId) {
+                        try {
+                            await updateDoc(doc(db, "personagens", vinculo.personagem_id), {
+                                campanhaId: campanhaAtual.id,
+                                campanhaNome: campanhaAtual.nome
+                            });
+                            console.log(`✅ campanhaId adicionado ao personagem ${vinculo.personagem_nome}`);
+                        } catch (error) {
+                            console.error('❌ Erro ao adicionar campanhaId:', error);
+                        }
                     }
                 }
                 
-                // CRIAR URL PARA FICHA DO PERSONAGEM NO MODO GM
-                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&campanhaId=${campanhaAtual.id}&jogadorUid=${vinculo.jogador_uid}`;
+                // ===== URL CORRIGIDA: USA userId EM VEZ DE campanhaId E jogadorUid =====
+                // Isso faz o Firebase pensar que é o JOGADOR acessando a própria ficha
+                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&userId=${vinculo.jogador_uid}`;
                 
                 html += `
                     <div class="jogador-card" style="cursor: pointer;" onclick="window.location.href='${urlFicha}'">
@@ -1421,7 +1423,7 @@ async function carregarJogadores() {
             } catch (err) {
                 console.warn('Erro ao carregar detalhes do jogador:', err);
                 // Fallback: mostrar só os dados do vínculo
-                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&campanhaId=${campanhaAtual.id}`;
+                const urlFicha = `ficha-pc.html?personagemId=${vinculo.personagem_id}&modo=gm&userId=${vinculo.jogador_uid}`;
                 
                 html += `
                     <div class="jogador-card" style="cursor: pointer;" onclick="window.location.href='${urlFicha}'">
