@@ -1365,9 +1365,8 @@ const toastMessage = document.getElementById('toastMessage');
 const btnSair = document.getElementById('btnSair');
 const modalGanharEsfera = document.getElementById('modalGanharEsfera');
 const fecharModalEsfera = document.getElementById('fecharModalEsfera');
-const linkVoltar = document.getElementById('linkVoltar');
+const linkCampanha = document.getElementById('linkCampanha');
 const textoVoltar = document.getElementById('textoVoltar');
-const gmBadge = document.getElementById('gmBadge');
 
 // ============================================
 // TABELA DE XP CORRETA
@@ -1474,39 +1473,92 @@ function getParametrosUrl() {
     
     console.log('📌 Modo de visualização:', modoVisualizacao);
     console.log('📌 Personagem ID:', personagemId);
+    console.log('📌 Campanha ID:', campanhaId);
+    console.log('📌 Jogador UID:', jogadorUid);
 }
 
 // ============================================
 // CONFIGURAR INTERFACE POR MODO
 // ============================================
 function configurarInterfacePorModo() {
+    console.log('🔧 Configurando modo:', modoVisualizacao);
+    
     if (modoVisualizacao === 'gm') {
-        gmBadge.style.display = 'inline-flex';
+        // Criar badge de GM se não existir
+        let badgeGm = document.getElementById('gmBadge');
+        if (!badgeGm) {
+            const header = document.querySelector('.personagem-header .personagem-info h1');
+            if (header) {
+                badgeGm = document.createElement('span');
+                badgeGm.id = 'gmBadge';
+                badgeGm.style.cssText = `
+                    background: #ff4444;
+                    color: white;
+                    font-size: 14px;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    margin-left: 15px;
+                    display: inline-block;
+                    vertical-align: middle;
+                `;
+                badgeGm.innerHTML = '<i class="fas fa-eye"></i> Visualização do Mestre';
+                header.appendChild(badgeGm);
+            }
+        }
         
-        if (campanhaId) {
-            linkVoltar.href = `gerenciar-campanha.html?id=${campanhaId}`;
+        // Configurar link de voltar
+        if (linkCampanha && campanhaId) {
+            linkCampanha.href = `gerenciar-campanha.html?id=${campanhaId}`;
+        }
+        if (textoVoltar) {
             textoVoltar.textContent = 'Voltar à Campanha';
         }
         
-        document.querySelectorAll('.btn-recurso, .btn-xp, .btn-pericia, .btn-atributo-esfera, .btn-item, .btn-modal.primario:not(#modalMagiaFechar)').forEach(btn => {
-            btn.disabled = true;
-            btn.style.opacity = '0.3';
-            btn.style.cursor = 'not-allowed';
+        // Desabilitar TODOS os botões de interação
+        document.querySelectorAll('button').forEach(btn => {
+            const btnText = btn.textContent || '';
+            if (!btnText.includes('Sair') && 
+                !btnText.includes('Voltar') && 
+                !btnText.includes('Fechar') && 
+                !btnText.includes('Cancelar')) {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+                btn.style.pointerEvents = 'none';
+            }
         });
         
-        document.querySelectorAll('.atributo-item, .magia-card').forEach(el => {
+        // Desabilitar cliques em atributos
+        document.querySelectorAll('.atributo-item').forEach(el => {
             el.style.cursor = 'default';
             el.onclick = null;
         });
         
-        document.querySelectorAll('.btn-xp, .btn-recurso, .btn-pericia, .btn-item').forEach(el => {
+        // Desabilitar cliques em magias
+        document.querySelectorAll('.magia-card').forEach(el => {
+            el.style.cursor = 'default';
             el.onclick = null;
         });
         
+        // Remover todos os eventos de clique dos botões de recurso
+        document.querySelectorAll('.btn-recurso, .btn-xp, .btn-pericia, .btn-item').forEach(el => {
+            el.onclick = null;
+        });
+        
+        console.log('✅ Modo GM configurado - todos os botões desabilitados');
+        
     } else {
-        gmBadge.style.display = 'none';
-        linkVoltar.href = 'campanhas.html';
-        textoVoltar.textContent = 'Voltar às Campanhas';
+        // Modo PC - remover badge se existir
+        const badgeGm = document.getElementById('gmBadge');
+        if (badgeGm) badgeGm.remove();
+        
+        // Configurar link de voltar normal
+        if (linkCampanha) {
+            linkCampanha.href = 'campanhas.html';
+        }
+        if (textoVoltar) {
+            textoVoltar.textContent = 'Voltar às Campanhas';
+        }
     }
 }
 
@@ -1742,37 +1794,86 @@ async function carregarPersonagem() {
             ...personagemSnap.data()
         };
 
-        if (modoVisualizacao === 'pc' && personagemAtual.userId !== currentUser?.uid) {
-            showToast('Você não tem permissão para ver este personagem!', true);
-            setTimeout(() => window.location.href = 'campanhas.html', 2000);
-            return;
+        // VERIFICAÇÕES DE PERMISSÃO
+        if (modoVisualizacao === 'pc') {
+            // Modo PC: só o dono pode ver
+            if (personagemAtual.userId !== currentUser?.uid) {
+                showToast('Você não tem permissão para ver este personagem!', true);
+                setTimeout(() => window.location.href = 'campanhas.html', 2000);
+                return;
+            }
+        } else if (modoVisualizacao === 'gm') {
+            // Modo GM: verificar se é realmente o GM da campanha
+            if (!campanhaId || !jogadorUid) {
+                showToast('Parâmetros de campanha não encontrados!', true);
+                setTimeout(() => window.location.href = 'campanha-gm.html', 2000);
+                return;
+            }
+            
+            // Verificar se o personagem pertence ao jogador correto
+            if (personagemAtual.userId !== jogadorUid) {
+                showToast('Este personagem não pertence ao jogador especificado!', true);
+                setTimeout(() => window.location.href = `gerenciar-campanha.html?id=${campanhaId}`, 2000);
+                return;
+            }
+            
+            // Verificar se o usuário atual é o GM da campanha
+            const campanhaQuery = query(
+                collection(db, "campanhas"),
+                where("id", "==", campanhaId)
+            );
+            const campanhaSnap = await getDocs(campanhaQuery);
+            
+            if (campanhaSnap.empty) {
+                showToast('Campanha não encontrada!', true);
+                setTimeout(() => window.location.href = 'campanha-gm.html', 2000);
+                return;
+            }
+            
+            let isGm = false;
+            campanhaSnap.forEach(doc => {
+                if (doc.data().gm_uid === currentUser?.uid) {
+                    isGm = true;
+                    campanhaAtual = { docId: doc.id, ...doc.data() };
+                }
+            });
+            
+            if (!isGm) {
+                showToast('Você não é o GM desta campanha!', true);
+                setTimeout(() => window.location.href = 'campanha-gm.html', 2000);
+                return;
+            }
         }
 
-        const vinculosQuery = query(
-            collection(db, "campanha_personagens"),
-            where("personagem_id", "==", personagemId)
-        );
-        
-        const vinculosSnap = await getDocs(vinculosQuery);
-        
-        if (!vinculosSnap.empty) {
-            const vinculo = vinculosSnap.docs[0].data();
-            
-            const campanhasQuery = query(
-                collection(db, "campanhas"),
-                where("id", "==", vinculo.campanha_id)
+        // Buscar vínculo com campanha (se existir)
+        if (!campanhaAtual) {
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("personagem_id", "==", personagemId)
             );
             
-            const campanhasSnap = await getDocs(campanhasQuery);
+            const vinculosSnap = await getDocs(vinculosQuery);
             
-            if (!campanhasSnap.empty) {
-                campanhaAtual = {
-                    docId: campanhasSnap.docs[0].id,
-                    ...campanhasSnap.docs[0].data()
-                };
+            if (!vinculosSnap.empty) {
+                const vinculo = vinculosSnap.docs[0].data();
+                
+                const campanhasQuery = query(
+                    collection(db, "campanhas"),
+                    where("id", "==", vinculo.campanha_id)
+                );
+                
+                const campanhasSnap = await getDocs(campanhasQuery);
+                
+                if (!campanhasSnap.empty) {
+                    campanhaAtual = {
+                        docId: campanhasSnap.docs[0].id,
+                        ...campanhasSnap.docs[0].data()
+                    };
+                }
             }
         }
         
+        // Calcular nível baseado nas esferas
         const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
                             (personagemAtual.atributos?.dx?.esferas || 0) +
                             (personagemAtual.atributos?.iq?.esferas || 0) +
@@ -1783,14 +1884,16 @@ async function carregarPersonagem() {
         
         if (personagemAtual.nivel !== nivelCalculado) {
             personagemAtual.nivel = nivelCalculado;
-            try {
-                await updateDoc(personagemRef, { nivel: nivelCalculado });
-            } catch (e) {
-                console.log('Erro ao atualizar nível:', e);
+            if (modoVisualizacao === 'pc') {
+                try {
+                    await updateDoc(personagemRef, { nivel: nivelCalculado });
+                } catch (e) {
+                    console.log('Erro ao atualizar nível:', e);
+                }
             }
         }
         
-        if (!personagemAtual.xpAtual) personagemAtual.xpAtual = 0;
+        // Inicializar status de combate se necessário
         if (!personagemAtual.statusCombate) {
             personagemAtual.statusCombate = {
                 vidaAtual: personagemAtual.vidaMax || 0,
@@ -1802,12 +1905,17 @@ async function carregarPersonagem() {
             };
         }
         
+        // Configurar interface baseado no modo
         configurarInterfacePorModo();
+        
+        // Renderizar ficha
         await renderizarFicha();
+        
+        showToast(modoVisualizacao === 'gm' ? '👁️ Visualizando como Mestre' : '✅ Ficha carregada');
         
     } catch (error) {
         console.error('Erro:', error);
-        showToast('Erro ao carregar personagem', true);
+        showToast('Erro ao carregar personagem: ' + error.message, true);
     } finally {
         hideLoading();
     }
@@ -2509,6 +2617,24 @@ document.getElementById('modalMagiaComprar').addEventListener('click', async () 
         showToast('Erro ao evoluir magia', true);
     }
 });
+
+// ============================================
+// SOBRESCREVER FUNÇÕES DE AÇÃO NO MODO GM
+// ============================================
+if (modoVisualizacao === 'gm') {
+    const funcoesBloqueadas = [
+        'alterarXP', 'alterarRecurso', 'alterarDinheiro', 'gastarEsfera',
+        'abrirModalPericia', 'abrirModalMagia', 'moverItem', 'equiparItem',
+        'guardarItem', 'pegarItem', 'venderItem'
+    ];
+    
+    funcoesBloqueadas.forEach(nomeFuncao => {
+        window[nomeFuncao] = function() {
+            console.log('🚫 Ação bloqueada - modo visualização GM');
+            return false;
+        };
+    });
+}
 
 // ============================================
 // SAIR E INICIALIZAÇÃO
