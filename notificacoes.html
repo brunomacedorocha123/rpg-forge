@@ -397,8 +397,7 @@
             <!-- Será preenchido via JavaScript -->
         </div>
     </div>
-
-   <script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
     import { 
         getAuth, 
@@ -417,7 +416,9 @@
         updateDoc,
         deleteDoc,
         serverTimestamp,
-        orderBy
+        orderBy,
+        arrayUnion,
+        arrayRemove
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -464,20 +465,142 @@
         }, 3000);
     }
 
-    // ===== FUNÇÃO PARA CONVITES DE GUILDA (JÁ FUNCIONA) =====
+    // ===== FUNÇÃO PARA CONVITES DE GUILDA (TOTALMENTE CORRIGIDA) =====
     window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
-        // Sua função de guilda já existente
-        console.log('Aceitar guilda:', notificacaoId, guildaId);
-        showToast('Função de guilda executada');
+        if (!confirm('Deseja entrar nesta guilda?')) {
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            console.log('🎯 Aceitando convite - Notificação:', notificacaoId, 'Guilda:', guildaId);
+            
+            // 1️⃣ Buscar dados da notificação
+            const notifRef = doc(db, "notificacoes", notificacaoId);
+            const notifDoc = await getDoc(notifRef);
+            
+            if (!notifDoc.exists()) {
+                showToast('Convite não encontrado!', true);
+                hideLoading();
+                return;
+            }
+            
+            const notifData = notifDoc.data();
+            
+            // 2️⃣ Buscar dados da guilda
+            const guildaRef = doc(db, "guildas", guildaId);
+            const guildaDoc = await getDoc(guildaRef);
+            
+            if (!guildaDoc.exists()) {
+                showToast('Guilda não encontrada!', true);
+                hideLoading();
+                return;
+            }
+            
+            const guildaData = guildaDoc.data();
+            
+            // 3️⃣ Verificar se já é membro
+            if (guildaData.membros && guildaData.membros.includes(currentUser.uid)) {
+                showToast('Você já é membro desta guilda!', true);
+                
+                // Marcar notificação como lida
+                await updateDoc(notifRef, {
+                    lida: true,
+                    data_resposta: serverTimestamp()
+                });
+                
+                hideLoading();
+                setTimeout(() => window.location.reload(), 1500);
+                return;
+            }
+            
+            // 4️⃣ ATUALIZAR A GUILDA - Adicionar membro
+            console.log('📝 Adicionando membro à guilda...');
+            
+            // Criar objeto do membro para membros_detalhes
+            const novoMembro = {
+                uid: currentUser.uid,
+                nick: userData?.nickname || 'Jogador',
+                id_pc: userData?.id_pc || '---',
+                cargo: 'membro',
+                data_entrada: new Date().toISOString()
+            };
+            
+            // Atualizar a guilda
+            await updateDoc(guildaRef, {
+                membros: arrayUnion(currentUser.uid),
+                membros_detalhes: arrayUnion(novoMembro),
+                total_membros: (guildaData.total_membros || 0) + 1
+            });
+            
+            // 5️⃣ Marcar notificação como lida
+            await updateDoc(notifRef, {
+                lida: true,
+                data_resposta: serverTimestamp()
+            });
+            
+            // 6️⃣ Deletar o convite da coleção de convites (opcional, mas bom)
+            try {
+                const convitesQuery = query(
+                    collection(db, "convites"),
+                    where("guilda_id", "==", guildaId),
+                    where("destinatario_uid", "==", currentUser.uid),
+                    where("status", "==", "pendente")
+                );
+                
+                const convitesSnap = await getDocs(convitesQuery);
+                convitesSnap.forEach(async (conviteDoc) => {
+                    await deleteDoc(doc(db, "convites", conviteDoc.id));
+                });
+            } catch (e) {
+                console.log('Não foi possível deletar convites:', e);
+            }
+            
+            showToast('✅ Você entrou na guilda!');
+            
+            // Recarregar página após 1.5 segundos
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            
+        } catch (error) {
+            console.error('❌ Erro ao aceitar convite:', error);
+            showToast('Erro ao aceitar convite: ' + error.message, true);
+        } finally {
+            hideLoading();
+        }
     };
 
     window.recusarConviteGuilda = async function(notificacaoId) {
-        // Sua função de guilda já existente
-        console.log('Recusar guilda:', notificacaoId);
-        showToast('Função de guilda executada');
+        if (!confirm('Deseja recusar este convite?')) {
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            // Marcar notificação como lida
+            await updateDoc(doc(db, "notificacoes", notificacaoId), {
+                lida: true,
+                data_resposta: serverTimestamp()
+            });
+            
+            showToast('Convite recusado');
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+            
+        } catch (error) {
+            console.error('Erro ao recusar convite:', error);
+            showToast('Erro ao recusar convite', true);
+        } finally {
+            hideLoading();
+        }
     };
 
-    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA) =====
+    // ===== FUNÇÃO PARA CONVITES DE CAMPANHA =====
     window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
         if (!confirm('Deseja aceitar o convite para esta campanha?')) {
             return;
@@ -553,13 +676,11 @@
                 campanhaDocId = doc.id;
             });
             
-            // ===== PARTE CRÍTICA: CRIAR VÍNCULO COM TODOS OS CAMPOS =====
-            console.log('Criando vínculo com jogador_uid:', currentUser.uid);
-            
+            // Criar vínculo
             const vinculoData = {
                 campanha_id: campanhaId,
                 campanha_nome: notifData.campanha_nome || 'Campanha',
-                jogador_uid: currentUser.uid,  // ← CAMPO OBRIGATÓRIO!
+                jogador_uid: currentUser.uid,
                 jogador_nick: userData?.nickname || 'Jogador',
                 personagem_id: personagemId,
                 personagem_nome: personagemNome,
@@ -567,9 +688,6 @@
                 status: 'ativo'
             };
             
-            console.log('Dados do vínculo:', vinculoData);
-            
-            // Criar vínculo
             await addDoc(collection(db, "campanha_personagens"), vinculoData);
             
             // Atualizar vagas na campanha
@@ -592,15 +710,12 @@
             
             showToast('✅ Você entrou na campanha!');
             
-            // Recarregar página após 1.5 segundos
             setTimeout(() => {
                 window.location.reload();
             }, 1500);
             
         } catch (error) {
             console.error('❌ Erro ao aceitar convite:', error);
-            console.error('Código:', error.code);
-            console.error('Mensagem:', error.message);
             showToast('Erro ao aceitar convite: ' + error.message, true);
         } finally {
             hideLoading();
