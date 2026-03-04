@@ -1308,9 +1308,8 @@
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
     // ===== CORREÇÃO DO ERRO DE LISTENER =====
-    // Garantir que o Firebase carregue corretamente
     if (typeof globalThis === 'undefined') {
         var globalThis = window;
     }
@@ -1368,7 +1367,7 @@
     const db = getFirestore(app);
 
     // ============================================
-    // TABELA DE XP CORRETA (SUA TABELA)
+    // TABELA DE XP
     // ============================================
     function getXpProximoNivel(nivelAtual) {
         const tabela = {
@@ -1453,7 +1452,85 @@
     };
 
     // ============================================
-    // VARIÁVEIS GLOBAIS
+    // ELEMENTOS DOM
+    // ============================================
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    const btnSair = document.getElementById('btnSair');
+    const modalGanharEsfera = document.getElementById('modalGanharEsfera');
+    const fecharModalEsfera = document.getElementById('fecharModalEsfera');
+
+    // Elementos da ficha
+    const personagemNome = document.getElementById('personagemNome');
+    const personagemClasse = document.getElementById('personagemClasse');
+    const personagemFoto = document.getElementById('personagemFoto');
+    const breadcrumbPersonagem = document.getElementById('breadcrumbPersonagem');
+    const nivelPersonagem = document.getElementById('nivelPersonagem');
+    const ppDisponivel = document.getElementById('ppDisponivel');
+    const dinheiroHeader = document.getElementById('dinheiroHeader');
+
+    // Recursos
+    const pvTexto = document.getElementById('pvTexto');
+    const pmTexto = document.getElementById('pmTexto');
+    const pfTexto = document.getElementById('pfTexto');
+    const pvBarra = document.getElementById('pvBarra');
+    const pmBarra = document.getElementById('pmBarra');
+    const pfBarra = document.getElementById('pfBarra');
+
+    // XP
+    const xpTexto = document.getElementById('xpTexto');
+    const xpBarra = document.getElementById('xpBarra');
+
+    // Atributos
+    const atributosContainer = document.getElementById('atributosContainer');
+
+    // Defesas
+    const defesasContainer = document.getElementById('defesasContainer');
+    const deslocamentoTexto = document.getElementById('deslocamentoTexto');
+    const rdTotal = document.getElementById('rdTotal');
+
+    // Perícias
+    const periciasContainer = document.getElementById('periciasContainer');
+    const ppPericias = document.getElementById('ppPericias');
+
+    // Vantagens/Desvantagens
+    const vantagensContainer = document.getElementById('vantagensContainer');
+    const desvantagensContainer = document.getElementById('desvantagensContainer');
+
+    // Dinheiro
+    const dinheiroValor = document.getElementById('dinheiroValor');
+
+    // Inventário
+    const inventarioCorpo = document.getElementById('inventarioCorpo');
+    const inventarioMochila = document.getElementById('inventarioMochila');
+    const inventarioDeposito = document.getElementById('inventarioDeposito');
+    const cargaInfo = document.getElementById('cargaInfo');
+
+    // Magias
+    const magiasContainer = document.getElementById('magiasContainer');
+    const ppMagias = document.getElementById('ppMagias');
+
+    // Modais
+    const modalPericia = document.getElementById('modalPericia');
+    const modalPericiaTitulo = document.getElementById('modalPericiaTitulo');
+    const tabelaPericia = document.getElementById('tabelaPericia');
+    const modalPericiaNivel = document.getElementById('modalPericiaNivel');
+    const modalPericiaCusto = document.getElementById('modalPericiaCusto');
+    const modalPericiaConfirmar = document.getElementById('modalPericiaConfirmar');
+    const modalPericiaCancelar = document.getElementById('modalPericiaCancelar');
+    const modalPericiaMenos = document.getElementById('modalPericiaMenos');
+    const modalPericiaMais = document.getElementById('modalPericiaMais');
+
+    const modalMagia = document.getElementById('modalMagia');
+    const modalMagiaTitulo = document.getElementById('modalMagiaTitulo');
+    const tabelaMagia = document.getElementById('tabelaMagia');
+    const modalMagiaCusto = document.getElementById('modalMagiaCusto');
+    const modalMagiaComprar = document.getElementById('modalMagiaComprar');
+    const modalMagiaFechar = document.getElementById('modalMagiaFechar');
+
+    // ============================================
+    // VARIÁVEIS GLOBAIS (UMA ÚNICA VEZ)
     // ============================================
     let currentUser = null;
     let personagemAtual = null;
@@ -1463,18 +1540,20 @@
     let magiaModalAtual = null;
     let esferaPendente = false;
 
-    // Elementos DOM
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
-    const btnSair = document.getElementById('btnSair');
-    const modalGanharEsfera = document.getElementById('modalGanharEsfera');
-    const fecharModalEsfera = document.getElementById('fecharModalEsfera');
-    
-    function showLoading() { loadingOverlay.classList.add('active'); }
-    function hideLoading() { loadingOverlay.classList.remove('active'); }
-    
+    // ============================================
+    // FUNÇÕES AUXILIARES
+    // ============================================
+    function showLoading() { 
+        if (loadingOverlay) loadingOverlay.classList.add('active'); 
+    }
+
+    function hideLoading() { 
+        if (loadingOverlay) loadingOverlay.classList.remove('active'); 
+    }
+
     function showToast(msg, erro = false) {
+        if (!toast || !toastMessage) return;
+        
         toastMessage.textContent = msg;
         toast.classList.add('show');
         if (erro) toast.classList.add('erro');
@@ -1487,7 +1566,14 @@
 
     function getPersonagemIdFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id');
+        
+        const id = urlParams.get('personagemId') || 
+                   urlParams.get('id') || 
+                   urlParams.get('personagem_id') || 
+                   urlParams.get('pid');
+        
+        console.log('🔍 ID encontrado na URL:', id);
+        return id;
     }
 
     // ============================================
@@ -1557,9 +1643,17 @@
                     
                     console.log('✅ Campanha encontrada:', campanhaAtual.nome);
                     
-                    document.getElementById('breadcrumbCampanha').href = `campanha-pc.html?id=${campanhaAtual.id}`;
-                    document.getElementById('breadcrumbCampanha').textContent = campanhaAtual.nome || 'Campanha';
-                    document.getElementById('linkCampanha').href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                    const breadcrumbCampanha = document.getElementById('breadcrumbCampanha');
+                    const linkCampanha = document.getElementById('linkCampanha');
+                    
+                    if (breadcrumbCampanha) {
+                        breadcrumbCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                        breadcrumbCampanha.textContent = campanhaAtual.nome || 'Campanha';
+                    }
+                    
+                    if (linkCampanha) {
+                        linkCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                    }
                 }
             } else {
                 console.log('⚠️ Nenhum vínculo encontrado');
@@ -1615,7 +1709,7 @@
     function getIQFixo() { return 5 + (personagemAtual?.atributos?.iq?.esferas || 0); }
     function getVIGORFixo() { return 5 + (personagemAtual?.atributos?.vigor?.esferas || 0); }
     function getVTFixo() { return 5 + (personagemAtual?.atributos?.vt?.esferas || 0); }
-    
+
     function getSTPercentual() { return 30 + ((personagemAtual?.atributos?.st?.esferas || 0) * 3); }
     function getDXPercentual() { return 30 + ((personagemAtual?.atributos?.dx?.esferas || 0) * 2); }
     function getIQPercentual() { return 30 + ((personagemAtual?.atributos?.iq?.esferas || 0) * 2); }
@@ -1811,12 +1905,12 @@
         if (!personagemAtual) return;
         
         // Header
-        document.getElementById('personagemNome').textContent = personagemAtual.nome || 'Sem nome';
-        document.getElementById('personagemClasse').textContent = personagemAtual.classe || 'Sem classe';
-        document.getElementById('breadcrumbPersonagem').textContent = personagemAtual.nome || 'Ficha';
+        if (personagemNome) personagemNome.textContent = personagemAtual.nome || 'Sem nome';
+        if (personagemClasse) personagemClasse.textContent = personagemAtual.classe || 'Sem classe';
+        if (breadcrumbPersonagem) breadcrumbPersonagem.textContent = personagemAtual.nome || 'Ficha';
         
-        if (personagemAtual.fotoURL) {
-            document.getElementById('personagemFoto').style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
+        if (personagemAtual.fotoURL && personagemFoto) {
+            personagemFoto.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
         }
         
         // Nível e PP
@@ -1828,9 +1922,9 @@
         
         personagemAtual.nivel = totalEsferas + 1;
         
-        document.getElementById('nivelPersonagem').textContent = personagemAtual.nivel;
-        document.getElementById('ppDisponivel').textContent = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        document.getElementById('dinheiroHeader').textContent = personagemAtual.dinheiro || 0;
+        if (nivelPersonagem) nivelPersonagem.textContent = personagemAtual.nivel;
+        if (ppDisponivel) ppDisponivel.textContent = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+        if (dinheiroHeader) dinheiroHeader.textContent = personagemAtual.dinheiro || 0;
         
         // Recursos
         const pvMax = calcularPV();
@@ -1844,13 +1938,13 @@
         const pfAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
                         Math.min(personagemAtual.statusCombate.fadigaAtual, pfMax) : pfMax;
         
-        document.getElementById('pvTexto').textContent = `${pvAtual}/${pvMax}`;
-        document.getElementById('pmTexto').textContent = `${pmAtual}/${pmMax}`;
-        document.getElementById('pfTexto').textContent = `${pfAtual}/${pfMax}`;
+        if (pvTexto) pvTexto.textContent = `${pvAtual}/${pvMax}`;
+        if (pmTexto) pmTexto.textContent = `${pmAtual}/${pmMax}`;
+        if (pfTexto) pfTexto.textContent = `${pfAtual}/${pfMax}`;
         
-        document.getElementById('pvBarra').style.width = (pvAtual / pvMax) * 100 + '%';
-        document.getElementById('pmBarra').style.width = (pmAtual / pmMax) * 100 + '%';
-        document.getElementById('pfBarra').style.width = (pfAtual / pfMax) * 100 + '%';
+        if (pvBarra) pvBarra.style.width = (pvAtual / pvMax) * 100 + '%';
+        if (pmBarra) pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
+        if (pfBarra) pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
         
         // XP
         const xpAtual = personagemAtual.xpAtual || 0;
@@ -1859,138 +1953,152 @@
         
         const percentualXp = (xpAtual / xpNecessario) * 100;
         
-        document.getElementById('xpTexto').textContent = `${xpAtual} / ${xpNecessario}`;
+        if (xpTexto) xpTexto.textContent = `${xpAtual} / ${xpNecessario}`;
         
-        const xpBarra = document.getElementById('xpBarra');
-        xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
-        xpBarra.textContent = Math.round(percentualXp) + '%';
+        if (xpBarra) {
+            xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
+            xpBarra.textContent = Math.round(percentualXp) + '%';
+        }
         
         // Atributos
-        const atributosHTML = `
-            <div class="atributo-item" onclick="gastarEsfera('st')">
-                <span class="atributo-nome">ST</span>
-                <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.st?.esferas || 0)}</div>
-                <span class="atributo-valor">${getSTFixo()} <span class="atributo-percentual">${getSTPercentual()}%</span></span>
-            </div>
-            <div class="atributo-item" onclick="gastarEsfera('dx')">
-                <span class="atributo-nome">DX</span>
-                <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.dx?.esferas || 0)}</div>
-                <span class="atributo-valor">${getDXFixo()} <span class="atributo-percentual">${getDXPercentual()}%</span></span>
-            </div>
-            <div class="atributo-item" onclick="gastarEsfera('iq')">
-                <span class="atributo-nome">IQ</span>
-                <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.iq?.esferas || 0)}</div>
-                <span class="atributo-valor">${getIQFixo()} <span class="atributo-percentual">${getIQPercentual()}%</span></span>
-            </div>
-            <div class="atributo-item" onclick="gastarEsfera('vigor')">
-                <span class="atributo-nome">VIGOR</span>
-                <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.vigor?.esferas || 0)}</div>
-                <span class="atributo-valor">${getVIGORFixo()} <span class="atributo-percentual">${getVIGORPercentual()}%</span></span>
-            </div>
-            <div class="atributo-item" onclick="gastarEsfera('vt')">
-                <span class="atributo-nome">VT</span>
-                <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.vt?.esferas || 0)}</div>
-                <span class="atributo-valor">${getVTFixo()}</span>
-            </div>
-        `;
-        document.getElementById('atributosContainer').innerHTML = atributosHTML;
+        if (atributosContainer) {
+            const atributosHTML = `
+                <div class="atributo-item" onclick="gastarEsfera('st')">
+                    <span class="atributo-nome">ST</span>
+                    <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.st?.esferas || 0)}</div>
+                    <span class="atributo-valor">${getSTFixo()} <span class="atributo-percentual">${getSTPercentual()}%</span></span>
+                </div>
+                <div class="atributo-item" onclick="gastarEsfera('dx')">
+                    <span class="atributo-nome">DX</span>
+                    <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.dx?.esferas || 0)}</div>
+                    <span class="atributo-valor">${getDXFixo()} <span class="atributo-percentual">${getDXPercentual()}%</span></span>
+                </div>
+                <div class="atributo-item" onclick="gastarEsfera('iq')">
+                    <span class="atributo-nome">IQ</span>
+                    <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.iq?.esferas || 0)}</div>
+                    <span class="atributo-valor">${getIQFixo()} <span class="atributo-percentual">${getIQPercentual()}%</span></span>
+                </div>
+                <div class="atributo-item" onclick="gastarEsfera('vigor')">
+                    <span class="atributo-nome">VIGOR</span>
+                    <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.vigor?.esferas || 0)}</div>
+                    <span class="atributo-valor">${getVIGORFixo()} <span class="atributo-percentual">${getVIGORPercentual()}%</span></span>
+                </div>
+                <div class="atributo-item" onclick="gastarEsfera('vt')">
+                    <span class="atributo-nome">VT</span>
+                    <div class="atributo-esferas">${gerarEsferas(personagemAtual.atributos?.vt?.esferas || 0)}</div>
+                    <span class="atributo-valor">${getVTFixo()}</span>
+                </div>
+            `;
+            atributosContainer.innerHTML = atributosHTML;
+        }
         
         // Defesas
-        const esquiva = calcularEsquiva();
-        const aparar = calcularAparar();
-        const bloqueio = calcularBloqueio();
+        if (defesasContainer) {
+            const esquiva = calcularEsquiva();
+            const aparar = calcularAparar();
+            const bloqueio = calcularBloqueio();
+            
+            defesasContainer.innerHTML = `
+                <div class="defesa-card">
+                    <div class="defesa-nome">Esquiva</div>
+                    <div class="defesa-valor">${esquiva}<small>%</small></div>
+                </div>
+                <div class="defesa-card">
+                    <div class="defesa-nome">Aparar</div>
+                    <div class="defesa-valor">${aparar}<small>%</small></div>
+                </div>
+                <div class="defesa-card">
+                    <div class="defesa-nome">Bloqueio</div>
+                    <div class="defesa-valor">${bloqueio}<small>%</small></div>
+                </div>
+            `;
+        }
+        
         const desloc = calcularDeslocamento();
         const carga = calcularCarga();
         const andarFinal = Math.max(1, desloc.andar - carga.reducaoDeslocamento);
         const correrFinal = Math.max(3, desloc.correr - (carga.reducaoDeslocamento * 3));
         
-        document.getElementById('defesasContainer').innerHTML = `
-            <div class="defesa-card">
-                <div class="defesa-nome">Esquiva</div>
-                <div class="defesa-valor">${esquiva}<small>%</small></div>
-            </div>
-            <div class="defesa-card">
-                <div class="defesa-nome">Aparar</div>
-                <div class="defesa-valor">${aparar}<small>%</small></div>
-            </div>
-            <div class="defesa-card">
-                <div class="defesa-nome">Bloqueio</div>
-                <div class="defesa-valor">${bloqueio}<small>%</small></div>
-            </div>
-        `;
-        document.getElementById('deslocamentoTexto').textContent = `${andarFinal.toFixed(1)}m / ${correrFinal.toFixed(1)}m`;
-        document.getElementById('rdTotal').textContent = calcularRD();
+        if (deslocamentoTexto) deslocamentoTexto.textContent = `${andarFinal.toFixed(1)}m / ${correrFinal.toFixed(1)}m`;
+        if (rdTotal) rdTotal.textContent = calcularRD();
         
         // Perícias
-        let periciasHTML = '';
-        const periciasArray = Object.entries(personagemAtual.pericias || {});
-        
-        if (periciasArray.length === 0) {
-            periciasHTML = '<div style="text-align: center; color: #a0a0b0; padding: 20px;">Nenhuma perícia adquirida</div>';
-        } else {
-            periciasArray.sort((a, b) => a[0].localeCompare(b[0]));
-            periciasArray.forEach(([id, dados]) => {
-                const pericia = catalogoPericias.find(p => p.id === id);
-                if (!pericia) return;
-                
-                const nh = calcularNHPericia(id, dados);
-                periciasHTML += `
-                    <div class="pericia-item">
-                        <div style="display: flex; align-items: center;">
-                            <span class="pericia-nome">${pericia.nome}</span>
-                            <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
+        if (periciasContainer) {
+            let periciasHTML = '';
+            const periciasArray = Object.entries(personagemAtual.pericias || {});
+            
+            if (periciasArray.length === 0) {
+                periciasHTML = '<div style="text-align: center; color: #a0a0b0; padding: 20px;">Nenhuma perícia adquirida</div>';
+            } else {
+                periciasArray.sort((a, b) => a[0].localeCompare(b[0]));
+                periciasArray.forEach(([id, dados]) => {
+                    const pericia = catalogoPericias.find(p => p.id === id);
+                    if (!pericia) return;
+                    
+                    const nh = calcularNHPericia(id, dados);
+                    periciasHTML += `
+                        <div class="pericia-item">
+                            <div style="display: flex; align-items: center;">
+                                <span class="pericia-nome">${pericia.nome}</span>
+                                <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <span class="pericia-nh">${nh}%</span>
+                                <button class="btn-pericia" onclick="abrirModalPericia('${id}')">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div style="display: flex; align-items: center;">
-                            <span class="pericia-nh">${nh}%</span>
-                            <button class="btn-pericia" onclick="abrirModalPericia('${id}')">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            }
+            periciasContainer.innerHTML = periciasHTML;
         }
-        document.getElementById('periciasContainer').innerHTML = periciasHTML;
-        document.getElementById('ppPericias').textContent = (personagemAtual.ppGasto || 0) + ' PP';
+        
+        if (ppPericias) ppPericias.textContent = (personagemAtual.ppGasto || 0) + ' PP';
         
         // Vantagens
-        const vantagensMap = new Map();
-        (personagemAtual.vantagens || []).forEach(v => vantagensMap.set(v, true));
-        const vantagensUnicas = Array.from(vantagensMap.keys());
-        
-        const vantagensHTML = vantagensUnicas.map(v => {
-            const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
-            return `<span class="tag vantagem">${nomeV}</span>`;
-        }).join('');
-        document.getElementById('vantagensContainer').innerHTML = vantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
+        if (vantagensContainer) {
+            const vantagensMap = new Map();
+            (personagemAtual.vantagens || []).forEach(v => vantagensMap.set(v, true));
+            const vantagensUnicas = Array.from(vantagensMap.keys());
+            
+            const vantagensHTML = vantagensUnicas.map(v => {
+                const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                return `<span class="tag vantagem">${nomeV}</span>`;
+            }).join('');
+            vantagensContainer.innerHTML = vantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
+        }
         
         // Desvantagens
-        const desvantagensMap = new Map();
-        (personagemAtual.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
-        if (personagemAtual.fobia) {
-            desvantagensMap.set(`fobia:${personagemAtual.fobia}`, true);
-        }
-        const desvantagensUnicas = Array.from(desvantagensMap.keys());
-        
-        const desvantagensHTML = desvantagensUnicas.map(d => {
-            let nomeD = d;
-            if (d.startsWith('fobia:')) {
-                nomeD = 'Fobia: ' + d.replace('fobia:', '');
-            } else {
-                nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
+        if (desvantagensContainer) {
+            const desvantagensMap = new Map();
+            (personagemAtual.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
+            if (personagemAtual.fobia) {
+                desvantagensMap.set(`fobia:${personagemAtual.fobia}`, true);
             }
-            return `<span class="tag desvantagem">${nomeD}</span>`;
-        }).join('');
-        document.getElementById('desvantagensContainer').innerHTML = desvantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
+            const desvantagensUnicas = Array.from(desvantagensMap.keys());
+            
+            const desvantagensHTML = desvantagensUnicas.map(d => {
+                let nomeD = d;
+                if (d.startsWith('fobia:')) {
+                    nomeD = 'Fobia: ' + d.replace('fobia:', '');
+                } else {
+                    nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                }
+                return `<span class="tag desvantagem">${nomeD}</span>`;
+            }).join('');
+            desvantagensContainer.innerHTML = desvantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
+        }
         
         // Dinheiro
-        document.getElementById('dinheiroValor').textContent = personagemAtual.dinheiro || 0;
+        if (dinheiroValor) dinheiroValor.textContent = personagemAtual.dinheiro || 0;
         
         // Inventário
         renderizarInventario();
         
         // Carga
-        document.getElementById('cargaInfo').textContent = carga.pesoTotal.toFixed(1) + ' kg';
+        if (cargaInfo) cargaInfo.textContent = carga.pesoTotal.toFixed(1) + ' kg';
         
         // Magias
         renderizarMagias();
@@ -2032,9 +2140,9 @@
             `).join('');
         };
         
-        document.getElementById('inventarioCorpo').innerHTML = renderizarLista(personagemAtual?.inventario?.corpo, 'corpo');
-        document.getElementById('inventarioMochila').innerHTML = renderizarLista(personagemAtual?.inventario?.mochila, 'mochila');
-        document.getElementById('inventarioDeposito').innerHTML = renderizarLista(personagemAtual?.inventario?.deposito, 'deposito');
+        if (inventarioCorpo) inventarioCorpo.innerHTML = renderizarLista(personagemAtual?.inventario?.corpo, 'corpo');
+        if (inventarioMochila) inventarioMochila.innerHTML = renderizarLista(personagemAtual?.inventario?.mochila, 'mochila');
+        if (inventarioDeposito) inventarioDeposito.innerHTML = renderizarLista(personagemAtual?.inventario?.deposito, 'deposito');
         
         // Tabs do inventário
         document.querySelectorAll('.inventario-tab').forEach(tab => {
@@ -2043,7 +2151,9 @@
                 tab.classList.add('ativa');
                 
                 document.querySelectorAll('.item-lista').forEach(l => l.classList.remove('ativa'));
-                document.getElementById(`inventario${tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)}`).classList.add('ativa');
+                const targetId = `inventario${tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)}`;
+                const target = document.getElementById(targetId);
+                if (target) target.classList.add('ativa');
             });
         });
     }
@@ -2075,8 +2185,8 @@
             `;
         });
         
-        document.getElementById('magiasContainer').innerHTML = html || '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
-        document.getElementById('ppMagias').textContent = (personagemAtual.ppGasto || 0) + ' PP';
+        if (magiasContainer) magiasContainer.innerHTML = html || '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
+        if (ppMagias) ppMagias.textContent = (personagemAtual.ppGasto || 0) + ' PP';
     }
 
     // ============================================
@@ -2098,7 +2208,7 @@
                 const personagemRef = doc(db, "personagens", personagemAtual.id);
                 await updateDoc(personagemRef, { xpAtual: novoXP });
                 personagemAtual.xpAtual = novoXP;
-                modalGanharEsfera.classList.add('active');
+                if (modalGanharEsfera) modalGanharEsfera.classList.add('active');
                 showToast('🎉 Ganhou 1 esfera! Escolha onde gastar.');
             } catch (error) {
                 console.error('Erro:', error);
@@ -2117,9 +2227,11 @@
         }
         
         const percentual = (novoXP / xpNecessario) * 100;
-        document.getElementById('xpTexto').textContent = `${novoXP} / ${xpNecessario}`;
-        document.getElementById('xpBarra').style.width = Math.min(100, Math.max(0, percentual)) + '%';
-        document.getElementById('xpBarra').textContent = Math.round(percentual) + '%';
+        if (xpTexto) xpTexto.textContent = `${novoXP} / ${xpNecessario}`;
+        if (xpBarra) {
+            xpBarra.style.width = Math.min(100, Math.max(0, percentual)) + '%';
+            xpBarra.textContent = Math.round(percentual) + '%';
+        }
     };
 
     window.gastarEsfera = async function(atributo) {
@@ -2136,7 +2248,7 @@
             if (!personagemAtual.atributos[atributo]) personagemAtual.atributos[atributo] = {};
             personagemAtual.atributos[atributo].esferas = valorAtual + 1;
             
-            modalGanharEsfera.classList.remove('active');
+            if (modalGanharEsfera) modalGanharEsfera.classList.remove('active');
             esferaPendente = false;
             
             await renderizarFicha();
@@ -2148,6 +2260,9 @@
         }
     };
 
+    // ============================================
+    // EVENT LISTENERS DOS MODAIS
+    // ============================================
     document.querySelectorAll('.btn-atributo-esfera').forEach(btn => {
         btn.addEventListener('click', () => {
             const atributo = btn.dataset.atributo;
@@ -2155,10 +2270,15 @@
         });
     });
 
-    fecharModalEsfera.addEventListener('click', () => {
-        modalGanharEsfera.classList.remove('active');
-    });
+    if (fecharModalEsfera) {
+        fecharModalEsfera.addEventListener('click', () => {
+            if (modalGanharEsfera) modalGanharEsfera.classList.remove('active');
+        });
+    }
 
+    // ============================================
+    // FUNÇÕES DE ALTERAÇÃO DE RECURSOS
+    // ============================================
     window.alterarRecurso = async function(tipo, valor) {
         if (!personagemAtual || !currentUser) return;
         
@@ -2195,8 +2315,11 @@
             if (tipo === 'pm') personagemAtual.statusCombate.manaAtual = novoValor;
             if (tipo === 'pf') personagemAtual.statusCombate.fadigaAtual = novoValor;
             
-            document.getElementById(`${tipo}Texto`).textContent = `${novoValor}/${valorMax}`;
-            document.getElementById(`${tipo}Barra`).style.width = (novoValor / valorMax) * 100 + '%';
+            const textoEl = document.getElementById(`${tipo}Texto`);
+            const barraEl = document.getElementById(`${tipo}Barra`);
+            
+            if (textoEl) textoEl.textContent = `${novoValor}/${valorMax}`;
+            if (barraEl) barraEl.style.width = (novoValor / valorMax) * 100 + '%';
             
             showToast(`${tipo.toUpperCase()} alterado!`);
             
@@ -2216,8 +2339,8 @@
             await updateDoc(personagemRef, { dinheiro: novoValor });
             
             personagemAtual.dinheiro = novoValor;
-            document.getElementById('dinheiroValor').textContent = novoValor;
-            document.getElementById('dinheiroHeader').textContent = novoValor;
+            if (dinheiroValor) dinheiroValor.textContent = novoValor;
+            if (dinheiroHeader) dinheiroHeader.textContent = novoValor;
             
             showToast('Dinheiro alterado!');
             
@@ -2227,6 +2350,9 @@
         }
     };
 
+    // ============================================
+    // FUNÇÕES DE INVENTÁRIO
+    // ============================================
     async function atualizarInventarioNoFirestore() {
         try {
             const personagemRef = doc(db, "personagens", personagemAtual.id);
@@ -2310,6 +2436,9 @@
         }
     };
 
+    // ============================================
+    // MODAL DE PERÍCIA
+    // ============================================
     window.abrirModalPericia = function(periciaId) {
         const pericia = catalogoPericias.find(p => p.id === periciaId);
         if (!pericia) return;
@@ -2324,7 +2453,7 @@
             novoNivel: nivelAtual + 1 || 1
         };
         
-        document.getElementById('modalPericiaTitulo').textContent = pericia.nome;
+        if (modalPericiaTitulo) modalPericiaTitulo.textContent = pericia.nome;
         
         let linhas = '';
         for (let i = 1; i <= 5; i++) {
@@ -2332,12 +2461,12 @@
             const custo = i * 5;
             linhas += `<tr class="${classe}"><td>${i}</td><td>+${i*4}%</td><td>${custo} PP</td></tr>`;
         }
-        document.getElementById('tabelaPericia').innerHTML = linhas;
+        if (tabelaPericia) tabelaPericia.innerHTML = linhas;
         
-        document.getElementById('modalPericiaNivel').textContent = periciaModalAtual.novoNivel;
+        if (modalPericiaNivel) modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
         atualizarModalPericia();
         
-        document.getElementById('modalPericia').classList.add('active');
+        if (modalPericia) modalPericia.classList.add('active');
     };
 
     function atualizarModalPericia() {
@@ -2350,69 +2479,80 @@
         const custoDiferenca = custoTotal - custoAtual;
         const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
         
-        document.getElementById('modalPericiaCusto').textContent = custoDiferenca + ' PP';
-        document.getElementById('modalPericiaConfirmar').disabled = custoDiferenca > ppDisponivel;
-        document.getElementById('modalPericiaMenos').disabled = novoNivel <= (nivelAtual > 0 ? nivelAtual + 1 : 1);
-        document.getElementById('modalPericiaMais').disabled = novoNivel >= 5;
+        if (modalPericiaCusto) modalPericiaCusto.textContent = custoDiferenca + ' PP';
+        if (modalPericiaConfirmar) modalPericiaConfirmar.disabled = custoDiferenca > ppDisponivel;
+        if (modalPericiaMenos) modalPericiaMenos.disabled = novoNivel <= (nivelAtual > 0 ? nivelAtual + 1 : 1);
+        if (modalPericiaMais) modalPericiaMais.disabled = novoNivel >= 5;
     }
 
-    document.getElementById('modalPericiaMenos').addEventListener('click', () => {
-        if (periciaModalAtual) {
-            periciaModalAtual.novoNivel--;
-            document.getElementById('modalPericiaNivel').textContent = periciaModalAtual.novoNivel;
-            atualizarModalPericia();
-        }
-    });
+    if (modalPericiaMenos) {
+        modalPericiaMenos.addEventListener('click', () => {
+            if (periciaModalAtual) {
+                periciaModalAtual.novoNivel--;
+                if (modalPericiaNivel) modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
+                atualizarModalPericia();
+            }
+        });
+    }
 
-    document.getElementById('modalPericiaMais').addEventListener('click', () => {
-        if (periciaModalAtual) {
-            periciaModalAtual.novoNivel++;
-            document.getElementById('modalPericiaNivel').textContent = periciaModalAtual.novoNivel;
-            atualizarModalPericia();
-        }
-    });
+    if (modalPericiaMais) {
+        modalPericiaMais.addEventListener('click', () => {
+            if (periciaModalAtual) {
+                periciaModalAtual.novoNivel++;
+                if (modalPericiaNivel) modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
+                atualizarModalPericia();
+            }
+        });
+    }
 
-    document.getElementById('modalPericiaCancelar').addEventListener('click', () => {
-        document.getElementById('modalPericia').classList.remove('active');
-    });
+    if (modalPericiaCancelar) {
+        modalPericiaCancelar.addEventListener('click', () => {
+            if (modalPericia) modalPericia.classList.remove('active');
+        });
+    }
 
-    document.getElementById('modalPericiaConfirmar').addEventListener('click', async () => {
-        if (!periciaModalAtual || !personagemAtual) return;
-        
-        const novoNivel = periciaModalAtual.novoNivel;
-        const nivelAtual = periciaModalAtual.nivelAtual;
-        const custoTotal = novoNivel * 5;
-        const custoAtual = nivelAtual * 5;
-        const custoDiferenca = custoTotal - custoAtual;
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        if (custoDiferenca > ppDisponivel) {
-            showToast('PP insuficiente!', true);
-            return;
-        }
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
+    if (modalPericiaConfirmar) {
+        modalPericiaConfirmar.addEventListener('click', async () => {
+            if (!periciaModalAtual || !personagemAtual) return;
             
-            await updateDoc(personagemRef, {
-                [`pericias.${periciaModalAtual.id}.nivel`]: novoNivel,
-                ppGasto: (personagemAtual.ppGasto || 0) + custoDiferenca
-            });
+            const novoNivel = periciaModalAtual.novoNivel;
+            const nivelAtual = periciaModalAtual.nivelAtual;
+            const custoTotal = novoNivel * 5;
+            const custoAtual = nivelAtual * 5;
+            const custoDiferenca = custoTotal - custoAtual;
+            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
             
-            if (!personagemAtual.pericias) personagemAtual.pericias = {};
-            personagemAtual.pericias[periciaModalAtual.id] = { nivel: novoNivel };
-            personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+            if (custoDiferenca > ppDisponivel) {
+                showToast('PP insuficiente!', true);
+                return;
+            }
             
-            document.getElementById('modalPericia').classList.remove('active');
-            await renderizarFicha();
-            showToast('Perícia atualizada!');
-            
-        } catch (error) {
-            console.error('Erro:', error);
-            showToast('Erro ao atualizar perícia', true);
-        }
-    });
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                await updateDoc(personagemRef, {
+                    [`pericias.${periciaModalAtual.id}.nivel`]: novoNivel,
+                    ppGasto: (personagemAtual.ppGasto || 0) + custoDiferenca
+                });
+                
+                if (!personagemAtual.pericias) personagemAtual.pericias = {};
+                personagemAtual.pericias[periciaModalAtual.id] = { nivel: novoNivel };
+                personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+                
+                if (modalPericia) modalPericia.classList.remove('active');
+                await renderizarFicha();
+                showToast('Perícia atualizada!');
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                showToast('Erro ao atualizar perícia', true);
+            }
+        });
+    }
 
+    // ============================================
+    // MODAL DE MAGIA
+    // ============================================
     window.abrirModalMagia = function(magiaId) {
         const magia = personagemAtual?.escolas?.agua?.magias?.[magiaId];
         const dados = dadosMagias[magiaId];
@@ -2420,7 +2560,7 @@
         
         magiaModalAtual = magiaId;
         
-        document.getElementById('modalMagiaTitulo').textContent = dados.nome;
+        if (modalMagiaTitulo) modalMagiaTitulo.textContent = dados.nome;
         
         let linhas = '';
         for (let i = 1; i <= 10; i++) {
@@ -2429,61 +2569,73 @@
             const efeito = dados.efeitos[i] || '-';
             linhas += `<tr class="${classe}"><td>${i}</td><td>${efeito}</td><td>${nh}%</td></tr>`;
         }
-        document.getElementById('tabelaMagia').innerHTML = linhas;
+        if (tabelaMagia) tabelaMagia.innerHTML = linhas;
         
         const nivelAtual = magia.nivel || 1;
         const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
         
-        document.getElementById('modalMagiaCusto').textContent = nivelAtual >= 10 ? 'Nível Máximo' : '2 PP';
-        document.getElementById('modalMagiaComprar').disabled = nivelAtual >= 10 || 2 > ppDisponivel;
+        if (modalMagiaCusto) modalMagiaCusto.textContent = nivelAtual >= 10 ? 'Nível Máximo' : '2 PP';
+        if (modalMagiaComprar) modalMagiaComprar.disabled = nivelAtual >= 10 || 2 > ppDisponivel;
         
-        document.getElementById('modalMagia').classList.add('active');
+        if (modalMagia) modalMagia.classList.add('active');
     };
 
-    document.getElementById('modalMagiaFechar').addEventListener('click', () => {
-        document.getElementById('modalMagia').classList.remove('active');
-    });
+    if (modalMagiaFechar) {
+        modalMagiaFechar.addEventListener('click', () => {
+            if (modalMagia) modalMagia.classList.remove('active');
+        });
+    }
 
-    document.getElementById('modalMagiaComprar').addEventListener('click', async () => {
-        if (!magiaModalAtual || !personagemAtual) return;
-        
-        const magia = personagemAtual.escolas?.agua?.magias?.[magiaModalAtual];
-        if (!magia || magia.nivel >= 10) return;
-        
-        const custo = 2;
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        if (custo > ppDisponivel) {
-            showToast('PP insuficiente!', true);
-            return;
-        }
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
+    if (modalMagiaComprar) {
+        modalMagiaComprar.addEventListener('click', async () => {
+            if (!magiaModalAtual || !personagemAtual) return;
             
-            await updateDoc(personagemRef, {
-                [`escolas.agua.magias.${magiaModalAtual}.nivel`]: (magia.nivel || 1) + 1,
-                ppGasto: (personagemAtual.ppGasto || 0) + custo
-            });
+            const magia = personagemAtual.escolas?.agua?.magias?.[magiaModalAtual];
+            if (!magia || magia.nivel >= 10) return;
             
-            magia.nivel = (magia.nivel || 1) + 1;
-            personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custo;
+            const custo = 2;
+            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
             
-            document.getElementById('modalMagia').classList.remove('active');
-            await renderizarFicha();
-            showToast('Magia evoluída!');
+            if (custo > ppDisponivel) {
+                showToast('PP insuficiente!', true);
+                return;
+            }
             
-        } catch (error) {
-            console.error('Erro:', error);
-            showToast('Erro ao evoluir magia', true);
-        }
-    });
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                await updateDoc(personagemRef, {
+                    [`escolas.agua.magias.${magiaModalAtual}.nivel`]: (magia.nivel || 1) + 1,
+                    ppGasto: (personagemAtual.ppGasto || 0) + custo
+                });
+                
+                magia.nivel = (magia.nivel || 1) + 1;
+                personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custo;
+                
+                if (modalMagia) modalMagia.classList.remove('active');
+                await renderizarFicha();
+                showToast('Magia evoluída!');
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                showToast('Erro ao evoluir magia', true);
+            }
+        });
+    }
 
-    btnSair.addEventListener('click', async () => {
-        await signOut(auth);
-        window.location.href = 'index.html';
-    });
+    // ============================================
+    // SAIR
+    // ============================================
+    if (btnSair) {
+        btnSair.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.href = 'index.html';
+        });
+    }
 
+    // ============================================
+    // INICIALIZAÇÃO
+    // ============================================
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
