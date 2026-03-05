@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -613,7 +611,7 @@
       background: #2a1a3a;
       border-radius: 30px;
       padding: 30px;
-      max-width: 400px;
+      max-width: 450px;
       width: 90%;
       border: 1px solid #c62828;
     }
@@ -638,7 +636,9 @@
     }
 
 
-    .modal-content input {
+    .modal-content input,
+    .modal-content select,
+    .modal-content textarea {
       width: 100%;
       padding: 12px 15px;
       background: rgba(0, 0, 0, 0.3);
@@ -649,7 +649,9 @@
     }
 
 
-    .modal-content input:focus {
+    .modal-content input:focus,
+    .modal-content select:focus,
+    .modal-content textarea:focus {
       outline: none;
       border-color: #c62828;
     }
@@ -714,6 +716,9 @@
 
     .sessao-info h4 {
       margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
 
@@ -723,23 +728,45 @@
     }
 
 
-    .sessao-status {
-      padding: 5px 15px;
+    .sessao-status-badge {
+      padding: 3px 10px;
       border-radius: 20px;
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       font-weight: 600;
+      display: inline-block;
     }
 
 
-    .sessao-realizada {
+    .sessao-status-aberto {
       background: #00ff00;
       color: #000;
     }
 
 
-    .sessao-pendente {
+    .sessao-status-andamento {
       background: #ffaa00;
       color: #000;
+    }
+
+
+    .sessao-status-fechado {
+      background: #ff0000;
+      color: #fff;
+    }
+
+
+    .sessao-participantes {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 5px;
+    }
+
+
+    .sessao-participantes i {
+      color: #c62828;
     }
 
 
@@ -753,7 +780,7 @@
       background: transparent;
       border: 1px solid #c62828;
       color: #c62828;
-      padding: 5px 10px;
+      padding: 5px 15px;
       border-radius: 15px;
       cursor: pointer;
       font-size: 0.8rem;
@@ -761,9 +788,17 @@
     }
 
 
-    .btn-sessao:hover {
+    .btn-sessao:hover:not(:disabled) {
       background: #c62828;
       color: #fff;
+    }
+
+
+    .btn-sessao:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-color: #666;
+      color: #666;
     }
 
 
@@ -982,7 +1017,8 @@
         <h1 id="campanhaTitulo">Carregando...</h1>
         <div class="campanha-meta">
           <span id="campanhaStatus" class="campanha-status status-aberto">Aberto</span>
-          <span><i class="fas fa-users"></i> <span id="vagas">0/0</span> jogadores</span>
+          <span><i class="fas fa-users"></i> <span id="vagas">0/0</span> vagas</span>
+          <span><i class="fas fa-user-check"></i> <span id="totalPCs">0</span> PCs ativos</span>
           <span><i class="fas fa-level-up-alt"></i> Nível <span id="nivelMin">1</span>-<span id="nivelMax">5</span></span>
           <span><i class="fas fa-clock"></i> <span id="diasHorarios">Não definido</span></span>
         </div>
@@ -1022,6 +1058,13 @@
             </div>
           </div>
           <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+            <div class="stat-info">
+              <h3>PCs Ativos</h3>
+              <p id="statPGs">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
             <div class="stat-info">
               <h3>Sessões Realizadas</h3>
@@ -1033,13 +1076,6 @@
             <div class="stat-info">
               <h3>Próxima Sessão</h3>
               <p id="statProxima">--/--</p>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon"><i class="fas fa-scroll"></i></div>
-            <div class="stat-info">
-              <h3>ID Campanha</h3>
-              <p id="statId">CAMP-0000</p>
             </div>
           </div>
         </div>
@@ -1151,7 +1187,7 @@
   </div>
 
 
-  <!-- MODAL NOVA SESSÃO -->
+  <!-- MODAL NOVA SESSÃO (ATUALIZADO COM STATUS) -->
   <div class="modal" id="modalSessao">
     <div class="modal-content">
       <h3><i class="fas fa-calendar-plus"></i> Nova Sessão</h3>
@@ -1172,11 +1208,24 @@
         <label>Horário</label>
         <input type="time" id="sessaoHora" value="20:00">
       </div>
+      
+      <!-- NOVO: Campo de Status da Sessão -->
+      <div class="form-group">
+        <label>Status Inicial</label>
+        <select id="sessaoStatus">
+          <option value="aberto">🔓 Aberto - Jogadores podem entrar</option>
+          <option value="andamento">⏳ Em Andamento - Jogadores podem entrar</option>
+          <option value="fechado">🔒 Fechado - Entrada bloqueada</option>
+        </select>
+        <small style="color: rgba(255,255,255,0.4); display: block; margin-top: 5px;">
+          Status controla se jogadores podem entrar na sessão
+        </small>
+      </div>
 
 
       <div class="form-group">
         <label>Descrição</label>
-        <textarea id="sessaoDescricao" rows="4" placeholder="descreva os objetivos da sessão..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(198,40,40,0.3); border-radius: 15px; color: #fff; font-family: 'Inter', sans-serif;"></textarea>
+        <textarea id="sessaoDescricao" rows="4" placeholder="Descreva os objetivos da sessão..." style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(198,40,40,0.3); border-radius: 15px; color: #fff; font-family: 'Inter', sans-serif;"></textarea>
       </div>
 
 
@@ -1206,7 +1255,8 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
 
@@ -1235,6 +1285,7 @@ const campanhaDescricao = document.getElementById('campanhaDescricao');
 const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
 const campanhaStatus = document.getElementById('campanhaStatus');
 const vagas = document.getElementById('vagas');
+const totalPCs = document.getElementById('totalPCs');
 const nivelMin = document.getElementById('nivelMin');
 const nivelMax = document.getElementById('nivelMax');
 const diasHorarios = document.getElementById('diasHorarios');
@@ -1242,6 +1293,7 @@ const resumoMundo = document.getElementById('resumoMundo');
 const regrasCasa = document.getElementById('regrasCasa');
 const statId = document.getElementById('statId');
 const statJogadores = document.getElementById('statJogadores');
+const statPCs = document.getElementById('statPGs'); // ID permanece statPGs no HTML
 const statSessoes = document.getElementById('statSessoes');
 const statProxima = document.getElementById('statProxima');
 const selectStatus = document.getElementById('selectStatus');
@@ -1261,6 +1313,7 @@ let currentUser = null;
 let userData = null;
 let campanhaAtual = null;
 let campanhaId = null;
+let totalPCsCount = 0; // CORRIGIDO: de PGs para PCs
 
 
 function showLoading() {
@@ -1457,7 +1510,7 @@ function atualizarInterface() {
 }
 
 
-// ===== FUNÇÃO CORRIGIDA PARA CARREGAR JOGADORES COM CARD CLICÁVEL =====
+// ===== FUNÇÃO PARA CARREGAR JOGADORES COM CONTADOR DE PCs =====
 async function carregarJogadores() {
   if (!campanhaAtual) return;
   
@@ -1482,10 +1535,14 @@ async function carregarJogadores() {
       vinculos.push({ id: doc.id, ...data });
     });
     
-    // ATUALIZAR VAGAS
-    const totalJogadores = vinculos.length;
-    statJogadores.textContent = totalJogadores;
-    vagas.textContent = `${totalJogadores}/${campanhaAtual.vagas_max || 5}`;
+    // ===== CONTADOR DE PCs =====
+    totalPCsCount = vinculos.length;
+    
+    // Atualizar todos os elementos que mostram contagem de PCs
+    if (totalPCs) totalPCs.textContent = totalPCsCount;
+    if (statPCs) statPCs.textContent = totalPCsCount;
+    if (statJogadores) statJogadores.textContent = vinculos.length;
+    if (vagas) vagas.textContent = `${vinculos.length}/${campanhaAtual.vagas_max || 5}`;
     
     // Se não tiver jogadores
     if (vinculos.length === 0) {
@@ -1515,7 +1572,6 @@ async function carregarJogadores() {
         const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
         const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
         
-        // ===== CARD DO PERSONAGEM AGORA É CLICÁVEL =====
         html += `
           <div class="jogador-card">
             <div class="jogador-header">
@@ -1531,7 +1587,6 @@ async function carregarJogadores() {
               </div>
             </div>
             
-            <!-- LINK PARA DETALHES DO PERSONAGEM -->
             <a href="gm-personagem-detalhe.html?personagemId=${vinculo.personagem_id}" 
                style="text-decoration: none; color: inherit; display: block;">
               <div class="personagem-card" style="cursor: pointer; transition: all 0.2s; border: 1px solid transparent;">
@@ -1550,7 +1605,6 @@ async function carregarJogadores() {
                   <span><i class="fas fa-magic"></i> Mana: ${personagem?.statusCombate?.manaAtual || 0}/${personagem?.statusCombate?.manaMax || 0}</span>
                 </div>
                 
-                <!-- INDICADOR DE CLIQUE -->
                 <div style="text-align: right; margin-top: 8px; color: #c62828; font-size: 12px;">
                   <i class="fas fa-external-link-alt"></i> Clique para ver detalhes
                 </div>
@@ -1560,7 +1614,7 @@ async function carregarJogadores() {
         `;
       } catch (err) {
         console.warn('Erro ao carregar detalhes do jogador:', err);
-        // Fallback: mostrar só os dados do vínculo
+        // Fallback
         html += `
           <div class="jogador-card">
             <div class="jogador-header">
@@ -1576,7 +1630,6 @@ async function carregarJogadores() {
               </div>
             </div>
             
-            <!-- LINK DE FALLBACK -->
             <a href="gm-personagem-detalhe.html?personagemId=${vinculo.personagem_id}" 
                style="text-decoration: none; color: inherit;">
               <div class="personagem-card" style="cursor: pointer;">
@@ -1592,7 +1645,7 @@ async function carregarJogadores() {
     
     jogadoresContainer.innerHTML = html;
     
-    // Adicionar efeito hover via JavaScript (opcional)
+    // Efeito hover
     document.querySelectorAll('.personagem-card').forEach(card => {
       card.addEventListener('mouseenter', function() {
         this.style.borderColor = '#c62828';
@@ -1618,7 +1671,7 @@ async function carregarJogadores() {
 }
 
 
-// Carregar sessões
+// ===== FUNÇÃO PARA CARREGAR SESSÕES COM STATUS =====
 async function carregarSessoes() {
   if (!campanhaAtual) return;
   
@@ -1654,42 +1707,81 @@ async function carregarSessoes() {
     let html = '';
     let proximaSessao = null;
     
+    // Ordenar por data
     sessoes.sort((a, b) => {
       const dataA = a.data?.seconds || 0;
       const dataB = b.data?.seconds || 0;
       return dataA - dataB;
     });
     
-    sessoes.forEach(sessao => {
+    for (const sessao of sessoes) {
       const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
       const dia = data.getDate().toString().padStart(2, '0');
       const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+      const ano = data.getFullYear();
       
-      if (!sessao.realizada && !proximaSessao) {
+      // Buscar participantes da sessão
+      const participantesQuery = query(
+        collection(db, "sessao_participantes"),
+        where("sessao_id", "==", sessao.id)
+      );
+      const participantesSnap = await getDocs(participantesQuery);
+      const totalParticipantes = participantesSnap.size;
+      
+      if (!sessao.realizada && !proximaSessao && sessao.data?.seconds > Date.now() / 1000) {
         proximaSessao = `${dia}/${mes}`;
+      }
+      
+      // Determinar classe do status
+      let statusClass = 'sessao-status-aberto';
+      let statusText = 'Aberto';
+      
+      if (sessao.realizada) {
+        statusClass = 'sessao-realizada';
+        statusText = 'Realizada';
+      } else if (sessao.status === 'fechado') {
+        statusClass = 'sessao-status-fechado';
+        statusText = 'Fechado';
+      } else if (sessao.status === 'andamento') {
+        statusClass = 'sessao-status-andamento';
+        statusText = 'Em Andamento';
       }
       
       html += `
         <div class="sessao-item">
           <div class="sessao-data">
             <div class="dia">${dia}</div>
-            <div class="mes">${mes}</div>
+            <div class="mes">${mes}/${ano}</div>
           </div>
           <div class="sessao-info">
-            <h4>${sessao.titulo || 'Sessão'}</h4>
+            <h4>
+              ${sessao.titulo || 'Sessão'}
+              <span class="sessao-status-badge ${statusClass}">${statusText}</span>
+            </h4>
             <p>${sessao.descricao || 'Sem descrição'}</p>
-          </div>
-          <div class="sessao-status ${sessao.realizada ? 'sessao-realizada' : 'sessao-pendente'}">
-            ${sessao.realizada ? 'Realizada' : 'Pendente'}
+            <div class="sessao-participantes">
+              <i class="fas fa-users"></i> ${totalParticipantes} ${totalParticipantes === 1 ? 'jogador' : 'jogadores'} na sessão
+              <i class="fas fa-user-check" style="margin-left: 10px; color: #00ff00;"></i> ${totalPCsCount} PCs na campanha
+            </div>
           </div>
           <div class="sessao-buttons">
-            <button class="btn-sessao" onclick="iniciarSessao('${sessao.id}')">
-              <i class="fas fa-play"></i> Iniciar
-            </button>
+            ${sessao.realizada ? `
+              <button class="btn-sessao" disabled title="Sessão já realizada">
+                <i class="fas fa-check"></i> Realizada
+              </button>
+            ` : `
+              <button class="btn-sessao" onclick="iniciarSessao('${sessao.id}')" 
+                ${sessao.status === 'fechado' ? 'disabled title="Sessão fechada"' : ''}>
+                <i class="fas fa-play"></i> Iniciar
+              </button>
+              <button class="btn-sessao" onclick="editarSessao('${sessao.id}')">
+                <i class="fas fa-edit"></i> Editar
+              </button>
+            `}
           </div>
         </div>
       `;
-    });
+    }
     
     statProxima.textContent = proximaSessao || '--/--';
     sessoesContainer.innerHTML = html;
@@ -1716,6 +1808,7 @@ window.abrirModalSessao = function() {
   modalSessao.classList.add('active');
   const hoje = new Date().toISOString().split('T')[0];
   document.getElementById('sessaoData').value = hoje;
+  document.getElementById('sessaoStatus').value = 'aberto'; // Padrão: aberto
 }
 
 
@@ -1724,15 +1817,17 @@ window.fecharModalSessao = function() {
   document.getElementById('sessaoTitulo').value = '';
   document.getElementById('sessaoData').value = '';
   document.getElementById('sessaoHora').value = '20:00';
+  document.getElementById('sessaoStatus').value = 'aberto';
   document.getElementById('sessaoDescricao').value = '';
 }
 
 
-// Criar sessão
+// ===== FUNÇÃO PARA CRIAR SESSÃO COM STATUS =====
 window.criarSessao = async function() {
   const titulo = document.getElementById('sessaoTitulo').value;
   const data = document.getElementById('sessaoData').value;
   const hora = document.getElementById('sessaoHora').value;
+  const status = document.getElementById('sessaoStatus').value;
   const descricao = document.getElementById('sessaoDescricao').value;
   
   if (!titulo || !data) {
@@ -1745,26 +1840,129 @@ window.criarSessao = async function() {
   try {
     const dataHora = new Date(`${data}T${hora || '20:00'}`);
     
-    await addDoc(collection(db, "sessoes"), {
+    // Criar sessão com status
+    const sessaoRef = await addDoc(collection(db, "sessoes"), {
       campanha_id: campanhaAtual.id,
       campanha_nome: campanhaAtual.nome,
       gm_uid: currentUser.uid,
       titulo: titulo,
       descricao: descricao,
       data: dataHora,
+      status: status, // 'aberto', 'andamento', 'fechado'
       realizada: false,
       data_criacao: serverTimestamp()
     });
     
-    alert('Sessão criada com sucesso!');
+    // ===== NOTIFICAR TODOS OS JOGADORES DA CAMPANHA =====
+    const vinculosQuery = query(
+      collection(db, "campanha_personagens"),
+      where("campanha_id", "==", campanhaAtual.id)
+    );
+    const vinculosSnap = await getDocs(vinculosQuery);
+    
+    const batch = writeBatch(db);
+    vinculosSnap.forEach(doc => {
+      const jogadorUid = doc.data().jogador_uid;
+      
+      // Criar notificação para cada jogador
+      const notificacaoRef = doc(collection(db, "notificacoes"));
+      batch.set(notificacaoRef, {
+        usuarioId: jogadorUid,
+        tipo: "nova_sessao",
+        titulo: `🎲 Nova Sessão: ${titulo}`,
+        mensagem: `O Mestre criou uma nova sessão para ${campanhaAtual.nome}`,
+        campanha_id: campanhaAtual.id,
+        campanha_nome: campanhaAtual.nome,
+        sessao_id: sessaoRef.id,
+        sessao_titulo: titulo,
+        sessao_data: dataHora.toISOString(),
+        sessao_status: status,
+        lida: false,
+        data: new Date().toISOString()
+      });
+    });
+    
+    await batch.commit();
+    
+    alert('✅ Sessão criada com sucesso!');
     fecharModalSessao();
     await carregarSessoes();
     
   } catch (error) {
     console.error('Erro ao criar sessão:', error);
-    alert('Erro ao criar sessão');
+    alert('❌ Erro ao criar sessão');
   } finally {
     hideLoading();
+  }
+}
+
+
+// ===== FUNÇÃO PARA EDITAR SESSÃO =====
+window.editarSessao = async function(sessaoId) {
+  try {
+    const sessaoDoc = await getDoc(doc(db, "sessoes", sessaoId));
+    if (!sessaoDoc.exists()) {
+      alert('Sessão não encontrada!');
+      return;
+    }
+    
+    const sessao = sessaoDoc.data();
+    const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
+    
+    // Preencher modal
+    document.getElementById('sessaoTitulo').value = sessao.titulo || '';
+    document.getElementById('sessaoData').value = data.toISOString().split('T')[0];
+    document.getElementById('sessaoHora').value = data.toTimeString().slice(0, 5);
+    document.getElementById('sessaoStatus').value = sessao.status || 'aberto';
+    document.getElementById('sessaoDescricao').value = sessao.descricao || '';
+    
+    // Abrir modal em modo edição
+    modalSessao.classList.add('active');
+    
+    // Sobrescrever função de salvar temporariamente
+    const btnSalvar = document.querySelector('#modalSessao .btn-primary');
+    const originalOnClick = btnSalvar.onclick;
+    
+    btnSalvar.onclick = async function() {
+      const titulo = document.getElementById('sessaoTitulo').value;
+      const data = document.getElementById('sessaoData').value;
+      const hora = document.getElementById('sessaoHora').value;
+      const status = document.getElementById('sessaoStatus').value;
+      const descricao = document.getElementById('sessaoDescricao').value;
+      
+      if (!titulo || !data) {
+        alert('Preencha título e data da sessão');
+        return;
+      }
+      
+      showLoading();
+      
+      try {
+        const dataHora = new Date(`${data}T${hora || '20:00'}`);
+        
+        await updateDoc(doc(db, "sessoes", sessaoId), {
+          titulo: titulo,
+          descricao: descricao,
+          data: dataHora,
+          status: status
+        });
+        
+        alert('✅ Sessão atualizada!');
+        fecharModalSessao();
+        await carregarSessoes();
+        
+      } catch (error) {
+        console.error('Erro ao atualizar:', error);
+        alert('❌ Erro ao atualizar sessão');
+      } finally {
+        hideLoading();
+        btnSalvar.onclick = originalOnClick; // Restaurar função original
+      }
+    };
+    
+  } catch (error) {
+    console.error('Erro ao carregar sessão:', error);
+    alert('Erro ao carregar sessão para edição');
   }
 }
 
@@ -1823,7 +2021,7 @@ window.excluirCampanha = async function() {
 
 
 // Mudar aba
-window.mudarAba = function(aba) {
+window.mudarAba = function(aba, event) {
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   event.target.classList.add('active');
   
