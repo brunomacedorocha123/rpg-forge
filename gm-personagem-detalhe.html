@@ -528,7 +528,7 @@
     </div>
 
     <script type="module">
-        // TODOS OS IMPORTS NECESSÁRIOS
+        // TODOS OS IMPORTS
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -539,7 +539,7 @@
             doc,
             onSnapshot,
             getDoc,
-            getDocs,          // <--- FALTAVA ESSE!
+            getDocs,
             collection,
             query,
             where
@@ -793,28 +793,92 @@
             }
         }
 
-        // Buscar dados do jogador
-        async function carregarJogador(personagemId) {
+        // Buscar dados do jogador e verificar se o GM tem acesso
+        async function carregarDados(personagemId, userId) {
+            showLoading();
+            
             try {
-                // Buscar vínculo do personagem
+                // 1. Primeiro, verificar se o personagem existe
+                const personagemRef = doc(db, "personagens", personagemId);
+                const personagemSnap = await getDoc(personagemRef);
+                
+                if (!personagemSnap.exists()) {
+                    throw new Error('Personagem não encontrado');
+                }
+                
+                // 2. Verificar se o usuário é o dono
+                if (personagemSnap.data().userId === userId) {
+                    // É o dono, pode ver
+                    renderizarPersonagem(personagemSnap.data());
+                    hideLoading();
+                    
+                    // Configurar listener em tempo real
+                    onSnapshot(personagemRef, (doc) => {
+                        if (doc.exists()) {
+                            renderizarPersonagem(doc.data());
+                        }
+                    });
+                    return;
+                }
+                
+                // 3. Se não é o dono, verificar se é GM da campanha
                 const vinculosQuery = query(
                     collection(db, "campanha_personagens"),
                     where("personagem_id", "==", personagemId)
                 );
                 const vinculosSnap = await getDocs(vinculosQuery);
                 
-                if (!vinculosSnap.empty) {
-                    const vinculo = vinculosSnap.docs[0].data();
-                    const userDoc = await getDoc(doc(db, "usuarios", vinculo.jogador_uid));
-                    if (userDoc.exists()) {
-                        jogadorNome.textContent = userDoc.data().nickname || 'Jogador';
-                    } else {
-                        jogadorNome.textContent = vinculo.jogador_nick || 'Jogador';
+                let isGm = false;
+                
+                for (const doc of vinculosSnap.docs) {
+                    const vinculo = doc.data();
+                    
+                    // Buscar a campanha
+                    const campanhaQuery = query(
+                        collection(db, "campanhas"),
+                        where("id", "==", vinculo.campanha_id)
+                    );
+                    const campanhaSnap = await getDocs(campanhaQuery);
+                    
+                    if (!campanhaSnap.empty) {
+                        const campanha = campanhaSnap.docs[0].data();
+                        if (campanha.gm_uid === userId) {
+                            isGm = true;
+                            jogadorNome.textContent = vinculo.jogador_nick || 'Jogador';
+                            break;
+                        }
                     }
                 }
+                
+                if (isGm) {
+                    // É GM, pode ver
+                    renderizarPersonagem(personagemSnap.data());
+                    hideLoading();
+                    
+                    // Configurar listener em tempo real
+                    onSnapshot(personagemRef, (doc) => {
+                        if (doc.exists()) {
+                            renderizarPersonagem(doc.data());
+                        }
+                    });
+                } else {
+                    // Não tem permissão
+                    throw new Error('Você não tem permissão para ver este personagem');
+                }
+                
             } catch (error) {
-                console.error('Erro ao buscar vínculo:', error);
-                jogadorNome.textContent = 'Erro ao carregar';
+                console.error('Erro:', error);
+                document.querySelector('.container').innerHTML = `
+                    <div style="text-align: center; padding: 50px; background: rgba(198,40,40,0.1); border-radius: 20px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #c62828; margin-bottom: 20px;"></i>
+                        <h2 style="color: #c62828;">Erro de Permissão</h2>
+                        <p style="margin: 20px 0;">${error.message}</p>
+                        <button onclick="history.back()" class="btn-voltar" style="margin-top: 20px;">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </button>
+                    </div>
+                `;
+                hideLoading();
             }
         }
 
@@ -832,47 +896,8 @@
                 return;
             }
 
-            showLoading();
-
-            // Carregar nome do jogador
-            await carregarJogador(personagemId);
-
-            // TENTATIVA 1: Ler diretamente (vai falhar se a regra não permitir)
-            try {
-                const docRef = doc(db, "personagens", personagemId);
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    console.log('✅ Personagem encontrado!');
-                    renderizarPersonagem(docSnap.data());
-                }
-            } catch (error) {
-                console.log('⚠️ Erro na leitura direta:', error);
-            }
-
-            // TENTATIVA 2: Ouvir em tempo real
-            const unsub = onSnapshot(doc(db, "personagens", personagemId), (doc) => {
-                if (doc.exists()) {
-                    renderizarPersonagem(doc.data());
-                    hideLoading();
-                }
-            }, (error) => {
-                console.error('❌ Erro no snapshot:', error);
-                document.querySelector('.container').innerHTML = `
-                    <div style="text-align: center; padding: 50px; background: rgba(198,40,40,0.1); border-radius: 20px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #c62828; margin-bottom: 20px;"></i>
-                        <h2 style="color: #c62828;">Erro de Permissão</h2>
-                        <p style="margin: 20px 0;">O GM não tem permissão para ver este personagem.</p>
-                        <p style="font-size: 14px; color: rgba(255,255,255,0.5);">Erro: ${error.message}</p>
-                        <button onclick="history.back()" class="btn-voltar" style="margin-top: 20px;">
-                            <i class="fas fa-arrow-left"></i> Voltar
-                        </button>
-                    </div>
-                `;
-                hideLoading();
-            });
-
-            window.ouvidorPersonagem = unsub;
+            // Carregar dados com verificação
+            await carregarDados(personagemId, user.uid);
         });
     </script>
 </body>
