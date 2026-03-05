@@ -1244,7 +1244,7 @@
   </div>
 
 
-  <script type="module">
+ <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -1262,10 +1262,8 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
-  serverTimestamp,
-  writeBatch
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -1277,11 +1275,9 @@ const firebaseConfig = {
   appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
 };
 
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 
 // Elementos do DOM
 const displayIdGm = document.getElementById('displayIdGm');
@@ -1308,12 +1304,10 @@ const selectVisibilidade = document.getElementById('selectVisibilidade');
 const jogadoresContainer = document.getElementById('jogadoresContainer');
 const sessoesContainer = document.getElementById('sessoesContainer');
 
-
 // Modais
 const modalConvidar = document.getElementById('modalConvidar');
 const modalSessao = document.getElementById('modalSessao');
 const convidarIdPC = document.getElementById('convidarIdPC');
-
 
 // Variáveis globais
 let currentUser = null;
@@ -1322,22 +1316,18 @@ let campanhaAtual = null;
 let campanhaId = null;
 let totalPCsCount = 0;
 
-
 function showLoading() {
   loadingOverlay.classList.add('active');
 }
-
 
 function hideLoading() {
   loadingOverlay.classList.remove('active');
 }
 
-
 function getCampanhaIdFromUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   return urlParams.get('id');
 }
-
 
 // ===== FUNÇÃO DE CONVITE =====
 window.enviarConvite = async function() {
@@ -1400,20 +1390,7 @@ window.enviarConvite = async function() {
       lido: false
     };
     
-    const docRef = await addDoc(collection(db, "convites"), conviteData);
-    
-    // Criar notificação
-    await addDoc(collection(db, "notificacoes"), {
-      usuarioId: jogadorUid,
-      tipo: "convite_campanha",
-      titulo: `📜 Convite: ${campanhaAtual.nome}`,
-      mensagem: `Mestre ${userData?.nickname || 'Mestre'} convidou você para participar da campanha!`,
-      campanha_id: campanhaAtual.id,
-      campanha_nome: campanhaAtual.nome,
-      convite_id: docRef.id,
-      lida: false,
-      data: new Date().toISOString()
-    });
+    await addDoc(collection(db, "convites"), conviteData);
     
     alert('✅ Convite enviado com sucesso!');
     fecharModalConvidar();
@@ -1426,7 +1403,6 @@ window.enviarConvite = async function() {
   }
 }
 
-
 // Carregar campanha
 async function carregarCampanha() {
   campanhaId = getCampanhaIdFromUrl();
@@ -1436,7 +1412,6 @@ async function carregarCampanha() {
     window.location.href = 'campanha-gm.html';
     return;
   }
-
 
   showLoading();
   
@@ -1479,7 +1454,6 @@ async function carregarCampanha() {
   }
 }
 
-
 function atualizarInterface() {
   if (!campanhaAtual) return;
   
@@ -1516,14 +1490,11 @@ function atualizarInterface() {
   selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
 }
 
-
 // ===== FUNÇÃO PARA CARREGAR JOGADORES COM CONTADOR DE PCs =====
 async function carregarJogadores() {
   if (!campanhaAtual) return;
   
   try {
-    console.log('🔍 Buscando vínculos para campanha:', campanhaAtual.id);
-    
     // Buscar TODOS os vínculos
     const vinculosQuery = query(
       collection(db, "campanha_personagens"),
@@ -1532,14 +1503,10 @@ async function carregarJogadores() {
     
     const vinculosSnap = await getDocs(vinculosQuery);
     
-    console.log('📊 Total de vínculos encontrados:', vinculosSnap.size);
-    
     // Array para armazenar os vínculos
     const vinculos = [];
     vinculosSnap.forEach(doc => {
-      const data = doc.data();
-      console.log('📄 Vínculo encontrado:', { id: doc.id, ...data });
-      vinculos.push({ id: doc.id, ...data });
+      vinculos.push({ id: doc.id, ...doc.data() });
     });
     
     // ===== CONTADOR DE PCs =====
@@ -1676,7 +1643,6 @@ async function carregarJogadores() {
   }
 }
 
-
 // ===== FUNÇÃO PARA CARREGAR SESSÕES COM STATUS =====
 async function carregarSessoes() {
   if (!campanhaAtual) return;
@@ -1797,18 +1763,15 @@ async function carregarSessoes() {
   }
 }
 
-
 // Funções de Modal
 window.abrirModalConvidar = function() {
   modalConvidar.classList.add('active');
 }
 
-
 window.fecharModalConvidar = function() {
   modalConvidar.classList.remove('active');
   convidarIdPC.value = '';
 }
-
 
 window.abrirModalSessao = function() {
   modalSessao.classList.add('active');
@@ -1816,7 +1779,6 @@ window.abrirModalSessao = function() {
   document.getElementById('sessaoData').value = hoje;
   document.getElementById('sessaoStatus').value = 'aberto';
 }
-
 
 window.fecharModalSessao = function() {
   modalSessao.classList.remove('active');
@@ -1827,8 +1789,7 @@ window.fecharModalSessao = function() {
   document.getElementById('sessaoDescricao').value = '';
 }
 
-
-// ===== FUNÇÃO PARA CRIAR SESSÃO COM STATUS =====
+// ===== FUNÇÃO PARA CRIAR SESSÃO (SEM NOTIFICAÇÕES) =====
 window.criarSessao = async function() {
   const titulo = document.getElementById('sessaoTitulo').value;
   const data = document.getElementById('sessaoData').value;
@@ -1846,8 +1807,8 @@ window.criarSessao = async function() {
   try {
     const dataHora = new Date(`${data}T${hora || '20:00'}`);
     
-    // Criar sessão com status
-    const sessaoRef = await addDoc(collection(db, "sessoes"), {
+    // CRIAR SOMENTE A SESSÃO - SEM NOTIFICAÇÕES
+    await addDoc(collection(db, "sessoes"), {
       campanha_id: campanhaAtual.id,
       campanha_nome: campanhaAtual.nome,
       gm_uid: currentUser.uid,
@@ -1859,47 +1820,17 @@ window.criarSessao = async function() {
       data_criacao: serverTimestamp()
     });
     
-    // NOTIFICAR TODOS OS JOGADORES
-    const vinculosQuery = query(
-      collection(db, "campanha_personagens"),
-      where("campanha_id", "==", campanhaAtual.id)
-    );
-    const vinculosSnap = await getDocs(vinculosQuery);
-    
-    const batch = writeBatch(db);
-    vinculosSnap.forEach(doc => {
-      const jogadorUid = doc.data().jogador_uid;
-      const notificacaoRef = doc(collection(db, "notificacoes"));
-      batch.set(notificacaoRef, {
-        usuarioId: jogadorUid,
-        tipo: "nova_sessao",
-        titulo: `🎲 Nova Sessão: ${titulo}`,
-        mensagem: `O Mestre criou uma nova sessão para ${campanhaAtual.nome}`,
-        campanha_id: campanhaAtual.id,
-        campanha_nome: campanhaAtual.nome,
-        sessao_id: sessaoRef.id,
-        sessao_titulo: titulo,
-        sessao_data: dataHora.toISOString(),
-        sessao_status: status,
-        lida: false,
-        data: new Date().toISOString()
-      });
-    });
-    
-    await batch.commit();
-    
     alert('✅ Sessão criada com sucesso!');
     fecharModalSessao();
     await carregarSessoes();
     
   } catch (error) {
     console.error('Erro ao criar sessão:', error);
-    alert('❌ Erro ao criar sessão');
+    alert('❌ Erro ao criar sessão: ' + error.message);
   } finally {
     hideLoading();
   }
 }
-
 
 // ===== FUNÇÃO PARA EDITAR SESSÃO =====
 window.editarSessao = async function(sessaoId) {
@@ -1967,12 +1898,10 @@ window.editarSessao = async function(sessaoId) {
   }
 }
 
-
 // Iniciar sessão
 window.iniciarSessao = function(sessaoId) {
   window.location.href = `mesa-jogo.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
 }
-
 
 // Salvar configurações
 window.salvarConfiguracoes = async function() {
@@ -1999,7 +1928,6 @@ window.salvarConfiguracoes = async function() {
   }
 }
 
-
 // Excluir campanha
 window.excluirCampanha = async function() {
   if (!confirm('Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita!')) {
@@ -2020,8 +1948,7 @@ window.excluirCampanha = async function() {
   }
 }
 
-
-// Mudar aba - CORRIGIDA
+// Mudar aba
 window.mudarAba = function(aba, event) {
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   if (event && event.target) {
@@ -2035,13 +1962,11 @@ window.mudarAba = function(aba, event) {
   document.getElementById(`aba-${aba}`).style.display = 'block';
 }
 
-
 // Sair
 btnSair.addEventListener('click', async () => {
   await signOut(auth);
   window.location.href = 'index.html';
 });
-
 
 // Verificar login
 onAuthStateChanged(auth, async (user) => {
