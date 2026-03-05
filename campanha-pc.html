@@ -971,7 +971,7 @@ async function carregarVinculoAtual() {
     }
 }
 
-// ===== FUNÇÃO DE VINCULAR PERSONAGEM (ORIGINAL, NÃO MODIFICADA) =====
+// ===== FUNÇÃO DE VINCULAR PERSONAGEM =====
 window.vincularPersonagem = async function(personagemId, personagemNome) {
     if (!currentUser || !campanhaAtual) return;
     
@@ -1011,7 +1011,7 @@ window.vincularPersonagem = async function(personagemId, personagemNome) {
     }
 };
 
-// ===== FUNÇÃO DE DESVINCULAR PERSONAGEM (ORIGINAL) =====
+// ===== FUNÇÃO DE DESVINCULAR PERSONAGEM =====
 window.desvincularPersonagem = async function(personagemId, personagemNome) {
     if (!currentUser || !campanhaAtual || !vinculoAtual) {
         showToast('Nenhum personagem vinculado', true);
@@ -1151,14 +1151,24 @@ async function carregarPersonagens() {
     }
 }
 
-// Carregar sessões
+// ===== FUNÇÃO PARA ENTRAR NA SESSÃO =====
+window.entrarSessao = function(sessaoId) {
+    if (!vinculoAtual) {
+        showToast('Você precisa vincular um personagem primeiro!', true);
+        return;
+    }
+    window.location.href = `mesa-jogo-pc.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
+}
+
+// ===== FUNÇÃO CARREGAR SESSÕES (CORRIGIDA!) =====
 async function carregarSessoes() {
     if (!campanhaAtual) return;
     
     try {
+        // CORREÇÃO: Usar campanha_id_custom em vez de campanha_id
         const q = query(
             collection(db, "sessoes"),
-            where("campanha_id", "==", campanhaAtual.id)
+            where("campanha_id_custom", "==", campanhaAtual.id)
         );
         
         const querySnapshot = await getDocs(q);
@@ -1184,37 +1194,109 @@ async function carregarSessoes() {
         
         let html = '';
         
+        // Ordenar por data (mais próximas primeiro)
         sessoes.sort((a, b) => {
             const dataA = a.data?.seconds || 0;
             const dataB = b.data?.seconds || 0;
             return dataA - dataB;
         });
         
-        sessoes.forEach(sessao => {
+        for (const sessao of sessoes) {
             const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
             const dia = data.getDate().toString().padStart(2, '0');
             const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+            const ano = data.getFullYear();
+            
+            // Determinar classe e texto do status
+            let statusClass = '';
+            let statusText = '';
+            let podeEntrar = false;
+            
+            if (sessao.realizada) {
+                statusClass = 'sessao-realizada';
+                statusText = '✓ Realizada';
+                podeEntrar = false;
+            } else if (sessao.status === 'fechado') {
+                statusClass = 'sessao-fechado';
+                statusText = '🔒 Fechada';
+                podeEntrar = false;
+            } else if (sessao.status === 'andamento') {
+                statusClass = 'sessao-andamento';
+                statusText = '⏳ Em Andamento';
+                podeEntrar = true;
+            } else {
+                statusClass = 'sessao-pendente';
+                statusText = '📅 Aberta';
+                podeEntrar = true;
+            }
             
             html += `
                 <div class="sessao-item">
                     <div class="sessao-data">
                         <div class="dia">${dia}</div>
-                        <div class="mes">${mes}</div>
+                        <div class="mes">${mes}/${ano}</div>
                     </div>
                     <div class="sessao-info">
-                        <h4>${sessao.titulo || 'Sessão'}</h4>
+                        <h4>${sessao.titulo || 'Sessão sem título'}</h4>
                         <p>${sessao.descricao || 'Sem descrição'}</p>
+                        <div style="margin-top: 8px;">
+                            <span class="sessao-status ${statusClass}" 
+                                  style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
+                                ${statusText}
+                            </span>
+                        </div>
                     </div>
-                    <div class="sessao-status ${sessao.realizada ? 'sessao-realizada' : 'sessao-pendente'}">
-                        ${sessao.realizada ? 'Realizada' : 'Pendente'}
-                    </div>
-                </div>
             `;
-        });
+            
+            // Botão de entrar (se aplicável)
+            if (!sessao.realizada) {
+                if (vinculoAtual) {
+                    html += `
+                        <div>
+                            <button class="btn-vincular" 
+                                    onclick="entrarSessao('${sessao.id}')"
+                                    ${sessao.status === 'fechado' ? 'disabled' : ''}
+                                    style="padding: 8px 20px; ${sessao.status === 'fechado' ? 'opacity: 0.5;' : ''}">
+                                <i class="fas fa-sign-in-alt"></i> 
+                                ${sessao.status === 'fechado' ? 'Fechada' : 'Entrar na Sessão'}
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div>
+                            <button class="btn-vincular" 
+                                    onclick="showToast('Vincule um personagem primeiro!', true)"
+                                    style="padding: 8px 20px; background: #666;">
+                                <i class="fas fa-ban"></i> Sem Personagem
+                            </button>
+                        </div>
+                    `;
+                }
+            } else {
+                html += `
+                    <div>
+                        <button class="btn-vincular" disabled style="padding: 8px 20px; background: #444;">
+                            <i class="fas fa-check"></i> Sessão Realizada
+                        </button>
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+        }
         
         sessoesContainer.innerHTML = html;
         
-    } catch (error) {}
+    } catch (error) {
+        console.error('Erro ao carregar sessões:', error);
+        sessoesContainer.innerHTML = `
+            <div style="text-align: center; color: #ff6b6b; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                <p>Erro ao carregar sessões</p>
+            </div>
+        `;
+    }
 }
 
 // Mudar aba
@@ -1227,6 +1309,13 @@ window.mudarAba = function(aba) {
     });
     
     document.getElementById(`aba-${aba}`).style.display = 'block';
+    
+    // Recarregar dados quando mudar de aba
+    if (aba === 'sessoes') {
+        carregarSessoes();
+    } else if (aba === 'meus-personagens') {
+        carregarPersonagens();
+    }
 }
 
 // Sair
@@ -1251,6 +1340,7 @@ onAuthStateChanged(auth, async (user) => {
                 await carregarCampanha();
             }
         } catch (error) {
+            console.error('Erro:', error);
         } finally {
             hideLoading();
         }
