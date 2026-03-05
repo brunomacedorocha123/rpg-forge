@@ -1648,9 +1648,10 @@ async function carregarSessoes() {
   if (!campanhaAtual) return;
   
   try {
+    // Usar o ID personalizado para buscar as sessões
     const q = query(
       collection(db, "sessoes"),
-      where("campanha_id", "==", campanhaAtual.id)
+      where("campanha_id_custom", "==", campanhaAtual.id)
     );
     
     const querySnapshot = await getDocs(q);
@@ -1789,7 +1790,7 @@ window.fecharModalSessao = function() {
   document.getElementById('sessaoDescricao').value = '';
 }
 
-// ===== FUNÇÃO PARA CRIAR SESSÃO (SEM NOTIFICAÇÕES) =====
+// ===== FUNÇÃO PARA CRIAR SESSÃO (CORRIGIDA!) =====
 window.criarSessao = async function() {
   const titulo = document.getElementById('sessaoTitulo').value;
   const data = document.getElementById('sessaoData').value;
@@ -1807,9 +1808,10 @@ window.criarSessao = async function() {
   try {
     const dataHora = new Date(`${data}T${hora || '20:00'}`);
     
-    // CRIAR SOMENTE A SESSÃO - SEM NOTIFICAÇÕES
+    // CORREÇÃO: Usar docId para o Firestore e guardar o ID personalizado separadamente
     await addDoc(collection(db, "sessoes"), {
-      campanha_id: campanhaAtual.id,
+      campanha_id: campanhaAtual.docId,           // ← AGORA USA O ID REAL DO FIRESTORE
+      campanha_id_custom: campanhaAtual.id,       // ← GUARDA O ID PERSONALIZADO PARA CONSULTAS
       campanha_nome: campanhaAtual.nome,
       gm_uid: currentUser.uid,
       titulo: titulo,
@@ -1832,7 +1834,7 @@ window.criarSessao = async function() {
   }
 }
 
-// ===== FUNÇÃO PARA EDITAR SESSÃO =====
+// ===== FUNÇÃO PARA EDITAR SESSÃO (ATUALIZADA) =====
 window.editarSessao = async function(sessaoId) {
   try {
     const sessaoDoc = await getDoc(doc(db, "sessoes", sessaoId));
