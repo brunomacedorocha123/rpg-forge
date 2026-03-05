@@ -781,7 +781,7 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -1113,6 +1113,19 @@
 
         // Mostrar resultado da busca
         function mostrarResultadoBusca(jogador) {
+            // ✅ VERIFICAÇÃO: não pode convidar a si mesmo
+            if (jogador.uid === currentUser.uid) {
+                resultadoBusca.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #ff9800;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Você não pode convidar a si mesmo!</p>
+                    </div>
+                `;
+                resultadoBusca.style.display = 'block';
+                semResultado.style.display = 'none';
+                return;
+            }
+            
             const jaEhMembro = guildaAtual.membros.includes(jogador.uid);
             
             resultadoBusca.innerHTML = `
@@ -1137,7 +1150,7 @@
             }
         }
 
-        // Convidar jogador
+        // ✅ FUNÇÃO CORRIGIDA - Convidar jogador (agora com os campos corretos)
         async function convidarJogador(jogador) {
             if (guildaAtual.lider_uid !== currentUser.uid) {
                 showToast('Apenas o líder pode convidar jogadores', true);
@@ -1148,20 +1161,27 @@
             
             try {
                 const conviteId = `${guildaId}_${jogador.uid}_${Date.now()}`;
+                
+                // ✅ APENAS os campos EXIGIDOS pela regra do Firestore
                 const conviteData = {
-                    guilda_id: guildaId,
-                    guilda_nome: guildaAtual.nome,
-                    remetente_uid: currentUser.uid,
-                    remetente_nick: userData.nickname,
-                    destinatario_uid: jogador.uid,
-                    destinatario_nick: jogador.nickname,
-                    status: 'pendente',
-                    data_envio: new Date().toISOString(),
-                    lido: false
+                    tipo: 'guilda',                          // Campo obrigatório
+                    guilda_id: guildaId,                      // Campo obrigatório
+                    guilda_nome: guildaAtual.nome,            // Campo obrigatório
+                    remetente_uid: currentUser.uid,           // Campo obrigatório
+                    remetente_nick: userData.nickname,        // Campo obrigatório
+                    destinatario_uid: jogador.uid,            // Campo obrigatório
+                    destinatario_nick: jogador.nickname,      // Campo obrigatório
+                    status: 'pendente',                        // Campo obrigatório
+                    data_envio: new Date().toISOString()       // Campo obrigatório
+                    // ❌ NÃO incluir campos extras como 'lido'
                 };
+                
+                // Log para debug (opcional)
+                console.log('Enviando convite:', conviteData);
                 
                 await setDoc(doc(db, "convites", conviteId), conviteData);
                 
+                // ✅ NOTIFICAÇÃO separada (pode ter campos extras)
                 const notificacaoId = `notif_${jogador.uid}_${Date.now()}`;
                 const notificacaoData = {
                     usuarioId: jogador.uid,
@@ -1179,6 +1199,7 @@
                 
                 showToast('Convite enviado com sucesso!');
                 
+                // Atualizar botão
                 const btnConvidar = document.getElementById('btnConvidar');
                 if (btnConvidar) {
                     btnConvidar.disabled = true;
@@ -1186,8 +1207,10 @@
                 }
                 
             } catch (error) {
-                console.error('Erro ao enviar convite:', error);
-                showToast('Erro ao enviar convite', true);
+                console.error('Erro detalhado:', error);
+                console.error('Código:', error.code);
+                console.error('Mensagem:', error.message);
+                showToast('Erro ao enviar convite: ' + error.message, true);
             } finally {
                 hideLoading();
             }
