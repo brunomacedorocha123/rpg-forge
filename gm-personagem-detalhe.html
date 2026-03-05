@@ -528,7 +528,7 @@
     </div>
 
     <script type="module">
-        // IMPORTS CORRETOS - INCLUINDO TODAS AS FUNÇÕES NECESSÁRIAS
+        // TODOS OS IMPORTS NECESSÁRIOS
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -539,9 +539,10 @@
             doc,
             onSnapshot,
             getDoc,
+            getDocs,          // <--- FALTAVA ESSE!
             collection,
-            query,          // <--- FALTAVA ESSE!
-            where            // <--- FALTAVA ESSE!
+            query,
+            where
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -792,7 +793,7 @@
             }
         }
 
-        // Buscar dados do jogador (agora com query importado!)
+        // Buscar dados do jogador
         async function carregarJogador(personagemId) {
             try {
                 // Buscar vínculo do personagem
@@ -836,18 +837,38 @@
             // Carregar nome do jogador
             await carregarJogador(personagemId);
 
-            // OUVIR EM TEMPO REAL
+            // TENTATIVA 1: Ler diretamente (vai falhar se a regra não permitir)
+            try {
+                const docRef = doc(db, "personagens", personagemId);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    console.log('✅ Personagem encontrado!');
+                    renderizarPersonagem(docSnap.data());
+                }
+            } catch (error) {
+                console.log('⚠️ Erro na leitura direta:', error);
+            }
+
+            // TENTATIVA 2: Ouvir em tempo real
             const unsub = onSnapshot(doc(db, "personagens", personagemId), (doc) => {
                 if (doc.exists()) {
                     renderizarPersonagem(doc.data());
                     hideLoading();
-                } else {
-                    alert('Personagem não encontrado!');
-                    hideLoading();
                 }
             }, (error) => {
-                console.error('Erro no snapshot:', error);
-                alert('Erro ao carregar dados. Verifique as permissões do Firebase.');
+                console.error('❌ Erro no snapshot:', error);
+                document.querySelector('.container').innerHTML = `
+                    <div style="text-align: center; padding: 50px; background: rgba(198,40,40,0.1); border-radius: 20px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #c62828; margin-bottom: 20px;"></i>
+                        <h2 style="color: #c62828;">Erro de Permissão</h2>
+                        <p style="margin: 20px 0;">O GM não tem permissão para ver este personagem.</p>
+                        <p style="font-size: 14px; color: rgba(255,255,255,0.5);">Erro: ${error.message}</p>
+                        <button onclick="history.back()" class="btn-voltar" style="margin-top: 20px;">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </button>
+                    </div>
+                `;
                 hideLoading();
             });
 
