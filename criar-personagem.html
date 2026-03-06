@@ -14,2206 +14,2222 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
-   <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #2a1a3a 100%);
-            min-height: 100vh;
-            color: #fff;
-        }
-        
-        /* Fundo mágico animado */
-        .magic-bg {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 0;
-        }
-        
-        .magic-bg::before {
-            content: '';
-            position: absolute;
-            width: 100%; height: 100%;
-            background: radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%);
-            animation: pulse 8s ease-in-out infinite;
-        }
-        
-        .magic-bg::after {
-            content: '';
-            position: absolute;
-            width: 100%; height: 100%;
-            background: radial-gradient(circle at 80% 80%, rgba(198, 40, 40, 0.1) 0%, transparent 50%);
-            animation: pulse 10s ease-in-out infinite reverse;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.1); }
-        }
-        
-        /* Container principal */
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Navbar */
-        .navbar {
-            background: rgba(10, 10, 26, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 20px;
-            padding: 15px 20px;
-            margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .logo-area h2 {
-            font-family: 'MedievalSharp', cursive;
-            font-size: 1.3rem;
-            background: linear-gradient(45deg, #ffd700, #ff6b6b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .user-id {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 6px 12px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-        }
-        
-        .user-id i { color: #ffd700; }
-        
-        .user-id .value {
-            color: #ffd700;
-            font-family: monospace;
-            font-weight: 600;
-        }
-        
-        .user-nick {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 215, 0, 0.1);
-            padding: 6px 15px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-        }
-        
-        .user-nick i { color: #ffd700; }
-        
-        /* Botões de ação */
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-left: auto;
-        }
-        
-        .btn-excluir {
-            background: transparent;
-            border: 2px solid rgba(255, 0, 0, 0.5);
-            color: #ff6b6b;
-            padding: 6px 15px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .btn-excluir:hover {
-            background: #ff6b6b;
-            color: #0a0a1a;
-            border-color: #ff6b6b;
-        }
-        
-        .btn-pdf {
-            background: transparent;
-            border: 2px solid rgba(255, 215, 0, 0.5);
-            color: #ffd700;
-            padding: 6px 15px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .btn-pdf:hover {
-            background: #ffd700;
-            color: #0a0a1a;
-            border-color: #ffd700;
-        }
-        
-        .btn-salvar {
-            background: linear-gradient(45deg, #4a6da8, #2a4a8a);
-            border: none;
-            color: white;
-            padding: 6px 15px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .btn-salvar:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(74, 109, 168, 0.4);
-        }
-        
-        .btn-sair {
-            background: transparent;
-            border: 2px solid rgba(255, 107, 107, 0.5);
-            color: #ff6b6b;
-            padding: 6px 15px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .btn-sair:hover {
-            background: #ff6b6b;
-            color: #0a0a1a;
-            border-color: #ff6b6b;
-        }
-        
-        /* Indicador de auto-save */
-        .auto-save-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.8rem;
-            color: rgba(255,215,0,0.7);
-            margin-left: 10px;
-        }
-        
-        .auto-save-indicator i { font-size: 0.7rem; }
-        
-        .auto-save-indicator.saving {
-            color: #ffd700;
-            animation: pulse 1s infinite;
-        }
-        
-        .auto-save-indicator.saved { color: #4CAF50; }
-        
-        /* Breadcrumb */
-        .breadcrumb {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            flex-wrap: wrap;
-        }
-        
-        .breadcrumb a {
-            color: rgba(255, 255, 255, 0.6);
-            text-decoration: none;
-        }
-        
-        .breadcrumb a:hover { color: #ffd700; }
-        
-        .breadcrumb i {
-            font-size: 0.7rem;
-            color: rgba(255, 215, 0, 0.5);
-        }
-        
-        .breadcrumb .current { color: #ffd700; }
-        
-        /* Page header */
-        .page-header h1 {
-            font-family: 'MedievalSharp', cursive;
-            font-size: 2rem;
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        /* Abas principais */
-        .abas-container {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            background: rgba(10, 10, 26, 0.6);
-            padding: 10px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-        }
-        
-        .aba {
-            background: transparent;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            color: rgba(255, 255, 255, 0.7);
-            padding: 12px 20px;
-            border-radius: 15px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-            flex: 1;
-            justify-content: center;
-            min-width: 120px;
-        }
-        
-        .aba:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-            color: #ffd700;
-        }
-        
-        .aba.ativa {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            border-color: #ffd700;
-            color: #0a0a1a;
-            font-weight: 600;
-        }
-        
-        .aba .contador {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-        }
-        
-        .aba.ativa .contador {
-            background: rgba(0, 0, 0, 0.2);
-            color: #0a0a1a;
-        }
-        
-        .conteudo-aba { display: none; }
-        .conteudo-aba.ativa { display: block; }
-        
-        /* Subabas */
-        .subabas-container {
-            display: flex;
-            gap: 5px;
-            margin: 15px 0;
-            flex-wrap: wrap;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 8px;
-            border-radius: 15px;
-        }
-        
-        .subaba {
-            background: transparent;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            color: rgba(255, 255, 255, 0.7);
-            padding: 8px 15px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-            flex: 1;
-            justify-content: center;
-        }
-        
-        .subaba:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-            color: #ffd700;
-        }
-        
-        .subaba.ativa {
-            background: rgba(255, 215, 0, 0.2);
-            border-color: #ffd700;
-            color: #ffd700;
-        }
-        
-        .subaba img {
-            width: 20px;
-            height: 20px;
-            object-fit: contain;
-        }
-        
-        .subaba:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-        
-        /* Cards */
-        .card {
-            background: rgba(10, 10, 26, 0.9);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 30px;
-            padding: 30px;
-            margin-bottom: 30px;
-        }
-        
-        .card-section {
-            margin-bottom: 30px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
-        }
-        
-        .card-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        
-        .card-section h2 {
-            font-family: 'MedievalSharp', cursive;
-            font-size: 1.5rem;
-            color: #ffd700;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        /* Formulários */
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .form-group label {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.9rem;
-        }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            border-radius: 15px;
-            padding: 12px 15px;
-            color: #fff;
-            font-size: 1rem;
-            width: 100%;
-            transition: all 0.3s;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #ffd700;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-        }
-        
-        .form-group input:hover,
-        .form-group select:hover,
-        .form-group textarea:hover {
-            border-color: rgba(255, 215, 0, 0.5);
-        }
-        
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        
-        .form-group small {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.8rem;
-            margin-top: 5px;
-            display: block;
-        }
-        
-        /* Upload de foto */
-        .upload-area {
-            background: rgba(0, 0, 0, 0.2);
-            border: 2px dashed rgba(255, 215, 0, 0.3);
-            border-radius: 20px;
-            padding: 30px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 15px;
-        }
-        
-        .upload-area:hover {
-            border-color: #ffd700;
-            background: rgba(255, 215, 0, 0.05);
-        }
-        
-        .upload-area i {
-            font-size: 2rem;
-            color: #ffd700;
-            margin-bottom: 10px;
-            display: block;
-        }
-        
-        .preview-area {
-            position: relative;
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            overflow: hidden;
-            margin: 10px 0;
-            border: 3px solid #ffd700;
-        }
-        
-        .preview-area img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .btn-remove {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(255, 0, 0, 0.7);
-            color: white;
-            border: none;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-        }
-        
-        .btn-remove:hover {
-            background: #ff0000;
-            transform: scale(1.1);
-        }
-        
-        /* ===== ATRIBUTOS DUPLA FACE ===== */
-        .atributo-dual {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 5px 10px;
-            border-radius: 20px;
-            margin-top: 5px;
-            font-size: 0.85rem;
-        }
-        
-        .valor-fixo {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        
-        .valor-percentual {
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        .atributo-desc {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.5);
-            margin-left: 5px;
-        }
-        
-        /* Atributos */
-        .pontos-restantes {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            color: #0a0a1a;
-            padding: 15px 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-weight: bold;
-        }
-        
-        .pontos-restantes .valor {
-            font-size: 1.5rem;
-            font-family: 'MedievalSharp', cursive;
-        }
-        
-        .atributo-row {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 10px;
-            transition: all 0.3s;
-        }
-        
-        .atributo-row:hover {
-            background: rgba(0, 0, 0, 0.3);
-            border-left: 3px solid #ffd700;
-        }
-        
-        .atributo-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-        
-        .atributo-nome {
-            font-weight: 600;
-            color: #fff;
-        }
-        
-        .atributo-valor {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #ffd700;
-        }
-        
-        .bolinhas-container {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .bolinha {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .bolinha.preenchida {
-            background: #ffd700;
-            border-color: #ffd700;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-        }
-        
-        .bolinha:hover {
-            transform: scale(1.1);
-            border-color: #ffd700;
-        }
-        
-        .atributo-detalhes {
-            display: flex;
-            gap: 15px;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            flex-wrap: wrap;
-        }
-        
-        /* Status grid */
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 15px;
-        }
-        
-        .status-item {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-            transition: all 0.3s;
-        }
-        
-        .status-item:hover {
-            background: rgba(0, 0, 0, 0.4);
-            transform: translateY(-2px);
-        }
-        
-        .status-item .label {
-            display: block;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-        
-        .status-item .value {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #ffd700;
-        }
-        
-        /* Vantagens e Desvantagens */
-        .vantagens-grid, .desvantagens-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .vantagem-card, .desvantagem-card {
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 215, 0, 0.2);
-            border-radius: 12px;
-            padding: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-        }
-        
-        .vantagem-card:hover, .desvantagem-card:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-            transform: translateY(-2px);
-        }
-        
-        .vantagem-card.selecionada {
-            background: rgba(255, 215, 0, 0.2);
-            border-color: #ffd700;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-        }
-        
-        .desvantagem-card.selecionada {
-            background: rgba(255, 0, 0, 0.2);
-            border-color: #ff6b6b;
-            box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
-        }
-        
-        .vantagem-card h3, .desvantagem-card h3 {
-            font-size: 1rem;
-            color: #ffd700;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .vantagem-card p, .desvantagem-card p {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 5px;
-        }
-        
-        .vantagem-card .resumo, .desvantagem-card .resumo {
-            font-size: 0.7rem;
-            color: rgba(255, 215, 0, 0.8);
-            font-style: italic;
-        }
-        
-        .vantagem-card .check { display: none; color: #ffd700; font-size: 1.2rem; }
-        .vantagem-card.selecionada .check { display: inline; }
-        
-        .badge-fobia {
-            background: rgba(255, 0, 0, 0.3);
-            color: #ff6b6b;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            margin-top: 5px;
-            display: inline-block;
-        }
-        
-        /* Contadores */
-        .contador {
-            background: rgba(255, 215, 0, 0.1);
-            padding: 10px 15px;
-            border-radius: 20px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .contador span { color: #ffd700; font-weight: bold; }
-        .contador.desvantagens { background: rgba(255, 0, 0, 0.1); }
-        .contador.desvantagens span { color: #ff6b6b; }
-        
-        /* ===== MODAIS ===== */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 5000;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .modal.active { display: flex; }
-        
-        .modal-content {
-            background: #1a1a3a;
-            border: 2px solid #ffd700;
-            border-radius: 20px;
-            padding: 25px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        
-        .modal-content h3 {
-            color: #ffd700;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .modal-confirm {
-            background: #1a1a3a;
-            border: 2px solid #ff6b6b;
-            border-radius: 20px;
-            padding: 25px;
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
-        }
-        
-        .modal-confirm h3 {
-            color: #ff6b6b;
-            margin-bottom: 15px;
-            font-family: 'MedievalSharp', cursive;
-        }
-        
-        .modal-confirm p {
-            color: rgba(255,255,255,0.8);
-            margin-bottom: 20px;
-        }
-        
-        .modal-confirm-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-        
-        .btn-confirm-excluir {
-            background: #ff6b6b;
-            border: none;
-            color: #0a0a1a;
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-confirm-excluir:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
-        }
-        
-        .btn-cancel-excluir {
-            background: transparent;
-            border: 2px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-cancel-excluir:hover {
-            border-color: #ffd700;
-            color: #ffd700;
-        }
-        
-        .modal-close {
-            background: transparent;
-            border: 2px solid #ff6b6b;
-            color: #ff6b6b;
-            padding: 8px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            margin-top: 15px;
-            width: 100%;
-            transition: all 0.3s;
-        }
-        
-        .modal-close:hover {
-            background: #ff6b6b;
-            color: #0a0a1a;
-        }
-        
-        /* Fobia items */
-        .fobia-item {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .fobia-item:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-        }
-        
-        .fobia-item h4 { color: #ffd700; margin-bottom: 5px; }
-        .fobia-item p {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        /* PM/PP Header */
-        .pm-header {
-            background: linear-gradient(45deg, #4a2a6a, #2a1a4a);
-            border: 1px solid #ffd700;
-            border-radius: 15px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .pm-input-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 8px 15px;
-            border-radius: 30px;
-        }
-        
-        .pm-input-group label {
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        .pm-input-group input {
-            background: transparent;
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            padding: 5px 10px;
-            border-radius: 10px;
-            width: 70px;
-            text-align: center;
-            font-weight: bold;
-        }
-        
-        .pm-stats {
-            display: flex;
-            gap: 20px;
-            font-size: 1.1rem;
-        }
-        
-        .pm-stats span {
-            color: #ffd700;
-            font-weight: bold;
-            font-size: 1.3rem;
-        }
-        
-        /* Perícias */
-        .pericias-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            min-height: 500px;
-        }
-        
-        .catalogo-pericias {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 20px;
-            padding: 15px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-        }
-        
-        .filtros-pericias {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .filtro-pericia {
-            background: transparent;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s;
-        }
-        
-        .filtro-pericia.ativo {
-            background: #ffd700;
-            color: #0a0a1a;
-            border-color: #ffd700;
-        }
-        
-        .filtro-pericia:hover { background: rgba(255, 215, 0, 0.2); }
-        
-        .lista-pericias {
-            max-height: 600px;
-            overflow-y: auto;
-            padding-right: 5px;
-        }
-        
-        .pericia-card {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .pericia-card:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-            transform: translateX(5px);
-        }
-        
-        .pericia-card h4 {
-            color: #ffd700;
-            font-size: 1rem;
-            margin-bottom: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .pericia-card .tipo {
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .pericia-card .tipo.mental { background: #4a6da8; }
-        .pericia-card .tipo.fisica { background: #8b4a6d; }
-        
-        .pericia-card .descricao {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 5px;
-        }
-        
-        .pericia-card .atributo {
-            font-size: 0.7rem;
-            color: #ffd700;
-        }
-        
-        .pericias-adquiridas {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 20px;
-            padding: 15px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-        }
-        
-        .pericias-adquiridas h3 {
-            color: #ffd700;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .lista-adquiridas {
-            max-height: 550px;
-            overflow-y: auto;
-        }
-        
-        .pericia-adquirida {
-            background: rgba(255, 215, 0, 0.1);
-            border: 1px solid #ffd700;
-            border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .pericia-adquirida-info h4 {
-            color: #ffd700;
-            font-size: 1rem;
-        }
-        
-        .pericia-adquirida-info .nivel {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        .pericia-adquirida-info .bonus {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        
-        .pericia-adquirida-info .nh {
-            font-size: 0.9rem;
-            color: #4CAF50;
-            font-weight: bold;
-            margin-top: 2px;
-        }
-        
-        .pericia-adquirida-info .nh span {
-            color: #ffd700;
-            font-size: 1rem;
-            margin-left: 5px;
-        }
-        
-        .pericia-adquirida-acoes {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .btn-pericia {
-            background: transparent;
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-pericia:hover {
-            background: #ffd700;
-            color: #0a0a1a;
-        }
-        
-        .btn-pericia:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        
-        /* Tabela de níveis */
-        .tabela-niveis {
-            margin: 20px 0;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .tabela-niveis table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .tabela-niveis th {
-            background: #ffd700;
-            color: #0a0a1a;
-            padding: 8px;
-            font-size: 0.9rem;
-        }
-        
-        .tabela-niveis td {
-            padding: 8px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-        }
-        
-        .tabela-niveis tr:last-child td { border-bottom: none; }
-        
-        /* Seletor de nível */
-        .seletor-nivel {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            margin: 20px 0;
-        }
-        
-        .seletor-nivel button {
-            background: transparent;
-            border: 2px solid #ffd700;
-            color: #ffd700;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .seletor-nivel button:hover:not(:disabled) {
-            background: #ffd700;
-            color: #0a0a1a;
-        }
-        
-        .seletor-nivel button:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        
-        .seletor-nivel span {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #ffd700;
-            min-width: 60px;
-            text-align: center;
-        }
-        
-        /* Custo info */
-        .custo-info {
-            background: rgba(255, 215, 0, 0.1);
-            border: 1px solid #ffd700;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        .custo-info .custo {
-            font-size: 2rem;
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        /* Botões */
-        .btn-confirmar {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            color: #0a0a1a;
-            border: none;
-            padding: 12px;
-            border-radius: 30px;
-            font-weight: bold;
-            width: 100%;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-confirmar:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.4);
-        }
-        
-        .btn-confirmar:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .btn-primary, .btn-secondary {
-            padding: 12px 30px;
-            border-radius: 30px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            color: #0a0a1a;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
-        }
-        
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .btn-secondary {
-            background: transparent;
-            border: 2px solid rgba(255, 215, 0, 0.5);
-            color: #ffd700;
-        }
-        
-        .btn-secondary:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-        }
-        
-        /* Card actions */
-        .card-actions {
-            display: flex;
-            gap: 15px;
-            justify-content: space-between;
-            margin-top: 30px;
-        }
-        
-        /* Loading overlay */
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10, 10, 26, 0.9);
-            z-index: 4000;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .loading-overlay.active { display: flex; }
-        
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255, 215, 0, 0.2);
-            border-top-color: #ffd700;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        .loading-text {
-            color: #ffd700;
-            font-size: 1.2rem;
-            font-family: 'MedievalSharp', cursive;
-        }
-        
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* Resumo personagem */
-        .resumo-personagem {
-            background: rgba(255, 215, 0, 0.1);
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .resumo-personagem .foto {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffd700;
-            font-size: 1.5rem;
-            overflow: hidden;
-            border: 2px solid #ffd700;
-        }
-        
-        .resumo-personagem .foto img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .resumo-personagem .info h3 {
-            color: #ffd700;
-            margin-bottom: 5px;
-        }
-        
-        .resumo-personagem .info p {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-        
-        /* Combate */
-        .combate-header {
-            background: linear-gradient(45deg, #6a2a2a, #3a1a1a);
-            border: 1px solid #ff6b6b;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .combate-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .combate-stat-card {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            border: 1px solid rgba(255, 107, 107, 0.3);
-        }
-        
-        .combate-stat-card .stat-label {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-        
-        .combate-stat-card .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #ff6b6b;
-            font-family: 'MedievalSharp', cursive;
-        }
-        
-        .defesas-ativas {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-        }
-        
-        .defesas-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .defesa-card {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-        }
-        
-        .defesa-card .defesa-nome {
-            color: #ffd700;
-            font-weight: bold;
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }
-        
-        .defesa-card .defesa-valor {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #fff;
-            font-family: 'MedievalSharp', cursive;
-            margin-bottom: 5px;
-        }
-        
-        .defesa-card .defesa-detalhe {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        
-        /* Defesas em % */
-        .defesa-percentual {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #ffd700;
-        }
-        
-        .defesa-percentual::after {
-            content: '%';
-            font-size: 1.2rem;
-            color: rgba(255,255,255,0.5);
-            margin-left: 2px;
-        }
-        
-        .rd-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .rd-item {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 12px;
-            text-align: center;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-        }
-        
-        .rd-item .rd-tipo {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.8rem;
-        }
-        
-        .rd-item .rd-valor {
-            font-size: 1.3rem;
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        .arma-equipada {
-            background: rgba(255, 215, 0, 0.1);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border: 1px solid #ffd700;
-        }
-        
-        .arma-equipada h3 {
-            color: #ffd700;
-            margin-bottom: 10px;
-        }
-        
-        .arma-detalhes {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 10px;
-        }
-        
-        .arma-detalhe-item {
-            text-align: center;
-        }
-        
-        .arma-detalhe-item .label {
-            font-size: 0.7rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        
-        .arma-detalhe-item .valor {
-            font-size: 1.1rem;
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        /* Deslocamento */
-        .deslocamento-info {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 20px 0;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 15px;
-        }
-        
-        .deslocamento-item {
-            text-align: center;
-        }
-        
-        .deslocamento-item .tipo {
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.6);
-            margin-bottom: 5px;
-        }
-        
-        .deslocamento-item .valor {
-            font-size: 2rem;
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        .deslocamento-item .valor::after {
-            content: 'm';
-            font-size: 1rem;
-            color: rgba(255,255,255,0.5);
-            margin-left: 2px;
-        }
-        
-        .escudo-pv {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 12px;
-            margin-top: 10px;
-        }
-        
-        .escudo-pv-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-        
-        .escudo-pv-barra {
-            height: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        
-        .escudo-pv-preenchimento {
-            height: 100%;
-            background: #ffd700;
-            width: 100%;
-        }
-        
-        .thresholds {
-            display: flex;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .threshold-item {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            min-width: 150px;
-        }
-        
-        .threshold-item.atordoamento { border-left: 3px solid #ffa500; }
-        .threshold-item.morte { border-left: 3px solid #ff0000; }
-        
-        .threshold-item .threshold-label {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-        }
-        
-        .threshold-item .threshold-valor {
-            font-size: 1.5rem;
-            color: #ffd700;
-            font-weight: bold;
-        }
-        
-        /* Magias */
-        .magia-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            background: linear-gradient(45deg, #0a2a3a, #1a4a6a);
-            padding: 20px;
-            border-radius: 20px;
-            border: 1px solid #4a9fff;
-        }
-        
-        .simbolo-agua {
-            width: 50px;
-            height: 50px;
-            background-image: url('agua1.png');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-        
-        .info-escola {
-            flex: 1;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-        
-        .info-escola-item {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
-        }
-        
-        .info-escola-item .label {
-            color: #4a9fff;
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-        
-        .info-escola-item .valor {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #ffd700;
-        }
-        
-        /* Magia NH */
-        .magia-nh-container {
-            background: linear-gradient(45deg, #1a3a4a, #0a2a3a);
-            border: 2px solid #4a9fff;
-            border-radius: 20px;
-            padding: 20px;
-            margin: 20px 0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .magia-nh-item {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid #4a9fff;
-            border-radius: 15px;
-            padding: 10px 20px;
-            text-align: center;
-            min-width: 120px;
-        }
-        
-        .magia-nh-label {
-            font-size: 0.8rem;
-            color: #4a9fff;
-            margin-bottom: 5px;
-        }
-        
-        .magia-nh-valor {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #ffd700;
-            font-family: 'MedievalSharp', cursive;
-        }
-        
-        .magia-nh-detalhe {
-            font-size: 0.7rem;
-            color: rgba(255, 255, 255, 0.6);
-            margin-top: 3px;
-        }
-        
-        .esferas-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 15px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .esfera-card {
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(74, 159, 255, 0.3);
-            border-radius: 15px;
-            padding: 12px;
-            text-align: center;
-            transition: all 0.3s;
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .esfera-card.desbloqueada {
-            border-color: #ffd700;
-            background: rgba(255, 215, 0, 0.1);
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-        }
-        
-        .esfera-card.disponivel {
-            border-color: #4a9fff;
-            background: rgba(74, 159, 255, 0.1);
-            cursor: pointer;
-        }
-        
-        .esfera-card.disponivel:hover {
-            border-color: #ffd700;
-            background: rgba(255, 215, 0, 0.1);
-            transform: translateY(-5px);
-        }
-        
-        .esfera-card.trancada {
-            opacity: 0.5;
-            filter: grayscale(0.8);
-            cursor: not-allowed;
-        }
-        
-        .esfera-card.aptidao-requerida {
-            border-color: #ff6b6b;
-            background: rgba(255, 107, 107, 0.1);
-            cursor: not-allowed;
-            position: relative;
-        }
-        
-        .esfera-card.aptidao-requerida::after {
-            content: "Requer Aptidão Mágica";
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #ff6b6b;
-            color: #0a0a1a;
-            font-size: 0.6rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            white-space: nowrap;
-            z-index: 10;
-        }
-        
-        .numero-esfera {
-            position: absolute;
-            top: -10px;
-            left: -10px;
-            width: 30px;
-            height: 30px;
-            background: #ffd700;
-            color: #0a0a1a;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-        
-        .icone-esfera {
-            font-size: 2rem;
-            margin: 10px 0;
-            color: #4a9fff;
-        }
-        
-        .esfera-card.desbloqueada .icone-esfera { color: #ffd700; }
-        .esfera-card.disponivel .icone-esfera { color: #4a9fff; }
-        
-        .nome-esfera {
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .tipo-esfera {
-            font-size: 0.7rem;
-            color: rgba(255, 255, 255, 0.6);
-            background: rgba(0, 0, 0, 0.3);
-            padding: 2px 6px;
-            border-radius: 10px;
-            display: inline-block;
-        }
-        
-        .nivel-esfera {
-            margin-top: 8px;
-            font-size: 0.8rem;
-            color: #ffd700;
-        }
-        
-        .btn-comprar-esfera {
-            background: #4a9fff;
-            border: none;
-            color: #0a0a1a;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 8px;
-            transition: all 0.3s;
-        }
-        
-        .btn-comprar-esfera:hover {
-            background: #ffd700;
-            transform: scale(1.05);
-        }
-        
-        .btn-detalhe {
-            background: transparent;
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            border-radius: 15px;
-            padding: 2px 8px;
-            margin-left: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-detalhe:hover {
-            background: #ffd700;
-            color: #0a0a1a;
-        }
-        
-        /* Detalhe magia modal */
-        .detalhe-magia-modal {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 6000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .detalhe-magia-modal.active { display: flex; }
-        
-        .detalhe-magia-content {
-            background: #1a1a3a;
-            border: 2px solid #ffd700;
-            border-radius: 20px;
-            padding: 25px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        
-        .tabela-detalhe {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .tabela-detalhe th {
-            background: #ffd700;
-            color: #0a0a1a;
-            padding: 8px;
-        }
-        
-        .tabela-detalhe td {
-            padding: 8px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-        }
-        
-        .tabela-detalhe tr.nivel-atual {
-            background: rgba(255, 215, 0, 0.3);
-            font-weight: bold;
-        }
-        
-        .tabela-detalhe tr.nivel-atual td {
-            color: #ffd700;
-            border-bottom: 2px solid #ffd700;
-        }
-        
-        .btn-comprar-nivel {
-            background: linear-gradient(45deg, #4a9fff, #2a6fb0);
-            border: none;
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
-            width: 100%;
-            margin: 10px 0;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        
-        .btn-comprar-nivel:hover:not(:disabled) {
-            background: linear-gradient(45deg, #ffd700, #ffaa00);
-            color: #0a0a1a;
-        }
-        
-        .btn-comprar-nivel:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        
-        /* Equipamentos */
-        .dinheiro-header {
-            background: linear-gradient(45deg, #2a6a4a, #1a4a3a);
-            border: 1px solid #ffd700;
-            border-radius: 15px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .dinheiro-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            font-size: 1.2rem;
-        }
-        
-        .dinheiro-info i {
-            color: #ffd700;
-            font-size: 1.5rem;
-        }
-        
-        .dinheiro-info .valor {
-            color: #ffd700;
-            font-weight: bold;
-            font-size: 1.5rem;
-        }
-        
-        .carga-info {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .carga-barra {
-            height: 20px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            margin: 10px 0;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .carga-preenchimento {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #ffd700, #ff6b6b);
-            width: 0%;
-            transition: width 0.3s;
-        }
-        
-        .carga-marcadores {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        
-        .carga-nivel {
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-        
-        .carga-nivel.leve { background: rgba(76, 175, 80, 0.3); color: #4CAF50; }
-        .carga-nivel.medio { background: rgba(255, 193, 7, 0.3); color: #ffc107; }
-        .carga-nivel.pesado { background: rgba(255, 87, 34, 0.3); color: #ff5722; }
-        .carga-nivel.limite { background: rgba(244, 67, 54, 0.3); color: #f44336; }
-        
-        .inventario-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .inventario-coluna {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 20px;
-            padding: 15px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-        }
-        
-        .inventario-coluna h3 {
-            color: #ffd700;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .inventario-itens {
-            min-height: 200px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .item-card {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-        }
-        
-        .item-card:hover {
-            background: rgba(255, 215, 0, 0.1);
-            border-color: #ffd700;
-        }
-        
-        .item-card .item-nome {
-            font-weight: bold;
-            color: #ffd700;
-            margin-bottom: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .item-card .item-detalhes {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.7);
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .item-card .item-peso { color: #4CAF50; }
-        .item-card .item-preco { color: #ffd700; }
-        
-        .item-acoes {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            display: none;
-            gap: 5px;
-        }
-        
-        .item-card:hover .item-acoes { display: flex; }
-        
-        .item-acao {
-            background: rgba(0, 0, 0, 0.7);
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            width: 25px;
-            height: 25px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s;
-        }
-        
-        .item-acao:hover {
-            background: #ffd700;
-            color: #0a0a1a;
-        }
-        
-        .btn-criar-item {
-            background: linear-gradient(45deg, #4a2a6a, #2a1a4a);
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            padding: 12px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 20px;
-            transition: all 0.3s;
-        }
-        
-        .btn-criar-item:hover {
-            background: #ffd700;
-            color: #0a0a1a;
-        }
-        
-        .catalogo-itens {
-            margin-top: 30px;
-        }
-        
-        .catalogo-tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .catalogo-tab {
-            background: transparent;
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            color: #fff;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s;
-        }
-        
-        .catalogo-tab.ativo {
-            background: #ffd700;
-            color: #0a0a1a;
-            border-color: #ffd700;
-        }
-        
-        .catalogo-tab:hover {
-            background: rgba(255, 215, 0, 0.2);
-        }
-        
-        .tabelas-container {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 15px;
-            padding: 15px;
-            margin-top: 15px;
-        }
-        
-        .tabela-item { display: none; }
-        .tabela-item.ativa { display: block; }
-        
-        .tabela-catalogo {
-            width: 100%;
-            border-collapse: collapse;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            overflow: hidden;
-            font-size: 0.9rem;
-        }
-        
-        .tabela-catalogo th {
-            background: #ffd700;
-            color: #0a0a1a;
-            padding: 12px 8px;
-            font-weight: 600;
-            text-align: left;
-        }
-        
-        .tabela-catalogo td {
-            padding: 10px 8px;
-            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
-            color: rgba(255, 255, 255, 0.9);
-        }
-        
-        .tabela-catalogo tr:hover td {
-            background: rgba(255, 215, 0, 0.1);
-        }
-        
-        .btn-comprar-tabela {
-            background: #4CAF50;
-            border: none;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.3s;
-        }
-        
-        .btn-comprar-tabela:hover {
-            background: #ffd700;
-            color: #0a0a1a;
-            transform: scale(1.05);
-        }
-        
-        /* Campos dinâmicos */
-        .campo-dinamico {
-            margin-bottom: 15px;
-        }
-        
-        .campo-dinamico label {
-            display: block;
-            color: #ffd700;
-            margin-bottom: 5px;
-        }
-        
-        .campo-dinamico input, .campo-dinamico select {
-            width: 100%;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid #ffd700;
-            border-radius: 10px;
-            color: #fff;
-        }
-        
-        .destaque-campo {
-            background: rgba(255, 215, 0, 0.05);
-            border-radius: 10px;
-            padding: 10px;
-            margin-top: 10px;
-            border-left: 3px solid #ffd700;
-        }
-        
-        /* Responsividade */
-        @media (max-width: 768px) {
-            .container { padding: 10px; }
-            .card { padding: 20px; }
-            .form-row { grid-template-columns: 1fr; }
-            .status-grid { grid-template-columns: repeat(2, 1fr); }
-            .vantagens-grid, .desvantagens-grid { grid-template-columns: repeat(2, 1fr); }
-            .aba { min-width: auto; padding: 10px; font-size: 0.8rem; }
-            .pericias-container { grid-template-columns: 1fr; }
-            .inventario-grid { grid-template-columns: 1fr; }
-            .defesas-grid { grid-template-columns: 1fr; }
-            .combate-stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .esferas-grid { grid-template-columns: repeat(3, 1fr); }
-            .tabela-catalogo { font-size: 0.8rem; }
-            .tabela-catalogo th, .tabela-catalogo td { padding: 8px 4px; }
-            .btn-comprar-tabela { padding: 3px 6px; font-size: 0.7rem; }
-            .tabelas-container { overflow-x: auto; }
-            .tabela-catalogo { min-width: 600px; }
-        }
-    </style>
+  <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #2a1a3a 100%);
+    min-height: 100vh;
+    color: #fff;
+}
+
+/* Fundo mágico animado */
+.magic-bg {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+}
+
+.magic-bg::before {
+    content: '';
+    position: absolute;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, transparent 50%);
+    animation: pulse 8s ease-in-out infinite;
+}
+
+.magic-bg::after {
+    content: '';
+    position: absolute;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at 80% 80%, rgba(198, 40, 40, 0.1) 0%, transparent 50%);
+    animation: pulse 10s ease-in-out infinite reverse;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+/* Container principal */
+.container {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Navbar */
+.navbar {
+    background: rgba(10, 10, 26, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 20px;
+    padding: 15px 20px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.logo-area h2 {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 1.3rem;
+    background: linear-gradient(45deg, #ffd700, #ff6b6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.user-id {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 6px 12px;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.user-id i { color: #ffd700; }
+
+.user-id .value {
+    color: #ffd700;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.user-nick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 6px 15px;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.user-nick i { color: #ffd700; }
+
+/* Botões de ação */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.btn-excluir {
+    background: transparent;
+    border: 2px solid rgba(255, 0, 0, 0.5);
+    color: #ff6b6b;
+    padding: 6px 15px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-excluir:hover {
+    background: #ff6b6b;
+    color: #0a0a1a;
+    border-color: #ff6b6b;
+}
+
+.btn-pdf {
+    background: transparent;
+    border: 2px solid rgba(255, 215, 0, 0.5);
+    color: #ffd700;
+    padding: 6px 15px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-pdf:hover {
+    background: #ffd700;
+    color: #0a0a1a;
+    border-color: #ffd700;
+}
+
+.btn-salvar {
+    background: linear-gradient(45deg, #4a6da8, #2a4a8a);
+    border: none;
+    color: white;
+    padding: 6px 15px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-salvar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(74, 109, 168, 0.4);
+}
+
+.btn-sair {
+    background: transparent;
+    border: 2px solid rgba(255, 107, 107, 0.5);
+    color: #ff6b6b;
+    padding: 6px 15px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-sair:hover {
+    background: #ff6b6b;
+    color: #0a0a1a;
+    border-color: #ff6b6b;
+}
+
+/* Indicador de auto-save */
+.auto-save-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: rgba(255,215,0,0.7);
+    margin-left: 10px;
+}
+
+.auto-save-indicator i { font-size: 0.7rem; }
+
+.auto-save-indicator.saving {
+    color: #ffd700;
+    animation: pulse 1s infinite;
+}
+
+.auto-save-indicator.saved { color: #4CAF50; }
+
+/* Breadcrumb */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.breadcrumb a {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover { color: #ffd700; }
+
+.breadcrumb i {
+    font-size: 0.7rem;
+    color: rgba(255, 215, 0, 0.5);
+}
+
+.breadcrumb .current { color: #ffd700; }
+
+/* Page header */
+.page-header h1 {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 2rem;
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Abas principais */
+.abas-container {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    background: rgba(10, 10, 26, 0.6);
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.aba {
+    background: transparent;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 12px 20px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+}
+
+.aba:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+.aba.ativa {
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    border-color: #ffd700;
+    color: #0a0a1a;
+    font-weight: 600;
+}
+
+.aba .contador {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+}
+
+.aba.ativa .contador {
+    background: rgba(0, 0, 0, 0.2);
+    color: #0a0a1a;
+}
+
+.conteudo-aba { display: none; }
+.conteudo-aba.ativa { display: block; }
+
+/* ===== SUBABAS DAS ESCOLAS DE MAGIA ===== */
+.subabas-container {
+    display: flex;
+    gap: 5px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px;
+    border-radius: 15px;
+}
+
+.subaba {
+    background: transparent;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px 15px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    flex: 1;
+    justify-content: center;
+}
+
+.subaba:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+.subaba.ativa {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+/* Ícones das escolas - VISÍVEIS E GRANDES */
+.subaba img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    margin-right: 8px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.subaba.ativa img {
+    filter: drop-shadow(0 0 8px #ffd700);
+}
+
+.subaba:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    filter: grayscale(0.8);
+}
+
+/* Cards */
+.card {
+    background: rgba(10, 10, 26, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 30px;
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.card-section {
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+}
+
+.card-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.card-section h2 {
+    font-family: 'MedievalSharp', cursive;
+    font-size: 1.5rem;
+    color: #ffd700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Formulários */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 15px;
+    padding: 12px 15px;
+    color: #fff;
+    font-size: 1rem;
+    width: 100%;
+    transition: all 0.3s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #ffd700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover {
+    border-color: rgba(255, 215, 0, 0.5);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-group small {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: block;
+}
+
+/* Upload de foto */
+.upload-area {
+    background: rgba(0, 0, 0, 0.2);
+    border: 2px dashed rgba(255, 215, 0, 0.3);
+    border-radius: 20px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 15px;
+}
+
+.upload-area:hover {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.upload-area i {
+    font-size: 2rem;
+    color: #ffd700;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.preview-area {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 10px 0;
+    border: 3px solid #ffd700;
+}
+
+.preview-area img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.btn-remove {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(255, 0, 0, 0.7);
+    color: white;
+    border: none;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.btn-remove:hover {
+    background: #ff0000;
+    transform: scale(1.1);
+}
+
+/* ===== ATRIBUTOS DUPLA FACE ===== */
+.atributo-dual {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 5px 10px;
+    border-radius: 20px;
+    margin-top: 5px;
+    font-size: 0.85rem;
+}
+
+.valor-fixo {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.valor-percentual {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.atributo-desc {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.5);
+    margin-left: 5px;
+}
+
+/* Atributos */
+.pontos-restantes {
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    color: #0a0a1a;
+    padding: 15px 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: bold;
+}
+
+.pontos-restantes .valor {
+    font-size: 1.5rem;
+    font-family: 'MedievalSharp', cursive;
+}
+
+.atributo-row {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s;
+}
+
+.atributo-row:hover {
+    background: rgba(0, 0, 0, 0.3);
+    border-left: 3px solid #ffd700;
+}
+
+.atributo-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.atributo-nome {
+    font-weight: 600;
+    color: #fff;
+}
+
+.atributo-valor {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.bolinhas-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.bolinha {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bolinha.preenchida {
+    background: #ffd700;
+    border-color: #ffd700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.bolinha:hover {
+    transform: scale(1.1);
+    border-color: #ffd700;
+}
+
+.atributo-detalhes {
+    display: flex;
+    gap: 15px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+}
+
+/* Status grid */
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.status-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.status-item:hover {
+    background: rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+.status-item .label {
+    display: block;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+
+.status-item .value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+/* Vantagens e Desvantagens */
+.vantagens-grid, .desvantagens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.vantagem-card, .desvantagem-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 215, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.vantagem-card:hover, .desvantagem-card:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+    transform: translateY(-2px);
+}
+
+.vantagem-card.selecionada {
+    background: rgba(255, 215, 0, 0.2);
+    border-color: #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.desvantagem-card.selecionada {
+    background: rgba(255, 0, 0, 0.2);
+    border-color: #ff6b6b;
+    box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+}
+
+.vantagem-card h3, .desvantagem-card h3 {
+    font-size: 1rem;
+    color: #ffd700;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.vantagem-card p, .desvantagem-card p {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 5px;
+}
+
+.vantagem-card .resumo, .desvantagem-card .resumo {
+    font-size: 0.7rem;
+    color: rgba(255, 215, 0, 0.8);
+    font-style: italic;
+}
+
+.vantagem-card .check { display: none; color: #ffd700; font-size: 1.2rem; }
+.vantagem-card.selecionada .check { display: inline; }
+
+.badge-fobia {
+    background: rgba(255, 0, 0, 0.3);
+    color: #ff6b6b;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-top: 5px;
+    display: inline-block;
+}
+
+/* Contadores */
+.contador {
+    background: rgba(255, 215, 0, 0.1);
+    padding: 10px 15px;
+    border-radius: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.contador span { color: #ffd700; font-weight: bold; }
+.contador.desvantagens { background: rgba(255, 0, 0, 0.1); }
+.contador.desvantagens span { color: #ff6b6b; }
+
+/* ===== MODAIS ===== */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 5000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active { display: flex; }
+
+.modal-content {
+    background: #1a1a3a;
+    border: 2px solid #ffd700;
+    border-radius: 20px;
+    padding: 25px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-content h3 {
+    color: #ffd700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-confirm {
+    background: #1a1a3a;
+    border: 2px solid #ff6b6b;
+    border-radius: 20px;
+    padding: 25px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.modal-confirm h3 {
+    color: #ff6b6b;
+    margin-bottom: 15px;
+    font-family: 'MedievalSharp', cursive;
+}
+
+.modal-confirm p {
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 20px;
+}
+
+.modal-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.btn-confirm-excluir {
+    background: #ff6b6b;
+    border: none;
+    color: #0a0a1a;
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-confirm-excluir:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+}
+
+.btn-cancel-excluir {
+    background: transparent;
+    border: 2px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-cancel-excluir:hover {
+    border-color: #ffd700;
+    color: #ffd700;
+}
+
+.modal-close {
+    background: transparent;
+    border: 2px solid #ff6b6b;
+    color: #ff6b6b;
+    padding: 8px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-top: 15px;
+    width: 100%;
+    transition: all 0.3s;
+}
+
+.modal-close:hover {
+    background: #ff6b6b;
+    color: #0a0a1a;
+}
+
+/* Fobia items */
+.fobia-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.fobia-item:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+}
+
+.fobia-item h4 { color: #ffd700; margin-bottom: 5px; }
+.fobia-item p {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* PM/PP Header */
+.pm-header {
+    background: linear-gradient(45deg, #4a2a6a, #2a1a4a);
+    border: 1px solid #ffd700;
+    border-radius: 15px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.pm-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px 15px;
+    border-radius: 30px;
+}
+
+.pm-input-group label {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.pm-input-group input {
+    background: transparent;
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    padding: 5px 10px;
+    border-radius: 10px;
+    width: 70px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.pm-stats {
+    display: flex;
+    gap: 20px;
+    font-size: 1.1rem;
+}
+
+.pm-stats span {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+
+/* Perícias */
+.pericias-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    min-height: 500px;
+}
+
+.catalogo-pericias {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 20px;
+    padding: 15px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.filtros-pericias {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.filtro-pericia {
+    background: transparent;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s;
+}
+
+.filtro-pericia.ativo {
+    background: #ffd700;
+    color: #0a0a1a;
+    border-color: #ffd700;
+}
+
+.filtro-pericia:hover { background: rgba(255, 215, 0, 0.2); }
+
+.lista-pericias {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.pericia-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.pericia-card:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+    transform: translateX(5px);
+}
+
+.pericia-card h4 {
+    color: #ffd700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.pericia-card .tipo {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.pericia-card .tipo.mental { background: #4a6da8; }
+.pericia-card .tipo.fisica { background: #8b4a6d; }
+
+.pericia-card .descricao {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 5px;
+}
+
+.pericia-card .atributo {
+    font-size: 0.7rem;
+    color: #ffd700;
+}
+
+.pericias-adquiridas {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 20px;
+    padding: 15px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.pericias-adquiridas h3 {
+    color: #ffd700;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lista-adquiridas {
+    max-height: 550px;
+    overflow-y: auto;
+}
+
+.pericia-adquirida {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid #ffd700;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pericia-adquirida-info h4 {
+    color: #ffd700;
+    font-size: 1rem;
+}
+
+.pericia-adquirida-info .nivel {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.pericia-adquirida-info .bonus {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.pericia-adquirida-info .nh {
+    font-size: 0.9rem;
+    color: #4CAF50;
+    font-weight: bold;
+    margin-top: 2px;
+}
+
+.pericia-adquirida-info .nh span {
+    color: #ffd700;
+    font-size: 1rem;
+    margin-left: 5px;
+}
+
+.pericia-adquirida-acoes {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-pericia {
+    background: transparent;
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-pericia:hover {
+    background: #ffd700;
+    color: #0a0a1a;
+}
+
+.btn-pericia:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Tabela de níveis */
+.tabela-niveis {
+    margin: 20px 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.tabela-niveis table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabela-niveis th {
+    background: #ffd700;
+    color: #0a0a1a;
+    padding: 8px;
+    font-size: 0.9rem;
+}
+
+.tabela-niveis td {
+    padding: 8px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.tabela-niveis tr:last-child td { border-bottom: none; }
+
+/* Seletor de nível */
+.seletor-nivel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.seletor-nivel button {
+    background: transparent;
+    border: 2px solid #ffd700;
+    color: #ffd700;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.seletor-nivel button:hover:not(:disabled) {
+    background: #ffd700;
+    color: #0a0a1a;
+}
+
+.seletor-nivel button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.seletor-nivel span {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ffd700;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Custo info */
+.custo-info {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid #ffd700;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.custo-info .custo {
+    font-size: 2rem;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Botões */
+.btn-confirmar {
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    color: #0a0a1a;
+    border: none;
+    padding: 12px;
+    border-radius: 30px;
+    font-weight: bold;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-confirmar:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(255, 215, 0, 0.4);
+}
+
+.btn-confirmar:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    color: #0a0a1a;
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(255, 215, 0, 0.4);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 2px solid rgba(255, 215, 0, 0.5);
+    color: #ffd700;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+}
+
+/* Card actions */
+.card-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 10, 26, 0.9);
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.loading-overlay.active { display: flex; }
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid rgba(255, 215, 0, 0.2);
+    border-top-color: #ffd700;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    color: #ffd700;
+    font-size: 1.2rem;
+    font-family: 'MedievalSharp', cursive;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Resumo personagem */
+.resumo-personagem {
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.resumo-personagem .foto {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffd700;
+    font-size: 1.5rem;
+    overflow: hidden;
+    border: 2px solid #ffd700;
+}
+
+.resumo-personagem .foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.resumo-personagem .info h3 {
+    color: #ffd700;
+    margin-bottom: 5px;
+}
+
+.resumo-personagem .info p {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+}
+
+/* Combate */
+.combate-header {
+    background: linear-gradient(45deg, #6a2a2a, #3a1a1a);
+    border: 1px solid #ff6b6b;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.combate-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.combate-stat-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.combate-stat-card .stat-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+
+.combate-stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #ff6b6b;
+    font-family: 'MedievalSharp', cursive;
+}
+
+.defesas-ativas {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.defesas-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.defesa-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.defesa-card .defesa-nome {
+    color: #ffd700;
+    font-weight: bold;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.defesa-card .defesa-valor {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+    font-family: 'MedievalSharp', cursive;
+    margin-bottom: 5px;
+}
+
+.defesa-card .defesa-detalhe {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Defesas em % */
+.defesa-percentual {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.defesa-percentual::after {
+    content: '%';
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.5);
+    margin-left: 2px;
+}
+
+.rd-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.rd-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.rd-item .rd-tipo {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+}
+
+.rd-item .rd-valor {
+    font-size: 1.3rem;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.arma-equipada {
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid #ffd700;
+}
+
+.arma-equipada h3 {
+    color: #ffd700;
+    margin-bottom: 10px;
+}
+
+.arma-detalhes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.arma-detalhe-item {
+    text-align: center;
+}
+
+.arma-detalhe-item .label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.arma-detalhe-item .valor {
+    font-size: 1.1rem;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Deslocamento */
+.deslocamento-info {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 20px 0;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 15px;
+}
+
+.deslocamento-item {
+    text-align: center;
+}
+
+.deslocamento-item .tipo {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 5px;
+}
+
+.deslocamento-item .valor {
+    font-size: 2rem;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.deslocamento-item .valor::after {
+    content: 'm';
+    font-size: 1rem;
+    color: rgba(255,255,255,0.5);
+    margin-left: 2px;
+}
+
+.escudo-pv {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 10px;
+}
+
+.escudo-pv-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.escudo-pv-barra {
+    height: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.escudo-pv-preenchimento {
+    height: 100%;
+    background: #ffd700;
+    width: 100%;
+}
+
+.thresholds {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.threshold-item {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 15px;
+    min-width: 150px;
+}
+
+.threshold-item.atordoamento { border-left: 3px solid #ffa500; }
+.threshold-item.morte { border-left: 3px solid #ff0000; }
+
+.threshold-item .threshold-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+}
+
+.threshold-item .threshold-valor {
+    font-size: 1.5rem;
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Magias */
+.magia-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    background: linear-gradient(45deg, #0a2a3a, #1a4a6a);
+    padding: 20px;
+    border-radius: 20px;
+    border: 1px solid #4a9fff;
+}
+
+/* Ícone da escola no cabeçalho */
+.magia-header .icone-escola {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 10px #4a9fff);
+}
+
+.info-escola {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+}
+
+.info-escola-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 10px;
+    text-align: center;
+}
+
+.info-escola-item .label {
+    color: #4a9fff;
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+
+.info-escola-item .valor {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+/* Magia NH */
+.magia-nh-container {
+    background: linear-gradient(45deg, #1a3a4a, #0a2a3a);
+    border: 2px solid #4a9fff;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.magia-nh-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #4a9fff;
+    border-radius: 15px;
+    padding: 10px 20px;
+    text-align: center;
+    min-width: 120px;
+}
+
+.magia-nh-label {
+    font-size: 0.8rem;
+    color: #4a9fff;
+    margin-bottom: 5px;
+}
+
+.magia-nh-valor {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #ffd700;
+    font-family: 'MedievalSharp', cursive;
+}
+
+.magia-nh-detalhe {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 3px;
+}
+
+.esferas-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.esfera-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(74, 159, 255, 0.3);
+    border-radius: 15px;
+    padding: 12px;
+    text-align: center;
+    transition: all 0.3s;
+    position: relative;
+    cursor: pointer;
+}
+
+.esfera-card.desbloqueada {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.esfera-card.disponivel {
+    border-color: #4a9fff;
+    background: rgba(74, 159, 255, 0.1);
+    cursor: pointer;
+}
+
+.esfera-card.disponivel:hover {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+    transform: translateY(-5px);
+}
+
+.esfera-card.trancada {
+    opacity: 0.5;
+    filter: grayscale(0.8);
+    cursor: not-allowed;
+}
+
+.esfera-card.aptidao-requerida {
+    border-color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+    cursor: not-allowed;
+    position: relative;
+}
+
+.esfera-card.aptidao-requerida::after {
+    content: "Requer Aptidão Mágica";
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff6b6b;
+    color: #0a0a1a;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.numero-esfera {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    width: 30px;
+    height: 30px;
+    background: #ffd700;
+    color: #0a0a1a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.icone-esfera {
+    font-size: 2rem;
+    margin: 10px 0;
+    color: #4a9fff;
+}
+
+.esfera-card.desbloqueada .icone-esfera { color: #ffd700; }
+.esfera-card.disponivel .icone-esfera { color: #4a9fff; }
+
+.nome-esfera {
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.tipo-esfera {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 10px;
+    display: inline-block;
+}
+
+.nivel-esfera {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #ffd700;
+}
+
+.btn-comprar-esfera {
+    background: #4a9fff;
+    border: none;
+    color: #0a0a1a;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+    transition: all 0.3s;
+}
+
+.btn-comprar-esfera:hover {
+    background: #ffd700;
+    transform: scale(1.05);
+}
+
+.btn-detalhe {
+    background: transparent;
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    border-radius: 15px;
+    padding: 2px 8px;
+    margin-left: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-detalhe:hover {
+    background: #ffd700;
+    color: #0a0a1a;
+}
+
+/* Detalhe magia modal */
+.detalhe-magia-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 6000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.detalhe-magia-modal.active { display: flex; }
+
+.detalhe-magia-content {
+    background: #1a1a3a;
+    border: 2px solid #ffd700;
+    border-radius: 20px;
+    padding: 25px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.tabela-detalhe {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.tabela-detalhe th {
+    background: #ffd700;
+    color: #0a0a1a;
+    padding: 8px;
+}
+
+.tabela-detalhe td {
+    padding: 8px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.tabela-detalhe tr.nivel-atual {
+    background: rgba(255, 215, 0, 0.3);
+    font-weight: bold;
+}
+
+.tabela-detalhe tr.nivel-atual td {
+    color: #ffd700;
+    border-bottom: 2px solid #ffd700;
+}
+
+.btn-comprar-nivel {
+    background: linear-gradient(45deg, #4a9fff, #2a6fb0);
+    border: none;
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    width: 100%;
+    margin: 10px 0;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-comprar-nivel:hover:not(:disabled) {
+    background: linear-gradient(45deg, #ffd700, #ffaa00);
+    color: #0a0a1a;
+}
+
+.btn-comprar-nivel:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Equipamentos */
+.dinheiro-header {
+    background: linear-gradient(45deg, #2a6a4a, #1a4a3a);
+    border: 1px solid #ffd700;
+    border-radius: 15px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.dinheiro-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 1.2rem;
+}
+
+.dinheiro-info i {
+    color: #ffd700;
+    font-size: 1.5rem;
+}
+
+.dinheiro-info .valor {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.carga-info {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.carga-barra {
+    height: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    margin: 10px 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.carga-preenchimento {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #ffd700, #ff6b6b);
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.carga-marcadores {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.carga-nivel {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+.carga-nivel.leve { background: rgba(76, 175, 80, 0.3); color: #4CAF50; }
+.carga-nivel.medio { background: rgba(255, 193, 7, 0.3); color: #ffc107; }
+.carga-nivel.pesado { background: rgba(255, 87, 34, 0.3); color: #ff5722; }
+.carga-nivel.limite { background: rgba(244, 67, 54, 0.3); color: #f44336; }
+
+.penalidades-info {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    border-left: 3px solid #ffd700;
+}
+
+.inventario-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.inventario-coluna {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 20px;
+    padding: 15px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.inventario-coluna h3 {
+    color: #ffd700;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.inventario-itens {
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.item-card {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.item-card:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: #ffd700;
+}
+
+.item-card .item-nome {
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.item-card .item-detalhes {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    justify-content: space-between;
+}
+
+.item-card .item-peso { color: #4CAF50; }
+.item-card .item-preco { color: #ffd700; }
+
+.item-acoes {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    display: none;
+    gap: 5px;
+}
+
+.item-card:hover .item-acoes { display: flex; }
+
+.item-acao {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    width: 25px;
+    height: 25px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s;
+}
+
+.item-acao:hover {
+    background: #ffd700;
+    color: #0a0a1a;
+}
+
+.btn-criar-item {
+    background: linear-gradient(45deg, #4a2a6a, #2a1a4a);
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    padding: 12px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    transition: all 0.3s;
+}
+
+.btn-criar-item:hover {
+    background: #ffd700;
+    color: #0a0a1a;
+}
+
+.catalogo-itens {
+    margin-top: 30px;
+}
+
+.catalogo-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.catalogo-tab {
+    background: transparent;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    color: #fff;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.catalogo-tab.ativo {
+    background: #ffd700;
+    color: #0a0a1a;
+    border-color: #ffd700;
+}
+
+.catalogo-tab:hover {
+    background: rgba(255, 215, 0, 0.2);
+}
+
+.tabelas-container {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.tabela-item { display: none; }
+.tabela-item.ativa { display: block; }
+
+.tabela-catalogo {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 0.9rem;
+}
+
+.tabela-catalogo th {
+    background: #ffd700;
+    color: #0a0a1a;
+    padding: 12px 8px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.tabela-catalogo td {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tabela-catalogo tr:hover td {
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.btn-comprar-tabela {
+    background: #4CAF50;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s;
+}
+
+.btn-comprar-tabela:hover {
+    background: #ffd700;
+    color: #0a0a1a;
+    transform: scale(1.05);
+}
+
+/* Campos dinâmicos */
+.campo-dinamico {
+    margin-bottom: 15px;
+}
+
+.campo-dinamico label {
+    display: block;
+    color: #ffd700;
+    margin-bottom: 5px;
+}
+
+.campo-dinamico input, .campo-dinamico select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #ffd700;
+    border-radius: 10px;
+    color: #fff;
+}
+
+.destaque-campo {
+    background: rgba(255, 215, 0, 0.05);
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 10px;
+    border-left: 3px solid #ffd700;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .container { padding: 10px; }
+    .card { padding: 20px; }
+    .form-row { grid-template-columns: 1fr; }
+    .status-grid { grid-template-columns: repeat(2, 1fr); }
+    .vantagens-grid, .desvantagens-grid { grid-template-columns: repeat(2, 1fr); }
+    .aba { min-width: auto; padding: 10px; font-size: 0.8rem; }
+    .pericias-container { grid-template-columns: 1fr; }
+    .inventario-grid { grid-template-columns: 1fr; }
+    .defesas-grid { grid-template-columns: 1fr; }
+    .combate-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .esferas-grid { grid-template-columns: repeat(3, 1fr); }
+    .tabela-catalogo { font-size: 0.8rem; }
+    .tabela-catalogo th, .tabela-catalogo td { padding: 8px 4px; }
+    .btn-comprar-tabela { padding: 3px 6px; font-size: 0.7rem; }
+    .tabelas-container { overflow-x: auto; }
+    .tabela-catalogo { min-width: 600px; }
+}
+</style>
 </head>
 <body>
     <div class="magic-bg"></div>
@@ -2721,213 +2737,249 @@
             </div>
         </div>
 
-        <!-- ABA MAGIAS -->
+        <!-- ABA MAGIAS - ATUALIZADA COM AS TRÊS ESCOLAS -->
         <div id="abaMagias" class="conteudo-aba">
             <div class="card">
-                <div class="magia-header">
-                    <h2 style="color: #4a9fff;"><i class="fas fa-water"></i> Escola da Água</h2>
+                <!-- SUBABAS DAS ESCOLAS COM ÍCONES -->
+                <div class="subabas-container" id="subabasEscolas">
+                    <button class="subaba ativa" data-escola="agua">
+                        <img src="agua1.png" alt="Água"> Água
+                    </button>
+                    <button class="subaba" data-escola="ar" id="subabaAr">
+                        <img src="ar.png" alt="Ar"> Ar
+                    </button>
+                    <button class="subaba" data-escola="gelo" id="subabaGelo">
+                        <img src="gelo.png" alt="Gelo"> Gelo
+                    </button>
                 </div>
-                <div class="esferas-grid" id="esferasGrid"></div>
+
+                <!-- CONTEÚDO DA ESCOLA DA ÁGUA -->
+                <div id="conteudoAgua" class="conteudo-escola">
+                    <div class="magia-header">
+                        <img src="agua1.png" alt="Água" class="icone-escola">
+                        <h2 style="color: #4a9fff;">Escola da Água</h2>
+                    </div>
+                    <div class="esferas-grid" id="esferasGridAgua"></div>
+                </div>
+
+                <!-- CONTEÚDO DA ESCOLA DO AR -->
+                <div id="conteudoAr" class="conteudo-escola" style="display: none;">
+                    <div class="magia-header">
+                        <img src="ar.png" alt="Ar" class="icone-escola">
+                        <h2 style="color: #4a9fff;">Escola do Ar</h2>
+                    </div>
+                    <div class="esferas-grid" id="esferasGridAr"></div>
+                </div>
+
+                <!-- CONTEÚDO DA ESCOLA DO GELO -->
+                <div id="conteudoGelo" class="conteudo-escola" style="display: none;">
+                    <div class="magia-header">
+                        <img src="gelo.png" alt="Gelo" class="icone-escola">
+                        <h2 style="color: #4a9fff;">Escola do Gelo</h2>
+                    </div>
+                    <div class="esferas-grid" id="esferasGridGelo"></div>
+                </div>
             </div>
         </div>
 
-       <!-- ABA EQUIPAMENTOS -->
-<div id="abaEquipamentos" class="conteudo-aba">
-    <div class="card">
-        <!-- CABEÇALHO COM DINHEIRO E CARGA -->
-        <div class="dinheiro-header">
-            <div class="dinheiro-info">
-                <i class="fas fa-coins"></i>
-                <span>Saldo: <span class="valor" id="dinheiroSaldo">1000</span> $</span>
-            </div>
-            <div class="dinheiro-info">
-                <i class="fas fa-weight-hanging"></i>
-                <span>Carga: <span id="cargaAtual">0.0</span> kg / <span id="cargaLimite">60</span> kg</span>
-            </div>
-            <div class="carga-nivel" id="cargaNivel">Leve</div>
-        </div>
-
-        <!-- BARRA DE CARGA -->
-        <div class="carga-info">
-            <div class="carga-barra">
-                <div class="carga-preenchimento" id="cargaBarra" style="width: 0%;"></div>
-            </div>
-            <div class="carga-marcadores">
-                <span>Leve</span>
-                <span>Médio</span>
-                <span>Pesado</span>
-                <span>Limite</span>
-            </div>
-        </div>
-
-        <!-- PENALIDADES DA CARGA -->
-        <div class="penalidades-info" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; margin-bottom: 20px; font-size: 0.9rem;">
-            <span style="color: #ffd700;">Penalidades:</span>
-            <span style="margin-left: 15px;">Deslocamento: <span id="penalidadeDeslocamento">0</span>m</span>
-            <span style="margin-left: 15px;">Esquiva: <span id="penalidadeEsquiva">0</span>%</span>
-        </div>
-
-        <!-- INVENTÁRIO POR LOCAL -->
-        <div class="inventario-grid">
-            <!-- CORPO (itens equipados) -->
-            <div class="inventario-coluna">
-                <h3><i class="fas fa-user"></i> Corpo</h3>
-                <div class="inventario-itens" id="inventarioCorpo"></div>
-            </div>
-            
-            <!-- MOCHILA (itens carregados) -->
-            <div class="inventario-coluna">
-                <h3><i class="fas fa-shopping-bag"></i> Mochila</h3>
-                <div class="inventario-itens" id="inventarioMochila"></div>
-            </div>
-            
-            <!-- DEPÓSITO (itens guardados) -->
-            <div class="inventario-coluna">
-                <h3><i class="fas fa-warehouse"></i> Depósito</h3>
-                <div class="inventario-itens" id="inventarioDeposito"></div>
-            </div>
-        </div>
-
-        <!-- CATÁLOGO DE ITENS -->
-        <div class="catalogo-itens">
-            <h3 style="color: #ffd700; margin: 30px 0 15px 0;">
-                <i class="fas fa-store"></i> Comprar Itens
-            </h3>
-            
-            <!-- Abas do catálogo -->
-            <div class="catalogo-tabs">
-                <button class="catalogo-tab ativo" data-tab="armas_ca">Armas CA</button>
-                <button class="catalogo-tab" data-tab="armas_dist">Armas Distância</button>
-                <button class="catalogo-tab" data-tab="armaduras">Armaduras</button>
-                <button class="catalogo-tab" data-tab="escudos">Escudos</button>
-                <button class="catalogo-tab" data-tab="itens_gerais">Itens Gerais</button>
-            </div>
-
-            <!-- TABELAS DE ITENS -->
-            <div class="tabelas-container">
-                <!-- ARMAS CORPO A CORPO -->
-                <div class="tabela-item ativa" id="tabelaArmasCA">
-                    <table class="tabela-catalogo">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Alcance</th>
-                                <th>Dano</th>
-                                <th>Custo ($)</th>
-                                <th>Peso (kg)</th>
-                                <th>ST</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabelaArmasCA">
-                            <tr><td>Adaga</td><td>1</td><td>1d-2</td><td>30</td><td>0.5</td><td>5</td><td><button class="btn-comprar" data-item="adaga">Comprar</button></td></tr>
-                            <tr><td>Espada curta</td><td>1</td><td>1d-1</td><td>100</td><td>1.5</td><td>7</td><td><button class="btn-comprar" data-item="espada_curta">Comprar</button></td></tr>
-                            <tr><td>Espada longa</td><td>1</td><td>1d</td><td>200</td><td>2.0</td><td>8</td><td><button class="btn-comprar" data-item="espada_longa">Comprar</button></td></tr>
-                            <tr><td>Machado</td><td>1</td><td>1d+2</td><td>150</td><td>2.5</td><td>9</td><td><button class="btn-comprar" data-item="machado">Comprar</button></td></tr>
-                            <tr><td>Maça</td><td>1</td><td>1d+1</td><td>120</td><td>2.0</td><td>8</td><td><button class="btn-comprar" data-item="maca">Comprar</button></td></tr>
-                            <tr><td>Martelo</td><td>1</td><td>1d+2</td><td>180</td><td>3.0</td><td>10</td><td><button class="btn-comprar" data-item="martelo">Comprar</button></td></tr>
-                            <tr><td>Lança</td><td>2</td><td>1d+1</td><td>100</td><td>2.0</td><td>8</td><td><button class="btn-comprar" data-item="lanca">Comprar</button></td></tr>
-                        </tbody>
-                    </table>
+        <!-- ABA EQUIPAMENTOS -->
+        <div id="abaEquipamentos" class="conteudo-aba">
+            <div class="card">
+                <!-- CABEÇALHO COM DINHEIRO E CARGA -->
+                <div class="dinheiro-header">
+                    <div class="dinheiro-info">
+                        <i class="fas fa-coins"></i>
+                        <span>Saldo: <span class="valor" id="dinheiroSaldo">1000</span> $</span>
+                    </div>
+                    <div class="dinheiro-info">
+                        <i class="fas fa-weight-hanging"></i>
+                        <span>Carga: <span id="cargaAtual">0.0</span> kg / <span id="cargaLimite">60</span> kg</span>
+                    </div>
+                    <div class="carga-nivel" id="cargaNivel">Leve</div>
                 </div>
 
-                <!-- ARMAS DE DISTÂNCIA -->
-                <div class="tabela-item" id="tabelaArmasDist">
-                    <table class="tabela-catalogo">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Precisão</th>
-                                <th>Dano</th>
-                                <th>Alcance</th>
-                                <th>Custo ($)</th>
-                                <th>Peso (kg)</th>
-                                <th>ST</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabelaArmasDist">
-                            <tr><td>Arco curto</td><td>+1</td><td>1d</td><td>ST×15</td><td>100</td><td>1.0</td><td>7</td><td><button class="btn-comprar" data-item="arco_curto">Comprar</button></td></tr>
-                            <tr><td>Arco longo</td><td>+2</td><td>1d+1</td><td>ST×20</td><td>200</td><td>1.5</td><td>9</td><td><button class="btn-comprar" data-item="arco_longo">Comprar</button></td></tr>
-                            <tr><td>Besta leve</td><td>+2</td><td>1d+1</td><td>ST×25</td><td>150</td><td>2.5</td><td>7</td><td><button class="btn-comprar" data-item="besta_leve">Comprar</button></td></tr>
-                            <tr><td>Besta pesada</td><td>+3</td><td>1d+2</td><td>ST×30</td><td>250</td><td>4.0</td><td>10</td><td><button class="btn-comprar" data-item="besta_pesada">Comprar</button></td></tr>
-                        </tbody>
-                    </table>
+                <!-- BARRA DE CARGA -->
+                <div class="carga-info">
+                    <div class="carga-barra">
+                        <div class="carga-preenchimento" id="cargaBarra" style="width: 0%;"></div>
+                    </div>
+                    <div class="carga-marcadores">
+                        <span>Leve</span>
+                        <span>Médio</span>
+                        <span>Pesado</span>
+                        <span>Limite</span>
+                    </div>
                 </div>
 
-                <!-- ARMADURAS -->
-                <div class="tabela-item" id="tabelaArmaduras">
-                    <table class="tabela-catalogo">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>RD</th>
-                                <th>Custo ($)</th>
-                                <th>Peso (kg)</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabelaArmaduras">
-                            <tr><td>Couro</td><td>2</td><td>50</td><td>5.0</td><td><button class="btn-comprar" data-item="couro">Comprar</button></td></tr>
-                            <tr><td>Couro reforçado</td><td>4</td><td>250</td><td>10.0</td><td><button class="btn-comprar" data-item="couro_reforcado">Comprar</button></td></tr>
-                            <tr><td>Cota de malha</td><td>6</td><td>500</td><td>15.0</td><td><button class="btn-comprar" data-item="cota_malha">Comprar</button></td></tr>
-                            <tr><td>Placas</td><td>8</td><td>1000</td><td>22.0</td><td><button class="btn-comprar" data-item="placas">Comprar</button></td></tr>
-                            <tr><td>Meia-armadura</td><td>5</td><td>400</td><td>12.0</td><td><button class="btn-comprar" data-item="meia_armadura">Comprar</button></td></tr>
-                        </tbody>
-                    </table>
+                <!-- PENALIDADES DA CARGA -->
+                <div class="penalidades-info" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; margin-bottom: 20px; font-size: 0.9rem;">
+                    <span style="color: #ffd700;">Penalidades:</span>
+                    <span style="margin-left: 15px;">Deslocamento: <span id="penalidadeDeslocamento">0</span>m</span>
+                    <span style="margin-left: 15px;">Esquiva: <span id="penalidadeEsquiva">0</span>%</span>
                 </div>
 
-                <!-- ESCUDOS -->
-                <div class="tabela-item" id="tabelaEscudos">
-                    <table class="tabela-catalogo">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Bônus</th>
-                                <th>VE</th>
-                                <th>Custo ($)</th>
-                                <th>Peso (kg)</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabelaEscudos">
-                            <tr><td>Escudo leve</td><td>+1</td><td>3/20</td><td>50</td><td>2.0</td><td><button class="btn-comprar" data-item="escudo_leve">Comprar</button></td></tr>
-                            <tr><td>Escudo médio</td><td>+2</td><td>5/30</td><td>150</td><td>4.0</td><td><button class="btn-comprar" data-item="escudo_medio">Comprar</button></td></tr>
-                            <tr><td>Escudo pesado</td><td>+3</td><td>7/45</td><td>300</td><td>8.0</td><td><button class="btn-comprar" data-item="escudo_pesado">Comprar</button></td></tr>
-                            <tr><td>Escudo reforçado</td><td>+4</td><td>10/60</td><td>500</td><td>12.0</td><td><button class="btn-comprar" data-item="escudo_reforcado">Comprar</button></td></tr>
-                        </tbody>
-                    </table>
+                <!-- INVENTÁRIO POR LOCAL -->
+                <div class="inventario-grid">
+                    <!-- CORPO (itens equipados) -->
+                    <div class="inventario-coluna">
+                        <h3><i class="fas fa-user"></i> Corpo</h3>
+                        <div class="inventario-itens" id="inventarioCorpo"></div>
+                    </div>
+                    
+                    <!-- MOCHILA (itens carregados) -->
+                    <div class="inventario-coluna">
+                        <h3><i class="fas fa-shopping-bag"></i> Mochila</h3>
+                        <div class="inventario-itens" id="inventarioMochila"></div>
+                    </div>
+                    
+                    <!-- DEPÓSITO (itens guardados) -->
+                    <div class="inventario-coluna">
+                        <h3><i class="fas fa-warehouse"></i> Depósito</h3>
+                        <div class="inventario-itens" id="inventarioDeposito"></div>
+                    </div>
                 </div>
 
-                <!-- ITENS GERAIS -->
-                <div class="tabela-item" id="tabelaItensGerais">
-                    <table class="tabela-catalogo">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Especificação</th>
-                                <th>Custo ($)</th>
-                                <th>Peso (kg)</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabelaItensGerais">
-                            <tr><td>Corda</td><td>10m</td><td>5</td><td>1.5</td><td><button class="btn-comprar" data-item="corda">Comprar</button></td></tr>
-                            <tr><td>Tocha</td><td>1h de luz</td><td>1</td><td>0.5</td><td><button class="btn-comprar" data-item="tocha">Comprar</button></td></tr>
-                            <tr><td>Mochila</td><td>50kg capacidade</td><td>20</td><td>1.5</td><td><button class="btn-comprar" data-item="mochila">Comprar</button></td></tr>
-                            <tr><td>Ração</td><td>1 dia</td><td>2</td><td>0.5</td><td><button class="btn-comprar" data-item="racao">Comprar</button></td></tr>
-                            <tr><td>Cantil</td><td>1L</td><td>3</td><td>0.8</td><td><button class="btn-comprar" data-item="cantil">Comprar</button></td></tr>
-                            <tr><td>Kit primeiros socorros</td><td>-</td><td>50</td><td>1.0</td><td><button class="btn-comprar" data-item="kit_socorros">Comprar</button></td></tr>
-                        </tbody>
-                    </table>
+                <!-- CATÁLOGO DE ITENS -->
+                <div class="catalogo-itens">
+                    <h3 style="color: #ffd700; margin: 30px 0 15px 0;">
+                        <i class="fas fa-store"></i> Comprar Itens
+                    </h3>
+                    
+                    <!-- Abas do catálogo -->
+                    <div class="catalogo-tabs">
+                        <button class="catalogo-tab ativo" data-tab="armas_ca">Armas CA</button>
+                        <button class="catalogo-tab" data-tab="armas_dist">Armas Distância</button>
+                        <button class="catalogo-tab" data-tab="armaduras">Armaduras</button>
+                        <button class="catalogo-tab" data-tab="escudos">Escudos</button>
+                        <button class="catalogo-tab" data-tab="itens_gerais">Itens Gerais</button>
+                    </div>
+
+                    <!-- TABELAS DE ITENS -->
+                    <div class="tabelas-container">
+                        <!-- ARMAS CORPO A CORPO -->
+                        <div class="tabela-item ativa" id="tabelaArmasCA">
+                            <table class="tabela-catalogo">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Alcance</th>
+                                        <th>Dano</th>
+                                        <th>Custo ($)</th>
+                                        <th>Peso (kg)</th>
+                                        <th>ST</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpoTabelaArmasCA">
+                                    <tr><td>Adaga</td><td>1</td><td>1d-2</td><td>30</td><td>0.5</td><td>5</td><td><button class="btn-comprar" data-item="adaga">Comprar</button></td></tr>
+                                    <tr><td>Espada curta</td><td>1</td><td>1d-1</td><td>100</td><td>1.5</td><td>7</td><td><button class="btn-comprar" data-item="espada_curta">Comprar</button></td></tr>
+                                    <tr><td>Espada longa</td><td>1</td><td>1d</td><td>200</td><td>2.0</td><td>8</td><td><button class="btn-comprar" data-item="espada_longa">Comprar</button></td></tr>
+                                    <tr><td>Machado</td><td>1</td><td>1d+2</td><td>150</td><td>2.5</td><td>9</td><td><button class="btn-comprar" data-item="machado">Comprar</button></td></tr>
+                                    <tr><td>Maça</td><td>1</td><td>1d+1</td><td>120</td><td>2.0</td><td>8</td><td><button class="btn-comprar" data-item="maca">Comprar</button></td></tr>
+                                    <tr><td>Martelo</td><td>1</td><td>1d+2</td><td>180</td><td>3.0</td><td>10</td><td><button class="btn-comprar" data-item="martelo">Comprar</button></td></tr>
+                                    <tr><td>Lança</td><td>2</td><td>1d+1</td><td>100</td><td>2.0</td><td>8</td><td><button class="btn-comprar" data-item="lanca">Comprar</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ARMAS DE DISTÂNCIA -->
+                        <div class="tabela-item" id="tabelaArmasDist">
+                            <table class="tabela-catalogo">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Precisão</th>
+                                        <th>Dano</th>
+                                        <th>Alcance</th>
+                                        <th>Custo ($)</th>
+                                        <th>Peso (kg)</th>
+                                        <th>ST</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpoTabelaArmasDist">
+                                    <tr><td>Arco curto</td><td>+1</td><td>1d</td><td>ST×15</td><td>100</td><td>1.0</td><td>7</td><td><button class="btn-comprar" data-item="arco_curto">Comprar</button></td></tr>
+                                    <tr><td>Arco longo</td><td>+2</td><td>1d+1</td><td>ST×20</td><td>200</td><td>1.5</td><td>9</td><td><button class="btn-comprar" data-item="arco_longo">Comprar</button></td></tr>
+                                    <tr><td>Besta leve</td><td>+2</td><td>1d+1</td><td>ST×25</td><td>150</td><td>2.5</td><td>7</td><td><button class="btn-comprar" data-item="besta_leve">Comprar</button></td></tr>
+                                    <tr><td>Besta pesada</td><td>+3</td><td>1d+2</td><td>ST×30</td><td>250</td><td>4.0</td><td>10</td><td><button class="btn-comprar" data-item="besta_pesada">Comprar</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ARMADURAS -->
+                        <div class="tabela-item" id="tabelaArmaduras">
+                            <table class="tabela-catalogo">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>RD</th>
+                                        <th>Custo ($)</th>
+                                        <th>Peso (kg)</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpoTabelaArmaduras">
+                                    <tr><td>Couro</td><td>2</td><td>50</td><td>5.0</td><td><button class="btn-comprar" data-item="couro">Comprar</button></td></tr>
+                                    <tr><td>Couro reforçado</td><td>4</td><td>250</td><td>10.0</td><td><button class="btn-comprar" data-item="couro_reforcado">Comprar</button></td></tr>
+                                    <tr><td>Cota de malha</td><td>6</td><td>500</td><td>15.0</td><td><button class="btn-comprar" data-item="cota_malha">Comprar</button></td></tr>
+                                    <tr><td>Placas</td><td>8</td><td>1000</td><td>22.0</td><td><button class="btn-comprar" data-item="placas">Comprar</button></td></tr>
+                                    <tr><td>Meia-armadura</td><td>5</td><td>400</td><td>12.0</td><td><button class="btn-comprar" data-item="meia_armadura">Comprar</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ESCUDOS -->
+                        <div class="tabela-item" id="tabelaEscudos">
+                            <table class="tabela-catalogo">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Bônus</th>
+                                        <th>VE</th>
+                                        <th>Custo ($)</th>
+                                        <th>Peso (kg)</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpoTabelaEscudos">
+                                    <tr><td>Escudo leve</td><td>+1</td><td>3/20</td><td>50</td><td>2.0</td><td><button class="btn-comprar" data-item="escudo_leve">Comprar</button></td></tr>
+                                    <tr><td>Escudo médio</td><td>+2</td><td>5/30</td><td>150</td><td>4.0</td><td><button class="btn-comprar" data-item="escudo_medio">Comprar</button></td></tr>
+                                    <tr><td>Escudo pesado</td><td>+3</td><td>7/45</td><td>300</td><td>8.0</td><td><button class="btn-comprar" data-item="escudo_pesado">Comprar</button></td></tr>
+                                    <tr><td>Escudo reforçado</td><td>+4</td><td>10/60</td><td>500</td><td>12.0</td><td><button class="btn-comprar" data-item="escudo_reforcado">Comprar</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ITENS GERAIS -->
+                        <div class="tabela-item" id="tabelaItensGerais">
+                            <table class="tabela-catalogo">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Especificação</th>
+                                        <th>Custo ($)</th>
+                                        <th>Peso (kg)</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="corpoTabelaItensGerais">
+                                    <tr><td>Corda</td><td>10m</td><td>5</td><td>1.5</td><td><button class="btn-comprar" data-item="corda">Comprar</button></td></tr>
+                                    <tr><td>Tocha</td><td>1h de luz</td><td>1</td><td>0.5</td><td><button class="btn-comprar" data-item="tocha">Comprar</button></td></tr>
+                                    <tr><td>Mochila</td><td>50kg capacidade</td><td>20</td><td>1.5</td><td><button class="btn-comprar" data-item="mochila">Comprar</button></td></tr>
+                                    <tr><td>Ração</td><td>1 dia</td><td>2</td><td>0.5</td><td><button class="btn-comprar" data-item="racao">Comprar</button></td></tr>
+                                    <tr><td>Cantil</td><td>1L</td><td>3</td><td>0.8</td><td><button class="btn-comprar" data-item="cantil">Comprar</button></td></tr>
+                                    <tr><td>Kit primeiros socorros</td><td>-</td><td>50</td><td>1.0</td><td><button class="btn-comprar" data-item="kit_socorros">Comprar</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
    <script type="module">
 // ============================================
-// SISTEMA RPGFORCE - VERSÃO COMPLETA E CORRIGIDA
+// SISTEMA RPGFORCE - VERSÃO COMPLETA COM ESCOLAS DE AR E GELO
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
@@ -2963,9 +3015,9 @@ const atributos = {
 };
 
 // ============================================
-// DADOS DAS MAGIAS (ATUALIZADO)
+// DADOS DAS MAGIAS - ESCOLA DA ÁGUA
 // ============================================
-const dadosMagias = {
+const dadosMagiasAgua = {
     purificarAgua: {
         nome: "Purificar Água", tipo: "Utilitária", icone: "fa-droplet",
         efeitos: { 1: "1L", 2: "5L", 3: "10L", 4: "20L", 5: "50L", 6: "100L", 7: "200L", 8: "500L", 9: "1000L", 10: "5000L" }
@@ -3013,7 +3065,103 @@ const dadosMagias = {
 };
 
 // ============================================
-// ESCOLAS DE MAGIA (ATUALIZADO)
+// DADOS DAS MAGIAS - ESCOLA DO AR
+// ============================================
+const dadosMagiasAr = {
+    criarAr: {
+        nome: "Criar Ar", tipo: "Utilidade", icone: "fa-wind",
+        efeitos: { 1: "1m³", 2: "5m³", 3: "10m³", 4: "20m³", 5: "50m³", 6: "100m³", 7: "200m³", 8: "500m³", 9: "1000m³", 10: "5000m³" }
+    },
+    controlarVento: {
+        nome: "Controlar Vento", tipo: "Controle", icone: "fa-fan",
+        efeitos: { 1: "5m", 2: "10m", 3: "15m", 4: "20m", 5: "25m", 6: "30m", 7: "40m", 8: "50m", 9: "60m", 10: "100m" }
+    },
+    rajadaVento: {
+        nome: "Rajada de Vento", tipo: "Empurrão", icone: "fa-wind",
+        efeitos: { 1: "500N / 3m", 2: "600N / 4m", 3: "700N / 5m", 4: "800N / 6m", 5: "900N / 7m", 6: "1000N / 8m", 7: "1200N / 9m", 8: "1400N / 10m", 9: "1600N / 12m", 10: "2000N / 15m" }
+    },
+    laminasAr: {
+        nome: "Lâminas de Ar", tipo: "Projétil", icone: "fa-knife",
+        efeitos: { 1: "1d4", 2: "1d6", 3: "1d8", 4: "2d4", 5: "2d6", 6: "2d8", 7: "3d6", 8: "3d8", 9: "4d6", 10: "4d8" }
+    },
+    respirarNaAguaAr: {
+        nome: "Respirar na Água", tipo: "Buff", icone: "fa-lungs",
+        efeitos: { 1: "10min", 2: "20min", 3: "30min", 4: "1h", 5: "1.5h", 6: "2h", 7: "3h", 8: "4h", 9: "6h", 10: "12h" }
+    },
+    andarNoAr: {
+        nome: "Andar no Ar", tipo: "Mobilidade", icone: "fa-shoe-prints",
+        efeitos: { 1: "1min", 2: "2min", 3: "3min", 4: "5min", 5: "7min", 6: "10min", 7: "15min", 8: "20min", 9: "30min", 10: "1h" }
+    },
+    corpoDeAr: {
+        nome: "Corpo de Ar", tipo: "Transformação", icone: "fa-ghost",
+        efeitos: { 1: "50% físico", 2: "55%", 3: "60%", 4: "65%", 5: "70%", 6: "75%", 7: "80%", 8: "85%", 9: "90%", 10: "95% resistência" }
+    },
+    relampago: {
+        nome: "Relâmpago", tipo: "Projétil", icone: "fa-bolt",
+        efeitos: { 1: "3d6", 2: "4d6", 3: "5d6", 4: "6d6", 5: "7d6", 6: "8d6", 7: "9d6", 8: "10d6", 9: "11d6", 10: "12d6" }
+    },
+    tempestade: {
+        nome: "Tempestade", tipo: "Área", icone: "fa-cloud-rain",
+        efeitos: { 1: "3d6", 2: "4d6", 3: "5d6", 4: "6d6", 5: "7d6", 6: "8d6", 7: "9d6", 8: "10d6", 9: "11d6", 10: "12d6" }
+    },
+    furacao: {
+        nome: "Furacão", tipo: "Área", icone: "fa-tornado",
+        efeitos: { 1: "5m / 2d6", 2: "6m / 3d6", 3: "7m / 4d6", 4: "8m / 5d6", 5: "9m / 6d6", 6: "10m / 7d6", 7: "12m / 8d6", 8: "14m / 9d6", 9: "16m / 10d6", 10: "20m / 12d6" }
+    },
+    cupulaDeAr: {
+        nome: "Cúpula de Ar", tipo: "Proteção", icone: "fa-shield-halved",
+        efeitos: { 1: "RD 5", 2: "RD 7", 3: "RD 10", 4: "RD 12", 5: "RD 15", 6: "RD 17", 7: "RD 20", 8: "RD 22", 9: "RD 25", 10: "RD 30" }
+    }
+};
+
+// ============================================
+// DADOS DAS MAGIAS - ESCOLA DO GELO
+// ============================================
+const dadosMagiasGelo = {
+    criarFrio: {
+        nome: "Criar Frio", tipo: "Utilidade", icone: "fa-temperature-low",
+        efeitos: { 1: "-5°C 1m³", 2: "-7°C 2m³", 3: "-9°C 3m³", 4: "-11°C 4m³", 5: "-13°C 5m³", 6: "-15°C 6m³", 7: "-17°C 8m³", 8: "-19°C 10m³", 9: "-21°C 15m³", 10: "-25°C 20m³" }
+    },
+    criarGelo: {
+        nome: "Criar Gelo", tipo: "Criação", icone: "fa-cube",
+        efeitos: { 1: "0.5m³", 2: "1m³", 3: "1.5m³", 4: "2m³", 5: "2.5m³", 6: "3m³", 7: "4m³", 8: "5m³", 9: "6m³", 10: "8m³" }
+    },
+    camadaNeve: {
+        nome: "Camada de Neve", tipo: "Controle", icone: "fa-snowflake",
+        efeitos: { 1: "5m / -2m", 2: "6m / -2m", 3: "7m / -3m", 4: "8m / -3m", 5: "9m / -4m", 6: "10m / -4m", 7: "12m / -5m", 8: "14m / -5m", 9: "16m / -6m", 10: "20m / -6m" }
+    },
+    soproCongelante: {
+        nome: "Sopro Congelante", tipo: "Debuff", icone: "fa-wind",
+        efeitos: { 1: "-20% mov", 2: "-25% mov", 3: "-30% mov", 4: "-35% mov", 5: "-40% mov", 6: "-45% mov", 7: "-50% mov", 8: "-60% mov", 9: "-70% mov", 10: "Paralisia (teste)" }
+    },
+    adagaGelo: {
+        nome: "Adaga de Gelo", tipo: "Projétil", icone: "fa-knife",
+        efeitos: { 1: "1d-3", 2: "1d-2", 3: "1d-1", 4: "1d", 5: "1d+1", 6: "1d+2", 7: "2d-2", 8: "2d-1", 9: "2d", 10: "2d+1" }
+    },
+    armaduraGelo: {
+        nome: "Armadura de Gelo", tipo: "Buff", icone: "fa-shield",
+        efeitos: { 1: "RD 1 / 2kg", 2: "RD 1 / 2kg", 3: "RD 2 / 3kg", 4: "RD 2 / 3kg", 5: "RD 3 / 4kg", 6: "RD 3 / 4kg", 7: "RD 4 / 5kg", 8: "RD 4 / 5kg", 9: "RD 5 / 6kg", 10: "RD 5 / 6kg" }
+    },
+    pisoGelo: {
+        nome: "Piso de Gelo", tipo: "Armadilha", icone: "fa-icicles",
+        efeitos: { 1: "4m", 2: "5m", 3: "6m", 4: "7m", 5: "8m", 6: "9m", 7: "10m", 8: "12m", 9: "14m", 10: "16m" }
+    },
+    tempestadeGranizo: {
+        nome: "Tempestade de Granizo", tipo: "Área", icone: "fa-cloud-hail",
+        efeitos: { 1: "2d6", 2: "3d6", 3: "4d6", 4: "5d6", 5: "6d6", 6: "7d6", 7: "8d6", 8: "9d6", 9: "10d6", 10: "12d6" }
+    },
+    barreiraGelo: {
+        nome: "Barreira de Gelo", tipo: "Proteção", icone: "fa-wall",
+        efeitos: { 1: "2m / RD5", 2: "3m / RD7", 3: "4m / RD10", 4: "5m / RD12", 5: "6m / RD15", 6: "7m / RD18", 7: "8m / RD21", 8: "9m / RD24", 9: "10m / RD27", 10: "12m / RD30" }
+    },
+    golemGelo: {
+        nome: "Golem de Gelo", tipo: "Convocação", icone: "fa-robot",
+        efeitos: { 1: "PV 30", 2: "PV 35", 3: "PV 40", 4: "PV 45", 5: "PV 50", 6: "PV 55", 7: "PV 60", 8: "PV 65", 9: "PV 70", 10: "PV 80" }
+    }
+};
+
+// ============================================
+// ESCOLAS DE MAGIA
 // ============================================
 const escolas = {
     agua: {
@@ -3021,6 +3169,7 @@ const escolas = {
         nome: 'Água',
         desbloqueada: true,
         icone: 'fa-water',
+        iconeArquivo: 'agua1.png',
         magias: {
             purificarAgua: { nivel: 0, desbloqueada: false, ordem: 1 },
             criarAgua: { nivel: 0, desbloqueada: false, ordem: 2 },
@@ -3034,7 +3183,55 @@ const escolas = {
             golemDeAgua: { nivel: 0, desbloqueada: false, ordem: 10 },
             cortinaDagua: { nivel: 0, desbloqueada: false, ordem: 11 }
         }
+    },
+    ar: {
+        id: 'ar',
+        nome: 'Ar',
+        desbloqueada: false,
+        icone: 'fa-wind',
+        iconeArquivo: 'ar.png',
+        magias: {
+            criarAr: { nivel: 0, desbloqueada: false, ordem: 1 },
+            controlarVento: { nivel: 0, desbloqueada: false, ordem: 2 },
+            rajadaVento: { nivel: 0, desbloqueada: false, ordem: 3 },
+            laminasAr: { nivel: 0, desbloqueada: false, ordem: 4 },
+            respirarNaAguaAr: { nivel: 0, desbloqueada: false, ordem: 5 },
+            andarNoAr: { nivel: 0, desbloqueada: false, ordem: 6 },
+            corpoDeAr: { nivel: 0, desbloqueada: false, ordem: 7 },
+            relampago: { nivel: 0, desbloqueada: false, ordem: 8 },
+            tempestade: { nivel: 0, desbloqueada: false, ordem: 9 },
+            furacao: { nivel: 0, desbloqueada: false, ordem: 10 },
+            cupulaDeAr: { nivel: 0, desbloqueada: false, ordem: 11 }
+        }
+    },
+    gelo: {
+        id: 'gelo',
+        nome: 'Gelo',
+        desbloqueada: false,
+        icone: 'fa-snowflake',
+        iconeArquivo: 'gelo.png',
+        magias: {
+            criarFrio: { nivel: 0, desbloqueada: false, ordem: 1 },
+            criarGelo: { nivel: 0, desbloqueada: false, ordem: 2 },
+            camadaNeve: { nivel: 0, desbloqueada: false, ordem: 3 },
+            soproCongelante: { nivel: 0, desbloqueada: false, ordem: 4 },
+            adagaGelo: { nivel: 0, desbloqueada: false, ordem: 5 },
+            armaduraGelo: { nivel: 0, desbloqueada: false, ordem: 6 },
+            pisoGelo: { nivel: 0, desbloqueada: false, ordem: 7 },
+            tempestadeGranizo: { nivel: 0, desbloqueada: false, ordem: 8 },
+            barreiraGelo: { nivel: 0, desbloqueada: false, ordem: 9 },
+            golemGelo: { nivel: 0, desbloqueada: false, ordem: 10 }
+        }
     }
+};
+
+// ============================================
+// MAPEAMENTO DE DADOS DAS MAGIAS POR ESCOLA
+// ============================================
+const dadosPorEscola = {
+    agua: dadosMagiasAgua,
+    ar: dadosMagiasAr,
+    gelo: dadosMagiasGelo
 };
 
 // ============================================
@@ -3151,6 +3348,7 @@ const catalogoItensData = {
 // VARIÁVEIS GLOBAIS
 // ============================================
 let abaAtual = 'basicos';
+let escolaAtual = 'agua';
 let esferasIniciais = 6;
 let esferasRestantes = 6;
 let fobiaSelecionada = null;
@@ -3166,6 +3364,7 @@ let periciaAtual = null;
 let dinheiroBase = 1000;
 let autoSaveTimeout = null;
 let magiaSelecionada = null;
+let escolaMagiaSelecionada = 'agua';
 let inventario = { corpo: [], mochila: [], deposito: [] };
 let dinheiro = 0;
 
@@ -3213,7 +3412,6 @@ const elements = {
     modalPericiaMais: document.getElementById('modalPericiaMais'),
     modalPericiaCancelar: document.getElementById('modalPericiaCancelar'),
     modalPericiaConfirmar: document.getElementById('modalPericiaConfirmar'),
-    esferasGrid: document.getElementById('esferasGrid'),
     detalheMagiaModal: document.getElementById('detalheMagiaModal'),
     detalheMagiaTitulo: document.getElementById('detalheMagiaTitulo'),
     corpoTabelaDetalhe: document.getElementById('corpoTabelaDetalhe'),
@@ -3281,11 +3479,20 @@ const elements = {
     corpoTabelaArmasDist: document.getElementById('corpoTabelaArmasDist'),
     corpoTabelaArmaduras: document.getElementById('corpoTabelaArmaduras'),
     corpoTabelaEscudos: document.getElementById('corpoTabelaEscudos'),
-    corpoTabelaItensGerais: document.getElementById('corpoTabelaItensGerais')
+    corpoTabelaItensGerais: document.getElementById('corpoTabelaItensGerais'),
+    
+    // Novos elementos para as escolas
+    subabasEscolas: document.querySelectorAll('.subaba'),
+    conteudoAgua: document.getElementById('conteudoAgua'),
+    conteudoAr: document.getElementById('conteudoAr'),
+    conteudoGelo: document.getElementById('conteudoGelo'),
+    esferasGridAgua: document.getElementById('esferasGridAgua'),
+    esferasGridAr: document.getElementById('esferasGridAr'),
+    esferasGridGelo: document.getElementById('esferasGridGelo')
 };
 
 // ============================================
-// FUNÇÕES DE ATRIBUTOS - CORRIGIDO
+// FUNÇÕES DE ATRIBUTOS
 // ============================================
 function getSTFixo() { return 5 + atributos.st.esferas; }
 function getSTPercentual() { return 30 + (atributos.st.esferas * 3); }
@@ -3296,17 +3503,14 @@ function getIQPercentual() { return 30 + (atributos.iq.esferas * 2); }
 function getVIGORFixo() { return 5 + atributos.vigor.esferas; }
 function getVIGORPercentual() { return 30 + (atributos.vigor.esferas * 3); }
 
-// VT Base - APENAS esferas (SEM bônus de vantagens)
 function getVTFixo() { 
     return 5 + atributos.vt.esferas;
 }
 
-// PV calculado com bônus do VT extra (htExtra)
 function calcularPV() { 
     let vtBase = getVTFixo();
     let pvBase = vtBase * 8;
     
-    // ✅ VT extra +10% - aumenta o PV permanentemente
     if (vantagensSelecionadas.has('htExtra')) {
         pvBase = Math.floor(pvBase * 1.10);
     }
@@ -3314,7 +3518,6 @@ function calcularPV() {
     return pvBase;
 }
 
-// PF com bônus
 function calcularPF() { 
     let pfBase = getVIGORFixo() + getVTFixo();
     
@@ -3325,20 +3528,17 @@ function calcularPF() {
     return pfBase;
 }
 
-// PM
 function calcularPM() { 
     let pmBase = getVIGORFixo() + getIQFixo() + getVTFixo();
     return pmBase;
 }
 
-// Nível do personagem
 function calcularNivel() { 
     const totalEsferas = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + 
                         atributos.vigor.esferas + atributos.vt.esferas;
     return totalEsferas + 1;
 }
 
-// Resistência a Magia
 function getResistenciaMagia() {
     let resistencia = getVIGORPercentual();
     if (vantagensSelecionadas.has('resistenciaMagia')) {
@@ -3347,7 +3547,6 @@ function getResistenciaMagia() {
     return Math.min(90, resistencia);
 }
 
-// Bônus de Perícia
 function getBonusPericia(periciaId) {
     let bonus = 0;
     if (periciaId === 'persuasao' && vantagensSelecionadas.has('carisma')) {
@@ -3393,7 +3592,7 @@ function calcularDeslocamento() {
 }
 
 // ============================================
-// DEFESAS - CORRIGIDO
+// DEFESAS
 // ============================================
 function calcularEsquiva() {
     let esquiva = Math.floor((getDXPercentual() + getIQPercentual() + getVIGORPercentual()) / 3) + 10;
@@ -4183,6 +4382,7 @@ function calcularCustoPericia(nivel) {
     };
     return tabelaCustos[nivel] || 0;
 }
+
 function abrirModalPericia(periciaId) {
     const pericia = catalogoPericias.find(p => p.id === periciaId);
     if (!pericia) return;
@@ -4315,20 +4515,53 @@ function diminuirPericia(periciaId) {
 }
 
 // ============================================
-// MAGIAS
+// FUNÇÕES DE NAVEGAÇÃO ENTRE ESCOLAS DE MAGIA
 // ============================================
-function renderizarEsferas() {
-    if (!elements.esferasGrid) return;
+function mudarEscola(escolaId) {
+    escolaAtual = escolaId;
     
-    const magiasLista = Object.entries(escolas.agua.magias).sort((a, b) => a[1].ordem - b[1].ordem);
+    // Atualizar classes das subabas
+    document.querySelectorAll('.subaba').forEach(subaba => {
+        if (subaba.dataset.escola === escolaId) {
+            subaba.classList.add('ativa');
+        } else {
+            subaba.classList.remove('ativa');
+        }
+    });
+    
+    // Mostrar/esconder conteúdos
+    if (elements.conteudoAgua) elements.conteudoAgua.style.display = escolaId === 'agua' ? 'block' : 'none';
+    if (elements.conteudoAr) elements.conteudoAr.style.display = escolaId === 'ar' ? 'block' : 'none';
+    if (elements.conteudoGelo) elements.conteudoGelo.style.display = escolaId === 'gelo' ? 'block' : 'none';
+    
+    // Renderizar a escola selecionada
+    renderizarEsferas(escolaId);
+}
+
+// ============================================
+// MAGIAS - RENDERIZAR ESFERAS POR ESCOLA
+// ============================================
+function renderizarEsferas(escolaId = escolaAtual) {
+    const escola = escolas[escolaId];
+    if (!escola) return;
+    
+    let gridElement;
+    if (escolaId === 'agua') gridElement = elements.esferasGridAgua;
+    else if (escolaId === 'ar') gridElement = elements.esferasGridAr;
+    else if (escolaId === 'gelo') gridElement = elements.esferasGridGelo;
+    
+    if (!gridElement) return;
+    
+    const dadosMagiasEscola = dadosPorEscola[escolaId];
+    const magiasLista = Object.entries(escola.magias).sort((a, b) => a[1].ordem - b[1].ordem);
     const temAptidao = vantagensSelecionadas.has('aptidaoMagica');
-    const magiasDesbloqueadas = Object.values(escolas.agua.magias).filter(m => m.desbloqueada).length;
+    const magiasDesbloqueadas = Object.values(escola.magias).filter(m => m.desbloqueada).length;
     
     let html = '';
     
     magiasLista.forEach(([id, magia], index) => {
         const numero = index + 1;
-        const magiaDados = dadosMagias[id] || { nome: id, tipo: '', icone: 'fa-magic' };
+        const magiaDados = dadosMagiasEscola[id] || { nome: id, tipo: '', icone: 'fa-magic' };
         let classeEsfera = 'trancada';
         let iconeCadeado = '<i class="fas fa-lock" style="color: #666;"></i>';
         let botaoAcao = '';
@@ -4339,7 +4572,7 @@ function renderizarEsferas() {
         } else if (temAptidao && numero <= magiasDesbloqueadas + 1) {
             classeEsfera = 'disponivel';
             iconeCadeado = '';
-            botaoAcao = `<button class="btn-comprar-esfera" data-magia-id="${id}">Desbloquear (2 PP)</button>`;
+            botaoAcao = `<button class="btn-comprar-esfera" data-escola="${escolaId}" data-magia-id="${id}">Desbloquear (2 PP)</button>`;
         } else if (!temAptidao) {
             classeEsfera = 'aptidao-requerida';
         }
@@ -4350,23 +4583,25 @@ function renderizarEsferas() {
         }
         
         html += `
-            <div class="esfera-card ${classeEsfera}" data-magia-id="${id}">
+            <div class="esfera-card ${classeEsfera}" data-escola="${escolaId}" data-magia-id="${id}">
                 <div class="numero-esfera">${numero}</div>
                 <div class="icone-esfera"><i class="fas ${magiaDados.icone}"></i></div>
                 ${iconeCadeado}
                 <div class="nome-esfera">${magiaDados.nome}</div>
                 <div class="tipo-esfera">${magiaDados.tipo}</div>
-                ${magia.desbloqueada ? `<div class="nivel-esfera">Nível ${magia.nivel} <button class="btn-detalhe" data-magia-id="${id}"><i class="fas fa-search"></i></button> | ${nhMagia}%</div>` : ''}
+                ${magia.desbloqueada ? `<div class="nivel-esfera">Nível ${magia.nivel} <button class="btn-detalhe" data-escola="${escolaId}" data-magia-id="${id}"><i class="fas fa-search"></i></button> | ${nhMagia}%</div>` : ''}
                 ${botaoAcao}
             </div>
         `;
     });
     
-    elements.esferasGrid.innerHTML = html;
+    gridElement.innerHTML = html;
     
+    // Adicionar eventos aos botões de comprar
     document.querySelectorAll('.btn-comprar-esfera').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
+            const escolaId = btn.dataset.escola;
             const magiaId = btn.dataset.magiaId;
             const custo = 2;
             
@@ -4376,34 +4611,43 @@ function renderizarEsferas() {
             }
             
             ppGastoTotal += custo;
-            escolas.agua.magias[magiaId].desbloqueada = true;
-            escolas.agua.magias[magiaId].nivel = 1;
+            escolas[escolaId].magias[magiaId].desbloqueada = true;
+            escolas[escolaId].magias[magiaId].nivel = 1;
             
             if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
             if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
             
             atualizarContadoresAbas();
-            renderizarEsferas();
+            renderizarEsferas(escolaId);
             triggerAutoSave();
         });
     });
     
+    // Adicionar eventos aos botões de detalhe
     document.querySelectorAll('.btn-detalhe, .esfera-card.desbloqueada').forEach(el => {
         el.addEventListener('click', (e) => {
             if (e.target.closest('.btn-comprar-esfera')) return;
-            const magiaId = el.closest('.esfera-card')?.dataset.magiaId || el.dataset.magiaId;
-            if (magiaId && escolas.agua.magias[magiaId]?.desbloqueada) {
-                abrirDetalheMagia(magiaId);
+            const card = el.closest('.esfera-card');
+            if (card) {
+                const escolaId = card.dataset.escola;
+                const magiaId = card.dataset.magiaId;
+                if (escolaId && magiaId && escolas[escolaId]?.magias[magiaId]?.desbloqueada) {
+                    abrirDetalheMagia(escolaId, magiaId);
+                }
             }
         });
     });
 }
 
-function abrirDetalheMagia(magiaId) {
-    const magia = escolas.agua.magias[magiaId];
-    const magiaDados = dadosMagias[magiaId];
+function abrirDetalheMagia(escolaId, magiaId) {
+    const escola = escolas[escolaId];
+    const magia = escola?.magias[magiaId];
+    const dadosMagiasEscola = dadosPorEscola[escolaId];
+    const magiaDados = dadosMagiasEscola?.[magiaId];
+    
     if (!magia || !magiaDados) return;
     
+    escolaMagiaSelecionada = escolaId;
     magiaSelecionada = magiaId;
     
     if (elements.detalheMagiaTitulo) elements.detalheMagiaTitulo.textContent = magiaDados.nome;
@@ -4460,7 +4704,10 @@ function selecionarVantagem(card) {
     }
     
     if (vantagemId === 'aptidaoMagica') {
-        renderizarEsferas();
+        // Atualizar todas as escolas
+        renderizarEsferas('agua');
+        renderizarEsferas('ar');
+        renderizarEsferas('gelo');
     }
     
     atualizarContadoresAbas();
@@ -4533,9 +4780,14 @@ function atualizarContadoresAbas() {
         elements.contadorPericiasAba.textContent = `${ppGastoTotal} PP`;
     }
     
-    const magiasDesbloqueadas = Object.values(escolas.agua.magias).filter(m => m.desbloqueada).length;
+    // Contar magias desbloqueadas em todas as escolas
+    let totalMagias = 0;
+    Object.values(escolas).forEach(escola => {
+        totalMagias += Object.values(escola.magias).filter(m => m.desbloqueada).length;
+    });
+    
     if (elements.contadorMagiasAba) {
-        elements.contadorMagiasAba.textContent = `${magiasDesbloqueadas}/10`;
+        elements.contadorMagiasAba.textContent = `${totalMagias}/31`; // 11 + 11 + 9 = 31 magias no total
     }
     
     if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
@@ -4571,7 +4823,9 @@ function mudarAba(abaId) {
         renderizarCatalogoPericias('todas');
         renderizarPericiasAdquiridas();
     } else if (abaId === 'magias') {
-        renderizarEsferas();
+        renderizarEsferas('agua');
+        renderizarEsferas('ar');
+        renderizarEsferas('gelo');
     } else if (abaId === 'equipamentos') {
         atualizarDinheiroDisplay();
         renderizarInventario();
@@ -4755,7 +5009,7 @@ async function salvarRascunho() {
 }
 
 // ============================================
-// EXPORTAÇÃO PDF (MELHORADA)
+// EXPORTAÇÃO PDF
 // ============================================
 async function exportarPDF() {
     try {
@@ -4950,31 +5204,50 @@ async function exportarPDF() {
             yPos += (periciasArray.length * 5) + 5;
         }
         
-        const magiasDesbloqueadas = Object.entries(escolas.agua.magias).filter(([_, m]) => m.desbloqueada);
-        if (magiasDesbloqueadas.length > 0) {
-            if (yPos > pageHeight - 50) {
+        // Magias de todas as escolas no PDF
+        let temMagias = false;
+        for (const [escolaId, escola] of Object.entries(escolas)) {
+            const magiasDesbloqueadas = Object.entries(escola.magias).filter(([_, m]) => m.desbloqueada);
+            
+            if (magiasDesbloqueadas.length > 0) {
+                temMagias = true;
+                
+                if (yPos > pageHeight - 50) {
+                    pdf.addPage();
+                    yPos = 20;
+                }
+                
+                pdf.setFontSize(14);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(`Magias da ${escola.nome}`, marginLeft, yPos);
+                yPos += 7;
+                
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'normal');
+                
+                let textoMagias = '';
+                magiasDesbloqueadas.forEach(([id, magia]) => {
+                    const dadosMagiasEscola = dadosPorEscola[escolaId];
+                    const magiaDados = dadosMagiasEscola?.[id];
+                    if (magiaDados) {
+                        const nh = getIQPercentual() + 10 + magia.nivel;
+                        textoMagias += `• ${magiaDados.nome}: Nv ${magia.nivel} (${nh}%) - ${magiaDados.efeitos[magia.nivel]}\n`;
+                    }
+                });
+                
+                pdf.text(textoMagias, marginLeft, yPos);
+                yPos += (magiasDesbloqueadas.length * 5) + 5;
+            }
+        }
+        
+        if (!temMagias) {
+            if (yPos > pageHeight - 30) {
                 pdf.addPage();
                 yPos = 20;
             }
-            
-            pdf.setFontSize(14);
-            pdf.setFont('helvetica', 'bold');
-            pdf.text('Magias da Água', marginLeft, yPos);
-            yPos += 7;
-            
-            pdf.setFontSize(10);
-            pdf.setFont('helvetica', 'normal');
-            
-            let textoMagias = '';
-            magiasDesbloqueadas.forEach(([id, magia]) => {
-                const magiaDados = dadosMagias[id];
-                if (magiaDados) {
-                    const nh = getIQPercentual() + 10 + magia.nivel;
-                    textoMagias += `• ${magiaDados.nome}: Nv ${magia.nivel} (${nh}%) - ${magiaDados.efeitos[magia.nivel]}\n`;
-                }
-            });
-            
-            pdf.text(textoMagias, marginLeft, yPos);
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'italic');
+            pdf.text('Nenhuma magia aprendida.', marginLeft, yPos);
         }
         
         pdf.save(`ficha_${nome.replace(/\s+/g, '_')}.pdf`);
@@ -5082,8 +5355,14 @@ async function carregarPersonagem(id) {
         }
         
         if (data.escolas) {
-            escolas.agua = data.escolas.agua || escolas.agua;
-            renderizarEsferas();
+            // Carregar todas as escolas
+            if (data.escolas.agua) escolas.agua = data.escolas.agua;
+            if (data.escolas.ar) escolas.ar = data.escolas.ar;
+            if (data.escolas.gelo) escolas.gelo = data.escolas.gelo;
+            
+            renderizarEsferas('agua');
+            renderizarEsferas('ar');
+            renderizarEsferas('gelo');
         }
         
         if (data.inventario) {
@@ -5188,8 +5467,13 @@ function carregarDadosSalvos() {
             }
             
             if (personagemTemp.escolas) {
-                escolas.agua = personagemTemp.escolas.agua || escolas.agua;
-                renderizarEsferas();
+                if (personagemTemp.escolas.agua) escolas.agua = personagemTemp.escolas.agua;
+                if (personagemTemp.escolas.ar) escolas.ar = personagemTemp.escolas.ar;
+                if (personagemTemp.escolas.gelo) escolas.gelo = personagemTemp.escolas.gelo;
+                
+                renderizarEsferas('agua');
+                renderizarEsferas('ar');
+                renderizarEsferas('gelo');
             }
             
             if (personagemTemp.dinheiro !== undefined) {
@@ -5306,6 +5590,13 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerAutoSave();
     });
     
+    // Eventos para as subabas de escolas
+    document.querySelectorAll('.subaba').forEach(subaba => {
+        subaba.addEventListener('click', () => {
+            mudarEscola(subaba.dataset.escola);
+        });
+    });
+    
     const urlParams = new URLSearchParams(window.location.search);
     const idParaEditar = urlParams.get('id');
     
@@ -5326,6 +5617,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     carregarDadosSalvos();
                 }
+                
+                // Renderizar todas as escolas
+                renderizarEsferas('agua');
+                renderizarEsferas('ar');
+                renderizarEsferas('gelo');
+                
             } catch (error) {
                 console.error('Erro:', error);
             }
@@ -5479,9 +5776,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (elements.comprarNivelMagia) {
         elements.comprarNivelMagia.addEventListener('click', () => {
-            if (!magiaSelecionada) return;
+            if (!magiaSelecionada || !escolaMagiaSelecionada) return;
             
-            const magia = escolas.agua.magias[magiaSelecionada];
+            const escola = escolas[escolaMagiaSelecionada];
+            const magia = escola?.magias[magiaSelecionada];
             if (!magia || magia.nivel >= 10) return;
             
             const custo = 2;
@@ -5498,8 +5796,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
             
             atualizarContadoresAbas();
-            abrirDetalheMagia(magiaSelecionada);
-            renderizarEsferas();
+            abrirDetalheMagia(escolaMagiaSelecionada, magiaSelecionada);
+            renderizarEsferas(escolaMagiaSelecionada);
             triggerAutoSave();
         });
     }
