@@ -1424,7 +1424,7 @@
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -1565,7 +1565,7 @@
         ];
 
         // ============================================
-        // DADOS DAS MAGIAS - CORRIGIDO E COMPLETO
+        // DADOS DAS MAGIAS
         // ============================================
         const dadosMagias = {
             purificarAgua: { 
@@ -1848,26 +1848,193 @@
             return Object.values(personagemAtual.escolas.agua.magias).filter(m => m.desbloqueada).length;
         }
 
+        // ============================================
+        // ATUALIZAR DISPLAY PP - CORRETO
+        // ============================================
         function atualizarDisplayPP() {
-            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+            if (!personagemAtual) return;
+            
+            // Garantir valores padrão
+            if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
+            if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
+            
+            // Cálculo correto: disponível = total recebido - total gasto
+            const ppDisponivel = personagemAtual.ppDisponivel - personagemAtual.ppGasto;
+            
+            // Atualizar elementos na interface
             if (ppDisponivelValor) ppDisponivelValor.textContent = ppDisponivel;
-            if (ppGastoValor) ppGastoValor.textContent = personagemAtual.ppGasto || 0;
+            if (ppGastoValor) ppGastoValor.textContent = personagemAtual.ppGasto;
             if (ppDisponivelHeader) ppDisponivelHeader.textContent = ppDisponivel;
-            if (ppPericias) ppPericias.textContent = (personagemAtual.ppGasto || 0) + ' PP';
-            if (ppMagias) ppMagias.textContent = (personagemAtual.ppGasto || 0) + ' PP';
+            if (ppPericias) ppPericias.textContent = personagemAtual.ppGasto + ' PP';
+            if (ppMagias) ppMagias.textContent = personagemAtual.ppGasto + ' PP';
         }
 
+        // ============================================
+        // ADICIONAR PP (MESTRE CONCEDE)
+        // ============================================
         window.adicionarPP = async function(valor) {
             if (!personagemAtual || !currentUser) return;
+            
+            // Soma ao total recebido
             const novoPPTotal = (personagemAtual.ppDisponivel || 0) + valor;
+            
             try {
                 const personagemRef = doc(db, "personagens", personagemAtual.id);
-                await updateDoc(personagemRef, { ppDisponivel: novoPPTotal });
+                await updateDoc(personagemRef, { 
+                    ppDisponivel: novoPPTotal 
+                });
+                
                 personagemAtual.ppDisponivel = novoPPTotal;
                 atualizarDisplayPP();
                 showToast(`+${valor} PP adicionados!`);
+                
             } catch (error) {
                 showToast('Erro ao adicionar PP', true);
+            }
+        }
+
+        // ============================================
+        // COMPRAR PERICIA - CORRIGIDO
+        // ============================================
+        window.comprarPericia = async function(periciaId) {
+            if (!personagemAtual || !currentUser) return;
+            
+            const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
+            const nivelAtual = periciaExistente.nivel || 0;
+            const novoNivel = nivelAtual + 1;
+            
+            if (novoNivel > 5) return;
+            
+            const custoTotal = tabelaCustosPericias[novoNivel];
+            const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+            const custoDiferenca = custoTotal - custoAtual;
+            
+            // PP disponível = total recebido - total gasto
+            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+            
+            if (custoDiferenca > ppDisponivel) {
+                showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+                return;
+            }
+            
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                // SOMA ao ppGasto existente
+                const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+                
+                await updateDoc(personagemRef, {
+                    [`pericias.${periciaId}.nivel`]: novoNivel,
+                    ppGasto: novoPpGasto
+                });
+                
+                if (!personagemAtual.pericias) personagemAtual.pericias = {};
+                personagemAtual.pericias[periciaId] = { nivel: novoNivel };
+                personagemAtual.ppGasto = novoPpGasto;
+                
+                renderizarFicha();
+                showToast('Perícia adquirida!');
+                
+            } catch (error) {
+                showToast('Erro ao comprar perícia', true);
+            }
+        }
+
+        // ============================================
+        // COMPRAR MAGIA (DESBLOQUEAR) - CORRIGIDO
+        // ============================================
+        window.comprarMagia = async function(magiaId) {
+            if (!personagemAtual || !currentUser) return;
+            
+            // Garantir estrutura
+            if (!personagemAtual.escolas) personagemAtual.escolas = { agua: { magias: {} } };
+            if (!personagemAtual.escolas.agua) personagemAtual.escolas.agua = { magias: {} };
+            if (!personagemAtual.escolas.agua.magias) personagemAtual.escolas.agua.magias = {};
+            
+            const magiaExistente = personagemAtual.escolas.agua.magias[magiaId];
+            if (magiaExistente?.desbloqueada) {
+                showToast('Magia já desbloqueada!', true);
+                return;
+            }
+            
+            const custo = 2;
+            // PP disponível = total recebido - total gasto
+            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+            
+            if (custo > ppDisponivel) {
+                showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+                return;
+            }
+            
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                // SOMA ao ppGasto existente
+                const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
+                
+                await updateDoc(personagemRef, {
+                    [`escolas.agua.magias.${magiaId}.desbloqueada`]: true,
+                    [`escolas.agua.magias.${magiaId}.nivel`]: 1,
+                    ppGasto: novoPpGasto
+                });
+                
+                personagemAtual.escolas.agua.magias[magiaId] = {
+                    desbloqueada: true,
+                    nivel: 1
+                };
+                personagemAtual.ppGasto = novoPpGasto;
+                
+                renderizarFicha();
+                showToast(`${dadosMagias[magiaId].nome} desbloqueada!`);
+                
+            } catch (error) {
+                showToast('Erro ao comprar magia', true);
+            }
+        }
+
+        // ============================================
+        // COMPRAR EQUIPAMENTO
+        // ============================================
+        window.comprarEquipamento = async function(item, categoria) {
+            if (!personagemAtual || !currentUser) return;
+            
+            if (personagemAtual.dinheiro < item.preco) {
+                showToast('Dinheiro insuficiente!', true);
+                return;
+            }
+            
+            try {
+                const novoItem = {
+                    id: item.id + '_' + Date.now(),
+                    nome: item.nome,
+                    tipo: item.tipo,
+                    preco: item.preco,
+                    peso: item.peso,
+                    quantidade: 1
+                };
+                
+                if (item.dano) novoItem.dano = item.dano;
+                if (item.rd) novoItem.rd = item.rd;
+                if (item.bonus) novoItem.bonus = item.bonus;
+                if (item.st) novoItem.st = item.st;
+                
+                if (!personagemAtual.inventario) personagemAtual.inventario = { deposito: [] };
+                if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
+                
+                personagemAtual.inventario.deposito.push(novoItem);
+                personagemAtual.dinheiro -= item.preco;
+                
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                await updateDoc(personagemRef, {
+                    inventario: personagemAtual.inventario,
+                    dinheiro: personagemAtual.dinheiro
+                });
+                
+                renderizarFicha();
+                showToast(`${item.nome} comprado!`);
+                
+            } catch (error) {
+                showToast('Erro ao comprar', true);
             }
         }
 
@@ -1937,139 +2104,6 @@
             }
         }
 
-        window.comprarPericia = async function(periciaId) {
-            if (!personagemAtual || !currentUser) return;
-            
-            const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
-            const nivelAtual = periciaExistente.nivel || 0;
-            const novoNivel = nivelAtual + 1;
-            
-            if (novoNivel > 5) return;
-            
-            const custoTotal = tabelaCustosPericias[novoNivel];
-            const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
-            const custoDiferenca = custoTotal - custoAtual;
-            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-            
-            if (custoDiferenca > ppDisponivel) {
-                showToast('PP insuficiente!', true);
-                return;
-            }
-            
-            try {
-                const personagemRef = doc(db, "personagens", personagemAtual.id);
-                await updateDoc(personagemRef, {
-                    [`pericias.${periciaId}.nivel`]: novoNivel,
-                    ppGasto: (personagemAtual.ppGasto || 0) + custoDiferenca
-                });
-                
-                if (!personagemAtual.pericias) personagemAtual.pericias = {};
-                personagemAtual.pericias[periciaId] = { nivel: novoNivel };
-                personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
-                
-                renderizarFicha();
-                showToast('Perícia adquirida!');
-                
-            } catch (error) {
-                showToast('Erro ao comprar perícia', true);
-            }
-        }
-
-        // ============================================
-        // COMPRAR MAGIA - CORRIGIDO
-        // ============================================
-        window.comprarMagia = async function(magiaId) {
-            if (!personagemAtual || !currentUser) return;
-            
-            // Garantir estrutura
-            if (!personagemAtual.escolas) personagemAtual.escolas = { agua: { magias: {} } };
-            if (!personagemAtual.escolas.agua) personagemAtual.escolas.agua = { magias: {} };
-            if (!personagemAtual.escolas.agua.magias) personagemAtual.escolas.agua.magias = {};
-            
-            const magiaExistente = personagemAtual.escolas.agua.magias[magiaId];
-            if (magiaExistente?.desbloqueada) {
-                showToast('Magia já desbloqueada!', true);
-                return;
-            }
-            
-            const custo = 2;
-            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-            
-            if (custo > ppDisponivel) {
-                showToast('PP insuficiente!', true);
-                return;
-            }
-            
-            try {
-                const personagemRef = doc(db, "personagens", personagemAtual.id);
-                
-                // Atualizar no Firestore
-                await updateDoc(personagemRef, {
-                    [`escolas.agua.magias.${magiaId}.desbloqueada`]: true,
-                    [`escolas.agua.magias.${magiaId}.nivel`]: 1,
-                    ppGasto: (personagemAtual.ppGasto || 0) + custo
-                });
-                
-                // Atualizar objeto local
-                personagemAtual.escolas.agua.magias[magiaId] = {
-                    desbloqueada: true,
-                    nivel: 1
-                };
-                personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custo;
-                
-                // Renderizar tudo novamente
-                renderizarFicha();
-                showToast(`${dadosMagias[magiaId].nome} desbloqueada!`);
-                
-            } catch (error) {
-                console.error('Erro ao comprar magia:', error);
-                showToast('Erro ao comprar magia', true);
-            }
-        }
-
-        window.comprarEquipamento = async function(item, categoria) {
-            if (!personagemAtual || !currentUser) return;
-            
-            if (personagemAtual.dinheiro < item.preco) {
-                showToast('Dinheiro insuficiente!', true);
-                return;
-            }
-            
-            try {
-                const novoItem = {
-                    id: item.id + '_' + Date.now(),
-                    nome: item.nome,
-                    tipo: item.tipo,
-                    preco: item.preco,
-                    peso: item.peso,
-                    quantidade: 1
-                };
-                
-                if (item.dano) novoItem.dano = item.dano;
-                if (item.rd) novoItem.rd = item.rd;
-                if (item.bonus) novoItem.bonus = item.bonus;
-                if (item.st) novoItem.st = item.st;
-                
-                if (!personagemAtual.inventario) personagemAtual.inventario = { deposito: [] };
-                if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
-                
-                personagemAtual.inventario.deposito.push(novoItem);
-                personagemAtual.dinheiro -= item.preco;
-                
-                const personagemRef = doc(db, "personagens", personagemAtual.id);
-                await updateDoc(personagemRef, {
-                    inventario: personagemAtual.inventario,
-                    dinheiro: personagemAtual.dinheiro
-                });
-                
-                renderizarFicha();
-                showToast(`${item.nome} comprado!`);
-                
-            } catch (error) {
-                showToast('Erro ao comprar', true);
-            }
-        }
-
         function renderizarCatalogoPericias(filtro = 'todas') {
             const container = document.getElementById('catalogoPericiasLista');
             if (!container) return;
@@ -2130,7 +2164,7 @@
         }
 
         // ============================================
-        // RENDERIZAR CATÁLOGO DE MAGIAS - CORRIGIDO
+        // RENDERIZAR CATÁLOGO DE MAGIAS
         // ============================================
         function renderizarCatalogoMagias() {
             const container = document.getElementById('catalogoMagiasLista');
@@ -2144,7 +2178,7 @@
             const magiasDesbloqueadas = contarMagiasDesbloqueadas();
             const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
             
-            // Ordem correta das magias (da mais básica para a mais avançada)
+            // Ordem correta das magias
             const ordemMagias = [
                 'purificarAgua', 'criarAgua', 'dissiparAgua', 'flechaLiquida', 
                 'respirarNaAgua', 'moldarAgua', 'nevoeiro', 'jatoDagua', 
@@ -2160,7 +2194,6 @@
                 const temMagia = personagemAtual.escolas.agua.magias[id]?.desbloqueada || false;
                 const nivelAtual = personagemAtual.escolas.agua.magias[id]?.nivel || 1;
                 
-                // Verificar se pode desbloquear (requer N magias desbloqueadas)
                 const podeDesbloquear = !temMagia && magiasDesbloqueadas + 1 >= magia.nivelRequerido;
                 
                 html += `
@@ -2424,9 +2457,7 @@
             const cargaPeso = calcularCarga();
             if (cargaInfo) cargaInfo.textContent = cargaPeso.toFixed(1) + ' kg';
 
-            // ============================================
-            // RENDERIZAR MINHAS MAGIAS - CORRIGIDO
-            // ============================================
+            // Renderizar minhas magias
             if (magiasContainer) {
                 if (!personagemAtual.escolas?.agua?.magias) {
                     magiasContainer.innerHTML = '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
@@ -2684,6 +2715,9 @@
             modalPericia.classList.remove('active');
         });
 
+        // ============================================
+        // CONFIRMAR PERICIA - CORRIGIDO
+        // ============================================
         modalPericiaConfirmar.addEventListener('click', async () => {
             if (!periciaModalAtual || !personagemAtual) return;
             
@@ -2692,23 +2726,27 @@
             const custoTotal = tabelaCustosPericias[novoNivel];
             const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
             const custoDiferenca = custoTotal - custoAtual;
+            
             const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
             
             if (custoDiferenca > ppDisponivel) {
-                showToast('PP insuficiente!', true);
+                showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
                 return;
             }
             
             try {
                 const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+                
                 await updateDoc(personagemRef, {
                     [`pericias.${periciaModalAtual.id}.nivel`]: novoNivel,
-                    ppGasto: (personagemAtual.ppGasto || 0) + custoDiferenca
+                    ppGasto: novoPpGasto
                 });
                 
                 if (!personagemAtual.pericias) personagemAtual.pericias = {};
                 personagemAtual.pericias[periciaModalAtual.id] = { nivel: novoNivel };
-                personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+                personagemAtual.ppGasto = novoPpGasto;
                 
                 modalPericia.classList.remove('active');
                 renderizarFicha();
@@ -2748,6 +2786,9 @@
             modalMagia.classList.remove('active');
         });
 
+        // ============================================
+        // EVOLUIR MAGIA - CORRIGIDO
+        // ============================================
         modalMagiaComprar.addEventListener('click', async () => {
             if (!magiaModalAtual || !personagemAtual) return;
             
@@ -2758,19 +2799,22 @@
             const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
             
             if (custo > ppDisponivel) {
-                showToast('PP insuficiente!', true);
+                showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
                 return;
             }
             
             try {
                 const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
+                
                 await updateDoc(personagemRef, {
                     [`escolas.agua.magias.${magiaModalAtual}.nivel`]: (magia.nivel || 1) + 1,
-                    ppGasto: (personagemAtual.ppGasto || 0) + custo
+                    ppGasto: novoPpGasto
                 });
                 
                 magia.nivel = (magia.nivel || 1) + 1;
-                personagemAtual.ppGasto = (personagemAtual.ppGasto || 0) + custo;
+                personagemAtual.ppGasto = novoPpGasto;
                 
                 modalMagia.classList.remove('active');
                 renderizarFicha();
@@ -2917,6 +2961,7 @@
                                     (personagemAtual.atributos?.vt?.esferas || 0);
                 personagemAtual.nivel = totalEsferas + 1;
 
+                // Garantir valores padrão
                 if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
                 if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
                 if (!personagemAtual.xpAtual) personagemAtual.xpAtual = 0;
