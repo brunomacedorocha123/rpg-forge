@@ -146,6 +146,9 @@
             padding: 16px 20px;
             border-bottom: 1px solid rgba(198, 40, 40, 0.2);
             background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .card-header h2 {
@@ -279,6 +282,7 @@
 
         .pericia-nome {
             font-size: 14px;
+            text-transform: capitalize;
         }
 
         .pericia-nivel {
@@ -295,13 +299,13 @@
             color: #4CAF50;
         }
 
-        .inventario-tabs {
+        .inventario-tabs, .magias-tabs {
             display: flex;
             gap: 4px;
             margin-bottom: 12px;
         }
 
-        .inventario-tab {
+        .inventario-tab, .magias-tab {
             background: rgba(0,0,0,0.3);
             border: none;
             color: rgba(255,255,255,0.6);
@@ -309,12 +313,48 @@
             border-radius: 8px 8px 0 0;
             cursor: pointer;
             flex: 1;
+            font-size: 13px;
+            transition: all 0.2s;
         }
 
-        .inventario-tab.ativa {
+        .inventario-tab.ativa, .magias-tab.ativa {
             background: rgba(198, 40, 40, 0.2);
             color: #c62828;
             border-bottom: 2px solid #c62828;
+        }
+
+        .escolas-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 15px;
+        }
+
+        .escolas-tab {
+            background: rgba(0,0,0,0.3);
+            border: none;
+            color: rgba(255,255,255,0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            flex: 1;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .escolas-tab img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+
+        .escolas-tab.ativa {
+            background: rgba(198, 40, 40, 0.2);
+            color: #c62828;
+            border: 1px solid #c62828;
         }
 
         .inventario-conteudo {
@@ -350,11 +390,22 @@
             font-weight: 600;
             color: #4a9fff;
             margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .magia-nivel {
             color: #ffd700;
             font-size: 12px;
+        }
+
+        .conteudo-escola {
+            display: none;
+        }
+
+        .conteudo-escola.ativa {
+            display: block;
         }
 
         .timestamp {
@@ -515,10 +566,34 @@
 
         <div class="card">
             <div class="card-header">
-                <h2><i class="fas fa-water"></i> Magias</h2>
+                <h2><i class="fas fa-magic"></i> Magias</h2>
             </div>
             <div class="card-body">
-                <div class="magias-grid" id="magiasContainer"></div>
+                <!-- Abas das escolas -->
+                <div class="escolas-tabs" id="escolasTabs">
+                    <button class="escolas-tab ativa" data-escola="agua">
+                        <img src="agua1.png" alt="Água"> Água
+                    </button>
+                    <button class="escolas-tab" data-escola="ar">
+                        <img src="ar.png" alt="Ar"> Ar
+                    </button>
+                    <button class="escolas-tab" data-escola="gelo">
+                        <img src="gelo.png" alt="Gelo"> Gelo
+                    </button>
+                </div>
+
+                <!-- Conteúdo das escolas -->
+                <div id="conteudoAgua" class="conteudo-escola ativa">
+                    <div class="magias-grid" id="magiasContainerAgua"></div>
+                </div>
+
+                <div id="conteudoAr" class="conteudo-escola">
+                    <div class="magias-grid" id="magiasContainerAr"></div>
+                </div>
+
+                <div id="conteudoGelo" class="conteudo-escola">
+                    <div class="magias-grid" id="magiasContainerGelo"></div>
+                </div>
             </div>
         </div>
 
@@ -528,7 +603,6 @@
     </div>
 
     <script type="module">
-        // TODOS OS IMPORTS
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -581,8 +655,14 @@
         const rdTotal = document.getElementById('rdTotal');
         const periciasContainer = document.getElementById('periciasContainer');
         const inventarioContainer = document.getElementById('inventarioContainer');
-        const magiasContainer = document.getElementById('magiasContainer');
+        
+        const magiasContainerAgua = document.getElementById('magiasContainerAgua');
+        const magiasContainerAr = document.getElementById('magiasContainerAr');
+        const magiasContainerGelo = document.getElementById('magiasContainerGelo');
+        
         const timestamp = document.getElementById('timestamp');
+
+        let escolaAtual = 'agua';
 
         function showLoading() { loadingOverlay.classList.add('active'); }
         function hideLoading() { loadingOverlay.classList.remove('active'); }
@@ -591,6 +671,47 @@
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('personagemId');
         }
+
+        // Mapeamento de nomes de magias para exibição amigável
+        const nomesMagias = {
+            // Água
+            purificarAgua: "Purificar Água",
+            criarAgua: "Criar Água",
+            dissiparAgua: "Dissipar Água",
+            flechaLiquida: "Flecha Líquida",
+            respirarNaAgua: "Respirar na Água",
+            moldarAgua: "Moldar Água",
+            nevoeiro: "Nevoeiro",
+            jatoDagua: "Jato d'água",
+            ondaExpulsora: "Onda Expulsora",
+            golemDeAgua: "Golem de Água",
+            cortinaDagua: "Cortina d'Água",
+            
+            // Ar
+            criarAr: "Criar Ar",
+            controlarVento: "Controlar Vento",
+            rajadaVento: "Rajada de Vento",
+            laminasAr: "Lâminas de Ar",
+            respirarNaAguaAr: "Respirar na Água",
+            andarNoAr: "Andar no Ar",
+            corpoDeAr: "Corpo de Ar",
+            relampago: "Relâmpago",
+            tempestade: "Tempestade",
+            furacao: "Furacão",
+            cupulaDeAr: "Cúpula de Ar",
+            
+            // Gelo
+            criarFrio: "Criar Frio",
+            criarGelo: "Criar Gelo",
+            camadaNeve: "Camada de Neve",
+            soproCongelante: "Sopro Congelante",
+            adagaGelo: "Adaga de Gelo",
+            armaduraGelo: "Armadura de Gelo",
+            pisoGelo: "Piso de Gelo",
+            tempestadeGranizo: "Tempestade de Granizo",
+            barreiraGelo: "Barreira de Gelo",
+            golemGelo: "Golem de Gelo"
+        };
 
         // Funções de cálculo
         function getSTFixo(personagem) { return 5 + (personagem?.atributos?.st?.esferas || 0); }
@@ -606,11 +727,19 @@
 
         function calcularPV(personagem) { 
             let vtBase = getVTFixo(personagem);
-            return vtBase * 8;
+            let pvBase = vtBase * 8;
+            if (personagem?.vantagens?.includes('htExtra')) {
+                pvBase = Math.floor(pvBase * 1.10);
+            }
+            return pvBase;
         }
 
         function calcularPF(personagem) { 
-            return getVIGORFixo(personagem) + getVTFixo(personagem);
+            let pfBase = getVIGORFixo(personagem) + getVTFixo(personagem);
+            if (personagem?.vantagens?.includes('fadigaExtra')) {
+                pfBase += 5;
+            }
+            return pfBase;
         }
 
         function calcularPM(personagem) { 
@@ -640,6 +769,35 @@
                 });
             }
             return rd;
+        }
+
+        function calcularNHPericia(periciaId, nivel) {
+            return 30 + (nivel * 4);
+        }
+
+        function renderizarMagiasPorEscola(escola, container, personagem) {
+            if (!personagem?.escolas?.[escola]?.magias) {
+                container.innerHTML = '<p style="color: rgba(255,255,255,0.3); text-align: center; padding: 20px;">Nenhuma magia desta escola</p>';
+                return;
+            }
+
+            let magiasHTML = '';
+            Object.entries(personagem.escolas[escola].magias).forEach(([id, magia]) => {
+                if (magia.desbloqueada) {
+                    const nomeExibicao = nomesMagias[id] || id;
+                    magiasHTML += `
+                        <div class="magia-card">
+                            <div class="magia-nome">
+                                <i class="fas ${escola === 'agua' ? 'fa-water' : escola === 'ar' ? 'fa-wind' : 'fa-snowflake'}" style="color: #4a9fff;"></i>
+                                ${nomeExibicao}
+                            </div>
+                            <div class="magia-nivel">Nível ${magia.nivel || 1}</div>
+                        </div>
+                    `;
+                }
+            });
+
+            container.innerHTML = magiasHTML || '<p style="color: rgba(255,255,255,0.3); text-align: center; padding: 20px;">Nenhuma magia desbloqueada</p>';
         }
 
         function renderizarPersonagem(personagem) {
@@ -741,6 +899,7 @@
             deslocamento.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
             rdTotal.textContent = calcularRD(personagem);
 
+            // Perícias
             if (personagem.pericias) {
                 let periciasHTML = '';
                 Object.entries(personagem.pericias).forEach(([id, dados]) => {
@@ -750,40 +909,31 @@
                                 <span class="pericia-nome">${id}</span>
                                 <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
                             </div>
-                            <span class="pericia-nh">${30 + ((dados.nivel || 0) * 4)}%</span>
+                            <span class="pericia-nh">${calcularNHPericia(id, dados.nivel || 0)}%</span>
                         </div>
                     `;
                 });
                 periciasContainer.innerHTML = periciasHTML || '<p style="color: rgba(255,255,255,0.3);">Nenhuma perícia</p>';
             }
 
+            // Inventário - Corpo
             let inventarioHTML = '';
             if (personagem.inventario?.corpo) {
                 personagem.inventario.corpo.forEach(item => {
                     inventarioHTML += `
                         <div class="item-card">
                             <strong>${item.nome}</strong>
-                            <div style="font-size: 11px;">${item.peso} kg | RD ${item.rd || 0}</div>
+                            <div style="font-size: 11px;">${item.peso} kg ${item.rd ? `| RD ${item.rd}` : ''} ${item.dano ? `| ${item.dano}` : ''}</div>
                         </div>
                     `;
                 });
             }
             inventarioContainer.innerHTML = inventarioHTML || '<p style="color: rgba(255,255,255,0.3);">Inventário vazio</p>';
 
-            if (personagem.escolas?.agua?.magias) {
-                let magiasHTML = '';
-                Object.entries(personagem.escolas.agua.magias).forEach(([id, magia]) => {
-                    if (magia.desbloqueada) {
-                        magiasHTML += `
-                            <div class="magia-card">
-                                <div class="magia-nome">${id}</div>
-                                <div class="magia-nivel">Nv ${magia.nivel || 1}</div>
-                            </div>
-                        `;
-                    }
-                });
-                magiasContainer.innerHTML = magiasHTML || '<p style="color: rgba(255,255,255,0.3);">Nenhuma magia</p>';
-            }
+            // Magias das três escolas
+            renderizarMagiasPorEscola('agua', magiasContainerAgua, personagem);
+            renderizarMagiasPorEscola('ar', magiasContainerAr, personagem);
+            renderizarMagiasPorEscola('gelo', magiasContainerGelo, personagem);
 
             if (personagem.updatedAt) {
                 const data = personagem.updatedAt?.toDate ? 
@@ -798,7 +948,6 @@
             showLoading();
             
             try {
-                // 1. Primeiro, verificar se o personagem existe
                 const personagemRef = doc(db, "personagens", personagemId);
                 const personagemSnap = await getDoc(personagemRef);
                 
@@ -806,13 +955,11 @@
                     throw new Error('Personagem não encontrado');
                 }
                 
-                // 2. Verificar se o usuário é o dono
+                // Verificar se o usuário é o dono ou GM
                 if (personagemSnap.data().userId === userId) {
-                    // É o dono, pode ver
                     renderizarPersonagem(personagemSnap.data());
                     hideLoading();
                     
-                    // Configurar listener em tempo real
                     onSnapshot(personagemRef, (doc) => {
                         if (doc.exists()) {
                             renderizarPersonagem(doc.data());
@@ -821,7 +968,6 @@
                     return;
                 }
                 
-                // 3. Se não é o dono, verificar se é GM da campanha
                 const vinculosQuery = query(
                     collection(db, "campanha_personagens"),
                     where("personagem_id", "==", personagemId)
@@ -833,7 +979,6 @@
                 for (const doc of vinculosSnap.docs) {
                     const vinculo = doc.data();
                     
-                    // Buscar a campanha
                     const campanhaQuery = query(
                         collection(db, "campanhas"),
                         where("id", "==", vinculo.campanha_id)
@@ -851,18 +996,15 @@
                 }
                 
                 if (isGm) {
-                    // É GM, pode ver
                     renderizarPersonagem(personagemSnap.data());
                     hideLoading();
                     
-                    // Configurar listener em tempo real
                     onSnapshot(personagemRef, (doc) => {
                         if (doc.exists()) {
                             renderizarPersonagem(doc.data());
                         }
                     });
                 } else {
-                    // Não tem permissão
                     throw new Error('Você não tem permissão para ver este personagem');
                 }
                 
@@ -882,7 +1024,45 @@
             }
         }
 
-        // MAIN
+        // Event listeners para as abas das escolas
+        document.querySelectorAll('.escolas-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
+                tab.classList.add('ativa');
+                
+                escolaAtual = tab.dataset.escola;
+                
+                document.querySelectorAll('.conteudo-escola').forEach(div => div.classList.remove('ativa'));
+                document.getElementById(`conteudo${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`).classList.add('ativa');
+            });
+        });
+
+        // Event listeners para as abas de inventário
+        document.querySelectorAll('.inventario-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
+                tab.classList.add('ativa');
+                
+                const tabName = tab.dataset.tab;
+                let inventarioHTML = '';
+                
+                if (personagemAtual?.inventario?.[tabName]) {
+                    personagemAtual.inventario[tabName].forEach(item => {
+                        inventarioHTML += `
+                            <div class="item-card">
+                                <strong>${item.nome}</strong>
+                                <div style="font-size: 11px;">${item.peso} kg ${item.rd ? `| RD ${item.rd}` : ''} ${item.dano ? `| ${item.dano}` : ''}</div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                inventarioContainer.innerHTML = inventarioHTML || '<p style="color: rgba(255,255,255,0.3);">Vazio</p>';
+            });
+        });
+
+        let personagemAtual = null;
+
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = 'index.html';
@@ -896,7 +1076,6 @@
                 return;
             }
 
-            // Carregar dados com verificação
             await carregarDados(personagemId, user.uid);
         });
     </script>
