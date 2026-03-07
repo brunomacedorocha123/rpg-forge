@@ -299,6 +299,31 @@
             color: #4CAF50;
         }
 
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 50px;
+        }
+
+        .tag {
+            background: rgba(198, 40, 40, 0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(198, 40, 40, 0.3);
+        }
+
+        .tag.vantagem {
+            border-color: #ffd700;
+            color: #ffd700;
+        }
+
+        .tag.desvantagem {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+
         .inventario-tabs, .magias-tabs {
             display: flex;
             gap: 4px;
@@ -548,6 +573,26 @@
                     </div>
                 </div>
 
+                <!-- NOVO: CARD DE VANTAGENS -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-crown"></i> Vantagens</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="tags-container" id="vantagensContainer"></div>
+                    </div>
+                </div>
+
+                <!-- NOVO: CARD DE DESVANTAGENS -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-skull"></i> Desvantagens</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="tags-container" id="desvantagensContainer"></div>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header">
                         <h2><i class="fas fa-backpack"></i> Inventário</h2>
@@ -654,6 +699,8 @@
         const deslocamento = document.getElementById('deslocamento');
         const rdTotal = document.getElementById('rdTotal');
         const periciasContainer = document.getElementById('periciasContainer');
+        const vantagensContainer = document.getElementById('vantagensContainer');
+        const desvantagensContainer = document.getElementById('desvantagensContainer');
         const inventarioContainer = document.getElementById('inventarioContainer');
         
         const magiasContainerAgua = document.getElementById('magiasContainerAgua');
@@ -672,9 +719,9 @@
             return urlParams.get('personagemId');
         }
 
-        // Mapeamento de nomes de magias para exibição amigável
+        // Mapeamento de nomes de magias para exibição amigável (COMPLETO)
         const nomesMagias = {
-            // Água
+            // ===== ESCOLA DA ÁGUA =====
             purificarAgua: "Purificar Água",
             criarAgua: "Criar Água",
             dissiparAgua: "Dissipar Água",
@@ -687,7 +734,7 @@
             golemDeAgua: "Golem de Água",
             cortinaDagua: "Cortina d'Água",
             
-            // Ar
+            // ===== ESCOLA DO AR =====
             criarAr: "Criar Ar",
             controlarVento: "Controlar Vento",
             rajadaVento: "Rajada de Vento",
@@ -700,7 +747,7 @@
             furacao: "Furacão",
             cupulaDeAr: "Cúpula de Ar",
             
-            // Gelo
+            // ===== ESCOLA DO GELO =====
             criarFrio: "Criar Frio",
             criarGelo: "Criar Gelo",
             camadaNeve: "Camada de Neve",
@@ -916,7 +963,39 @@
                 periciasContainer.innerHTML = periciasHTML || '<p style="color: rgba(255,255,255,0.3);">Nenhuma perícia</p>';
             }
 
-            // Inventário - Corpo
+            // NOVO: Vantagens
+            if (vantagensContainer) {
+                const vantagensMap = new Map();
+                (personagem.vantagens || []).forEach(v => vantagensMap.set(v, true));
+                const vantagensUnicas = Array.from(vantagensMap.keys());
+                const vantagensHTML = vantagensUnicas.map(v => {
+                    const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                    return `<span class="tag vantagem">${nomeV}</span>`;
+                }).join('');
+                vantagensContainer.innerHTML = vantagensHTML || '<span style="color: rgba(255,255,255,0.3);">Nenhuma</span>';
+            }
+
+            // NOVO: Desvantagens
+            if (desvantagensContainer) {
+                const desvantagensMap = new Map();
+                (personagem.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
+                if (personagem.fobia) {
+                    desvantagensMap.set(`fobia:${personagem.fobia}`, true);
+                }
+                const desvantagensUnicas = Array.from(desvantagensMap.keys());
+                const desvantagensHTML = desvantagensUnicas.map(d => {
+                    let nomeD = d;
+                    if (d.startsWith('fobia:')) {
+                        nomeD = 'Fobia: ' + d.replace('fobia:', '');
+                    } else {
+                        nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                    }
+                    return `<span class="tag desvantagem">${nomeD}</span>`;
+                }).join('');
+                desvantagensContainer.innerHTML = desvantagensHTML || '<span style="color: rgba(255,255,255,0.3);">Nenhuma</span>';
+            }
+
+            // Inventário - Corpo (padrão)
             let inventarioHTML = '';
             if (personagem.inventario?.corpo) {
                 personagem.inventario.corpo.forEach(item => {
