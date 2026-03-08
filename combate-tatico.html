@@ -777,7 +777,7 @@
     let ehGM = false;
     let personagemAtual = null;
     let vinculoAtual = null;
-    let posicoes = {}; // { id: { ... } }
+    let posicoes = {};
     let personagemSelecionado = null;
     let npcSelecionadoParaPosicionar = null;
     let modoCombate = 'posicionamento';
@@ -1018,19 +1018,30 @@
             return;
         }
         
-        // Verificar permissões
-        if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
-            showToast('Você só pode mover seu próprio personagem', true);
-            return;
-        }
+        // Verificar permissões - CORREÇÃO: durante posicionamento, não verificar vez
+        const ehPosicionamento = (pos.hexX === undefined || pos.hexX === null);
         
-        if (vezAtual === 'jogadores' && pos.tipo === 'npc' && !ehGM) {
-            showToast('Agora é a vez dos jogadores', true);
-            return;
-        }
-        if (vezAtual === 'npcs' && pos.tipo === 'pc' && !ehGM) {
-            showToast('Agora é a vez dos NPCs', true);
-            return;
+        if (!ehPosicionamento) {
+            // Só verifica vez se já estiver posicionado (movimento durante combate)
+            if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
+                showToast('Você só pode mover seu próprio personagem', true);
+                return;
+            }
+            
+            if (vezAtual === 'jogadores' && pos.tipo === 'npc' && !ehGM) {
+                showToast('Agora é a vez dos jogadores', true);
+                return;
+            }
+            if (vezAtual === 'npcs' && pos.tipo === 'pc' && !ehGM) {
+                showToast('Agora é a vez dos NPCs', true);
+                return;
+            }
+        } else {
+            // Durante posicionamento, só verifica se é o dono do PC
+            if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
+                showToast('Você só pode posicionar seu próprio personagem', true);
+                return;
+            }
         }
         
         // Verificar se hexágono está ocupado
@@ -1265,6 +1276,9 @@
             btnFinalizarTurno.disabled = !combateAtivo;
             btnProximoTurno.disabled = !combateAtivo;
             btnEncerrarCombate.disabled = !combateAtivo;
+        } else {
+            // Esconder controles de GM para jogadores
+            if (controlesGM) controlesGM.style.display = 'none';
         }
         
         const pcs = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null).length;
@@ -1396,7 +1410,6 @@
             fichaCorrer.textContent = '?m';
             fichaRD.textContent = '?';
             
-            // Opcional: esconder completamente ou mostrar mensagem
             document.querySelector('.ficha-stats').style.display = 'none';
             document.querySelector('.defesas-rapidas').style.display = 'none';
             
@@ -1405,7 +1418,6 @@
             aviso.style.cssText = 'color: var(--gold); font-size: 0.8rem; text-align: center; margin: 10px 0; font-style: italic;';
             aviso.textContent = '🔒 Dados do NPC ocultos';
             
-            // Remover aviso anterior se existir
             const avisoAnterior = document.querySelector('.aviso-npc');
             if (avisoAnterior) avisoAnterior.remove();
             
@@ -1462,7 +1474,7 @@
             
             if (!sessaoSnap.exists()) {
                 showToast('Sessão não encontrada!', true);
-                setTimeout(() => window.location.href = 'index.html', 2000);
+                setTimeout(() => window.location.href = 'index.html', 2002);
                 return;
             }
 
