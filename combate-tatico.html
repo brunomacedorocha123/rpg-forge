@@ -28,7 +28,7 @@
             --text-secondary: #9CA3AF;
             --bg-card: rgba(17, 24, 39, 0.8);
             --border-glow: rgba(212, 175, 55, 0.3);
-            --hex-border: #4a4a5a;
+            --hex-border: #000000;
             --hex-highlight: rgba(212, 175, 55, 0.3);
             --hex-move: rgba(46, 204, 113, 0.3);
         }
@@ -173,7 +173,7 @@
             flex: 1;
             position: relative;
             overflow: auto;
-            background: var(--bg-secondary);
+            background: #f0f0f0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -185,7 +185,7 @@
             width: 100%;
             height: auto;
             max-width: 1000px;
-            background: #1a1a2a;
+            background: #ffffff;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
             cursor: crosshair;
@@ -201,11 +201,20 @@
             display: flex;
             align-items: center;
             gap: 20px;
+            flex-wrap: wrap;
         }
 
         .instrucoes i {
             color: var(--gold);
             margin-right: 5px;
+        }
+
+        .instrucoes .destaque {
+            background: var(--gold);
+            color: var(--bg-primary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
         }
 
         /* Painel lateral */
@@ -369,6 +378,21 @@
             margin-top: 20px;
         }
 
+        .secao-lista {
+            margin-bottom: 20px;
+        }
+
+        .secao-titulo {
+            color: var(--gold);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border-bottom: 1px solid var(--border-glow);
+            padding-bottom: 5px;
+        }
+
         .personagem-item {
             display: flex;
             align-items: center;
@@ -379,6 +403,12 @@
             margin-bottom: 8px;
             border-left: 3px solid;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .personagem-item:hover {
+            transform: translateX(5px);
+            background: rgba(255,255,255,0.1);
         }
 
         .personagem-item.pc {
@@ -394,6 +424,11 @@
             border: 1px solid var(--gold);
         }
 
+        .personagem-item.aguardando {
+            border-left-color: #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+        }
+
         .personagem-cor {
             width: 20px;
             height: 20px;
@@ -403,11 +438,28 @@
         .personagem-nome {
             flex: 1;
             font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .personagem-status {
+            font-size: 0.7rem;
+            color: #ffaa00;
+            font-style: italic;
         }
 
         .personagem-pv {
             font-size: 0.8rem;
             color: #ff6b6b;
+        }
+
+        .badge-posicionar {
+            background: #ffaa00;
+            color: var(--bg-primary);
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 5px;
         }
 
         /* Loading */
@@ -530,9 +582,10 @@
 
             <!-- Instruções -->
             <div class="instrucoes">
-                <span><i class="fas fa-mouse-pointer"></i> Clique num hexágono para mover o personagem selecionado</span>
+                <span><i class="fas fa-mouse-pointer"></i> Clique num hexágono para mover/posicionar</span>
                 <span><i class="fas fa-arrows-alt"></i> Cada hexágono = 1 metro</span>
                 <span id="modoAtual">⚔️ Modo: Posicionamento</span>
+                <span id="instrucaoPosicionamento" class="destaque" style="display: none;">👇 Clique num NPC abaixo para posicionar</span>
             </div>
         </div>
 
@@ -602,11 +655,8 @@
                 </div>
 
                 <!-- Lista de personagens na batalha -->
-                <div class="personagens-lista">
-                    <h4 style="color: var(--gold); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-users"></i> Personagens no Campo
-                    </h4>
-                    <div id="personagensListaContainer"></div>
+                <div class="personagens-lista" id="personagensListaContainer">
+                    <!-- Será preenchido via JS -->
                 </div>
 
                 <!-- Status do combate -->
@@ -686,6 +736,7 @@
         const btnEncerrarCombate = document.getElementById('btnEncerrarCombate');
         const controlesGM = document.getElementById('controlesGM');
         const modoAtual = document.getElementById('modoAtual');
+        const instrucaoPosicionamento = document.getElementById('instrucaoPosicionamento');
         
         const fichaSelecionado = document.getElementById('fichaSelecionado');
         const nenhumSelecionado = document.getElementById('nenhumSelecionado');
@@ -729,15 +780,16 @@
         let ehGM = false;
         let personagemAtual = null;
         let vinculoAtual = null;
-        let todosPersonagens = []; // PCs e NPCs na batalha
-        let posicoes = {}; // { "id_personagem": { hexX, hexY, tipo, nome, cor } }
+        let todosPersonagens = [];
+        let posicoes = {};
         let personagemSelecionado = null;
-        let modoCombate = 'posicionamento'; // 'posicionamento', 'movimento', 'ataque'
+        let npcSelecionadoParaPosicionar = null; // NOVO: NPC aguardando posicionamento
+        let modoCombate = 'posicionamento';
         let turnoAtual = 1;
-        let vezAtual = 'jogadores'; // 'jogadores' ou 'npcs'
+        let vezAtual = 'jogadores';
         let combateAtivo = false;
         let hexSelecionado = { x: -1, y: -1 };
-        let highlightHex = []; // Hexágonos em destaque (movimento)
+        let highlightHex = [];
         let combateId = null;
 
         // ============================================
@@ -763,28 +815,23 @@
         // FUNÇÕES DO MAPA HEXAGONAL
         // ============================================
         
-        // Converte coordenadas hexagonais (cúbicas) para pixels
         function hexToPixel(hexX, hexY) {
             const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
             const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
             return { x, y };
         }
 
-        // Converte pixels para coordenadas hexagonais
         function pixelToHex(pixelX, pixelY) {
-            // Aproximação inicial
             const approxX = Math.round((pixelX - OFFSET_X) / HEX_HORIZONTAL_SPACING);
             
             let bestHex = { x: -1, y: -1 };
             let bestDist = Infinity;
             
-            // Verifica hexágonos próximos
             for (let dx = -2; dx <= 2; dx++) {
                 for (let dy = -2; dy <= 2; dy++) {
                     const testX = approxX + dx;
                     if (testX < 0 || testX >= MAPA_LARGURA) continue;
                     
-                    // Calcula Y aproximado baseado no X
                     let testY = Math.round((pixelY - OFFSET_Y - (testX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2)) / HEX_VERTICAL_SPACING);
                     if (testY < 0 || testY >= MAPA_ALTURA) continue;
                     
@@ -801,11 +848,10 @@
             return bestHex;
         }
 
-        // Desenha um hexágono
-        function desenharHexagono(ctx, x, y, corBorda = '#4a4a5a', corFundo = 'transparent', destaque = null) {
+        function desenharHexagono(ctx, x, y, corBorda = '#000000', corFundo = '#ffffff', destaque = null) {
             const pontos = [];
             for (let i = 0; i < 6; i++) {
-                const angulo = Math.PI / 6 + (i * Math.PI / 3); // 30° + 60° * i
+                const angulo = Math.PI / 6 + (i * Math.PI / 3);
                 const px = x + HEX_RADIUS * Math.cos(angulo);
                 const py = y + HEX_RADIUS * Math.sin(angulo);
                 pontos.push({ x: px, y: py });
@@ -818,32 +864,27 @@
             }
             ctx.closePath();
             
-            // Preenchimento especial para destaques
+            // Fundo base (branco)
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            
+            // Destaques com transparência
             if (destaque === 'move') {
-                ctx.fillStyle = 'rgba(46, 204, 113, 0.2)';
+                ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
                 ctx.fill();
             } else if (destaque === 'selected') {
-                ctx.fillStyle = 'rgba(212, 175, 55, 0.2)';
+                ctx.fillStyle = 'rgba(212, 175, 55, 0.3)';
                 ctx.fill();
-            } else if (destaque === 'range') {
-                ctx.fillStyle = 'rgba(30, 144, 255, 0.1)';
-                ctx.fill();
-            } else {
-                ctx.fillStyle = corFundo;
+            } else if (destaque === 'aguardando') {
+                ctx.fillStyle = 'rgba(255, 170, 0, 0.2)';
                 ctx.fill();
             }
             
             ctx.strokeStyle = corBorda;
             ctx.lineWidth = 1.5;
             ctx.stroke();
-            
-            // Desenha coordenadas (opcional, debug)
-            // ctx.fillStyle = '#666';
-            // ctx.font = '10px monospace';
-            // ctx.fillText(`${Math.round((x - OFFSET_X) / HEX_HORIZONTAL_SPACING)},${Math.round((y - OFFSET_Y) / HEX_VERTICAL_SPACING)}`, x - 15, y - 10);
         }
 
-        // Desenha um token (personagem)
         function desenharToken(ctx, x, y, personagem) {
             // Círculo de fundo
             ctx.beginPath();
@@ -869,20 +910,17 @@
             ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
             ctx.shadowBlur = 0;
             
-            // PV se for NPC (opcional)
-            if (personagem.tipo === 'npc' && personagem.pv) {
-                ctx.font = 'bold 8px "Inter", sans-serif';
-                ctx.fillStyle = '#ff6b6b';
-                ctx.fillText(`${personagem.pv}/${personagem.pvMax}`, x, y - 20);
-            }
+            // PV
+            ctx.font = 'bold 8px "Inter", sans-serif';
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillText(`${personagem.pv}/${personagem.pvMax}`, x, y - 20);
         }
 
-        // Desenha o mapa completo
         function desenharMapa() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Desenha fundo quadriculado sutil
-            ctx.fillStyle = '#1a1a2a';
+            // Fundo branco
+            ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Desenha todos os hexágonos
@@ -890,41 +928,32 @@
                 for (let y = 0; y < MAPA_ALTURA; y++) {
                     const pixel = hexToPixel(x, y);
                     
-                    // Verifica destaque
                     let destaque = null;
                     if (hexSelecionado.x === x && hexSelecionado.y === y) {
                         destaque = 'selected';
                     } else if (highlightHex.some(h => h.x === x && h.y === y)) {
                         destaque = 'move';
+                    } else if (npcSelecionadoParaPosicionar && !posicoes[npcSelecionadoParaPosicionar]?.hexX) {
+                        destaque = 'aguardando';
                     }
                     
-                    desenharHexagono(ctx, pixel.x, pixel.y, '#4a4a5a', 'transparent', destaque);
+                    desenharHexagono(ctx, pixel.x, pixel.y, '#000000', '#ffffff', destaque);
                 }
             }
             
-            // Desenha todos os tokens
+            // Desenha todos os tokens posicionados
             Object.values(posicoes).forEach(pos => {
                 if (pos.hexX !== undefined && pos.hexY !== undefined) {
                     const pixel = hexToPixel(pos.hexX, pos.hexY);
                     desenharToken(ctx, pixel.x, pixel.y, pos);
                 }
             });
-            
-            // Se tiver personagem selecionado, desenha alcance de movimento
-            if (personagemSelecionado && posicoes[personagemSelecionado] && modoCombate === 'movimento') {
-                const pos = posicoes[personagemSelecionado];
-                if (pos) {
-                    const alcance = personagemSelecionado.tipo === 'pc' ? 6 : 6; // 6m padrão
-                    // Destacar hexágonos no alcance
-                }
-            }
         }
 
         // ============================================
         // FUNÇÕES DE COMBATE
         // ============================================
         
-        // Iniciar combate
         async function iniciarCombate() {
             if (!ehGM) {
                 showToast('Apenas o GM pode iniciar o combate', true);
@@ -936,7 +965,6 @@
             turnoAtual = 1;
             vezAtual = 'jogadores';
             
-            // Criar documento de combate no Firebase
             combateId = `combate_${Date.now()}`;
             const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
             
@@ -948,12 +976,10 @@
                 iniciado_em: serverTimestamp()
             });
             
-            // Atualizar UI
             atualizarUI();
             showToast('Combate iniciado! Posicionem seus personagens.');
         }
 
-        // Avançar turno
         async function avancarTurno() {
             if (!ehGM) return;
             
@@ -966,7 +992,6 @@
                 showToast(`Turno ${turnoAtual} - Vez dos Jogadores`);
             }
             
-            // Salvar no Firebase
             if (combateId) {
                 const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
                 await updateDoc(combateRef, {
@@ -978,48 +1003,43 @@
             atualizarUI();
         }
 
-        // Finalizar turno dos jogadores
         async function finalizarTurnoJogadores() {
             if (!ehGM) return;
             await avancarTurno();
         }
 
-        // Encerrar combate
         async function encerrarCombate() {
             if (!ehGM) return;
             
             if (combateId) {
                 const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
                 await updateDoc(combateRef, { ativo: false });
-                // Opcional: deletar após um tempo
                 setTimeout(async () => {
                     await deleteDoc(combateRef);
-                }, 3600000); // 1 hora
+                }, 3600000);
             }
             
             combateAtivo = false;
             modoCombate = 'posicionamento';
             personagemSelecionado = null;
+            npcSelecionadoParaPosicionar = null;
             posicoes = {};
             atualizarUI();
             desenharMapa();
             showToast('Combate encerrado');
         }
 
-        // Mover personagem
         async function moverPersonagem(personagemId, hexX, hexY) {
             if (!combateAtivo) return;
             
             const pos = posicoes[personagemId];
             if (!pos) return;
             
-            // Verificar permissão
             if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
                 showToast('Você só pode mover seu próprio personagem', true);
                 return;
             }
             
-            // Verificar se é a vez correta
             if (vezAtual === 'jogadores' && pos.tipo === 'npc' && !ehGM) {
                 showToast('Agora é a vez dos jogadores', true);
                 return;
@@ -1029,14 +1049,12 @@
                 return;
             }
             
-            // Atualizar posição
             posicoes[personagemId] = {
                 ...pos,
                 hexX,
                 hexY
             };
             
-            // Salvar no Firebase
             if (combateId) {
                 const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
                 await updateDoc(combateRef, {
@@ -1046,7 +1064,9 @@
                         tipo: pos.tipo,
                         nome: pos.nome,
                         cor: pos.cor,
-                        jogadorUid: pos.jogadorUid
+                        jogadorUid: pos.jogadorUid,
+                        pv: pos.pv,
+                        pvMax: pos.pvMax
                     }
                 });
             }
@@ -1055,12 +1075,39 @@
             atualizarListaPersonagens();
         }
 
+        // NOVA FUNÇÃO: Selecionar NPC para posicionar
+        window.selecionarNPCparaPosicionar = function(npcId) {
+            if (!ehGM) {
+                showToast('Apenas o GM pode posicionar NPCs', true);
+                return;
+            }
+            
+            const npc = posicoes[npcId];
+            if (!npc) return;
+            
+            if (npc.hexX !== undefined && npc.hexY !== undefined) {
+                showToast('Este NPC já está posicionado!', true);
+                return;
+            }
+            
+            npcSelecionadoParaPosicionar = npcId;
+            modoCombate = 'posicionamento';
+            personagemSelecionado = null;
+            
+            instrucaoPosicionamento.style.display = 'inline-block';
+            instrucaoPosicionamento.innerHTML = `👇 Posicionando: ${npc.nome}`;
+            
+            atualizarListaPersonagens();
+            desenharMapa();
+            
+            showToast(`Clique no mapa para posicionar ${npc.nome}`);
+        };
+
         // ============================================
         // FUNÇÕES DE UI
         // ============================================
         
         function atualizarUI() {
-            // Atualiza turno
             turnoDisplay.textContent = `TURNO ${turnoAtual}`;
             
             if (vezAtual === 'jogadores') {
@@ -1071,16 +1118,14 @@
                 vezNPCs.classList.add('ativo');
             }
             
-            // Atualiza modo
             if (!combateAtivo) {
                 modoAtual.innerHTML = '⚔️ Modo: Aguardando início do combate';
             } else if (modoCombate === 'posicionamento') {
-                modoAtual.innerHTML = '⚔️ Modo: Posicionamento inicial';
+                modoAtual.innerHTML = '⚔️ Modo: Posicionamento';
             } else if (modoCombate === 'movimento') {
                 modoAtual.innerHTML = '⚔️ Modo: Movimento - Clique no destino';
             }
             
-            // Botões GM
             if (ehGM) {
                 btnIniciarCombate.disabled = combateAtivo;
                 btnFinalizarTurno.disabled = !combateAtivo;
@@ -1088,26 +1133,69 @@
                 btnEncerrarCombate.disabled = !combateAtivo;
             }
             
-            // Contadores
-            const pcs = Object.values(posicoes).filter(p => p.tipo === 'pc').length;
-            const npcs = Object.values(posicoes).filter(p => p.tipo === 'npc').length;
+            const pcs = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined).length;
+            const npcs = Object.values(posicoes).filter(p => p.tipo === 'npc' && p.hexX !== undefined).length;
             contadorPCs.textContent = pcs;
             contadorNPCs.textContent = npcs;
         }
 
         function atualizarListaPersonagens() {
             let html = '';
-            Object.entries(posicoes).forEach(([id, pos]) => {
-                const selecionado = personagemSelecionado === id ? 'selecionado' : '';
-                html += `
-                    <div class="personagem-item ${pos.tipo} ${selecionado}" onclick="selecionarPersonagem('${id}')">
-                        <div class="personagem-cor" style="background: ${pos.cor || (pos.tipo === 'pc' ? '#1E90FF' : '#e74c3c')}"></div>
-                        <span class="personagem-nome">${pos.nome}</span>
-                        <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
-                    </div>
-                `;
-            });
-            personagensListaContainer.innerHTML = html || '<div style="color: var(--text-secondary); text-align: center;">Nenhum personagem no campo</div>';
+            
+            // Seção: NPCs para posicionar (só GM vê)
+            if (ehGM) {
+                const npcsNaoPosicionados = Object.values(posicoes).filter(p => 
+                    p.tipo === 'npc' && (p.hexX === undefined || p.hexY === undefined)
+                );
+                
+                if (npcsNaoPosicionados.length > 0) {
+                    html += `<div class="secao-lista">`;
+                    html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> NPCs para posicionar</div>`;
+                    
+                    npcsNaoPosicionados.forEach(pos => {
+                        const selecionado = npcSelecionadoParaPosicionar === pos.id ? 'selecionado' : '';
+                        html += `
+                            <div class="personagem-item npc ${selecionado}" onclick="selecionarNPCparaPosicionar('${pos.id}')">
+                                <div class="personagem-cor" style="background: ${pos.cor || '#e74c3c'}"></div>
+                                <span class="personagem-nome">${pos.nome}</span>
+                                <span class="personagem-status">📌 clicar para posicionar</span>
+                                <span class="personagem-pv">${pos.pv}/${pos.pvMax}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `</div>`;
+                }
+            }
+            
+            // Seção: Personagens posicionados
+            const personagensPosicionados = Object.entries(posicoes).filter(([id, pos]) => 
+                pos.hexX !== undefined && pos.hexY !== undefined
+            );
+            
+            if (personagensPosicionados.length > 0) {
+                html += `<div class="secao-lista">`;
+                html += `<div class="secao-titulo"><i class="fas fa-map-pin"></i> No campo de batalha</div>`;
+                
+                personagensPosicionados.forEach(([id, pos]) => {
+                    const selecionado = personagemSelecionado === id ? 'selecionado' : '';
+                    html += `
+                        <div class="personagem-item ${pos.tipo} ${selecionado}" onclick="selecionarPersonagem('${id}')">
+                            <div class="personagem-cor" style="background: ${pos.cor || (pos.tipo === 'pc' ? '#1E90FF' : '#e74c3c')}"></div>
+                            <span class="personagem-nome">${pos.nome}</span>
+                            <span class="personagem-pv">${pos.pv}/${pos.pvMax}</span>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+            
+            if (html === '') {
+                html = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum personagem disponível</div>';
+            }
+            
+            personagensListaContainer.innerHTML = html;
         }
 
         function atualizarFicha(personagemId) {
@@ -1129,7 +1217,6 @@
             fichaCorrer.textContent = (pos.correr || 12) + 'm';
             fichaRD.textContent = pos.rd || 0;
             
-            // Ações (exemplo)
             acoesContainer.innerHTML = `
                 <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.9rem;">
                     <i class="fas fa-fist-raised"></i> Ações
@@ -1180,15 +1267,12 @@
 
                 ehGM = (sessaoAtual.gm_uid === currentUser.uid);
                 
-                // Carregar dados do personagem do jogador (se for PC)
                 if (!ehGM) {
                     await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
                 }
                 
-                // Carregar NPCs da sessão
                 await carregarNPCs();
                 
-                // Verificar se existe combate ativo
                 const combatesQuery = query(
                     collection(db, "sessoes", sessaoAtual.id, "combates"),
                     where("ativo", "==", true),
@@ -1202,16 +1286,26 @@
                     combateAtivo = true;
                     turnoAtual = combate.data().turno || 1;
                     vezAtual = combate.data().vez || 'jogadores';
-                    posicoes = combate.data().posicoes || {};
+                    
+                    const novasPosicoes = combate.data().posicoes || {};
+                    
+                    // Mesclar mantendo dados dos NPCs carregados
+                    Object.keys(posicoes).forEach(key => {
+                        if (novasPosicoes[key]) {
+                            posicoes[key] = { ...posicoes[key], ...novasPosicoes[key] };
+                        }
+                    });
                 }
                 
-                // Iniciar listener do combate
                 iniciarListenerCombate();
                 
-                // Desenhar mapa
                 desenharMapa();
                 atualizarUI();
                 atualizarListaPersonagens();
+                
+                if (ehGM) {
+                    instrucaoPosicionamento.style.display = 'none';
+                }
                 
                 hideLoading();
                 
@@ -1250,7 +1344,6 @@
                             ...personagemSnap.data()
                         };
                         
-                        // Adicionar às posições se não existir
                         if (!posicoes[personagemAtual.id]) {
                             posicoes[personagemAtual.id] = {
                                 id: personagemAtual.id,
@@ -1289,9 +1382,11 @@
                 
                 npcsSnap.forEach(doc => {
                     const npc = doc.data();
-                    if (!posicoes[doc.id]) {
-                        posicoes[doc.id] = {
-                            id: doc.id,
+                    const npcId = doc.id;
+                    
+                    if (!posicoes[npcId]) {
+                        posicoes[npcId] = {
+                            id: npcId,
                             nome: npc.nome,
                             tipo: 'npc',
                             cor: npc.cor || '#e74c3c',
@@ -1304,7 +1399,9 @@
                             bloqueio: npc.defesas?.bloqueio || 0,
                             andar: 4,
                             correr: 8,
-                            rd: npc.defesas?.rd || 0
+                            rd: npc.defesas?.rd || 0,
+                            hexX: undefined,
+                            hexY: undefined
                         };
                     }
                 });
@@ -1330,9 +1427,15 @@
                     turnoAtual = combate.data().turno || 1;
                     vezAtual = combate.data().vez || 'jogadores';
                     
-                    // Mesclar posições (não sobrescrever)
                     const novasPosicoes = combate.data().posicoes || {};
-                    Object.assign(posicoes, novasPosicoes);
+                    
+                    Object.keys(novasPosicoes).forEach(key => {
+                        if (posicoes[key]) {
+                            posicoes[key] = { ...posicoes[key], ...novasPosicoes[key] };
+                        } else {
+                            posicoes[key] = novasPosicoes[key];
+                        }
+                    });
                     
                     desenharMapa();
                     atualizarUI();
@@ -1349,7 +1452,6 @@
         // EVENT LISTENERS
         // ============================================
         
-        // Clique no canvas
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -1371,32 +1473,36 @@
                 if (personagemNoHex) {
                     // Selecionar personagem
                     personagemSelecionado = personagemNoHex[0];
+                    npcSelecionadoParaPosicionar = null;
+                    instrucaoPosicionamento.style.display = 'none';
                     atualizarFicha(personagemSelecionado);
+                } else if (npcSelecionadoParaPosicionar && ehGM) {
+                    // Posicionar NPC selecionado
+                    moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
+                    npcSelecionadoParaPosicionar = null;
+                    instrucaoPosicionamento.style.display = 'none';
+                    showToast('NPC posicionado!');
                 } else if (personagemSelecionado && modoCombate === 'movimento') {
                     // Mover personagem selecionado
                     moverPersonagem(personagemSelecionado, hex.x, hex.y);
                     modoCombate = 'posicionamento';
                     highlightHex = [];
-                } else if (combateAtivo && modoCombate === 'posicionamento' && !personagemNoHex) {
-                    // Posicionar personagem (só GM ou próprio PC)
-                    if (ehGM && personagemSelecionado) {
-                        moverPersonagem(personagemSelecionado, hex.x, hex.y);
-                    }
                 }
                 
                 desenharMapa();
+                atualizarListaPersonagens();
             }
         });
 
-        // Botões
         btnIniciarCombate.addEventListener('click', iniciarCombate);
         btnFinalizarTurno.addEventListener('click', finalizarTurnoJogadores);
         btnProximoTurno.addEventListener('click', avancarTurno);
         btnEncerrarCombate.addEventListener('click', encerrarCombate);
 
-        // Funções globais para onclick
         window.selecionarPersonagem = function(id) {
             personagemSelecionado = id;
+            npcSelecionadoParaPosicionar = null;
+            instrucaoPosicionamento.style.display = 'none';
             atualizarFicha(id);
             desenharMapa();
         };
@@ -1411,18 +1517,22 @@
             modoCombate = 'movimento';
             atualizarFicha(id);
             
-            // Destacar hexágonos no alcance (simplificado)
             const pos = posicoes[id];
-            if (pos) {
+            if (pos && pos.hexX !== undefined) {
                 const alcance = pos.andar || 6;
                 highlightHex = [];
+                
+                // Cálculo simplificado de alcance (hexágonos adjacentes)
                 for (let dx = -alcance; dx <= alcance; dx++) {
                     for (let dy = -alcance; dy <= alcance; dy++) {
-                        const dist = Math.abs(dx) + Math.abs(dy);
-                        if (dist <= alcance) {
-                            const newX = pos.hexX + dx;
-                            const newY = pos.hexY + dy;
-                            if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                        const newX = pos.hexX + dx;
+                        const newY = pos.hexY + dy;
+                        if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                            // Verifica se não tem outro personagem no hex
+                            const ocupado = Object.values(posicoes).some(p => 
+                                p.hexX === newX && p.hexY === newY && p.id !== id
+                            );
+                            if (!ocupado) {
                                 highlightHex.push({ x: newX, y: newY });
                             }
                         }
