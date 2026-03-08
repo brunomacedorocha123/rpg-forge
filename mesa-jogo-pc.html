@@ -292,6 +292,44 @@
             cursor: default;
         }
 
+        /* NOVO: Botão de Combate para o PC */
+        .btn-combate-pc {
+            background: linear-gradient(135deg, var(--gold), #B8860B);
+            border: 2px solid var(--blue-energy);
+            color: var(--bg-primary);
+            padding: 12px 25px;
+            border-radius: 30px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+            margin-top: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-combate-pc i {
+            font-size: 1.2rem;
+            color: var(--blue-energy);
+        }
+
+        .btn-combate-pc:hover {
+            background: linear-gradient(135deg, #B8860B, var(--gold));
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(30, 144, 255, 0.4);
+            border-color: var(--gold-bright);
+        }
+
+        .btn-combate-pc:active {
+            transform: translateY(-1px);
+        }
+
         /* Barra lateral direita - Ficha Resumida */
         .ficha-resumida {
             background: var(--bg-card);
@@ -1007,6 +1045,11 @@
                     <i class="fas fa-image"></i>
                 </div>
                 <textarea class="cenario-descricao" id="cenarioDescricao" rows="3" placeholder="Aguardando descrição do mestre..." readonly></textarea>
+                
+                <!-- BOTÃO DE COMBATE PARA O PC -->
+                <button class="btn-combate-pc" id="btnAbrirCombatePC">
+                    <i class="fas fa-dice-d20"></i> ACOMPANHAR COMBATE TÁTICO
+                </button>
             </div>
 
             <!-- Coluna direita - Ficha Resumida do Personagem + Defesas -->
@@ -1067,7 +1110,7 @@
                     </div>
                 </div>
 
-                <!-- NOVO: Defesas Ativas do Personagem (VALORES REAIS) -->
+                <!-- Defesas Ativas do Personagem (VALORES REAIS) -->
                 <div class="defesas-rapidas">
                     <h4><i class="fas fa-shield-halved"></i> Defesas Ativas</h4>
                     
@@ -1352,6 +1395,9 @@
         const fichaPersonagemNome = document.getElementById('fichaPersonagemNome');
         const linkFichaCompleta = document.getElementById('linkFichaCompleta');
 
+        // NOVO: Botão de Combate para PC
+        const btnAbrirCombatePC = document.getElementById('btnAbrirCombatePC');
+
         // Recursos
         const pvTexto = document.getElementById('pvTexto');
         const pmTexto = document.getElementById('pmTexto');
@@ -1484,6 +1530,19 @@
             };
         }
 
+        // ===== NOVA FUNÇÃO: ABRIR COMBATE TÁTICO (PC) =====
+        function abrirCombateTaticoPC() {
+            const sessaoId = getParamsFromUrl().sessaoId;
+            if (!sessaoId) {
+                showToast('ID da sessão não encontrado!', true);
+                return;
+            }
+            
+            // Abre o mapa tático em uma nova janela
+            const url = `combate-tatico.html?sessao=${sessaoId}`;
+            window.open(url, '_blank', 'width=1400,height=800,resizable=yes,scrollbars=yes');
+        }
+
         // ============================================
         // FUNÇÕES DE CÁLCULO (MANTIDAS DA FICHA)
         // ============================================
@@ -1519,12 +1578,10 @@
             return getVIGORFixo() + getIQFixo() + getVTFixo();
         }
 
-        // NOVAS FUNÇÕES DE DEFESAS
+        // FUNÇÕES DE DEFESAS
         function calcularEsquiva() {
             let esquiva = Math.floor((getDXPercentual() + getIQPercentual() + getVIGORPercentual()) / 3) + 10;
             if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
-            
-            // Limite máximo
             return Math.min(75, Math.max(0, esquiva));
         }
 
@@ -1532,12 +1589,10 @@
             let melhorBonus = 0;
             let temArma = false;
             
-            // Verificar armas equipadas
             if (personagemAtual?.inventario?.corpo) {
                 personagemAtual.inventario.corpo.forEach(item => {
                     if (item.dano) {
                         temArma = true;
-                        // Buscar perícia da arma
                         const nome = item.nome.toLowerCase();
                         let periciaId = 'espada';
                         if (nome.includes('machado')) periciaId = 'machado';
@@ -1556,7 +1611,6 @@
             if (!temArma) return 0;
             
             let aparar = getDXPercentual() + melhorBonus;
-            
             if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
             if (personagemAtual?.vantagens?.includes('ataquesMultiplos')) aparar += 5;
             
@@ -1570,7 +1624,7 @@
             
             if (personagemAtual?.inventario?.corpo) {
                 personagemAtual.inventario.corpo.forEach(item => {
-                    if (item.bonus) { // É um escudo
+                    if (item.bonus) {
                         temEscudo = true;
                         bonusEscudo = item.bonus || 0;
                         const pericia = personagemAtual.pericias?.['escudo'];
@@ -1585,7 +1639,6 @@
             if (!temEscudo) return 0;
             
             let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo;
-            
             if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
             
             return Math.min(85, bloqueio);
@@ -1616,7 +1669,6 @@
         }
 
         function calcularNHPericia(periciaId, dados) {
-            // Mapa de perícias (simplificado)
             const periciasMap = {
                 'adestramento': 'iq', 'alquimia': 'iq', 'artista': 'iq', 'comercio': 'iq',
                 'culinaria': 'iq', 'detectarMentira': 'iq', 'intimidacao': 'iq', 'labia': 'iq',
@@ -1635,7 +1687,7 @@
         }
 
         // ============================================
-        // SISTEMA DE CRÍTICOS (IGUAL AO GM)
+        // SISTEMA DE CRÍTICOS
         // ============================================
         tabsCritico.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1649,7 +1701,6 @@
                 document.getElementById(`tabela-${tabId}`).classList.add('ativa');
                 
                 tabelaAtual = tabId;
-                
                 resultadoCritico.style.display = 'none';
             });
         });
@@ -1663,7 +1714,6 @@
                 resultadoCriticoTexto.textContent = texto;
                 resultadoCritico.style.display = 'block';
                 
-                // Adicionar ao log (público)
                 if (sessaoAtual) {
                     addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
                         tipo: 'critico',
@@ -1676,6 +1726,11 @@
                     });
                 }
             });
+        }
+
+        // ===== BOTÃO ABRIR COMBATE =====
+        if (btnAbrirCombatePC) {
+            btnAbrirCombatePC.addEventListener('click', abrirCombateTaticoPC);
         }
 
         // ============================================
@@ -1698,7 +1753,7 @@
         }
 
         // ============================================
-        // FUNÇÕES ORIGINAIS DA MESA (MANTIDAS)
+        // FUNÇÕES ORIGINAIS DA MESA
         // ============================================
         async function carregarVinculoEPersonagem() {
             if (!currentUser || !campanhaId) return null;
@@ -1848,7 +1903,6 @@
                                 (personagemAtual.atributos?.vt?.esferas || 0);
             if (atributoNivel) atributoNivel.textContent = totalEsferas + 1;
 
-            // ATUALIZAR DEFESAS
             atualizarDefesas();
 
             if (periciasPrincipais) {
@@ -1927,7 +1981,7 @@
         };
 
         // ============================================
-        // FUNÇÕES DE ROLAGEM (IGUAIS AO GM)
+        // FUNÇÕES DE ROLAGEM
         // ============================================
         btnRolarPericia.addEventListener('click', async () => {
             const dezena = Math.floor(Math.random() * 10);
