@@ -779,7 +779,7 @@
     let ehGM = false;
     let personagemAtual = null;
     let vinculoAtual = null;
-    let posicoes = {}; // { id: { ... } }
+    let posicoes = {};
     let personagemSelecionado = null;
     let npcSelecionadoParaPosicionar = null;
     let modoCombate = 'posicionamento';
@@ -1163,23 +1163,48 @@
     function atualizarListaPersonagens() {
         let html = '';
         
-        // Separar NPCs e PCs
-        const npcs = Object.values(posicoes).filter(p => p.tipo === 'npc');
-        const pcs = Object.values(posicoes).filter(p => p.tipo === 'pc');
-        
-        // Seção: NPCs (todos os jogadores veem)
-        if (npcs.length > 0) {
-            html += `<div class="secao-lista">`;
-            html += `<div class="secao-titulo"><i class="fas fa-skull"></i> NPCs na batalha</div>`;
+        // ===== SEÇÃO 1: NPCs NÃO POSICIONADOS (SÓ GM VÊ) =====
+        if (ehGM) {
+            const npcsNaoPosicionados = Object.values(posicoes).filter(p => 
+                p.tipo === 'npc' && (p.hexX === undefined || p.hexY === undefined)
+            );
             
-            npcs.forEach(pos => {
+            if (npcsNaoPosicionados.length > 0) {
+                html += `<div class="secao-lista">`;
+                html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> NPCs para posicionar (clique para selecionar)</div>`;
+                
+                npcsNaoPosicionados.forEach(pos => {
+                    const selecionado = npcSelecionadoParaPosicionar === pos.id ? 'selecionado' : '';
+                    html += `
+                        <div class="personagem-item npc ${selecionado}" onclick="selecionarNPCparaPosicionar('${pos.id}')">
+                            <div class="personagem-cor" style="background: ${pos.cor}"></div>
+                            <span class="personagem-nome">${pos.nome}</span>
+                            <span class="personagem-status">📌 clique para posicionar</span>
+                            <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            }
+        }
+        
+        // ===== SEÇÃO 2: PERSONAGENS POSICIONADOS =====
+        const personagensPosicionados = Object.values(posicoes).filter(p => 
+            p.hexX !== undefined && p.hexY !== undefined
+        );
+        
+        if (personagensPosicionados.length > 0) {
+            html += `<div class="secao-lista">`;
+            html += `<div class="secao-titulo"><i class="fas fa-map-pin"></i> No campo de batalha</div>`;
+            
+            personagensPosicionados.forEach(pos => {
                 const selecionado = personagemSelecionado === pos.id ? 'selecionado' : '';
-                const posicao = pos.hexX !== undefined ? `📍${pos.hexX},${pos.hexY}` : '📌 aguardando';
+                const ehMeu = pos.jogadorUid === currentUser?.uid ? ' (você)' : '';
                 html += `
-                    <div class="personagem-item npc ${selecionado}" onclick="selecionarPersonagem('${pos.id}')">
+                    <div class="personagem-item ${pos.tipo} ${selecionado}" onclick="selecionarPersonagem('${pos.id}')">
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
-                        <span class="personagem-nome">${pos.nome}</span>
-                        <span class="personagem-status">${posicao}</span>
+                        <span class="personagem-nome">${pos.nome}${ehMeu}</span>
                         <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
                     </div>
                 `;
@@ -1188,30 +1213,26 @@
             html += `</div>`;
         }
         
-        // Seção: PCs (todos os jogadores veem)
-        if (pcs.length > 0) {
-            html += `<div class="secao-lista">`;
-            html += `<div class="secao-titulo"><i class="fas fa-users"></i> Jogadores</div>`;
-            
-            pcs.forEach(pos => {
-                const selecionado = personagemSelecionado === pos.id ? 'selecionado' : '';
-                const posicao = pos.hexX !== undefined ? `📍${pos.hexX},${pos.hexY}` : '📌 aguardando';
-                const ehMeu = pos.jogadorUid === currentUser?.uid ? ' (você)' : '';
+        // ===== SEÇÃO 3: PC NÃO POSICIONADO (SÓ O PRÓPRIO JOGADOR VÊ) =====
+        if (!ehGM && personagemAtual) {
+            const meuPC = posicoes[personagemAtual.id];
+            if (meuPC && meuPC.hexX === undefined) {
+                html += `<div class="secao-lista">`;
+                html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> Posicione seu personagem</div>`;
                 html += `
-                    <div class="personagem-item pc ${selecionado}" onclick="selecionarPersonagem('${pos.id}')">
-                        <div class="personagem-cor" style="background: ${pos.cor}"></div>
-                        <span class="personagem-nome">${pos.nome}${ehMeu}</span>
-                        <span class="personagem-status">${posicao}</span>
-                        <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                    <div class="personagem-item pc" onclick="selecionarPersonagem('${personagemAtual.id}')">
+                        <div class="personagem-cor" style="background: #1E90FF"></div>
+                        <span class="personagem-nome">${personagemAtual.nome} (você)</span>
+                        <span class="personagem-status">📌 clique para posicionar</span>
+                        <span class="personagem-pv">${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
                     </div>
                 `;
-            });
-            
-            html += `</div>`;
+                html += `</div>`;
+            }
         }
         
         if (html === '') {
-            html = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum personagem na batalha</div>';
+            html = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum personagem disponível</div>';
         }
         
         personagensListaContainer.innerHTML = html;
@@ -1292,7 +1313,7 @@
 
             ehGM = (sessaoAtual.gm_uid === currentUser.uid);
             
-            // PRIMEIRO: Carregar TODOS os NPCs da sessão (todos os jogadores veem)
+            // PRIMEIRO: Carregar TODOS os NPCs da sessão
             await carregarNPCs();
             
             // SEGUNDO: Carregar personagem do jogador (se for PC)
@@ -1315,7 +1336,7 @@
                 turnoAtual = combate.data().turno || 1;
                 vezAtual = combate.data().vez || 'jogadores';
                 
-                // QUARTO: Aplicar posições do combate
+                // APLICAR posições do combate
                 const posicoesSalvas = combate.data().posicoes || {};
                 
                 Object.keys(posicoesSalvas).forEach(id => {
@@ -1328,10 +1349,10 @@
                 });
             }
             
-            // QUINTO: Iniciar listener em tempo real
+            // QUARTO: Iniciar listener em tempo real
             iniciarListenerCombate();
             
-            // SEXTO: Renderizar tudo
+            // QUINTO: Renderizar tudo
             desenharMapa();
             atualizarUI();
             atualizarListaPersonagens();
@@ -1433,7 +1454,6 @@
                 const npc = doc.data();
                 const npcId = doc.id;
                 
-                // Verificar se já existe
                 if (!posicoes[npcId]) {
                     posicoes[npcId] = {
                         id: npcId,
@@ -1533,23 +1553,20 @@
                 instrucaoPosicionamento.style.display = 'none';
                 atualizarFicha(personagemSelecionado);
             } 
-            // Posicionamento
-            else if (combateAtivo) {
-                // GM posicionando NPC
-                if (ehGM && npcSelecionadoParaPosicionar) {
-                    moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
-                }
-                // PC posicionando seu personagem
-                else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
-                         posicoes[personagemAtual.id].hexX === undefined) {
-                    moverPersonagem(personagemAtual.id, hex.x, hex.y);
-                }
-                // Movimento
-                else if (personagemSelecionado && modoCombate === 'movimento') {
-                    moverPersonagem(personagemSelecionado, hex.x, hex.y);
-                    modoCombate = 'posicionamento';
-                    highlightHex = [];
-                }
+            // GM posicionando NPC selecionado
+            else if (ehGM && npcSelecionadoParaPosicionar) {
+                moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
+            }
+            // PC posicionando seu personagem
+            else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
+                     posicoes[personagemAtual.id].hexX === undefined) {
+                moverPersonagem(personagemAtual.id, hex.x, hex.y);
+            }
+            // Movimento
+            else if (personagemSelecionado && modoCombate === 'movimento') {
+                moverPersonagem(personagemSelecionado, hex.x, hex.y);
+                modoCombate = 'posicionamento';
+                highlightHex = [];
             }
             
             desenharMapa();
