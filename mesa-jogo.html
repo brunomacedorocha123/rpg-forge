@@ -278,6 +278,50 @@
             color: var(--gold-bright);
         }
 
+        /* NOVO: Botão de Combate */
+        .btn-combate {
+            background: linear-gradient(135deg, var(--blue-energy), #0B5ED7);
+            border: 2px solid var(--gold);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 30px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            font-family: 'Cinzel', serif;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(30, 144, 255, 0.3);
+            margin-left: 15px;
+        }
+
+        .btn-combate i {
+            font-size: 1.2rem;
+            color: var(--gold-bright);
+        }
+
+        .btn-combate:hover {
+            background: linear-gradient(135deg, #0B5ED7, var(--blue-energy));
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.4);
+            border-color: var(--gold-bright);
+        }
+
+        .btn-combate:active {
+            transform: translateY(-1px);
+        }
+
+        .botoes-cenario {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
         /* Coluna NPCs */
         .npcs-coluna {
             background: var(--bg-card);
@@ -841,10 +885,17 @@
                     <i class="fas fa-image"></i>
                 </div>
                 <textarea class="cenario-descricao" id="cenarioDescricao" rows="3" placeholder="Descreva a cena atual..."></textarea>
-                <div style="display: flex; align-items: center;">
+                
+                <!-- BOTÕES DO CENÁRIO: UPLOAD E COMBATE -->
+                <div class="botoes-cenario">
                     <label class="upload-btn" for="uploadCenario">
                         <i class="fas fa-upload"></i> Upload de Imagem
                     </label>
+                    
+                    <button class="btn-combate" id="btnAbrirCombate">
+                        <i class="fas fa-dice-d20"></i> INICIAR COMBATE TÁTICO
+                    </button>
+                    
                     <span class="upload-status" id="uploadStatus"></span>
                     <input type="file" id="uploadCenario" accept="image/*" style="display: none;">
                 </div>
@@ -1249,6 +1300,9 @@
         const btnSalvarNpc = document.getElementById('btnSalvarNpc');
         const logContainer = document.getElementById('logContainer');
 
+        // NOVO: Botão de Combate
+        const btnAbrirCombate = document.getElementById('btnAbrirCombate');
+
         // Elementos de rolagem (ORIGINAIS - NÃO MEXER)
         const modificadorPericia = document.getElementById('modificadorPericia');
         const btnRolarPericia = document.getElementById('btnRolarPericia');
@@ -1311,6 +1365,19 @@
             return urlParams.get('sessao');
         }
 
+        // ===== NOVA FUNÇÃO: ABRIR COMBATE TÁTICO =====
+        function abrirCombateTatico() {
+            const sessaoId = getSessaoIdFromUrl();
+            if (!sessaoId) {
+                alert('ID da sessão não encontrado!');
+                return;
+            }
+            
+            // Abre o mapa tático em uma nova janela
+            const url = `combate-tatico.html?sessao=${sessaoId}`;
+            window.open(url, '_blank', 'width=1400,height=800,resizable=yes,scrollbars=yes');
+        }
+
         // ===== SISTEMA DE CRÍTICOS =====
         // Tabelas completas
         const tabelas = {
@@ -1370,17 +1437,14 @@
                 const tabId = tab.dataset.tab;
                 if (!tabId) return;
                 
-                // Atualizar tabs
                 tabsCritico.forEach(t => t.classList.remove('ativa'));
                 tab.classList.add('ativa');
                 
-                // Atualizar tabelas
                 tabelasCritico.forEach(tabela => tabela.classList.remove('ativa'));
                 document.getElementById(`tabela-${tabId}`).classList.add('ativa');
                 
                 tabelaAtual = tabId;
                 
-                // Esconder resultado anterior
                 resultadoCritico.style.display = 'none';
             });
         });
@@ -1388,25 +1452,29 @@
         // Rolar na tabela atual
         if (btnRolarCritico) {
             btnRolarCritico.addEventListener('click', () => {
-                const resultado = Math.floor(Math.random() * 10) + 1; // 1-10
+                const resultado = Math.floor(Math.random() * 10) + 1;
                 const texto = tabelas[tabelaAtual][resultado - 1];
                 
                 resultadoCriticoNumero.textContent = resultado;
                 resultadoCriticoTexto.textContent = texto;
                 resultadoCritico.style.display = 'block';
                 
-                // Adicionar ao log
                 if (sessaoAtual) {
                     addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
                         tipo: 'critico',
                         tabela: tabelaAtual,
                         resultado: resultado,
                         texto: texto,
-                        visibilidade: 'secreto', // Críticos geralmente só o GM vê
+                        visibilidade: 'secreto',
                         timestamp: serverTimestamp()
                     });
                 }
             });
+        }
+
+        // ===== BOTÃO ABRIR COMBATE =====
+        if (btnAbrirCombate) {
+            btnAbrirCombate.addEventListener('click', abrirCombateTatico);
         }
 
         // ===== UPLOAD DE CENÁRIO =====
@@ -1468,7 +1536,7 @@
             }
         });
 
-        // ===== SISTEMA DE ROLAGEM ORIGINAL (NÃO MEXER) =====
+        // ===== SISTEMA DE ROLAGEM ORIGINAL =====
         btnRolarPericia.addEventListener('click', async () => {
             const dezena = Math.floor(Math.random() * 10);
             const unidade = Math.floor(Math.random() * 10);
@@ -1731,7 +1799,6 @@
                     modalNpc.classList.remove('active');
                     npcNome.value = '';
                     
-                    // Reset valores
                     npcSt.value = '10';
                     npcDx.value = '10';
                     npcIq.value = '10';
@@ -1984,7 +2051,6 @@
             });
         }
 
-        // Funções globais para NPCs
         window.editarNpc = async (npcId) => {
             alert('Função de edição em breve!');
         };
