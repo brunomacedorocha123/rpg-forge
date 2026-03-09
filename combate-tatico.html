@@ -74,7 +74,7 @@
             border-right: 2px solid var(--border-glow);
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             overflow: hidden;
-            min-width: 0; /* Importante para flexbox */
+            min-width: 0;
         }
 
         /* Barra de controle do combate */
@@ -176,24 +176,23 @@
             cursor: not-allowed;
         }
 
-        /* Canvas do mapa */
+        /* Canvas do mapa - CORRIGIDO PARA SCROLL MOBILE */
         .canvas-container {
             flex: 1;
             position: relative;
-            overflow: auto;
+            overflow: auto !important;
+            -webkit-overflow-scrolling: touch !important;
             background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
             padding: 20px;
-            min-height: 300px; /* Altura mínima para mobile */
+            min-height: 300px;
         }
 
         #mapaCanvas {
             display: block;
-            width: 100%;
-            height: auto;
-            max-width: 1000px;
+            width: 1000px;
+            height: 600px;
+            max-width: none;
             background: #ffffff;
             border-radius: 8px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.6);
@@ -265,7 +264,7 @@
             flex: 1;
             padding: 20px;
             overflow-y: auto;
-            -webkit-overflow-scrolling: touch; /* Scroll suave no iOS */
+            -webkit-overflow-scrolling: touch;
         }
 
         /* Ficha rápida */
@@ -359,7 +358,7 @@
 
         .btn-acao {
             width: 100%;
-            padding: 12px 10px; /* Aumentado para mobile */
+            padding: 12px 10px;
             margin-bottom: 8px;
             background: var(--bg-primary);
             border: 1px solid var(--blue-energy);
@@ -412,7 +411,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 12px 8px; /* Aumentado para mobile */
+            padding: 12px 8px;
             background: var(--bg-primary);
             border-radius: 8px;
             margin-bottom: 8px;
@@ -567,6 +566,7 @@
             
             .canvas-container {
                 min-height: 300px;
+                overflow: auto !important;
             }
             
             .combate-header {
@@ -868,7 +868,7 @@
     let combateId = null;
     let unsubscribePosicoes = null;
     let unsubscribeCombate = null;
-    let estaProcessandoMovimento = false; // Flag para evitar duplicatas
+    let estaProcessandoMovimento = false;
 
     // CORES PARA NPCs
     const coresNPCs = [
@@ -1044,7 +1044,6 @@
                 gm_uid: currentUser.uid
             });
             
-            // Criar documentos na subcoleção "posicoes" para TODOS os personagens
             const batch = writeBatch(db);
             
             Object.entries(posicoes).forEach(([id, pos]) => {
@@ -1103,7 +1102,6 @@
             return;
         }
         
-        // Verificar se hexágono está ocupado
         const ocupado = Object.values(posicoes).some(p => 
             p.hexX === hexX && p.hexY === hexY && p.id !== personagemId
         );
@@ -1113,11 +1111,9 @@
             return;
         }
         
-        // Verificar permissões
         const ehPosicionamento = (pos.hexX === undefined || pos.hexX === null);
         
         if (!ehPosicionamento) {
-            // Só verifica vez se já estiver posicionado
             if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
                 showToast('Você só pode mover seu próprio personagem', true);
                 return;
@@ -1132,7 +1128,6 @@
                 return;
             }
         } else {
-            // Durante posicionamento
             if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
                 showToast('Você só pode posicionar seu próprio personagem', true);
                 return;
@@ -1144,7 +1139,6 @@
         try {
             console.log('Movendo personagem:', personagemId, 'para', hexX, hexY);
             
-            // ATUALIZAR NA SUBCOLEÇÃO "posicoes"
             const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
             
             await setDoc(posRef, {
@@ -1153,7 +1147,6 @@
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
             
-            // Atualizar localmente
             posicoes[personagemId].hexX = hexX;
             posicoes[personagemId].hexY = hexY;
             
@@ -1220,7 +1213,6 @@
                 });
             }
             
-            // Limpar a subcoleção de posições
             const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
             const posicoesSnap = await getDocs(posicoesRef);
             
@@ -1230,11 +1222,9 @@
             });
             await batch.commit();
             
-            // Limpar listeners
             if (unsubscribePosicoes) unsubscribePosicoes();
             if (unsubscribeCombate) unsubscribeCombate();
             
-            // Resetar estado local
             combateAtivo = false;
             combateId = null;
             modoCombate = 'posicionamento';
@@ -1266,11 +1256,9 @@
     function iniciarListenersCombate() {
         if (!sessaoAtual) return;
         
-        // Limpar listeners antigos
         if (unsubscribePosicoes) unsubscribePosicoes();
         if (unsubscribeCombate) unsubscribeCombate();
         
-        // Listener 1: Documento do combate
         const combatesQuery = query(
             collection(db, "sessoes", sessaoAtual.id, "combates"),
             where("ativo", "==", true),
@@ -1293,7 +1281,6 @@
             console.error('Erro no listener de combate:', error);
         });
         
-        // Listener 2: SUBCOLEÇÃO POSIÇÕES
         const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
         
         unsubscribePosicoes = onSnapshot(posicoesRef, (snapshot) => {
@@ -1304,15 +1291,12 @@
                 const data = change.doc.data();
                 
                 if (change.type === "added" || change.type === "modified") {
-                    // Criar ou atualizar o objeto
                     if (!posicoes[id]) {
                         posicoes[id] = { id, ...data };
                     } else {
-                        // Atualizar apenas os campos que vieram do Firebase
                         Object.assign(posicoes[id], data);
                     }
                     
-                    // Converter null para undefined para facilitar a lógica
                     if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                     if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
                     
@@ -1320,7 +1304,6 @@
                               data.hexX !== null ? `(${data.hexX}, ${data.hexY})` : 'não posicionado');
                     
                 } else if (change.type === "removed") {
-                    // Quando removido, só limpar a posição, não deletar o personagem
                     if (posicoes[id]) {
                         posicoes[id].hexX = undefined;
                         posicoes[id].hexY = undefined;
@@ -1382,7 +1365,6 @@
     function atualizarListaPersonagens() {
         let html = '';
         
-        // ===== SEÇÃO 1: NPCs NÃO POSICIONADOS (SÓ GM VÊ) =====
         if (ehGM) {
             const npcsNaoPosicionados = Object.values(posicoes).filter(p => 
                 p.tipo === 'npc' && (p.hexX === undefined || p.hexX === null)
@@ -1408,7 +1390,6 @@
             }
         }
         
-        // ===== SEÇÃO 2: PERSONAGENS POSICIONADOS (TODOS VÊM) =====
         const personagensPosicionados = Object.values(posicoes).filter(p => 
             p.hexX !== undefined && p.hexX !== null
         ).sort((a, b) => {
@@ -1438,7 +1419,6 @@
             html += `</div>`;
         }
         
-        // ===== SEÇÃO 3: PC NÃO POSICIONADO =====
         if (!ehGM && personagemAtual) {
             const meuPC = posicoes[personagemAtual.id];
             if (meuPC && (meuPC.hexX === undefined || meuPC.hexX === null)) {
@@ -1467,7 +1447,6 @@
         const pos = posicoes[personagemId];
         if (!pos) return;
         
-        // Verificar se pode ver dados completos
         const podeVerCompleto = ehGM || pos.jogadorUid === currentUser?.uid || pos.tipo === 'pc';
         
         fichaSelecionado.style.display = 'block';
@@ -1477,7 +1456,6 @@
         fichaTipo.textContent = pos.tipo === 'pc' ? 'Jogador' : 'NPC';
         fichaAvatar.innerHTML = pos.tipo === 'pc' ? '🧙' : '🧌';
         
-        // Dados básicos que todos veem
         fichaPV.textContent = `${pos.pv || '?'}/${pos.pvMax || '?'}`;
         
         if (podeVerCompleto) {
@@ -1492,7 +1470,6 @@
             document.querySelector('.ficha-stats').style.display = 'grid';
             document.querySelector('.defesas-rapidas').style.display = 'flex';
             
-            // Remover aviso NPC se existir
             const avisoAnterior = document.querySelector('.aviso-npc');
             if (avisoAnterior) avisoAnterior.remove();
         } else {
@@ -1507,7 +1484,6 @@
             document.querySelector('.ficha-stats').style.display = 'none';
             document.querySelector('.defesas-rapidas').style.display = 'none';
             
-            // Adicionar aviso
             const aviso = document.createElement('div');
             aviso.style.cssText = 'color: var(--gold); font-size: 0.8rem; text-align: center; margin: 10px 0; font-style: italic;';
             aviso.textContent = '🔒 Dados do NPC ocultos';
@@ -1576,15 +1552,12 @@
 
             ehGM = (sessaoAtual.gm_uid === currentUser.uid);
             
-            // Carregar NPCs
             await carregarNPCs();
             
-            // Carregar personagem do jogador (se não for GM)
             if (!ehGM) {
                 await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
             }
             
-            // Verificar se existe combate ativo
             const combatesQuery = query(
                 collection(db, "sessoes", sessaoAtual.id, "combates"),
                 where("ativo", "==", true),
@@ -1599,7 +1572,6 @@
                 turnoAtual = combate.data().turno || 1;
                 vezAtual = combate.data().vez || 'jogadores';
                 
-                // Carregar posições atuais da subcoleção
                 const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
                 const posicoesSnap = await getDocs(posicoesRef);
                 
@@ -1665,7 +1637,6 @@
                         ...personagemSnap.data()
                     };
                     
-                    // Calcular stats
                     const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
                     const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
                                   (personagemAtual.atributos?.iq?.esferas || 0) + 
@@ -1765,23 +1736,19 @@
             );
             
             if (personagemNoHex) {
-                // Clicou em um personagem
                 personagemSelecionado = personagemNoHex[0];
                 npcSelecionadoParaPosicionar = null;
                 instrucaoPosicionamento.style.display = 'none';
                 atualizarFicha(personagemSelecionado);
             } 
             else if (ehGM && npcSelecionadoParaPosicionar) {
-                // GM posicionando NPC
                 moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
             }
             else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
                      (posicoes[personagemAtual.id].hexX === undefined || posicoes[personagemAtual.id].hexX === null)) {
-                // Jogador posicionando seu PC
                 moverPersonagem(personagemAtual.id, hex.x, hex.y);
             }
             else if (personagemSelecionado && modoCombate === 'movimento') {
-                // Movendo personagem já posicionado
                 moverPersonagem(personagemSelecionado, hex.x, hex.y);
                 modoCombate = 'posicionamento';
                 highlightHex = [];
@@ -1797,7 +1764,6 @@
     btnProximoTurno.addEventListener('click', avancarTurno);
     btnEncerrarCombate.addEventListener('click', encerrarCombate);
 
-    // Funções globais para acesso via onclick
     window.selecionarPersonagem = function(id) {
         personagemSelecionado = id;
         npcSelecionadoParaPosicionar = null;
