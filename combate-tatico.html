@@ -755,1034 +755,1012 @@
     </div>
 
     <script type="module">
-    // ============================================
-    // IMPORTS FIREBASE
-    // ============================================
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-    import { 
-        getAuth, 
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-    import { 
-        getFirestore, 
-        doc,
-        getDoc,
-        getDocs,
-        collection,
-        query,
-        where,
-        onSnapshot,
-        updateDoc,
-        setDoc,
-        deleteDoc,
-        limit,
-        serverTimestamp,
-        writeBatch,
-        enableIndexedDbPersistence,
-        CACHE_SIZE_UNLIMITED
-    } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+// ============================================
+// IMPORTS FIREBASE
+// ============================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { 
+    getAuth, 
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc,
+    getDoc,
+    getDocs,
+    collection,
+    query,
+    where,
+    onSnapshot,
+    updateDoc,
+    setDoc,
+    deleteDoc,
+    limit,
+    serverTimestamp,
+    writeBatch
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-    // ============================================
-    // CONFIG FIREBASE
-    // ============================================
-    const firebaseConfig = {
-        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-        authDomain: "rpgforce-e3227.firebaseapp.com",
-        projectId: "rpgforce-e3227",
-        storageBucket: "rpgforce-e3227.firebasestorage.app",
-        messagingSenderId: "984517342332",
-        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-    };
+// ============================================
+// CONFIG FIREBASE
+// ============================================
+const firebaseConfig = {
+    apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+    authDomain: "rpgforce-e3227.firebaseapp.com",
+    projectId: "rpgforce-e3227",
+    storageBucket: "rpgforce-e3227.firebasestorage.app",
+    messagingSenderId: "984517342332",
+    appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    // Enable offline persistence for mobile
-    try {
-        enableIndexedDbPersistence(db, {
-            cacheSizeBytes: CACHE_SIZE_UNLIMITED
-        }).catch((err) => {
-            console.log('Persistence error:', err.code);
-        });
-    } catch (e) {
-        console.log('Persistence not supported');
-    }
+// ============================================
+// ELEMENTOS DOM
+// ============================================
+const loadingOverlay = document.getElementById('loadingOverlay');
+const toast = document.getElementById('toast');
+const toastMessage = document.getElementById('toastMessage');
+const canvas = document.getElementById('mapaCanvas');
+const ctx = canvas.getContext('2d');
 
-    // ============================================
-    // ELEMENTOS DOM
-    // ============================================
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toastMessage');
-    const canvas = document.getElementById('mapaCanvas');
-    const ctx = canvas.getContext('2d');
-    const canvasContainer = document.getElementById('canvasContainer');
+const turnoDisplay = document.getElementById('turnoDisplay');
+const vezJogadores = document.getElementById('vezJogadores');
+const vezNPCs = document.getElementById('vezNPCs');
+const btnIniciarCombate = document.getElementById('btnIniciarCombate');
+const btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
+const btnProximoTurno = document.getElementById('btnProximoTurno');
+const btnEncerrarCombate = document.getElementById('btnEncerrarCombate');
+const controlesGM = document.getElementById('controlesGM');
+const modoAtual = document.getElementById('modoAtual');
+const instrucaoPosicionamento = document.getElementById('instrucaoPosicionamento');
+
+const fichaSelecionado = document.getElementById('fichaSelecionado');
+const nenhumSelecionado = document.getElementById('nenhumSelecionado');
+const fichaNome = document.getElementById('fichaNome');
+const fichaTipo = document.getElementById('fichaTipo');
+const fichaAvatar = document.getElementById('fichaAvatar');
+const fichaPV = document.getElementById('fichaPV');
+const fichaPM = document.getElementById('fichaPM');
+const fichaEsquiva = document.getElementById('fichaEsquiva');
+const fichaAparar = document.getElementById('fichaAparar');
+const fichaBloqueio = document.getElementById('fichaBloqueio');
+const fichaAndar = document.getElementById('fichaAndar');
+const fichaCorrer = document.getElementById('fichaCorrer');
+const fichaRD = document.getElementById('fichaRD');
+const acoesContainer = document.getElementById('acoesContainer');
+const personagensListaContainer = document.getElementById('personagensListaContainer');
+const contadorPCs = document.getElementById('contadorPCs');
+const contadorNPCs = document.getElementById('contadorNPCs');
+
+// ============================================
+// CONFIGURAÇÕES DO MAPA HEXAGONAL
+// ============================================
+const HEX_RADIUS = 24;
+const HEX_WIDTH = HEX_RADIUS * 2;
+const HEX_HEIGHT = HEX_RADIUS * Math.sqrt(3);
+const HEX_HORIZONTAL_SPACING = HEX_WIDTH * 0.75;
+const HEX_VERTICAL_SPACING = HEX_HEIGHT;
+
+const MAPA_LARGURA = 20;
+const MAPA_ALTURA = 10;
+
+const OFFSET_X = 100;
+const OFFSET_Y = 80;
+
+// ============================================
+// VARIÁVEIS GLOBAIS
+// ============================================
+let currentUser = null;
+let sessaoAtual = null;
+let ehGM = false;
+let personagemAtual = null;
+let vinculoAtual = null;
+let posicoes = {};
+let personagemSelecionado = null;
+let npcSelecionadoParaPosicionar = null;
+let modoCombate = 'posicionamento';
+let turnoAtual = 1;
+let vezAtual = 'jogadores';
+let combateAtivo = false;
+let hexSelecionado = { x: -1, y: -1 };
+let highlightHex = [];
+let combateId = null;
+let unsubscribePosicoes = null;
+let unsubscribeCombate = null;
+let estaProcessandoMovimento = false;
+
+// CORES PARA NPCs
+const coresNPCs = [
+    '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#3498db',
+    '#e67e22', '#1abc9c', '#e84342', '#f1c40f', '#e91e63'
+];
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+function showLoading() { loadingOverlay.classList.add('active'); }
+function hideLoading() { loadingOverlay.classList.remove('active'); }
+
+function showToast(msg, erro = false) {
+    toastMessage.textContent = msg;
+    toast.className = 'toast show' + (erro ? ' erro' : '');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function getSessaoIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('sessao');
+}
+
+// ============================================
+// FUNÇÕES DO MAPA HEXAGONAL
+// ============================================
+
+function hexToPixel(hexX, hexY) {
+    const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
+    const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
+    return { x, y };
+}
+
+function pixelToHex(pixelX, pixelY) {
+    const approxX = Math.round((pixelX - OFFSET_X) / HEX_HORIZONTAL_SPACING);
     
-    const turnoDisplay = document.getElementById('turnoDisplay');
-    const vezJogadores = document.getElementById('vezJogadores');
-    const vezNPCs = document.getElementById('vezNPCs');
-    const btnIniciarCombate = document.getElementById('btnIniciarCombate');
-    const btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
-    const btnProximoTurno = document.getElementById('btnProximoTurno');
-    const btnEncerrarCombate = document.getElementById('btnEncerrarCombate');
-    const controlesGM = document.getElementById('controlesGM');
-    const modoAtual = document.getElementById('modoAtual');
-    const instrucaoPosicionamento = document.getElementById('instrucaoPosicionamento');
+    let bestHex = { x: -1, y: -1 };
+    let bestDist = Infinity;
     
-    const fichaSelecionado = document.getElementById('fichaSelecionado');
-    const nenhumSelecionado = document.getElementById('nenhumSelecionado');
-    const fichaNome = document.getElementById('fichaNome');
-    const fichaTipo = document.getElementById('fichaTipo');
-    const fichaAvatar = document.getElementById('fichaAvatar');
-    const fichaPV = document.getElementById('fichaPV');
-    const fichaPM = document.getElementById('fichaPM');
-    const fichaEsquiva = document.getElementById('fichaEsquiva');
-    const fichaAparar = document.getElementById('fichaAparar');
-    const fichaBloqueio = document.getElementById('fichaBloqueio');
-    const fichaAndar = document.getElementById('fichaAndar');
-    const fichaCorrer = document.getElementById('fichaCorrer');
-    const fichaRD = document.getElementById('fichaRD');
-    const acoesContainer = document.getElementById('acoesContainer');
-    const personagensListaContainer = document.getElementById('personagensListaContainer');
-    const contadorPCs = document.getElementById('contadorPCs');
-    const contadorNPCs = document.getElementById('contadorNPCs');
-
-    // ============================================
-    // CONFIGURAÇÕES DO MAPA HEXAGONAL - CORRIGIDO
-    // ============================================
-    let HEX_RADIUS = 25; // Aumentado para melhor visualização
-    let HEX_WIDTH = HEX_RADIUS * 2;
-    let HEX_HEIGHT = HEX_RADIUS * Math.sqrt(3);
-    let HEX_HORIZONTAL_SPACING = HEX_WIDTH * 0.75;
-    let HEX_VERTICAL_SPACING = HEX_HEIGHT;
-    
-    const MAPA_LARGURA = 18;
-    const MAPA_ALTURA = 10;
-    
-    let OFFSET_X = 60;
-    let OFFSET_Y = 60;
-    
-    let zoomLevel = 1;
-    const MIN_ZOOM = 0.5;
-    const MAX_ZOOM = 2.0;
-
-    // Cache para coordenadas dos hexágonos
-    let hexCache = new Map();
-
-    // ============================================
-    // VARIÁVEIS GLOBAIS
-    // ============================================
-    let currentUser = null;
-    let sessaoAtual = null;
-    let ehGM = false;
-    let personagemAtual = null;
-    let vinculoAtual = null;
-    let posicoes = {};
-    let personagemSelecionado = null;
-    let npcSelecionadoParaPosicionar = null;
-    let modoCombate = 'posicionamento';
-    let turnoAtual = 1;
-    let vezAtual = 'jogadores';
-    let combateAtivo = false;
-    let hexSelecionado = { x: -1, y: -1 };
-    let highlightHex = [];
-    let combateId = null;
-    let unsubscribePosicoes = null;
-    let unsubscribeCombate = null;
-    let estaProcessandoMovimento = false;
-    let touchStartTime = 0;
-    let touchStartPos = { x: 0, y: 0 };
-    let touchMoved = false;
-
-    // CORES PARA NPCs
-    const coresNPCs = [
-        '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#3498db',
-        '#e67e22', '#1abc9c', '#e84342', '#f1c40f', '#e91e63'
-    ];
-
-    // ============================================
-    // FUNÇÕES AUXILIARES
-    // ============================================
-    function showLoading() { loadingOverlay.classList.add('active'); }
-    function hideLoading() { loadingOverlay.classList.remove('active'); }
-
-    function showToast(msg, erro = false, duracao = 3000) {
-        toastMessage.textContent = msg;
-        toast.className = 'toast show' + (erro ? ' erro' : '');
-        setTimeout(() => toast.classList.remove('show'), duracao);
-    }
-
-    function getSessaoIdFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('sessao');
-    }
-
-    function isMobile() {
-        return window.innerWidth <= 768 || 'ontouchstart' in window;
-    }
-
-    // ============================================
-    // FUNÇÕES DO MAPA HEXAGONAL - CORRIGIDAS
-    // ============================================
-    
-    function updateHexMetrics() {
-        // Ajustar raio baseado no zoom e dispositivo
-        const baseRadius = isMobile() ? 20 : 25;
-        HEX_RADIUS = baseRadius * zoomLevel;
-        
-        HEX_WIDTH = HEX_RADIUS * 2;
-        HEX_HEIGHT = HEX_RADIUS * Math.sqrt(3);
-        HEX_HORIZONTAL_SPACING = HEX_WIDTH * 0.75;
-        HEX_VERTICAL_SPACING = HEX_HEIGHT;
-        
-        // Limpar cache ao mudar zoom
-        hexCache.clear();
-        
-        // Ajustar canvas size
-        const baseWidth = 900;
-        const baseHeight = 600;
-        canvas.width = baseWidth * zoomLevel;
-        canvas.height = baseHeight * zoomLevel;
-        
-        // Ajustar offsets para centralizar
-        OFFSET_X = 60 * zoomLevel;
-        OFFSET_Y = 60 * zoomLevel;
-    }
-
-    function hexToPixel(hexX, hexY) {
-        const cacheKey = `${hexX},${hexY},${zoomLevel}`;
-        if (hexCache.has(cacheKey)) {
-            return hexCache.get(cacheKey);
-        }
-        
-        // Fórmula correta para coordenadas hexagonais (orientação pointy-top)
-        const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
-        const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
-        
-        const result = { x, y };
-        hexCache.set(cacheKey, result);
-        return result;
-    }
-
-    function pixelToHex(pixelX, pixelY) {
-        const rect = canvas.getBoundingClientRect();
-        const scrollLeft = canvasContainer.scrollLeft;
-        const scrollTop = canvasContainer.scrollTop;
-        
-        // Converter para coordenadas do canvas considerando zoom e scroll
-        const canvasX = (pixelX - rect.left + scrollLeft) / zoomLevel;
-        const canvasY = (pixelY - rect.top + scrollTop) / zoomLevel;
-        
-        // Aproximação inicial da coluna
-        const colApprox = Math.round((canvasX - OFFSET_X) / HEX_HORIZONTAL_SPACING);
-        
-        let bestHex = { x: -1, y: -1 };
-        let bestDist = Infinity;
-        
-        // Busca local ao redor da aproximação
-        for (let dx = -2; dx <= 2; dx++) {
-            const testX = colApprox + dx;
+    for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
+            const testX = approxX + dx;
             if (testX < 0 || testX >= MAPA_LARGURA) continue;
             
-            for (let dy = -2; dy <= 2; dy++) {
-                // Calcular Y aproximado baseado no X
-                const offsetY = (testX % 2 === 0) ? 0 : HEX_VERTICAL_SPACING / 2;
-                const testY = Math.round((canvasY - OFFSET_Y - offsetY) / HEX_VERTICAL_SPACING);
-                
-                if (testY < 0 || testY >= MAPA_ALTURA) continue;
-                
-                // Obter centro do hexágono
-                const center = hexToPixel(testX, testY);
-                
-                // Calcular distância do clique ao centro
-                const dist = Math.hypot(
-                    canvasX - (center.x / zoomLevel),
-                    canvasY - (center.y / zoomLevel)
-                );
-                
-                // Se estiver dentro do raio do hexágono
-                if (dist < bestDist && dist < HEX_RADIUS / zoomLevel) {
-                    bestDist = dist;
-                    bestHex = { x: testX, y: testY };
-                }
+            let testY = Math.round((pixelY - OFFSET_Y - (testX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2)) / HEX_VERTICAL_SPACING);
+            if (testY < 0 || testY >= MAPA_ALTURA) continue;
+            
+            const pixel = hexToPixel(testX, testY);
+            const dist = Math.hypot(pixelX - pixel.x, pixelY - pixel.y);
+            
+            if (dist < bestDist && dist < HEX_RADIUS) {
+                bestDist = dist;
+                bestHex = { x: testX, y: testY };
             }
         }
-        
-        return bestHex;
     }
+    
+    return bestHex;
+}
 
-    function desenharHexagono(ctx, x, y, corBorda = '#000000', destaque = null) {
-        const pontos = [];
-        for (let i = 0; i < 6; i++) {
-            const angulo = Math.PI / 6 + (i * Math.PI / 3);
-            pontos.push({
-                x: x + HEX_RADIUS * Math.cos(angulo),
-                y: y + HEX_RADIUS * Math.sin(angulo)
-            });
-        }
-        
-        ctx.beginPath();
-        ctx.moveTo(pontos[0].x, pontos[0].y);
-        for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
-        ctx.closePath();
-        
-        // Preenchimento base
-        ctx.fillStyle = '#f8f9fa';
-        ctx.fill();
-        
-        // Destaque
-        if (destaque === 'move') {
-            ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
-            ctx.fill();
-        } else if (destaque === 'selected') {
-            ctx.fillStyle = 'rgba(212, 175, 55, 0.3)';
-            ctx.fill();
-        }
-        
-        // Borda
-        ctx.strokeStyle = corBorda;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        
-        // Coordenadas (para debug - remover em produção)
-        // ctx.fillStyle = '#999';
-        // ctx.font = '8px Arial';
-        // ctx.fillText(`${Math.round(x/zoomLevel)},${Math.round(y/zoomLevel)}`, x-10, y);
-    }
-
-    function desenharToken(ctx, x, y, personagem) {
-        const radius = HEX_RADIUS * 0.6;
-        
-        // Círculo principal
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        // Sombra para texto
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
-        
-        // Ícone
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(14, HEX_RADIUS * 0.5)}px "Inter", sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(personagem.tipo === 'pc' ? '⚔️' : '👾', x, y);
-        
-        // Nome abreviado
-        ctx.font = `bold ${Math.max(10, HEX_RADIUS * 0.35)}px "Inter", sans-serif`;
-        ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + radius + 10);
-        
-        // PV
-        ctx.font = `bold ${Math.max(9, HEX_RADIUS * 0.3)}px "Inter", sans-serif`;
-        ctx.fillStyle = '#ff6b6b';
-        ctx.fillText(`${personagem.pv ?? '?'}`, x, y - radius - 10);
-        
-        // Reset shadow
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-    }
-
-    function desenharMapa() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#2c3e50';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Desenhar grid hexagonal
-        for (let x = 0; x < MAPA_LARGURA; x++) {
-            for (let y = 0; y < MAPA_ALTURA; y++) {
-                const pixel = hexToPixel(x, y);
-                let destaque = null;
-                
-                if (hexSelecionado.x === x && hexSelecionado.y === y) {
-                    destaque = 'selected';
-                } else if (highlightHex.some(h => h.x === x && h.y === y)) {
-                    destaque = 'move';
-                }
-                
-                desenharHexagono(ctx, pixel.x, pixel.y, '#34495e', destaque);
-            }
-        }
-        
-        // Desenhar tokens
-        Object.values(posicoes).forEach(pos => {
-            if (pos.hexX !== null && pos.hexX !== undefined && 
-                pos.hexY !== null && pos.hexY !== undefined) {
-                const pixel = hexToPixel(pos.hexX, pos.hexY);
-                desenharToken(ctx, pixel.x, pixel.y, pos);
-            }
+function desenharHexagono(ctx, x, y, corBorda = '#000000', destaque = null) {
+    const pontos = [];
+    for (let i = 0; i < 6; i++) {
+        const angulo = Math.PI / 6 + (i * Math.PI / 3);
+        pontos.push({
+            x: x + HEX_RADIUS * Math.cos(angulo),
+            y: y + HEX_RADIUS * Math.sin(angulo)
         });
     }
-
-    // ============================================
-    // FUNÇÕES DE COMBATE - SINCRONIZAÇÃO CORRIGIDA
-    // ============================================
     
-    async function garantirPosicaoExiste(personagemId) {
-        if (!sessaoAtual) return false;
-        
-        try {
-            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-            const posSnap = await getDoc(posRef);
+    ctx.beginPath();
+    ctx.moveTo(pontos[0].x, pontos[0].y);
+    for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
+    ctx.closePath();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    
+    if (destaque === 'move') {
+        ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
+        ctx.fill();
+    } else if (destaque === 'selected') {
+        ctx.fillStyle = 'rgba(212, 175, 55, 0.3)';
+        ctx.fill();
+    }
+    
+    ctx.strokeStyle = corBorda;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+}
+
+function desenharToken(ctx, x, y, personagem) {
+    ctx.beginPath();
+    ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
+    ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+    
+    ctx.font = 'bold 10px "Inter", sans-serif';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
+    ctx.shadowBlur = 0;
+    
+    ctx.font = 'bold 8px "Inter", sans-serif';
+    ctx.fillStyle = '#ff6b6b';
+    ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+}
+
+function desenharMapa() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    for (let x = 0; x < MAPA_LARGURA; x++) {
+        for (let y = 0; y < MAPA_ALTURA; y++) {
+            const pixel = hexToPixel(x, y);
+            let destaque = null;
             
-            if (!posSnap.exists()) {
-                const pos = posicoes[personagemId];
-                if (!pos) return false;
-                
-                // Criar documento com dados completos
-                await setDoc(posRef, {
-                    personagemId: personagemId,
-                    nome: pos.nome,
-                    tipo: 'pc',
-                    cor: pos.cor || '#1E90FF',
-                    jogadorUid: currentUser.uid,
-                    pv: pos.pv || 20,
-                    pvMax: pos.pvMax || 20,
-                    pm: pos.pm || 10,
-                    pmMax: pos.pmMax || 10,
-                    esquiva: pos.esquiva || 30,
-                    aparar: pos.aparar || 20,
-                    bloqueio: pos.bloqueio || 20,
-                    andar: pos.andar || 6,
-                    correr: pos.correr || 12,
-                    rd: pos.rd || 0,
-                    hexX: null,
-                    hexY: null,
-                    atualizadoEm: serverTimestamp()
-                });
-                
-                console.log('✅ Posição criada para jogador:', personagemId);
-                return true;
+            if (hexSelecionado.x === x && hexSelecionado.y === y) {
+                destaque = 'selected';
+            } else if (highlightHex.some(h => h.x === x && h.y === y)) {
+                destaque = 'move';
             }
             
-            return true;
-        } catch (error) {
-            console.error('Erro ao garantir posição:', error);
-            return false;
+            desenharHexagono(ctx, pixel.x, pixel.y, '#000000', destaque);
         }
     }
+    
+    Object.values(posicoes).forEach(pos => {
+        if (pos.hexX !== null && pos.hexY !== null && pos.hexX !== undefined && pos.hexY !== undefined) {
+            const pixel = hexToPixel(pos.hexX, pos.hexY);
+            desenharToken(ctx, pixel.x, pixel.y, pos);
+        }
+    });
+}
 
-    async function moverPersonagem(personagemId, hexX, hexY) {
-        if (!combateAtivo || !sessaoAtual) {
-            console.log('Combate não ativo');
-            return;
-        }
+// ============================================
+// FUNÇÕES DE COMBATE - CORRIGIDAS PARA PC
+// ============================================
+
+async function iniciarCombate() {
+    if (!ehGM) {
+        showToast('Apenas o GM pode iniciar o combate', true);
+        return;
+    }
+    
+    showLoading();
+    
+    try {
+        combateAtivo = true;
+        modoCombate = 'posicionamento';
+        turnoAtual = 1;
+        vezAtual = 'jogadores';
         
-        if (estaProcessandoMovimento) {
-            console.log('Já processando movimento');
-            return;
-        }
+        combateId = `combate_${Date.now()}`;
+        const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
         
-        const pos = posicoes[personagemId];
-        if (!pos) {
-            console.log('Personagem não encontrado');
-            return;
-        }
+        await setDoc(combateRef, {
+            ativo: true,
+            turno: 1,
+            vez: 'jogadores',
+            iniciado_em: serverTimestamp(),
+            gm_uid: currentUser.uid
+        });
         
-        // Verificar se hexágono está ocupado
-        const ocupado = Object.values(posicoes).some(p => 
-            p.hexX === hexX && p.hexY === hexY && p.id !== personagemId
-        );
+        // Criar documentos na subcoleção "posicoes" para TODOS os personagens
+        const batch = writeBatch(db);
         
-        if (ocupado) {
-            showToast('Este hexágono já está ocupado!', true);
-            return;
-        }
-        
-        estaProcessandoMovimento = true;
-        
-        try {
-            // Garantir que o documento existe
-            if (pos.tipo === 'pc' && !ehGM) {
-                await garantirPosicaoExiste(personagemId);
-            }
-            
-            // Atualizar no Firestore
-            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-            await setDoc(posRef, {
-                hexX: hexX,
-                hexY: hexY,
+        Object.entries(posicoes).forEach(([id, pos]) => {
+            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", id);
+            batch.set(posRef, {
+                personagemId: id,
+                nome: pos.nome,
+                tipo: pos.tipo,
+                cor: pos.cor,
+                jogadorUid: pos.jogadorUid || null,
+                pv: pos.pv,
+                pvMax: pos.pvMax,
+                pm: pos.pm,
+                pmMax: pos.pmMax,
+                esquiva: pos.esquiva || 0,
+                aparar: pos.aparar || 0,
+                bloqueio: pos.bloqueio || 0,
+                andar: pos.andar || 6,
+                correr: pos.correr || 12,
+                rd: pos.rd || 0,
+                hexX: pos.hexX !== undefined ? pos.hexX : null,
+                hexY: pos.hexY !== undefined ? pos.hexY : null,
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
-            
-            // Atualizar local
-            posicoes[personagemId].hexX = hexX;
-            posicoes[personagemId].hexY = hexY;
-            
-            // Limpar seleção de posicionamento
-            if (npcSelecionadoParaPosicionar === personagemId) {
-                npcSelecionadoParaPosicionar = null;
-                instrucaoPosicionamento.style.display = 'none';
-            }
-            
-            // Redesenhar
-            desenharMapa();
-            atualizarListaPersonagens();
-            
-            if (personagemSelecionado === personagemId) {
-                atualizarFicha(personagemId);
-            }
-            
-            showToast(`${pos.nome} posicionado!`);
-            
-        } catch (error) {
-            console.error('Erro ao mover:', error);
-            showToast('Erro ao sincronizar: ' + error.message, true);
-        } finally {
-            estaProcessandoMovimento = false;
-        }
+        });
+        
+        await batch.commit();
+        
+        iniciarListenersCombate();
+        
+        atualizarUI();
+        showToast('Combate iniciado! Posicionem seus personagens.');
+        
+    } catch (error) {
+        console.error('Erro ao iniciar combate:', error);
+        showToast('Erro ao iniciar combate: ' + error.message, true);
+    } finally {
+        hideLoading();
     }
+}
 
-    async function iniciarCombate() {
-        if (!ehGM) {
-            showToast('Apenas o GM pode iniciar o combate', true);
+// 🔥 FUNÇÃO CRÍTICA: Criar posição para PC se não existir
+async function garantirPosicaoPC(personagemId) {
+    if (!sessaoAtual) return false;
+    
+    try {
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+        const posSnap = await getDoc(posRef);
+        
+        if (!posSnap.exists()) {
+            // Criar documento de posição para o jogador
+            const pos = posicoes[personagemId];
+            if (!pos) {
+                console.error('Personagem não encontrado:', personagemId);
+                return false;
+            }
+            
+            console.log('🔥 Criando posição para PC:', pos.nome);
+            
+            // Criar com dados completos
+            await setDoc(posRef, {
+                personagemId: personagemId,
+                nome: pos.nome,
+                tipo: 'pc',
+                cor: pos.cor || '#1E90FF',
+                jogadorUid: currentUser.uid,
+                pv: pos.pv,
+                pvMax: pos.pvMax,
+                pm: pos.pm,
+                pmMax: pos.pmMax,
+                esquiva: pos.esquiva || 0,
+                aparar: pos.aparar || 0,
+                bloqueio: pos.bloqueio || 0,
+                andar: pos.andar || 6,
+                correr: pos.correr || 12,
+                rd: pos.rd || 0,
+                hexX: null,
+                hexY: null,
+                atualizadoEm: serverTimestamp()
+            });
+            
+            console.log('✅ Posição PC criada com sucesso');
+            return true;
+        }
+        
+        return true; // Já existe
+        
+    } catch (error) {
+        console.error('❌ Erro ao criar posição PC:', error);
+        showToast('Erro ao criar posição: ' + error.message, true);
+        return false;
+    }
+}
+
+async function moverPersonagem(personagemId, hexX, hexY) {
+    if (!combateAtivo || !sessaoAtual) {
+        console.log('Combate não ativo ou sessão não definida');
+        return;
+    }
+    
+    if (estaProcessandoMovimento) {
+        console.log('Já processando um movimento...');
+        return;
+    }
+    
+    const pos = posicoes[personagemId];
+    if (!pos) {
+        console.log('Personagem não encontrado:', personagemId);
+        return;
+    }
+    
+    // Verificar se hexágono está ocupado
+    const ocupado = Object.values(posicoes).some(p => 
+        p.hexX === hexX && p.hexY === hexY && p.id !== personagemId
+    );
+    
+    if (ocupado) {
+        showToast('Este hexágono já está ocupado!', true);
+        return;
+    }
+    
+    // Verificar permissões
+    const ehPosicionamento = (pos.hexX === undefined || pos.hexX === null);
+    
+    if (!ehPosicionamento) {
+        if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
+            showToast('Você só pode mover seu próprio personagem', true);
             return;
         }
         
-        showLoading();
-        
-        try {
-            combateAtivo = true;
-            modoCombate = 'posicionamento';
-            turnoAtual = 1;
-            vezAtual = 'jogadores';
-            
-            combateId = `combate_${Date.now()}`;
-            const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
-            
-            await setDoc(combateRef, {
-                ativo: true,
-                turno: 1,
-                vez: 'jogadores',
-                iniciado_em: serverTimestamp(),
-                gm_uid: currentUser.uid
-            });
-            
-            // Criar posições para todos os personagens
-            const batch = writeBatch(db);
-            
-            Object.entries(posicoes).forEach(([id, pos]) => {
-                const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", id);
-                batch.set(posRef, {
-                    personagemId: id,
-                    nome: pos.nome,
-                    tipo: pos.tipo,
-                    cor: pos.cor,
-                    jogadorUid: pos.jogadorUid || null,
-                    pv: pos.pv || 20,
-                    pvMax: pos.pvMax || 20,
-                    pm: pos.pm || 10,
-                    pmMax: pos.pmMax || 10,
-                    esquiva: pos.esquiva || 30,
-                    aparar: pos.aparar || 20,
-                    bloqueio: pos.bloqueio || 20,
-                    andar: pos.andar || 6,
-                    correr: pos.correr || 12,
-                    rd: pos.rd || 0,
-                    hexX: null,
-                    hexY: null,
-                    atualizadoEm: serverTimestamp()
-                }, { merge: true });
-            });
-            
-            await batch.commit();
-            
-            iniciarListenersCombate();
-            atualizarUI();
-            showToast('Combate iniciado! Posicionem seus personagens.');
-            
-        } catch (error) {
-            console.error('Erro ao iniciar combate:', error);
-            showToast('Erro ao iniciar combate', true);
-        } finally {
-            hideLoading();
+        if (vezAtual === 'jogadores' && pos.tipo === 'npc' && !ehGM) {
+            showToast('Agora é a vez dos jogadores', true);
+            return;
+        }
+        if (vezAtual === 'npcs' && pos.tipo === 'pc' && !ehGM) {
+            showToast('Agora é a vez dos NPCs', true);
+            return;
+        }
+    } else {
+        if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
+            showToast('Você só pode posicionar seu próprio personagem', true);
+            return;
         }
     }
-
-    async function avancarTurno() {
-        if (!ehGM || !combateId || !sessaoAtual) return;
-        
-        if (vezAtual === 'jogadores') {
-            vezAtual = 'npcs';
-            showToast('Vez dos NPCs');
-        } else {
-            turnoAtual++;
-            vezAtual = 'jogadores';
-            showToast(`Turno ${turnoAtual} - Vez dos Jogadores`);
-        }
-        
-        const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
-        await updateDoc(combateRef, {
-            turno: turnoAtual,
-            vez: vezAtual,
-            atualizadoEm: serverTimestamp()
-        });
-        
-        atualizarUI();
-    }
-
-    async function finalizarTurnoJogadores() {
-        if (!ehGM) return;
-        await avancarTurno();
-    }
-
-    async function encerrarCombate() {
-        if (!ehGM || !sessaoAtual) return;
-        
-        showLoading();
-        
-        try {
-            if (combateId) {
-                const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
-                await updateDoc(combateRef, { 
-                    ativo: false,
-                    encerrado_em: serverTimestamp()
-                });
-            }
-            
-            // Limpar posições
-            const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
-            const posicoesSnap = await getDocs(posicoesRef);
-            
-            const batch = writeBatch(db);
-            posicoesSnap.docs.forEach(docSnap => {
-                batch.delete(docSnap.ref);
-            });
-            await batch.commit();
-            
-            // Limpar listeners
-            if (unsubscribePosicoes) unsubscribePosicoes();
-            if (unsubscribeCombate) unsubscribeCombate();
-            
-            // Resetar estado
-            combateAtivo = false;
-            combateId = null;
-            modoCombate = 'posicionamento';
-            personagemSelecionado = null;
-            npcSelecionadoParaPosicionar = null;
-            
-            Object.keys(posicoes).forEach(id => {
-                posicoes[id].hexX = undefined;
-                posicoes[id].hexY = undefined;
-            });
-            
-            atualizarUI();
-            desenharMapa();
-            atualizarListaPersonagens();
-            showToast('Combate encerrado');
-            
-        } catch (error) {
-            console.error('Erro ao encerrar:', error);
-            showToast('Erro ao encerrar combate', true);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // ============================================
-    // LISTENERS EM TEMPO REAL - CORRIGIDOS
-    // ============================================
     
-    function iniciarListenersCombate() {
-        if (!sessaoAtual) return;
+    estaProcessandoMovimento = true;
+    
+    try {
+        console.log('🎮 Movendo:', personagemId, '->', hexX, hexY);
+        
+        // 🔥 CORREÇÃO CRÍTICA: Para PCs, garantir que o documento existe primeiro
+        if (pos.tipo === 'pc' && !ehGM) {
+            const existe = await garantirPosicaoPC(personagemId);
+            if (!existe) {
+                throw new Error('Falha ao criar posição para PC');
+            }
+        }
+        
+        // Agora atualizar a posição
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+        
+        await setDoc(posRef, {
+            hexX: hexX,
+            hexY: hexY,
+            atualizadoEm: serverTimestamp()
+        }, { merge: true });
+        
+        // Atualizar localmente
+        posicoes[personagemId].hexX = hexX;
+        posicoes[personagemId].hexY = hexY;
+        
+        if (npcSelecionadoParaPosicionar === personagemId) {
+            npcSelecionadoParaPosicionar = null;
+            instrucaoPosicionamento.style.display = 'none';
+        }
+        
+        desenharMapa();
+        atualizarListaPersonagens();
+        
+        if (personagemSelecionado === personagemId) {
+            atualizarFicha(personagemSelecionado);
+        }
+        
+        console.log('✅ Movimento OK:', pos.nome, '->', hexX, hexY);
+        
+    } catch (error) {
+        console.error('❌ Erro ao mover:', error);
+        showToast('Erro: ' + error.message, true);
+        
+        // Reverter se era posicionamento
+        if (ehPosicionamento) {
+            posicoes[personagemId].hexX = undefined;
+            posicoes[personagemId].hexY = undefined;
+            desenharMapa();
+        }
+    } finally {
+        estaProcessandoMovimento = false;
+    }
+}
+
+async function avancarTurno() {
+    if (!ehGM || !combateId || !sessaoAtual) return;
+    
+    if (vezAtual === 'jogadores') {
+        vezAtual = 'npcs';
+        showToast('Vez dos NPCs');
+    } else {
+        turnoAtual++;
+        vezAtual = 'jogadores';
+        showToast(`Turno ${turnoAtual} - Vez dos Jogadores`);
+    }
+    
+    const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
+    await updateDoc(combateRef, {
+        turno: turnoAtual,
+        vez: vezAtual,
+        atualizadoEm: serverTimestamp()
+    });
+    
+    atualizarUI();
+}
+
+async function finalizarTurnoJogadores() {
+    if (!ehGM) return;
+    await avancarTurno();
+}
+
+async function encerrarCombate() {
+    if (!ehGM || !sessaoAtual) return;
+    
+    showLoading();
+    
+    try {
+        if (combateId) {
+            const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
+            await updateDoc(combateRef, { 
+                ativo: false,
+                encerrado_em: serverTimestamp()
+            });
+        }
+        
+        const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
+        const posicoesSnap = await getDocs(posicoesRef);
+        
+        const batch = writeBatch(db);
+        posicoesSnap.docs.forEach(docSnap => {
+            batch.delete(docSnap.ref);
+        });
+        await batch.commit();
         
         if (unsubscribePosicoes) unsubscribePosicoes();
         if (unsubscribeCombate) unsubscribeCombate();
         
-        // Listener do combate
-        const combatesQuery = query(
-            collection(db, "sessoes", sessaoAtual.id, "combates"),
-            where("ativo", "==", true),
-            limit(1)
+        combateAtivo = false;
+        combateId = null;
+        modoCombate = 'posicionamento';
+        personagemSelecionado = null;
+        npcSelecionadoParaPosicionar = null;
+        
+        Object.keys(posicoes).forEach(id => {
+            posicoes[id].hexX = undefined;
+            posicoes[id].hexY = undefined;
+        });
+        
+        atualizarUI();
+        desenharMapa();
+        atualizarListaPersonagens();
+        showToast('Combate encerrado');
+        
+    } catch (error) {
+        console.error('Erro ao encerrar:', error);
+        showToast('Erro ao encerrar combate', true);
+    } finally {
+        hideLoading();
+    }
+}
+
+// ============================================
+// LISTENERS EM TEMPO REAL
+// ============================================
+
+function iniciarListenersCombate() {
+    if (!sessaoAtual) return;
+    
+    if (unsubscribePosicoes) unsubscribePosicoes();
+    if (unsubscribeCombate) unsubscribeCombate();
+    
+    // Listener do combate
+    const combatesQuery = query(
+        collection(db, "sessoes", sessaoAtual.id, "combates"),
+        where("ativo", "==", true),
+        limit(1)
+    );
+    
+    unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
+        if (!snapshot.empty) {
+            const combate = snapshot.docs[0];
+            combateId = combate.id;
+            combateAtivo = true;
+            turnoAtual = combate.data().turno || 1;
+            vezAtual = combate.data().vez || 'jogadores';
+        } else {
+            combateAtivo = false;
+            combateId = null;
+        }
+        atualizarUI();
+    }, (error) => {
+        console.error('Erro listener combate:', error);
+    });
+    
+    // Listener das posições
+    const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
+    
+    unsubscribePosicoes = onSnapshot(posicoesRef, (snapshot) => {
+        console.log('🔄 Sincronização:', snapshot.docChanges().length, 'mudanças');
+        
+        snapshot.docChanges().forEach((change) => {
+            const id = change.doc.id;
+            const data = change.doc.data();
+            
+            if (change.type === "added" || change.type === "modified") {
+                if (!posicoes[id]) {
+                    posicoes[id] = { id, ...data };
+                } else {
+                    Object.assign(posicoes[id], data);
+                }
+                
+                if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
+                if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+                
+                console.log('📍', change.type + ':', data.nome, '->', 
+                          data.hexX !== null ? `(${data.hexX}, ${data.hexY})` : 'não posicionado');
+                
+            } else if (change.type === "removed") {
+                if (posicoes[id]) {
+                    posicoes[id].hexX = undefined;
+                    posicoes[id].hexY = undefined;
+                }
+            }
+        });
+        
+        desenharMapa();
+        atualizarListaPersonagens();
+        
+        if (personagemSelecionado && posicoes[personagemSelecionado]) {
+            atualizarFicha(personagemSelecionado);
+        }
+        
+    }, (error) => {
+        console.error('Erro listener posições:', error);
+        showToast('Erro de sincronização', true);
+    });
+}
+
+// ============================================
+// FUNÇÕES DE UI
+// ============================================
+
+function atualizarUI() {
+    turnoDisplay.textContent = `TURNO ${turnoAtual}`;
+    
+    if (vezAtual === 'jogadores') {
+        vezJogadores.classList.add('ativo');
+        vezNPCs.classList.remove('ativo');
+    } else {
+        vezJogadores.classList.remove('ativo');
+        vezNPCs.classList.add('ativo');
+    }
+    
+    if (!combateAtivo) {
+        modoAtual.innerHTML = '⚔️ Modo: Aguardando início';
+    } else if (modoCombate === 'posicionamento') {
+        modoAtual.innerHTML = '⚔️ Modo: Posicionamento';
+    } else if (modoCombate === 'movimento') {
+        modoAtual.innerHTML = '⚔️ Modo: Movimento';
+    }
+    
+    if (ehGM) {
+        btnIniciarCombate.disabled = combateAtivo;
+        btnFinalizarTurno.disabled = !combateAtivo;
+        btnProximoTurno.disabled = !combateAtivo;
+        btnEncerrarCombate.disabled = !combateAtivo;
+    } else {
+        if (controlesGM) controlesGM.style.display = 'none';
+    }
+    
+    const pcs = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null).length;
+    const npcs = Object.values(posicoes).filter(p => p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null).length;
+    contadorPCs.textContent = pcs;
+    contadorNPCs.textContent = npcs;
+}
+
+function atualizarListaPersonagens() {
+    let html = '';
+    
+    // ===== SEÇÃO 1: NPCs NÃO POSICIONADOS (SÓ GM VÊ) =====
+    if (ehGM) {
+        const npcsNaoPosicionados = Object.values(posicoes).filter(p => 
+            p.tipo === 'npc' && (p.hexX === undefined || p.hexX === null)
         );
         
-        unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
-            if (!snapshot.empty) {
-                const combate = snapshot.docs[0];
-                combateId = combate.id;
-                combateAtivo = true;
-                turnoAtual = combate.data().turno || 1;
-                vezAtual = combate.data().vez || 'jogadores';
-            } else {
-                combateAtivo = false;
-                combateId = null;
-            }
-            atualizarUI();
-        }, (error) => {
-            console.error('Erro no listener de combate:', error);
-        });
-        
-        // Listener de posições
-        const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
-        
-        unsubscribePosicoes = onSnapshot(posicoesRef, {
-            next: (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    const id = change.doc.id;
-                    const data = change.doc.data();
-                    
-                    if (change.type === "added" || change.type === "modified") {
-                        if (!posicoes[id]) {
-                            posicoes[id] = { id, ...data };
-                        } else {
-                            Object.assign(posicoes[id], data);
-                        }
-                        
-                        // Converter null para undefined
-                        if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
-                        if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
-                        
-                        console.log(`📍 ${change.type}: ${data.nome} em (${data.hexX}, ${data.hexY})`);
-                        
-                    } else if (change.type === "removed") {
-                        if (posicoes[id]) {
-                            posicoes[id].hexX = undefined;
-                            posicoes[id].hexY = undefined;
-                        }
-                    }
-                });
-                
-                desenharMapa();
-                atualizarListaPersonagens();
-                
-                if (personagemSelecionado && posicoes[personagemSelecionado]) {
-                    atualizarFicha(personagemSelecionado);
-                }
-            },
-            error: (error) => {
-                console.error('Erro no listener de posições:', error);
-                showToast('Erro de sincronização. Recarregue a página.', true);
-            }
-        });
-    }
-
-    // ============================================
-    // FUNÇÕES DE UI
-    // ============================================
-    
-    function atualizarUI() {
-        turnoDisplay.textContent = `TURNO ${turnoAtual}`;
-        
-        if (vezAtual === 'jogadores') {
-            vezJogadores.classList.add('ativo');
-            vezNPCs.classList.remove('ativo');
-        } else {
-            vezJogadores.classList.remove('ativo');
-            vezNPCs.classList.add('ativo');
-        }
-        
-        if (!combateAtivo) {
-            modoAtual.innerHTML = '⚔️ Modo: Aguardando início';
-        } else {
-            modoAtual.innerHTML = '⚔️ Modo: Posicionamento';
-        }
-        
-        if (ehGM) {
-            btnIniciarCombate.disabled = combateAtivo;
-            btnFinalizarTurno.disabled = !combateAtivo;
-            btnProximoTurno.disabled = !combateAtivo;
-            btnEncerrarCombate.disabled = !combateAtivo;
-        } else {
-            if (controlesGM) controlesGM.style.display = 'none';
-        }
-        
-        const pcs = Object.values(posicoes).filter(p => 
-            p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null).length;
-        const npcs = Object.values(posicoes).filter(p => 
-            p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null).length;
-        contadorPCs.textContent = pcs;
-        contadorNPCs.textContent = npcs;
-    }
-
-    function atualizarListaPersonagens() {
-        let html = '';
-        
-        // NPCs não posicionados (só GM vê)
-        if (ehGM) {
-            const npcsNaoPosicionados = Object.values(posicoes).filter(p => 
-                p.tipo === 'npc' && (p.hexX === undefined || p.hexX === null)
-            );
-            
-            if (npcsNaoPosicionados.length > 0) {
-                html += `<div class="secao-lista">`;
-                html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> NPCs para posicionar (${npcsNaoPosicionados.length})</div>`;
-                
-                npcsNaoPosicionados.forEach(pos => {
-                    const selecionado = npcSelecionadoParaPosicionar === pos.id ? 'selecionado' : '';
-                    html += `
-                        <div class="personagem-item npc ${selecionado}" onclick="window.selecionarNPCparaPosicionar('${pos.id}')">
-                            <div class="personagem-cor" style="background: ${pos.cor}"></div>
-                            <span class="personagem-nome">${pos.nome}</span>
-                            <span class="personagem-pv">${pos.pv ?? '?'}/${pos.pvMax ?? '?'}</span>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-            }
-        }
-        
-        // Personagens posicionados
-        const personagensPosicionados = Object.values(posicoes).filter(p => 
-            p.hexX !== undefined && p.hexX !== null
-        ).sort((a, b) => {
-            if (a.tipo === 'pc' && b.tipo === 'npc') return -1;
-            if (a.tipo === 'npc' && b.tipo === 'pc') return 1;
-            return a.nome.localeCompare(b.nome);
-        });
-        
-        if (personagensPosicionados.length > 0) {
+        if (npcsNaoPosicionados.length > 0) {
             html += `<div class="secao-lista">`;
-            html += `<div class="secao-titulo"><i class="fas fa-map-pin"></i> No campo (${personagensPosicionados.length})</div>`;
+            html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> NPCs para posicionar</div>`;
             
-            personagensPosicionados.forEach(pos => {
-                const selecionado = personagemSelecionado === pos.id ? 'selecionado' : '';
-                const ehMeu = pos.jogadorUid === currentUser?.uid ? ' (você)' : '';
-                
+            npcsNaoPosicionados.forEach(pos => {
+                const selecionado = npcSelecionadoParaPosicionar === pos.id ? 'selecionado' : '';
                 html += `
-                    <div class="personagem-item ${pos.tipo} ${selecionado}" onclick="window.selecionarPersonagem('${pos.id}')">
+                    <div class="personagem-item npc ${selecionado}" onclick="window.selecionarNPCparaPosicionar('${pos.id}')">
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
-                        <span class="personagem-nome">${pos.tipo === 'pc' ? '⚔️' : '👾'} ${pos.nome}${ehMeu}</span>
-                        <span class="personagem-pv">❤️ ${pos.pv ?? '?'}/${pos.pvMax ?? '?'}</span>
+                        <span class="personagem-nome">${pos.nome}</span>
+                        <span class="personagem-status">📌 posicionar</span>
+                        <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
                     </div>
                 `;
             });
             
             html += `</div>`;
         }
+    }
+    
+    // ===== SEÇÃO 2: PCs POSICIONADOS (TODOS VÊM) =====
+    const pcsPosicionados = Object.values(posicoes).filter(p => 
+        p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null
+    );
+    
+    if (pcsPosicionados.length > 0) {
+        html += `<div class="secao-lista">`;
+        html += `<div class="secao-titulo"><i class="fas fa-map-pin"></i> Jogadores no campo (${pcsPosicionados.length})</div>`;
         
-        // PC não posicionado
-        if (!ehGM && personagemAtual) {
-            const meuPC = posicoes[personagemAtual.id];
-            if (meuPC && (meuPC.hexX === undefined || meuPC.hexX === null)) {
-                html += `<div class="secao-lista">`;
-                html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> Posicione seu personagem</div>`;
+        pcsPosicionados.forEach(pos => {
+            const selecionado = personagemSelecionado === pos.id ? 'selecionado' : '';
+            const ehMeu = pos.jogadorUid === currentUser?.uid ? ' (você)' : '';
+            
+            html += `
+                <div class="personagem-item pc ${selecionado}" onclick="window.selecionarPersonagem('${pos.id}')">
+                    <div class="personagem-cor" style="background: ${pos.cor}"></div>
+                    <span class="personagem-nome">🧙 ${pos.nome}${ehMeu}</span>
+                    <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+    }
+    
+    // ===== SEÇÃO 3: NPCs POSICIONADOS (SÓ GM VÊ) =====
+    if (ehGM) {
+        const npcsPosicionados = Object.values(posicoes).filter(p => 
+            p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null
+        );
+        
+        if (npcsPosicionados.length > 0) {
+            html += `<div class="secao-lista">`;
+            html += `<div class="secao-titulo"><i class="fas fa-map-pin"></i> NPCs no campo (${npcsPosicionados.length})</div>`;
+            
+            npcsPosicionados.forEach(pos => {
+                const selecionado = personagemSelecionado === pos.id ? 'selecionado' : '';
+                
                 html += `
-                    <div class="personagem-item pc aguardando" onclick="window.selecionarPersonagem('${personagemAtual.id}')">
-                        <div class="personagem-cor" style="background: #1E90FF"></div>
-                        <span class="personagem-nome">${meuPC.nome} (você)</span>
-                        <span class="personagem-pv">${meuPC.pv ?? '?'}/${meuPC.pvMax ?? '?'}</span>
+                    <div class="personagem-item npc ${selecionado}" onclick="window.selecionarPersonagem('${pos.id}')">
+                        <div class="personagem-cor" style="background: ${pos.cor}"></div>
+                        <span class="personagem-nome">🧌 ${pos.nome}</span>
+                        <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
                     </div>
                 `;
-                html += `</div>`;
-            }
+            });
+            
+            html += `</div>`;
         }
-        
-        if (html === '') {
-            html = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum personagem disponível</div>';
-        }
-        
-        personagensListaContainer.innerHTML = html;
     }
-
-    function atualizarFicha(personagemId) {
-        const pos = posicoes[personagemId];
-        if (!pos) return;
-        
-        const podeVerCompleto = ehGM || pos.jogadorUid === currentUser?.uid || pos.tipo === 'pc';
-        
-        fichaSelecionado.style.display = 'block';
-        nenhumSelecionado.style.display = 'none';
-        
-        fichaNome.textContent = pos.nome;
-        fichaTipo.textContent = pos.tipo === 'pc' ? 'Jogador' : 'NPC';
-        fichaAvatar.innerHTML = pos.tipo === 'pc' ? '⚔️' : '👾';
-        
-        fichaPV.textContent = `${pos.pv ?? '?'}/${pos.pvMax ?? '?'}`;
-        
-        if (podeVerCompleto) {
-            fichaPM.textContent = `${pos.pm ?? '?'}/${pos.pmMax ?? '?'}`;
-            fichaEsquiva.textContent = (pos.esquiva ?? 0) + '%';
-            fichaAparar.textContent = (pos.aparar ?? 0) + '%';
-            fichaBloqueio.textContent = (pos.bloqueio ?? 0) + '%';
-            fichaAndar.textContent = (pos.andar ?? 0) + 'm';
-            fichaCorrer.textContent = (pos.correr ?? 0) + 'm';
-            fichaRD.textContent = pos.rd ?? 0;
-            
-            document.querySelector('.ficha-stats').style.display = 'grid';
-            document.querySelector('.defesas-rapidas').style.display = 'flex';
-            
-            const avisoAnterior = document.querySelector('.aviso-npc');
-            if (avisoAnterior) avisoAnterior.remove();
-        } else {
-            fichaPM.textContent = '?/?';
-            fichaEsquiva.textContent = '?%';
-            fichaAparar.textContent = '?%';
-            fichaBloqueio.textContent = '?%';
-            fichaAndar.textContent = '?m';
-            fichaCorrer.textContent = '?m';
-            fichaRD.textContent = '?';
-            
-            document.querySelector('.ficha-stats').style.display = 'none';
-            document.querySelector('.defesas-rapidas').style.display = 'none';
-            
-            if (!document.querySelector('.aviso-npc')) {
-                const aviso = document.createElement('div');
-                aviso.style.cssText = 'color: var(--gold); font-size: 0.8rem; text-align: center; margin: 10px 0; font-style: italic;';
-                aviso.textContent = '🔒 Dados do NPC ocultos';
-                aviso.className = 'aviso-npc';
-                document.querySelector('.ficha-rapida').insertBefore(aviso, document.querySelector('.acoes-painel'));
-            }
-        }
-        
-        const podeAgir = ehGM || pos.jogadorUid === currentUser?.uid;
-        const estaPosicionado = pos.hexX !== undefined && pos.hexX !== null;
-        
-        acoesContainer.innerHTML = `
-            <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.85rem;">
-                <i class="fas fa-fist-raised"></i> Ações
-            </h4>
-            <button class="btn-acao" onclick="window.iniciarMovimento('${personagemId}')" 
-                    ${!podeAgir || !estaPosicionado ? 'disabled' : ''}>
-                <span><i class="fas fa-shoe-prints"></i> Mover</span>
-                <span class="dano">${pos.andar ?? 0}m</span>
-            </button>
-        `;
-    }
-
-    // ============================================
-    // CARREGAMENTO INICIAL
-    // ============================================
     
-    async function carregarSessao() {
-        const sessaoId = getSessaoIdFromUrl();
-        if (!sessaoId) {
-            showToast('ID da sessão não encontrado!', true);
-            setTimeout(() => window.location.href = 'index.html', 2000);
+    // ===== SEÇÃO 4: MEU PC NÃO POSICIONADO =====
+    if (!ehGM && personagemAtual) {
+        const meuPC = posicoes[personagemAtual.id];
+        if (meuPC && (meuPC.hexX === undefined || meuPC.hexX === null)) {
+            html += `<div class="secao-lista">`;
+            html += `<div class="secao-titulo"><i class="fas fa-arrow-down"></i> Posicione seu personagem</div>`;
+            html += `
+                <div class="personagem-item pc aguardando" onclick="window.selecionarPersonagem('${personagemAtual.id}')">
+                    <div class="personagem-cor" style="background: #1E90FF"></div>
+                    <span class="personagem-nome">${meuPC.nome} (você)</span>
+                    <span class="personagem-status">📌 clique no mapa</span>
+                    <span class="personagem-pv">${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
+                </div>
+            `;
+            html += `</div>`;
+        }
+    }
+    
+    if (html === '') {
+        html = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum personagem disponível</div>';
+    }
+    
+    personagensListaContainer.innerHTML = html;
+}
+
+function atualizarFicha(personagemId) {
+    const pos = posicoes[personagemId];
+    if (!pos) return;
+    
+    const podeVerCompleto = ehGM || pos.jogadorUid === currentUser?.uid || pos.tipo === 'pc';
+    
+    fichaSelecionado.style.display = 'block';
+    nenhumSelecionado.style.display = 'none';
+    
+    fichaNome.textContent = pos.nome;
+    fichaTipo.textContent = pos.tipo === 'pc' ? 'Jogador' : 'NPC';
+    fichaAvatar.innerHTML = pos.tipo === 'pc' ? '🧙' : '🧌';
+    
+    fichaPV.textContent = `${pos.pv || '?'}/${pos.pvMax || '?'}`;
+    
+    if (podeVerCompleto) {
+        fichaPM.textContent = `${pos.pm || '?'}/${pos.pmMax || '?'}`;
+        fichaEsquiva.textContent = (pos.esquiva || 0) + '%';
+        fichaAparar.textContent = (pos.aparar || 0) + '%';
+        fichaBloqueio.textContent = (pos.bloqueio || 0) + '%';
+        fichaAndar.textContent = (pos.andar || 0) + 'm';
+        fichaCorrer.textContent = (pos.correr || 0) + 'm';
+        fichaRD.textContent = pos.rd || 0;
+        
+        document.querySelector('.ficha-stats').style.display = 'grid';
+        document.querySelector('.defesas-rapidas').style.display = 'flex';
+        
+        const avisoAnterior = document.querySelector('.aviso-npc');
+        if (avisoAnterior) avisoAnterior.remove();
+    } else {
+        fichaPM.textContent = '?/?';
+        fichaEsquiva.textContent = '?%';
+        fichaAparar.textContent = '?%';
+        fichaBloqueio.textContent = '?%';
+        fichaAndar.textContent = '?m';
+        fichaCorrer.textContent = '?m';
+        fichaRD.textContent = '?';
+        
+        document.querySelector('.ficha-stats').style.display = 'none';
+        document.querySelector('.defesas-rapidas').style.display = 'none';
+        
+        const aviso = document.createElement('div');
+        aviso.style.cssText = 'color: var(--gold); font-size: 0.8rem; text-align: center; margin: 10px 0; font-style: italic;';
+        aviso.textContent = '🔒 Dados do NPC ocultos';
+        aviso.className = 'aviso-npc';
+        
+        const ficha = document.querySelector('.ficha-rapida');
+        if (!document.querySelector('.aviso-npc')) {
+            ficha.insertBefore(aviso, document.querySelector('.acoes-painel'));
+        }
+    }
+    
+    const podeAgir = ehGM || pos.jogadorUid === currentUser?.uid;
+    const ehVezCorreta = vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs');
+    const estaPosicionado = pos.hexX !== undefined && pos.hexX !== null;
+    
+    acoesContainer.innerHTML = `
+        <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.9rem;">
+            <i class="fas fa-fist-raised"></i> Ações
+        </h4>
+        <button class="btn-acao" onclick="window.iniciarMovimento('${personagemId}')" 
+                ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+            <span><i class="fas fa-shoe-prints"></i> Mover</span>
+            <span class="dano">${pos.andar || 0}m</span>
+        </button>
+        <button class="btn-acao" 
+                ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+            <span><i class="fas fa-fist-raised"></i> Ataque Básico</span>
+            <span class="dano">1d10</span>
+        </button>
+        <button class="btn-acao" 
+                ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+            <span><i class="fas fa-shield"></i> Defender</span>
+            <span class="dano">+10%</span>
+        </button>
+    `;
+}
+
+// ============================================
+// CARREGAMENTO INICIAL
+// ============================================
+
+async function carregarSessao() {
+    const sessaoId = getSessaoIdFromUrl();
+    if (!sessaoId) {
+        showToast('ID da sessão não encontrado!', true);
+        setTimeout(() => window.location.href = 'index.html', 2000);
+        return;
+    }
+
+    showLoading();
+    
+    try {
+        const sessaoRef = doc(db, "sessoes", sessaoId);
+        const sessaoSnap = await getDoc(sessaoRef);
+        
+        if (!sessaoSnap.exists()) {
+            showToast('Sessão não encontrada!', true);
+            setTimeout(() => window.location.href = 'index.html', 2002);
             return;
         }
 
-        showLoading();
+        sessaoAtual = {
+            id: sessaoSnap.id,
+            ...sessaoSnap.data()
+        };
+
+        ehGM = (sessaoAtual.gm_uid === currentUser.uid);
         
-        try {
-            const sessaoRef = doc(db, "sessoes", sessaoId);
-            const sessaoSnap = await getDoc(sessaoRef);
-            
-            if (!sessaoSnap.exists()) {
-                showToast('Sessão não encontrada!', true);
-                setTimeout(() => window.location.href = 'index.html', 2000);
-                return;
-            }
-
-            sessaoAtual = {
-                id: sessaoSnap.id,
-                ...sessaoSnap.data()
-            };
-
-            ehGM = (sessaoAtual.gm_uid === currentUser.uid);
-            
-            // Carregar NPCs
-            await carregarNPCs();
-            
-            // Carregar personagem do jogador
-            if (!ehGM) {
-                await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
-            }
-            
-            // Verificar combate ativo
-            const combatesQuery = query(
-                collection(db, "sessoes", sessaoAtual.id, "combates"),
-                where("ativo", "==", true),
-                limit(1)
-            );
-            const combatesSnap = await getDocs(combatesQuery);
-            
-            if (!combatesSnap.empty) {
-                const combate = combatesSnap.docs[0];
-                combateId = combate.id;
-                combateAtivo = true;
-                turnoAtual = combate.data().turno || 1;
-                vezAtual = combate.data().vez || 'jogadores';
-                
-                // Carregar posições
-                const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
-                const posicoesSnap = await getDocs(posicoesRef);
-                
-                posicoesSnap.forEach(doc => {
-                    const data = doc.data();
-                    const id = doc.id;
-                    
-                    if (posicoes[id]) {
-                        Object.assign(posicoes[id], data);
-                    } else {
-                        posicoes[id] = { id, ...data };
-                    }
-                    
-                    if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
-                    if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
-                });
-                
-                iniciarListenersCombate();
-            }
-            
-            updateHexMetrics();
-            desenharMapa();
-            atualizarUI();
-            atualizarListaPersonagens();
-            
-            hideLoading();
-            
-        } catch (error) {
-            console.error('Erro ao carregar sessão:', error);
-            showToast('Erro ao carregar sessão', true);
-            hideLoading();
+        await carregarNPCs();
+        
+        if (!ehGM) {
+            await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
         }
-    }
-
-    async function carregarPersonagemJogador(campanhaIdCustom) {
-        if (!campanhaIdCustom || !currentUser) return;
         
-        try {
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("campanha_id", "==", campanhaIdCustom),
-                where("jogador_uid", "==", currentUser.uid),
-                where("status", "==", "ativo")
-            );
+        const combatesQuery = query(
+            collection(db, "sessoes", sessaoAtual.id, "combates"),
+            where("ativo", "==", true),
+            limit(1)
+        );
+        const combatesSnap = await getDocs(combatesQuery);
+        
+        if (!combatesSnap.empty) {
+            const combate = combatesSnap.docs[0];
+            combateId = combate.id;
+            combateAtivo = true;
+            turnoAtual = combate.data().turno || 1;
+            vezAtual = combate.data().vez || 'jogadores';
             
-            const vinculosSnap = await getDocs(vinculosQuery);
+            const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
+            const posicoesSnap = await getDocs(posicoesRef);
             
-            if (!vinculosSnap.empty) {
-                vinculoAtual = {
-                    id: vinculosSnap.docs[0].id,
-                    ...vinculosSnap.docs[0].data()
+            posicoesSnap.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                
+                if (posicoes[id]) {
+                    Object.assign(posicoes[id], data);
+                } else {
+                    posicoes[id] = { id, ...data };
+                }
+                
+                if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
+                if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+            });
+            
+            iniciarListenersCombate();
+        }
+        
+        desenharMapa();
+        atualizarUI();
+        atualizarListaPersonagens();
+        
+        if (ehGM) {
+            instrucaoPosicionamento.style.display = 'none';
+        }
+        
+        hideLoading();
+        
+    } catch (error) {
+        console.error('Erro ao carregar sessão:', error);
+        showToast('Erro ao carregar sessão: ' + error.message, true);
+        hideLoading();
+    }
+}
+
+async function carregarPersonagemJogador(campanhaIdCustom) {
+    if (!campanhaIdCustom || !currentUser) return;
+    
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaIdCustom),
+            where("jogador_uid", "==", currentUser.uid),
+            where("status", "==", "ativo")
+        );
+        
+        const vinculosSnap = await getDocs(vinculosQuery);
+        
+        if (!vinculosSnap.empty) {
+            vinculoAtual = {
+                id: vinculosSnap.docs[0].id,
+                ...vinculosSnap.docs[0].data()
+            };
+            
+            const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
+            const personagemSnap = await getDoc(personagemRef);
+            
+            if (personagemSnap.exists()) {
+                personagemAtual = {
+                    id: personagemSnap.id,
+                    ...personagemSnap.data()
                 };
                 
-                const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
-                const personagemSnap = await getDoc(personagemRef);
+                const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
+                const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
+                              (personagemAtual.atributos?.iq?.esferas || 0) + 
+                              (personagemAtual.atributos?.vt?.esferas || 0) + 15;
                 
-                if (personagemSnap.exists()) {
-                    personagemAtual = {
-                        id: personagemSnap.id,
-                        ...personagemSnap.data()
-                    };
-                    
-                    // Stats básicos
-                    const pvMax = 20;
-                    const pmMax = 10;
-                    
+                const dxPercent = 30 + (personagemAtual.atributos?.dx?.esferas || 0) * 2;
+                const iqPercent = 30 + (personagemAtual.atributos?.iq?.esferas || 0) * 2;
+                const vigorPercent = 30 + (personagemAtual.atributos?.vigor?.esferas || 0) * 3;
+                const esquiva = Math.floor((dxPercent + iqPercent + vigorPercent) / 3) + 10;
+                
+                if (!posicoes[personagemAtual.id]) {
                     posicoes[personagemAtual.id] = {
                         id: personagemAtual.id,
                         nome: personagemAtual.nome,
                         tipo: 'pc',
                         cor: '#1E90FF',
                         jogadorUid: currentUser.uid,
-                        pv: pvMax,
+                        pv: personagemAtual.statusCombate?.vidaAtual || pvMax,
                         pvMax: pvMax,
-                        pm: pmMax,
+                        pm: personagemAtual.statusCombate?.manaAtual || pmMax,
                         pmMax: pmMax,
-                        esquiva: 30,
-                        aparar: 20,
-                        bloqueio: 20,
+                        esquiva: esquiva,
+                        aparar: 0,
+                        bloqueio: 0,
                         andar: 6,
                         correr: 12,
                         rd: 0,
@@ -1791,255 +1769,206 @@
                     };
                 }
             }
-        } catch (error) {
-            console.error('Erro ao carregar personagem:', error);
         }
+    } catch (error) {
+        console.error('Erro ao carregar personagem:', error);
     }
+}
 
-    async function carregarNPCs() {
-        if (!sessaoAtual) return;
+async function carregarNPCs() {
+    if (!sessaoAtual) return;
+    
+    try {
+        const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
+        const npcsSnap = await getDocs(npcsQuery);
+        let indiceCor = 0;
         
-        try {
-            const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
-            const npcsSnap = await getDocs(npcsQuery);
-            let indiceCor = 0;
+        npcsSnap.forEach(doc => {
+            const npc = doc.data();
+            const npcId = doc.id;
             
-            npcsSnap.forEach(doc => {
-                const npc = doc.data();
-                const npcId = doc.id;
-                
-                if (!posicoes[npcId]) {
-                    posicoes[npcId] = {
-                        id: npcId,
-                        nome: npc.nome,
-                        tipo: 'npc',
-                        cor: coresNPCs[indiceCor % coresNPCs.length],
-                        pv: npc.recursos?.pv_atual || 20,
-                        pvMax: npc.recursos?.pv_max || 20,
-                        pm: npc.recursos?.pm_atual || 5,
-                        pmMax: npc.recursos?.pm_max || 5,
-                        esquiva: npc.defesas?.esquiva || 30,
-                        aparar: npc.defesas?.aparar || 0,
-                        bloqueio: npc.defesas?.bloqueio || 0,
-                        andar: 4,
-                        correr: 8,
-                        rd: npc.defesas?.rd || 0,
-                        hexX: undefined,
-                        hexY: undefined
-                    };
-                    indiceCor++;
-                }
-            });
-        } catch (error) {
-            console.error('Erro ao carregar NPCs:', error);
-        }
+            if (!posicoes[npcId]) {
+                posicoes[npcId] = {
+                    id: npcId,
+                    nome: npc.nome,
+                    tipo: 'npc',
+                    cor: coresNPCs[indiceCor % coresNPCs.length],
+                    pv: npc.recursos?.pv_atual || 20,
+                    pvMax: npc.recursos?.pv_max || 20,
+                    pm: npc.recursos?.pm_atual || 5,
+                    pmMax: npc.recursos?.pm_max || 5,
+                    esquiva: npc.defesas?.esquiva || 30,
+                    aparar: npc.defesas?.aparar || 0,
+                    bloqueio: npc.defesas?.bloqueio || 0,
+                    andar: 4,
+                    correr: 8,
+                    rd: npc.defesas?.rd || 0,
+                    hexX: undefined,
+                    hexY: undefined
+                };
+                indiceCor++;
+            }
+        });
+    } catch (error) {
+        console.error('Erro ao carregar NPCs:', error);
     }
+}
 
-    // ============================================
-    // EVENT LISTENERS - CORRIGIDOS
-    // ============================================
+// ============================================
+// EVENT LISTENERS
+// ============================================
+
+function handleCanvasClick(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
     
-    function handleCanvasInteraction(clientX, clientY) {
-        const hex = pixelToHex(clientX, clientY);
+    const mouseX = (clientX - rect.left) * scaleX;
+    const mouseY = (clientY - rect.top) * scaleY;
+    
+    const hex = pixelToHex(mouseX, mouseY);
+    
+    if (hex.x >= 0 && hex.y >= 0) {
+        hexSelecionado = hex;
         
-        if (hex.x >= 0 && hex.y >= 0) {
-            hexSelecionado = hex;
-            
-            const personagemNoHex = Object.entries(posicoes).find(([id, pos]) => 
-                pos.hexX === hex.x && pos.hexY === hex.y
-            );
-            
-            if (personagemNoHex) {
-                // Clicou em personagem
-                personagemSelecionado = personagemNoHex[0];
-                npcSelecionadoParaPosicionar = null;
-                instrucaoPosicionamento.style.display = 'none';
-                atualizarFicha(personagemSelecionado);
-            } 
-            else if (ehGM && npcSelecionadoParaPosicionar) {
-                // GM posicionando NPC
-                moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
-            }
-            else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
-                     (posicoes[personagemAtual.id].hexX === undefined || posicoes[personagemAtual.id].hexX === null)) {
-                // Jogador posicionando PC
-                moverPersonagem(personagemAtual.id, hex.x, hex.y);
-            }
-            
-            desenharMapa();
-            atualizarListaPersonagens();
+        const personagemNoHex = Object.entries(posicoes).find(([id, pos]) => 
+            pos.hexX === hex.x && pos.hexY === hex.y
+        );
+        
+        if (personagemNoHex) {
+            personagemSelecionado = personagemNoHex[0];
+            npcSelecionadoParaPosicionar = null;
+            instrucaoPosicionamento.style.display = 'none';
+            atualizarFicha(personagemSelecionado);
+        } 
+        else if (ehGM && npcSelecionadoParaPosicionar) {
+            moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
         }
-    }
-    
-    // Mouse events
-    canvas.addEventListener('click', (e) => {
-        handleCanvasInteraction(e.clientX, e.clientY);
-    });
-    
-    // Touch events
-    canvas.addEventListener('touchstart', (e) => {
-        touchMoved = false;
-        if (e.touches.length === 1) {
-            touchStartTime = Date.now();
-            touchStartPos = { 
-                x: e.touches[0].clientX, 
-                y: e.touches[0].clientY 
-            };
+        else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
+                 (posicoes[personagemAtual.id].hexX === undefined || posicoes[personagemAtual.id].hexX === null)) {
+            moverPersonagem(personagemAtual.id, hex.x, hex.y);
         }
-    }, { passive: true });
-    
-    canvas.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 1) {
-            const dx = Math.abs(e.touches[0].clientX - touchStartPos.x);
-            const dy = Math.abs(e.touches[0].clientY - touchStartPos.y);
-            if (dx > 10 || dy > 10) {
-                touchMoved = true;
-            }
+        else if (personagemSelecionado && modoCombate === 'movimento') {
+            moverPersonagem(personagemSelecionado, hex.x, hex.y);
+            modoCombate = 'posicionamento';
+            highlightHex = [];
         }
-    }, { passive: true });
-    
-    canvas.addEventListener('touchend', (e) => {
-        if (e.changedTouches.length === 1 && !touchMoved) {
-            const touch = e.changedTouches[0];
-            const touchDuration = Date.now() - touchStartTime;
-            
-            if (touchDuration < 300) {
-                e.preventDefault();
-                handleCanvasInteraction(touch.clientX, touch.clientY);
-            }
-        }
-    }, { passive: false });
-
-    // Zoom controls
-    document.getElementById('btnZoomIn').addEventListener('click', () => {
-        if (zoomLevel < MAX_ZOOM) {
-            zoomLevel = Math.min(MAX_ZOOM, zoomLevel + 0.2);
-            updateHexMetrics();
-            desenharMapa();
-        }
-    });
-    
-    document.getElementById('btnZoomOut').addEventListener('click', () => {
-        if (zoomLevel > MIN_ZOOM) {
-            zoomLevel = Math.max(MIN_ZOOM, zoomLevel - 0.2);
-            updateHexMetrics();
-            desenharMapa();
-        }
-    });
-    
-    document.getElementById('btnResetZoom').addEventListener('click', () => {
-        zoomLevel = 1;
-        updateHexMetrics();
+        
         desenharMapa();
-        canvasContainer.scrollLeft = 0;
-        canvasContainer.scrollTop = 0;
-    });
-
-    // Botões
-    btnIniciarCombate.addEventListener('click', iniciarCombate);
-    btnFinalizarTurno.addEventListener('click', finalizarTurnoJogadores);
-    btnProximoTurno.addEventListener('click', avancarTurno);
-    btnEncerrarCombate.addEventListener('click', encerrarCombate);
-
-    // Funções globais
-    window.selecionarPersonagem = function(id) {
-        personagemSelecionado = id;
-        npcSelecionadoParaPosicionar = null;
-        instrucaoPosicionamento.style.display = 'none';
-        atualizarFicha(id);
-        desenharMapa();
-    };
-
-    window.selecionarNPCparaPosicionar = function(npcId) {
-        if (!ehGM) {
-            showToast('Apenas o GM pode posicionar NPCs', true);
-            return;
-        }
-        
-        const npc = posicoes[npcId];
-        if (!npc) return;
-        
-        if (npc.hexX !== undefined && npc.hexX !== null) {
-            showToast('Este NPC já está posicionado!', true);
-            return;
-        }
-        
-        npcSelecionadoParaPosicionar = npcId;
-        personagemSelecionado = null;
-        
-        instrucaoPosicionamento.style.display = 'inline-block';
-        instrucaoPosicionamento.innerHTML = `👇 Posicionando: ${npc.nome}`;
-        
         atualizarListaPersonagens();
-        desenharMapa();
-        showToast(`Toque no mapa para posicionar ${npc.nome}`);
-    };
+    }
+}
 
-    window.iniciarMovimento = function(id) {
-        const pos = posicoes[id];
-        if (!pos) return;
-        
-        personagemSelecionado = id;
+canvas.addEventListener('click', (e) => {
+    handleCanvasClick(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        handleCanvasClick(touch.clientX, touch.clientY);
+    }
+}, { passive: true });
+
+btnIniciarCombate.addEventListener('click', iniciarCombate);
+btnFinalizarTurno.addEventListener('click', finalizarTurnoJogadores);
+btnProximoTurno.addEventListener('click', avancarTurno);
+btnEncerrarCombate.addEventListener('click', encerrarCombate);
+
+window.selecionarPersonagem = function(id) {
+    personagemSelecionado = id;
+    npcSelecionadoParaPosicionar = null;
+    instrucaoPosicionamento.style.display = 'none';
+    atualizarFicha(id);
+    desenharMapa();
+};
+
+window.selecionarNPCparaPosicionar = function(npcId) {
+    if (!ehGM) {
+        showToast('Apenas o GM pode posicionar NPCs', true);
+        return;
+    }
+    
+    const npc = posicoes[npcId];
+    if (!npc) return;
+    
+    if (npc.hexX !== undefined && npc.hexX !== null) {
+        showToast('Este NPC já está posicionado!', true);
+        return;
+    }
+    
+    npcSelecionadoParaPosicionar = npcId;
+    modoCombate = 'posicionamento';
+    personagemSelecionado = null;
+    
+    instrucaoPosicionamento.style.display = 'inline-block';
+    instrucaoPosicionamento.innerHTML = `👇 Posicionando: ${npc.nome}`;
+    
+    atualizarListaPersonagens();
+    desenharMapa();
+    showToast(`Clique no mapa para posicionar ${npc.nome}`);
+};
+
+window.iniciarMovimento = function(id) {
+    const podeMover = ehGM || posicoes[id]?.jogadorUid === currentUser?.uid;
+    
+    if (!podeMover) {
+        showToast('Você só pode mover seu próprio personagem', true);
+        return;
+    }
+    
+    if (vezAtual !== (posicoes[id]?.tipo === 'pc' ? 'jogadores' : 'npcs')) {
+        showToast('Não é a vez deste personagem', true);
+        return;
+    }
+    
+    personagemSelecionado = id;
+    modoCombate = 'movimento';
+    atualizarFicha(id);
+    
+    const pos = posicoes[id];
+    if (pos && pos.hexX !== undefined && pos.hexX !== null) {
+        const alcance = pos.andar || 6;
         highlightHex = [];
         
-        if (pos.hexX !== undefined && pos.hexX !== null) {
-            const alcance = pos.andar || 6;
-            
-            for (let dx = -alcance; dx <= alcance; dx++) {
-                for (let dy = -alcance; dy <= alcance; dy++) {
-                    const newX = pos.hexX + dx;
-                    const newY = pos.hexY + dy;
-                    
-                    if (newX >= 0 && newX < MAPA_LARGURA && 
-                        newY >= 0 && newY < MAPA_ALTURA) {
-                        
-                        const distancia = Math.abs(dx) + Math.abs(dy);
-                        if (distancia <= alcance) {
-                            const ocupado = Object.values(posicoes).some(p => 
-                                p.hexX === newX && p.hexY === newY && p.id !== id
-                            );
-                            
-                            if (!ocupado) {
-                                highlightHex.push({ x: newX, y: newY });
-                            }
-                        }
+        for (let dx = -alcance; dx <= alcance; dx++) {
+            for (let dy = -alcance; dy <= alcance; dy++) {
+                const newX = pos.hexX + dx;
+                const newY = pos.hexY + dy;
+                if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                    const ocupado = Object.values(posicoes).some(p => 
+                        p.hexX === newX && p.hexY === newY && p.id !== id
+                    );
+                    if (!ocupado) {
+                        highlightHex.push({ x: newX, y: newY });
                     }
                 }
             }
         }
-        
-        desenharMapa();
-    };
-
-    // Resize handler
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            updateHexMetrics();
-            desenharMapa();
-        }, 250);
-    });
-
-    // ============================================
-    // INICIALIZAÇÃO
-    // ============================================
+    }
     
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            console.log('✅ Usuário autenticado:', user.uid);
-            await carregarSessao();
-        } else {
-            console.log('❌ Usuário não autenticado');
-            window.location.href = 'index.html';
-        }
-    });
-    
-    window.addEventListener('beforeunload', () => {
-        if (unsubscribePosicoes) unsubscribePosicoes();
-        if (unsubscribeCombate) unsubscribeCombate();
-    });
+    desenharMapa();
+};
+
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        console.log('✅ Usuário autenticado:', user.uid);
+        await carregarSessao();
+    } else {
+        console.log('❌ Usuário não autenticado');
+        window.location.href = 'index.html';
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    if (unsubscribePosicoes) unsubscribePosicoes();
+    if (unsubscribeCombate) unsubscribeCombate();
+});
 </script>
 </body>
 </html>
