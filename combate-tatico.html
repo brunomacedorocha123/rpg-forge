@@ -1017,10 +1017,71 @@ function desenharMapa() {
 }
 
 // ============================================
-// FUNÇÕES DE COMBATE - VERSÃO CORRIGIDA
+// FUNÇÃO NOVA: Garantir participação na sessao_participantes
+// ============================================
+async function garantirParticipacaoNaSessao() {
+    if (!sessaoAtual || !currentUser || ehGM) return true;
+    
+    try {
+        // Primeiro, buscar o vínculo do jogador na campanha
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", sessaoAtual.campanha_id_custom),
+            where("jogador_uid", "==", currentUser.uid),
+            where("status", "==", "ativo"),
+            limit(1)
+        );
+        
+        const vinculosSnap = await getDocs(vinculosQuery);
+        
+        if (vinculosSnap.empty) {
+            console.log('❌ Nenhum vínculo ativo encontrado para o jogador');
+            return false;
+        }
+        
+        const vinculo = vinculosSnap.docs[0].data();
+        const personagemId = vinculo.personagem_id;
+        const participanteId = `${currentUser.uid}_${sessaoAtual.id}`;
+        
+        console.log('📝 Verificando participação:', participanteId);
+        console.log('📌 Personagem vinculado:', personagemId);
+        
+        // Verificar se o documento já existe em sessao_participantes
+        const participanteRef = doc(db, "sessao_participantes", participanteId);
+        const participanteSnap = await getDoc(participanteRef);
+        
+        if (!participanteSnap.exists()) {
+            console.log('🆕 Criando documento em sessao_participantes...');
+            
+            // Criar o documento de participação
+            await setDoc(participanteRef, {
+                jogador_uid: currentUser.uid,
+                sessao_id: sessaoAtual.id,
+                personagem_id: personagemId,
+                personagem_nome: vinculo.personagem_nome,
+                criado_em: serverTimestamp()
+            });
+            
+            console.log('✅ Participação criada com sucesso!');
+            
+            // Aguardar 1 segundo para garantir que o documento foi criado
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            return true;
+        } else {
+            console.log('✅ Participação já existe');
+            return true;
+        }
+    } catch (error) {
+        console.error('❌ Erro ao criar participação:', error);
+        return false;
+    }
+}
+
+// ============================================
+// FUNÇÕES DE COMBATE - CORRIGIDAS
 // ============================================
 
-// ===== FUNÇÃO CORRIGIDA: Garantir posição do PC usando vínculo =====
 async function garantirPosicaoPC(personagemId) {
     if (!sessaoAtual) return false;
     
@@ -1037,7 +1098,7 @@ async function garantirPosicaoPC(personagemId) {
             
             console.log('🔥 Criando posição para PC:', pos.nome);
             
-            // 🔥 VERIFICAÇÃO CRÍTICA: Existe vínculo ativo?
+            // 🔥 VERIFICAÇÃO: Vínculo ativo existe?
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("personagem_id", "==", personagemId),
@@ -1068,18 +1129,14 @@ async function garantirPosicaoPC(personagemId) {
             
             const personagemData = personagemSnap.data();
             
-            // 🔥 CORREÇÃO AUTOMÁTICA: Se o userId estiver errado, NÃO BLOQUEIAMOS
-            // Apenas usamos o vínculo como fonte da verdade
-            
             // Criar documento de posição
             await setDoc(posRef, {
                 personagemId: personagemId,
                 nome: pos.nome,
                 tipo: 'pc',
                 cor: pos.cor || '#1E90FF',
-                jogadorUid: currentUser.uid,  // SEMPRE o usuário atual
-                vinculoId: vinculosSnap.docs[0].id,  // Prova do vínculo
-                // Dados do personagem
+                jogadorUid: currentUser.uid,
+                vinculoId: vinculosSnap.docs[0].id,
                 pv: pos.pv,
                 pvMax: pos.pvMax,
                 pm: pos.pm,
@@ -1185,7 +1242,6 @@ async function iniciarCombate() {
     }
 }
 
-// ===== FUNÇÃO CORRIGIDA: Mover personagem =====
 async function moverPersonagem(personagemId, hexX, hexY) {
     if (!combateAtivo && !ehGM) {
         console.log('Combate não ativo');
@@ -1709,8 +1765,12 @@ async function carregarSessao() {
         
         await carregarNPCs();
         
-        // 🔥 CORREÇÃO: Carregar personagem do jogador usando campanha_personagens
+        // 🔥 PRIMEIRO: Garantir participação na sessao_participantes
         if (!ehGM) {
+            const participacaoOk = await garantirParticipacaoNaSessao();
+            console.log('📋 Participação:', participacaoOk ? 'OK' : 'Falhou');
+            
+            // DEPOIS: Carregar personagem do jogador
             await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
         }
         
@@ -1766,7 +1826,6 @@ async function carregarSessao() {
     }
 }
 
-// ===== FUNÇÃO CORRIGIDA: Carregar personagem do jogador usando vínculo =====
 async function carregarPersonagemJogador(campanhaIdCustom) {
     if (!campanhaIdCustom || !currentUser) return;
     
@@ -1807,7 +1866,7 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
             
             console.log('✅ Personagem carregado:', personagemAtual.nome);
             
-            // Calcular stats (igual ao mesa-pc.html)
+            // Calcular stats
             const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
             const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
                           (personagemAtual.atributos?.iq?.esferas || 0) + 
