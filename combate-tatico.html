@@ -754,7 +754,7 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1017,8 +1017,106 @@ function desenharMapa() {
 }
 
 // ============================================
-// FUNÇÕES DE COMBATE - CORRIGIDAS PARA PC
+// FUNÇÕES DE COMBATE - VERSÃO CORRIGIDA
 // ============================================
+
+// ===== FUNÇÃO CORRIGIDA: Garantir posição do PC usando vínculo =====
+async function garantirPosicaoPC(personagemId) {
+    if (!sessaoAtual) return false;
+    
+    try {
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+        const posSnap = await getDoc(posRef);
+        
+        if (!posSnap.exists()) {
+            const pos = posicoes[personagemId];
+            if (!pos) {
+                console.error('Personagem não encontrado:', personagemId);
+                return false;
+            }
+            
+            console.log('🔥 Criando posição para PC:', pos.nome);
+            
+            // 🔥 VERIFICAÇÃO CRÍTICA: Existe vínculo ativo?
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("personagem_id", "==", personagemId),
+                where("jogador_uid", "==", currentUser.uid),
+                where("status", "==", "ativo"),
+                limit(1)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            
+            if (vinculosSnap.empty) {
+                console.error('❌ Jogador não tem vínculo ativo com este personagem');
+                showToast('Você não tem permissão para usar este personagem', true);
+                return false;
+            }
+            
+            const vinculo = vinculosSnap.docs[0].data();
+            console.log('✅ Vínculo verificado:', vinculo);
+            
+            // Buscar o personagem para garantir que temos todos os dados
+            const personagemRef = doc(db, "personagens", personagemId);
+            const personagemSnap = await getDoc(personagemRef);
+            
+            if (!personagemSnap.exists()) {
+                console.error('❌ Personagem não encontrado no Firestore');
+                return false;
+            }
+            
+            const personagemData = personagemSnap.data();
+            
+            // 🔥 CORREÇÃO AUTOMÁTICA: Se o userId estiver errado, NÃO BLOQUEIAMOS
+            // Apenas usamos o vínculo como fonte da verdade
+            
+            // Criar documento de posição
+            await setDoc(posRef, {
+                personagemId: personagemId,
+                nome: pos.nome,
+                tipo: 'pc',
+                cor: pos.cor || '#1E90FF',
+                jogadorUid: currentUser.uid,  // SEMPRE o usuário atual
+                vinculoId: vinculosSnap.docs[0].id,  // Prova do vínculo
+                // Dados do personagem
+                pv: pos.pv,
+                pvMax: pos.pvMax,
+                pm: pos.pm,
+                pmMax: pos.pmMax,
+                esquiva: pos.esquiva || 0,
+                aparar: pos.aparar || 0,
+                bloqueio: pos.bloqueio || 0,
+                andar: pos.andar || 6,
+                correr: pos.correr || 12,
+                rd: pos.rd || 0,
+                hexX: null,
+                hexY: null,
+                atualizadoEm: serverTimestamp()
+            });
+            
+            console.log('✅ Posição PC criada com sucesso via vínculo');
+            return true;
+        }
+        
+        // Se já existe, verificar se o jogadorUid está correto
+        const posData = posSnap.data();
+        if (posData.jogadorUid !== currentUser.uid) {
+            console.log('🔄 Corrigindo jogadorUid da posição existente');
+            await updateDoc(posRef, {
+                jogadorUid: currentUser.uid,
+                atualizadoEm: serverTimestamp()
+            });
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Erro ao criar posição PC:', error);
+        showToast('Erro ao criar posição: ' + error.message, true);
+        return false;
+    }
+}
 
 async function iniciarCombate() {
     if (!ehGM) {
@@ -1087,62 +1185,10 @@ async function iniciarCombate() {
     }
 }
 
-// 🔥 FUNÇÃO CRÍTICA: Criar posição para PC se não existir
-async function garantirPosicaoPC(personagemId) {
-    if (!sessaoAtual) return false;
-    
-    try {
-        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-        const posSnap = await getDoc(posRef);
-        
-        if (!posSnap.exists()) {
-            // Criar documento de posição para o jogador
-            const pos = posicoes[personagemId];
-            if (!pos) {
-                console.error('Personagem não encontrado:', personagemId);
-                return false;
-            }
-            
-            console.log('🔥 Criando posição para PC:', pos.nome);
-            
-            // Criar com dados completos
-            await setDoc(posRef, {
-                personagemId: personagemId,
-                nome: pos.nome,
-                tipo: 'pc',
-                cor: pos.cor || '#1E90FF',
-                jogadorUid: currentUser.uid,
-                pv: pos.pv,
-                pvMax: pos.pvMax,
-                pm: pos.pm,
-                pmMax: pos.pmMax,
-                esquiva: pos.esquiva || 0,
-                aparar: pos.aparar || 0,
-                bloqueio: pos.bloqueio || 0,
-                andar: pos.andar || 6,
-                correr: pos.correr || 12,
-                rd: pos.rd || 0,
-                hexX: null,
-                hexY: null,
-                atualizadoEm: serverTimestamp()
-            });
-            
-            console.log('✅ Posição PC criada com sucesso');
-            return true;
-        }
-        
-        return true; // Já existe
-        
-    } catch (error) {
-        console.error('❌ Erro ao criar posição PC:', error);
-        showToast('Erro ao criar posição: ' + error.message, true);
-        return false;
-    }
-}
-
+// ===== FUNÇÃO CORRIGIDA: Mover personagem =====
 async function moverPersonagem(personagemId, hexX, hexY) {
-    if (!combateAtivo || !sessaoAtual) {
-        console.log('Combate não ativo ou sessão não definida');
+    if (!combateAtivo && !ehGM) {
+        console.log('Combate não ativo');
         return;
     }
     
@@ -1196,15 +1242,24 @@ async function moverPersonagem(personagemId, hexX, hexY) {
     try {
         console.log('🎮 Movendo:', personagemId, '->', hexX, hexY);
         
-        // 🔥 CORREÇÃO CRÍTICA: Para PCs, garantir que o documento existe primeiro
+        // 🔥 CORREÇÃO CRÍTICA: Para PCs, verificar vínculo primeiro
         if (pos.tipo === 'pc' && !ehGM) {
-            const existe = await garantirPosicaoPC(personagemId);
-            if (!existe) {
-                throw new Error('Falha ao criar posição para PC');
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("personagem_id", "==", personagemId),
+                where("jogador_uid", "==", currentUser.uid),
+                where("status", "==", "ativo"),
+                limit(1)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            
+            if (vinculosSnap.empty) {
+                throw new Error('Você não tem vínculo ativo com este personagem');
             }
         }
         
-        // Agora atualizar a posição
+        // Atualizar a posição
         const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
         
         await setDoc(posRef, {
@@ -1622,7 +1677,7 @@ function atualizarFicha(personagemId) {
 }
 
 // ============================================
-// CARREGAMENTO INICIAL
+// CARREGAMENTO INICIAL - VERSÃO CORRIGIDA
 // ============================================
 
 async function carregarSessao() {
@@ -1654,10 +1709,12 @@ async function carregarSessao() {
         
         await carregarNPCs();
         
+        // 🔥 CORREÇÃO: Carregar personagem do jogador usando campanha_personagens
         if (!ehGM) {
             await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
         }
         
+        // Verificar se há combate ativo
         const combatesQuery = query(
             collection(db, "sessoes", sessaoAtual.id, "combates"),
             where("ativo", "==", true),
@@ -1709,10 +1766,14 @@ async function carregarSessao() {
     }
 }
 
+// ===== FUNÇÃO CORRIGIDA: Carregar personagem do jogador usando vínculo =====
 async function carregarPersonagemJogador(campanhaIdCustom) {
     if (!campanhaIdCustom || !currentUser) return;
     
     try {
+        console.log('🔍 Buscando vínculo para:', currentUser.uid, 'na campanha:', campanhaIdCustom);
+        
+        // Buscar o vínculo ativo
         const vinculosQuery = query(
             collection(db, "campanha_personagens"),
             where("campanha_id", "==", campanhaIdCustom),
@@ -1722,53 +1783,64 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
         
         const vinculosSnap = await getDocs(vinculosQuery);
         
-        if (!vinculosSnap.empty) {
-            vinculoAtual = {
-                id: vinculosSnap.docs[0].id,
-                ...vinculosSnap.docs[0].data()
+        if (vinculosSnap.empty) {
+            console.log('❌ Nenhum vínculo ativo encontrado');
+            return;
+        }
+        
+        vinculoAtual = {
+            id: vinculosSnap.docs[0].id,
+            ...vinculosSnap.docs[0].data()
+        };
+        
+        console.log('✅ Vínculo encontrado:', vinculoAtual);
+        
+        // Buscar o personagem
+        const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
+        const personagemSnap = await getDoc(personagemRef);
+        
+        if (personagemSnap.exists()) {
+            personagemAtual = {
+                id: personagemSnap.id,
+                ...personagemSnap.data()
             };
             
-            const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
-            const personagemSnap = await getDoc(personagemRef);
+            console.log('✅ Personagem carregado:', personagemAtual.nome);
             
-            if (personagemSnap.exists()) {
-                personagemAtual = {
-                    id: personagemSnap.id,
-                    ...personagemSnap.data()
-                };
-                
-                const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
-                const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
-                              (personagemAtual.atributos?.iq?.esferas || 0) + 
-                              (personagemAtual.atributos?.vt?.esferas || 0) + 15;
-                
-                const dxPercent = 30 + (personagemAtual.atributos?.dx?.esferas || 0) * 2;
-                const iqPercent = 30 + (personagemAtual.atributos?.iq?.esferas || 0) * 2;
-                const vigorPercent = 30 + (personagemAtual.atributos?.vigor?.esferas || 0) * 3;
-                const esquiva = Math.floor((dxPercent + iqPercent + vigorPercent) / 3) + 10;
-                
-                if (!posicoes[personagemAtual.id]) {
-                    posicoes[personagemAtual.id] = {
-                        id: personagemAtual.id,
-                        nome: personagemAtual.nome,
-                        tipo: 'pc',
-                        cor: '#1E90FF',
-                        jogadorUid: currentUser.uid,
-                        pv: personagemAtual.statusCombate?.vidaAtual || pvMax,
-                        pvMax: pvMax,
-                        pm: personagemAtual.statusCombate?.manaAtual || pmMax,
-                        pmMax: pmMax,
-                        esquiva: esquiva,
-                        aparar: 0,
-                        bloqueio: 0,
-                        andar: 6,
-                        correr: 12,
-                        rd: 0,
-                        hexX: undefined,
-                        hexY: undefined
-                    };
-                }
-            }
+            // Calcular stats (igual ao mesa-pc.html)
+            const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
+            const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
+                          (personagemAtual.atributos?.iq?.esferas || 0) + 
+                          (personagemAtual.atributos?.vt?.esferas || 0) + 15;
+            
+            const dxPercent = 30 + (personagemAtual.atributos?.dx?.esferas || 0) * 2;
+            const iqPercent = 30 + (personagemAtual.atributos?.iq?.esferas || 0) * 2;
+            const vigorPercent = 30 + (personagemAtual.atributos?.vigor?.esferas || 0) * 3;
+            const esquiva = Math.floor((dxPercent + iqPercent + vigorPercent) / 3) + 10;
+            
+            // Criar posição na memória
+            posicoes[personagemAtual.id] = {
+                id: personagemAtual.id,
+                nome: personagemAtual.nome,
+                tipo: 'pc',
+                cor: '#1E90FF',
+                jogadorUid: currentUser.uid,
+                personagemId: personagemAtual.id,
+                pv: personagemAtual.statusCombate?.vidaAtual || pvMax,
+                pvMax: pvMax,
+                pm: personagemAtual.statusCombate?.manaAtual || pmMax,
+                pmMax: pmMax,
+                esquiva: esquiva,
+                aparar: 0,
+                bloqueio: 0,
+                andar: 6,
+                correr: 12,
+                rd: 0,
+                hexX: undefined,
+                hexY: undefined
+            };
+            
+            console.log('✅ Posição em memória criada para:', personagemAtual.nome);
         }
     } catch (error) {
         console.error('Erro ao carregar personagem:', error);
@@ -1846,7 +1918,10 @@ function handleCanvasClick(clientX, clientY) {
         }
         else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
                  (posicoes[personagemAtual.id].hexX === undefined || posicoes[personagemAtual.id].hexX === null)) {
-            moverPersonagem(personagemAtual.id, hex.x, hex.y);
+            // 🔥 CHAMADA CORRIGIDA: Garantir posição antes de mover
+            garantirPosicaoPC(personagemAtual.id).then(() => {
+                moverPersonagem(personagemAtual.id, hex.x, hex.y);
+            });
         }
         else if (personagemSelecionado && modoCombate === 'movimento') {
             moverPersonagem(personagemSelecionado, hex.x, hex.y);
