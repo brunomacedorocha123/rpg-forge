@@ -913,18 +913,13 @@
 
         <!-- Painel inferior - AGORA COM 2 COLUNAS -->
         <div class="painel-inferior">
-            <!-- Rolagem (ORIGINAL - NÃO MEXER) -->
+            <!-- Rolagem -->
             <div class="rolagem-panel">
                 <h3><i class="fas fa-dice"></i> Rolagem</h3>
                 
                 <!-- Teste de Perícia -->
                 <div class="secao-rolagem">
                     <h4>🎲 Teste de Perícia</h4>
-                    
-                    <div class="modificador-box">
-                        <label>Modificador (±%)</label>
-                        <input type="number" id="modificadorPericia" value="0" placeholder="Ex: +5 ou -3">
-                    </div>
 
                     <div class="resultado-destaque">
                         <span class="rotulo">RESULTADO</span>
@@ -951,7 +946,7 @@
                     
                     <div class="config-dano">
                         <div>
-                            <label>Quantidade d10</label>
+                            <label>Quantidade d8</label>
                             <input type="number" id="qtdDadosDano" min="1" max="20" value="1">
                         </div>
                         <div>
@@ -978,7 +973,7 @@
                 </div>
             </div>
 
-            <!-- Painel de Críticos e Fulminantes (QUE VOCÊ GOSTOU) -->
+            <!-- Painel de Críticos e Fulminantes -->
             <div class="criticos-panel">
                 <h3><i class="fas fa-dragon"></i> Críticos & Fulminantes</h3>
                 
@@ -1247,7 +1242,7 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -1300,11 +1295,10 @@
         const btnSalvarNpc = document.getElementById('btnSalvarNpc');
         const logContainer = document.getElementById('logContainer');
 
-        // NOVO: Botão de Combate
+        // Botão de Combate
         const btnAbrirCombate = document.getElementById('btnAbrirCombate');
 
-        // Elementos de rolagem (ORIGINAIS - NÃO MEXER)
-        const modificadorPericia = document.getElementById('modificadorPericia');
+        // Elementos de rolagem
         const btnRolarPericia = document.getElementById('btnRolarPericia');
         const resultadoPercentual = document.getElementById('resultadoPercentual');
         const rolagemPublica = document.getElementById('rolagemPublica');
@@ -1340,7 +1334,7 @@
         const magiasNpcContainer = document.getElementById('magiasNpcContainer');
         const btnAddMagiaNpc = document.getElementById('btnAddMagiaNpc');
 
-        // NOVOS Elementos para Críticos
+        // Elementos para Críticos
         const btnRolarCritico = document.getElementById('btnRolarCritico');
         const resultadoCritico = document.getElementById('resultadoCritico');
         const resultadoCriticoNumero = document.getElementById('resultadoCriticoNumero');
@@ -1365,7 +1359,7 @@
             return urlParams.get('sessao');
         }
 
-        // ===== NOVA FUNÇÃO: ABRIR COMBATE TÁTICO =====
+        // Função: ABRIR COMBATE TÁTICO
         function abrirCombateTatico() {
             const sessaoId = getSessaoIdFromUrl();
             if (!sessaoId) {
@@ -1373,13 +1367,11 @@
                 return;
             }
             
-            // Abre o mapa tático em uma nova janela
             const url = `combate-tatico.html?sessao=${sessaoId}`;
             window.open(url, '_blank', 'width=1400,height=800,resizable=yes,scrollbars=yes');
         }
 
-        // ===== SISTEMA DE CRÍTICOS =====
-        // Tabelas completas
+        // SISTEMA DE CRÍTICOS
         const tabelas = {
             'ful-ataque': [
                 "Não pode se esquivar",
@@ -1472,12 +1464,12 @@
             });
         }
 
-        // ===== BOTÃO ABRIR COMBATE =====
+        // BOTÃO ABRIR COMBATE
         if (btnAbrirCombate) {
             btnAbrirCombate.addEventListener('click', abrirCombateTatico);
         }
 
-        // ===== UPLOAD DE CENÁRIO =====
+        // UPLOAD DE CENÁRIO
         uploadCenario.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file || !sessaoAtual) return;
@@ -1536,7 +1528,7 @@
             }
         });
 
-        // ===== SISTEMA DE ROLAGEM ORIGINAL =====
+        // SISTEMA DE ROLAGEM - PERÍCIA (SEM MODIFICADOR)
         btnRolarPericia.addEventListener('click', async () => {
             const dezena = Math.floor(Math.random() * 10);
             const unidade = Math.floor(Math.random() * 10);
@@ -1544,8 +1536,8 @@
             let resultadoBase = (dezena * 10) + unidade;
             if (resultadoBase === 0) resultadoBase = 100;
             
-            const mod = parseInt(modificadorPericia.value) || 0;
-            const resultadoFinal = resultadoBase + mod;
+            // Sem modificador - usar resultadoBase diretamente
+            const resultadoFinal = resultadoBase;
             
             resultadoPercentual.textContent = resultadoFinal + '%';
             
@@ -1558,7 +1550,7 @@
                     dezena,
                     unidade,
                     resultadoBase,
-                    modificador: mod,
+                    // modificador removido
                     resultado: resultadoFinal,
                     visibilidade,
                     timestamp: serverTimestamp()
@@ -1566,6 +1558,7 @@
             }
         });
 
+        // SISTEMA DE ROLAGEM - DANO (AGORA 1d8)
         btnRolarDano.addEventListener('click', async () => {
             const qtd = parseInt(qtdDadosDano.value) || 1;
             const mod = parseInt(modificadorDano.value) || 0;
@@ -1574,7 +1567,8 @@
             let soma = 0;
             
             for (let i = 0; i < qtd; i++) {
-                const valor = Math.floor(Math.random() * 10) + 1;
+                // ALTERADO: de 10 para 8 (1d8)
+                const valor = Math.floor(Math.random() * 8) + 1;
                 dados.push(valor);
                 soma += valor;
             }
@@ -1599,7 +1593,7 @@
             }
         });
 
-        // ===== MODAL NPC - FUNCIONALIDADE DE ABAS =====
+        // MODAL NPC - FUNCIONALIDADE DE ABAS
         document.querySelectorAll('.subaba[data-npc-tab]').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.subaba').forEach(t => t.classList.remove('ativa'));
@@ -1635,7 +1629,7 @@
                     <div class="form-row" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
                         <div class="form-group">
                             <label style="color:var(--text-secondary);">Dano</label>
-                            <input type="text" class="ataque-dano" value="${ataque.dano}" data-index="${index}" placeholder="Ex: 1d10+2" style="width:100%; padding:8px; background:var(--bg-primary); border:1px solid var(--gold); border-radius:5px; color:var(--text-primary);">
+                            <input type="text" class="ataque-dano" value="${ataque.dano}" data-index="${index}" placeholder="Ex: 1d8+2" style="width:100%; padding:8px; background:var(--bg-primary); border:1px solid var(--gold); border-radius:5px; color:var(--text-primary);">
                         </div>
                         <div class="form-group">
                             <label style="color:var(--text-secondary);">Alcance</label>
@@ -1672,7 +1666,7 @@
                 ataques.push({
                     nome: 'Novo Ataque',
                     bonus: 0,
-                    dano: '1d10',
+                    dano: '1d8',
                     alcance: 1
                 });
                 renderizarAtaques();
@@ -1702,7 +1696,7 @@
                     </div>
                     <div class="form-group" style="margin-bottom:10px;">
                         <label style="color:var(--text-secondary);">Efeito</label>
-                        <input type="text" class="magia-efeito" value="${magia.efeito}" data-index="${index}" placeholder="Ex: 1d10 de dano" style="width:100%; padding:8px; background:var(--bg-primary); border:1px solid var(--gold); border-radius:5px; color:var(--text-primary);">
+                        <input type="text" class="magia-efeito" value="${magia.efeito}" data-index="${index}" placeholder="Ex: 1d8 de dano" style="width:100%; padding:8px; background:var(--bg-primary); border:1px solid var(--gold); border-radius:5px; color:var(--text-primary);">
                     </div>
                     <button class="btn-remover-ataque" data-index="${index}" style="background:transparent; border:1px solid #e74c3c; color:#e74c3c; padding:5px 10px; border-radius:5px; cursor:pointer;">
                         <i class="fas fa-trash"></i> Remover
@@ -1847,7 +1841,7 @@
             });
         }
 
-        // ===== CARREGAR SESSÃO =====
+        // CARREGAR SESSÃO
         async function carregarSessao() {
             const sessaoId = getSessaoIdFromUrl();
             if (!sessaoId) {
@@ -1989,7 +1983,7 @@
                         logHtml += `
                             <div class="log-item ${classe}">
                                 <span class="icone">${icone}</span>
-                                Perícia: ${r.resultado}% (base ${r.resultadoBase}% ${r.modificador > 0 ? '+' : ''}${r.modificador})
+                                Perícia: ${r.resultado}% (base ${r.resultadoBase}%)
                             </div>
                         `;
                     } else if (r.tipo === 'dano') {
