@@ -3573,7 +3573,7 @@ body {
             </div>
         </div>
     </div>
-  <script type="module">
+ <script type="module">
 // ============================================
 // SISTEMA RPGFORCE - VERSÃO COMPLETA CORRIGIDA
 // ============================================
@@ -5959,29 +5959,41 @@ function selecionarVantagem(card) {
 }
 
 // ============================================
-// FUNÇÃO PARA SELECIONAR DESVANTAGEM (COMPLETO E CORRIGIDO)
+// FUNÇÃO PARA SELECIONAR DESVANTAGEM (VERSÃO CORRIGIDA FINAL)
 // ============================================
 function selecionarDesvantagem(card) {
     const desvantagemId = card.dataset.desvantagem;
     
     // CASO ESPECIAL PARA FOBIA
     if (desvantagemId === 'fobia') {
-        if (desvantagensSelecionadas.size < maxDesvantagens) {
+        // Se JÁ TEM fobia selecionada, REMOVER
+        if (desvantagensSelecionadas.has('fobia')) {
+            desvantagensSelecionadas.delete('fobia');
+            card.classList.remove('selecionada');
+            fobiaSelecionada = null;
+            if (elements.fobiaEscolhida) {
+                elements.fobiaEscolhida.style.display = 'none';
+                elements.fobiaEscolhida.textContent = '';
+            }
+            atualizarContadoresAbas();
+            atualizarLimitesCards();
+            triggerAutoSave();
+        } 
+        // Se NÃO TEM fobia E ainda há espaço
+        else if (desvantagensSelecionadas.size < maxDesvantagens) {
             if (elements.modalFobias) elements.modalFobias.classList.add('active');
-        } else {
+        } 
+        // Se tentou adicionar mas já atingiu o limite
+        else {
             alert(`Limite de desvantagens atingido! (${maxDesvantagens})`);
         }
-        return; // IMPEDE que a fobia seja processada como desvantagem normal
+        return;
     }
     
     // CASO ESPECIAL PARA VÍCIO
     if (desvantagemId === 'vicio') {
-        // Se NÃO tem vício selecionado E ainda há espaço
-        if (!desvantagensSelecionadas.has('vicio') && desvantagensSelecionadas.size < maxDesvantagens) {
-            if (elements.modalVicio) elements.modalVicio.classList.add('active');
-        } 
-        // Se já tem vício selecionado (REMOVER)
-        else if (desvantagensSelecionadas.has('vicio')) {
+        // Se JÁ TEM vício selecionado, REMOVER
+        if (desvantagensSelecionadas.has('vicio')) {
             desvantagensSelecionadas.delete('vicio');
             card.classList.remove('selecionada');
             vicioEspecificado = null;
@@ -5993,11 +6005,15 @@ function selecionarDesvantagem(card) {
             atualizarLimitesCards();
             triggerAutoSave();
         } 
+        // Se NÃO TEM vício E ainda há espaço
+        else if (desvantagensSelecionadas.size < maxDesvantagens) {
+            if (elements.modalVicio) elements.modalVicio.classList.add('active');
+        } 
         // Se tentou adicionar mas já atingiu o limite
         else {
-            alert(`Você já selecionou ${maxDesvantagens} desvantagens!`);
+            alert(`Limite de desvantagens atingido! (${maxDesvantagens})`);
         }
-        return; // IMPEDE que o vício seja processado como desvantagem normal
+        return;
     }
     
     // COMPORTAMENTO NORMAL PARA OUTRAS DESVANTAGENS
@@ -6011,7 +6027,7 @@ function selecionarDesvantagem(card) {
             desvantagensSelecionadas.add(desvantagemId);
             card.classList.add('selecionada');
         } else {
-            alert(`Você já selecionou ${maxDesvantagens} desvantagens!`);
+            alert(`Limite de desvantagens atingido! (${maxDesvantagens})`);
             return;
         }
     }
@@ -7151,7 +7167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => selecionarVantagem(card));
     });
     
-    document.querySelectorAll('.desvantagem-card:not(#cardFobia)').forEach(card => {
+    document.querySelectorAll('.desvantagem-card:not(#cardFobia):not(#cardVicio)').forEach(card => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
     
