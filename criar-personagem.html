@@ -5959,23 +5959,29 @@ function selecionarVantagem(card) {
 }
 
 // ============================================
-// FUNÇÃO PARA SELECIONAR DESVANTAGEM (COM VÍCIO)
+// FUNÇÃO PARA SELECIONAR DESVANTAGEM (COMPLETO E CORRIGIDO)
 // ============================================
 function selecionarDesvantagem(card) {
     const desvantagemId = card.dataset.desvantagem;
     
-    // Caso especial para Fobia
-    if (desvantagemId === 'fobia' && elements.modalFobias) {
-        elements.modalFobias.classList.add('active');
-        return;
+    // CASO ESPECIAL PARA FOBIA
+    if (desvantagemId === 'fobia') {
+        if (desvantagensSelecionadas.size < maxDesvantagens) {
+            if (elements.modalFobias) elements.modalFobias.classList.add('active');
+        } else {
+            alert(`Limite de desvantagens atingido! (${maxDesvantagens})`);
+        }
+        return; // IMPEDE que a fobia seja processada como desvantagem normal
     }
     
-    // Caso especial para Vício
+    // CASO ESPECIAL PARA VÍCIO
     if (desvantagemId === 'vicio') {
+        // Se NÃO tem vício selecionado E ainda há espaço
         if (!desvantagensSelecionadas.has('vicio') && desvantagensSelecionadas.size < maxDesvantagens) {
             if (elements.modalVicio) elements.modalVicio.classList.add('active');
-        } else if (desvantagensSelecionadas.has('vicio')) {
-            // Remover vício
+        } 
+        // Se já tem vício selecionado (REMOVER)
+        else if (desvantagensSelecionadas.has('vicio')) {
             desvantagensSelecionadas.delete('vicio');
             card.classList.remove('selecionada');
             vicioEspecificado = null;
@@ -5986,17 +5992,21 @@ function selecionarDesvantagem(card) {
             atualizarContadoresAbas();
             atualizarLimitesCards();
             triggerAutoSave();
-        } else {
+        } 
+        // Se tentou adicionar mas já atingiu o limite
+        else {
             alert(`Você já selecionou ${maxDesvantagens} desvantagens!`);
         }
-        return;
+        return; // IMPEDE que o vício seja processado como desvantagem normal
     }
     
-    // Comportamento normal para outras desvantagens
+    // COMPORTAMENTO NORMAL PARA OUTRAS DESVANTAGENS
     if (desvantagensSelecionadas.has(desvantagemId)) {
+        // REMOVER desvantagem
         desvantagensSelecionadas.delete(desvantagemId);
         card.classList.remove('selecionada');
     } else {
+        // ADICIONAR desvantagem (se houver espaço)
         if (desvantagensSelecionadas.size < maxDesvantagens) {
             desvantagensSelecionadas.add(desvantagemId);
             card.classList.add('selecionada');
@@ -6006,11 +6016,12 @@ function selecionarDesvantagem(card) {
         }
     }
     
-    // Efeitos especiais
+    // EFEITOS ESPECIAIS para algumas desvantagens
     if (desvantagemId === 'pobre' || desvantagemId === 'rico') {
         resetarInventarioPorRiqueza();
     }
     
+    // ATUALIZAR interface
     atualizarLimitesCards();
     atualizarContadoresAbas();
     atualizarInterface();
