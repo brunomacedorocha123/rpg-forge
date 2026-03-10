@@ -3516,14 +3516,14 @@ body {
             </div>
         </div>
     </div>
-  <script type="module">
+ <script type="module">
 // ============================================
 // SISTEMA RPGFORCE - VERSÃO COMPLETA CORRIGIDA
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, collection, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
 // ============================================
 // FIREBASE CONFIG
@@ -3543,17 +3543,30 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // ============================================
-// LIMPAR DADOS ANTIGOS DO STORAGE
+// VARIÁVEIS GLOBAIS
 // ============================================
-try {
-    const salvos = sessionStorage.getItem('personagemTemp');
-    if (salvos) {
-        const dados = JSON.parse(salvos);
-        if (dados.vantagens && dados.vantagens.includes('reflexoCombate')) {
-            sessionStorage.removeItem('personagemTemp');
-        }
-    }
-} catch (e) {}
+let abaAtual = 'basicos';
+let escolaAtual = 'agua';
+let esferasIniciais = 6;
+let esferasRestantes = 6;
+let fobiaSelecionada = null;
+let personagemTemp = null;
+let personagemId = null;
+let modoEdicao = false;
+const vantagensSelecionadas = new Set();
+const desvantagensSelecionadas = new Set();
+let maxVantagens = 3;
+let maxDesvantagens = 4;
+let ppDisponivel = 30;
+let ppGastoTotal = 0;
+let pericias = {};
+let periciaAtual = null;
+let dinheiroBase = 1000;
+let autoSaveTimeout = null;
+let magiaSelecionada = null;
+let escolaMagiaSelecionada = 'agua';
+let inventario = { corpo: [], mochila: [], deposito: [] };
+let dinheiro = 0;
 
 // ============================================
 // ATRIBUTOS
@@ -4189,8 +4202,9 @@ const dadosMagiasTerra = {
         }
     }
 };
+
 // ============================================
-// ESCOLAS DE MAGIA (VERIFICAR ORDEM)
+// ESCOLAS DE MAGIA
 // ============================================
 const escolas = {
     agua: {
@@ -4224,7 +4238,7 @@ const escolas = {
             controlarVento: { nivel: 0, desbloqueada: false, ordem: 2 },
             rajadaVento: { nivel: 0, desbloqueada: false, ordem: 3 },
             laminasAr: { nivel: 0, desbloqueada: false, ordem: 4 },
-            respirarNaAguaAr: { nivel: 0, desbloqueada: false, ordem: 5 }, // ← ORDEM 5 (CORRESPONDE À 5ª MAGIA)
+            respirarNaAguaAr: { nivel: 0, desbloqueada: false, ordem: 5 },
             andarNoAr: { nivel: 0, desbloqueada: false, ordem: 6 },
             corpoDeAr: { nivel: 0, desbloqueada: false, ordem: 7 },
             relampago: { nivel: 0, desbloqueada: false, ordem: 8 },
@@ -4427,32 +4441,6 @@ const catalogoItensData = {
 };
 
 // ============================================
-// VARIÁVEIS GLOBAIS
-// ============================================
-let abaAtual = 'basicos';
-let escolaAtual = 'agua';
-let esferasIniciais = 6;
-let esferasRestantes = 6;
-let fobiaSelecionada = null;
-let personagemTemp = null;
-let personagemId = null;
-let modoEdicao = false;
-const vantagensSelecionadas = new Set();
-const desvantagensSelecionadas = new Set();
-let maxVantagens = 3;
-let maxDesvantagens = 4;
-let ppDisponivel = 30;
-let ppGastoTotal = 0;
-let pericias = {};
-let periciaAtual = null;
-let dinheiroBase = 1000;
-let autoSaveTimeout = null;
-let magiaSelecionada = null;
-let escolaMagiaSelecionada = 'agua';
-let inventario = { corpo: [], mochila: [], deposito: [] };
-let dinheiro = 0;
-
-// ============================================
 // ELEMENTOS DOM
 // ============================================
 const elements = {
@@ -4582,28 +4570,6 @@ const elements = {
 };
 
 // ============================================
-// FUNÇÃO PARA RESETAR INVENTÁRIO QUANDO RIQUEZA MUDA
-// ============================================
-function resetarInventarioPorRiqueza() {
-    if (inventario.corpo.length > 0 || inventario.mochila.length > 0 || inventario.deposito.length > 0) {
-        if (confirm('Mudar o nível de riqueza irá remover todos os itens comprados. Deseja continuar?')) {
-            inventario = { corpo: [], mochila: [], deposito: [] };
-            dinheiro = calcularDinheiroInicial();
-            atualizarDinheiroDisplay();
-            renderizarInventario();
-            atualizarInterface();
-            triggerAutoSave();
-        } else {
-            document.getElementById('riqueza').value = personagemTemp?.riqueza || 'medio';
-        }
-    } else {
-        dinheiro = calcularDinheiroInicial();
-        atualizarDinheiroDisplay();
-        triggerAutoSave();
-    }
-}
-
-// ============================================
 // FUNÇÕES DE ATRIBUTOS
 // ============================================
 function getSTFixo() { return 5 + atributos.st.esferas; }
@@ -4697,16 +4663,14 @@ function calcularDanoBase() {
 }
 
 // ============================================
-// NOVO CÁLCULO DE DESLOCAMENTO COM ARREDONDAMENTO
+// CÁLCULO DE DESLOCAMENTO
 // ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
     
-    // Calcula os valores brutos
     const andarBruto = soma * 0.1;
     const correrBruto = soma * 0.3;
     
-   
     function arredondarDeslocamento(valor) {
         const parteInteira = Math.floor(valor);
         const parteDecimal = valor - parteInteira;
@@ -5473,16 +5437,14 @@ function renderizarPericiasAdquiridas() {
         if (pericia.atributo === 'dx') atributoBase = getDXPercentual();
         else if (pericia.atributo === 'iq') atributoBase = getIQPercentual();
         
-        // Bônus de vantagens existentes (ex: Carisma em Persuasão)
         let bonusExtra = getBonusPericia(id);
         
-        // BÔNUS DA ORIENTAÇÃO DO EXPLORADOR
         if (vantagensSelecionadas.has('orientacaoExplorador')) {
             if (id === 'sobrevivencia') {
-                bonusExtra += 5; // +5% em Sobrevivência
+                bonusExtra += 5;
             }
             if (id === 'rastreamento') {
-                bonusExtra += 3; // +3% em Rastreamento
+                bonusExtra += 3;
             }
         }
         
@@ -5785,7 +5747,7 @@ function renderizarEsferas(escolaId = escolaAtual) {
 }
 
 // ============================================
-// MAGIAS - DETALHE DA MAGIA (VERSÃO MODIFICADA)
+// MAGIAS - DETALHE DA MAGIA
 // ============================================
 function abrirDetalheMagia(escolaId, magiaId) {
     const escola = escolas[escolaId];
@@ -5798,40 +5760,31 @@ function abrirDetalheMagia(escolaId, magiaId) {
     escolaMagiaSelecionada = escolaId;
     magiaSelecionada = magiaId;
     
-    // Título da magia
     if (elements.detalheMagiaTitulo) elements.detalheMagiaTitulo.textContent = magiaDados.nome;
     
-    // NOVO: Mostrar custo e tempo nos cards superiores
     const custoPM = magiaDados.custoPM || 1;
     const tempo = magiaDados.tempoConjuracao || "1 ação padrão";
     
-    // Atualiza os cards de custo e tempo
     const custoElement = document.getElementById('detalheMagiaCusto');
     const tempoElement = document.getElementById('detalheMagiaTempo');
     
     if (custoElement) custoElement.textContent = custoPM + ' PM';
     if (tempoElement) tempoElement.textContent = tempo;
     
-    // NH da magia
     const iqPercentual = getIQPercentual();
     const nhBase = iqPercentual + 10;
     const nhAtual = nhBase + (magia.nivel || 0);
     
     if (elements.detalheMagiaNH) elements.detalheMagiaNH.textContent = nhAtual + '%';
     
-    // MODIFICADO: Tabela com novas colunas de Custo e Tempo
     let linhas = '';
     for (let i = 1; i <= 10; i++) {
         const classe = i === magia.nivel ? 'nivel-atual' : '';
         const efeito = magiaDados.efeitos[i] || '-';
         const nhNivel = nhBase + i;
         
-        // Custo e tempo podem ser fixos ou variar por nível
         let custoNivel = custoPM;
         let tempoNivel = tempo;
-        
-        // Se quiser que alguns custos variem por nível, pode adicionar lógica aqui
-        // if (magiaId === 'bolaDeFogo') custoNivel = 2 + Math.floor(i/2);
         
         linhas += `<tr class="${classe}">
             <td>${i}</td>
@@ -5856,7 +5809,7 @@ function abrirDetalheMagia(escolaId, magiaId) {
 }
 
 // ============================================
-// VANTAGENS E DESVANTAGENS
+// VANTAGENS E DESVANTAGENS - CORRIGIDO
 // ============================================
 function selecionarVantagem(card) {
     const vantagemId = card.dataset.vantagem;
@@ -5890,8 +5843,8 @@ function selecionarVantagem(card) {
         calcularRD();
     }
     
-    atualizarLimitesCards();
     atualizarContadoresAbas();
+    atualizarLimitesCards();
     atualizarInterface();
     triggerAutoSave();
 }
@@ -5916,8 +5869,8 @@ function selecionarDesvantagem(card) {
         resetarInventarioPorRiqueza();
     }
     
-    atualizarLimitesCards();
     atualizarContadoresAbas();
+    atualizarLimitesCards();
     atualizarInterface();
     triggerAutoSave();
 }
@@ -5938,6 +5891,25 @@ function atualizarLimitesCards() {
             card.classList.remove('limite-atingido');
         }
     });
+}
+
+function resetarInventarioPorRiqueza() {
+    if (inventario.corpo.length > 0 || inventario.mochila.length > 0 || inventario.deposito.length > 0) {
+        if (confirm('Mudar o nível de riqueza irá remover todos os itens comprados. Deseja continuar?')) {
+            inventario = { corpo: [], mochila: [], deposito: [] };
+            dinheiro = calcularDinheiroInicial();
+            atualizarDinheiroDisplay();
+            renderizarInventario();
+            atualizarInterface();
+            triggerAutoSave();
+        } else {
+            document.getElementById('riqueza').value = personagemTemp?.riqueza || 'medio';
+        }
+    } else {
+        dinheiro = calcularDinheiroInicial();
+        atualizarDinheiroDisplay();
+        triggerAutoSave();
+    }
 }
 
 // ============================================
@@ -6626,6 +6598,16 @@ async function carregarPersonagem(id) {
 
 function carregarDadosSalvos() {
     try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const idParaEditar = urlParams.get('id');
+        
+        if (!idParaEditar) {
+            sessionStorage.removeItem('personagemTemp');
+            desvantagensSelecionadas.clear();
+            vantagensSelecionadas.clear();
+            return;
+        }
+        
         const salvos = sessionStorage.getItem('personagemTemp');
         if (salvos) {
             personagemTemp = JSON.parse(salvos);
