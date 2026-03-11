@@ -11,608 +11,847 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        :root {
-            --bg-primary: #0B0F1A;
-            --bg-secondary: #111827;
-            --gold: #D4AF37;
-            --gold-bright: #F4D03F;
-            --blue-energy: #1E90FF;
-            --blue-glow: #00BFFF;
-            --text-primary: #E5E7EB;
-            --text-secondary: #9CA3AF;
-            --bg-card: rgba(17, 24, 39, 0.8);
-            --border-glow: rgba(212, 175, 55, 0.3);
-            --hex-border: #000000;
-            --hex-highlight: rgba(212, 175, 55, 0.3);
-            --hex-move: rgba(46, 204, 113, 0.3);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            overflow: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(ellipse at 20% 80%, rgba(212, 175, 55, 0.15) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 20%, rgba(30, 144, 255, 0.1) 0%, transparent 50%),
-                var(--bg-primary);
-            z-index: -1;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-            padding: 20px;
-            gap: 20px;
-        }
-
-        /* Área principal do mapa */
-        .mapa-area {
-            flex: 3;
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-card);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            border-left: 5px solid var(--gold);
-            border-right: 2px solid var(--border-glow);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            overflow: hidden;
-            min-width: 0;
-        }
-
-        /* Barra de controle do combate */
-        .combate-header {
-            padding: 15px 20px;
-            background: var(--bg-secondary);
-            border-bottom: 2px solid var(--gold);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .turno-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .turno-badge {
-            background: var(--gold);
-            color: var(--bg-primary);
-            padding: 8px 16px;
-            border-radius: 30px;
-            font-weight: 700;
-            font-size: 1.2rem;
-            font-family: 'Cinzel', serif;
-            white-space: nowrap;
-        }
-
-        .vez-indicador {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: var(--bg-primary);
-            border-radius: 30px;
-            border: 1px solid var(--gold);
-            flex-wrap: wrap;
-        }
-
-        .vez-indicador .jogadores {
-            color: var(--blue-energy);
-            font-weight: 600;
-        }
-
-        .vez-indicador .npcs {
-            color: #e74c3c;
-            font-weight: 600;
-        }
-
-        .vez-indicador .ativo {
-            text-decoration: underline;
-            text-underline-offset: 4px;
-        }
-
-        .controles-gm {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn-combate {
-            background: transparent;
-            border: 2px solid var(--gold);
-            color: var(--gold);
-            padding: 8px 20px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-weight: 500;
-            font-family: 'Cinzel', serif;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
-        }
-
-        .btn-combate:hover:not(:disabled) {
-            background: var(--gold);
-            color: var(--bg-primary);
-            box-shadow: 0 0 15px var(--gold);
-        }
-
-        .btn-combate.primario {
-            background: var(--gold);
-            color: var(--bg-primary);
-        }
-
-        .btn-combate.primario:hover:not(:disabled) {
-            background: var(--gold-bright);
-            box-shadow: 0 0 20px var(--gold);
-        }
-
-        .btn-combate:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        /* Canvas do mapa - ORIGINAL RESTAURADO */
-        .canvas-container {
-            flex: 1;
-            position: relative;
-            overflow: auto;
-            background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            min-height: 300px;
-        }
-
-        #mapaCanvas {
-            display: block;
-            width: 100%;
-            height: auto;
-            max-width: 1000px;
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-            cursor: crosshair;
-        }
-
-        /* Instruções */
-        .instrucoes {
-            padding: 10px 20px;
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border-glow);
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .instrucoes i {
-            color: var(--gold);
-            margin-right: 5px;
-        }
-
-        .instrucoes .destaque {
-            background: var(--gold);
-            color: var(--bg-primary);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-        }
-
-        /* Painel lateral */
-        .painel-lateral {
-            flex: 1;
-            background: var(--bg-card);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            border-left: 5px solid var(--blue-energy);
-            border-right: 2px solid var(--border-glow);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            min-width: 280px;
-            max-width: 350px;
-        }
-
-        .painel-header {
-            padding: 15px 20px;
-            background: var(--bg-secondary);
-            border-bottom: 2px solid var(--blue-energy);
-        }
-
-        .painel-header h3 {
-            color: var(--gold);
-            font-family: 'Cinzel', serif;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: clamp(1rem, 2vw, 1.2rem);
-        }
-
-        .painel-header h3 i {
-            color: var(--blue-energy);
-        }
-
-        .painel-conteudo {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Ficha rápida */
-        .ficha-rapida {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-left: 4px solid var(--gold);
-        }
-
-        .ficha-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        .ficha-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: var(--gold);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: var(--bg-primary);
-        }
-
-        .ficha-nome {
-            font-weight: 700;
-            font-size: clamp(1rem, 3vw, 1.2rem);
-            color: var(--gold);
-            word-break: break-word;
-        }
-
-        .ficha-tipo {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        .ficha-stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .stat-item {
-            background: var(--bg-primary);
-            padding: 8px;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .stat-label {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-        }
-
-        .stat-value {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--gold);
-        }
-
-        .defesas-rapidas {
-            display: flex;
-            justify-content: space-between;
-            background: var(--bg-primary);
-            padding: 8px;
-            border-radius: 8px;
-            margin: 10px 0;
-        }
-
-        .defesa-item {
-            text-align: center;
-            flex: 1;
-        }
-
-        .defesa-item .valor {
-            font-weight: 700;
-            color: var(--gold-bright);
-        }
-
-        .acoes-painel {
-            margin-top: 15px;
-        }
-
-        .btn-acao {
-            width: 100%;
-            padding: 12px 10px;
-            margin-bottom: 8px;
-            background: var(--bg-primary);
-            border: 1px solid var(--blue-energy);
-            color: var(--text-primary);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: clamp(0.9rem, 2vw, 1rem);
-        }
-
-        .btn-acao:hover:not(:disabled) {
-            background: var(--blue-energy);
-            color: var(--bg-primary);
-        }
-
-        .btn-acao:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .btn-acao .dano {
-            color: var(--gold);
-            font-weight: 600;
-        }
-
-        /* Lista de personagens */
-        .personagens-lista {
-            margin-top: 20px;
-        }
-
-        .secao-lista {
-            margin-bottom: 20px;
-        }
-
-        .secao-titulo {
-            color: var(--gold);
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            border-bottom: 1px solid var(--border-glow);
-            padding-bottom: 5px;
-        }
-
-        .personagem-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 8px;
-            background: var(--bg-primary);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            border-left: 3px solid;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: clamp(0.85rem, 2vw, 0.9rem);
-        }
-
-        .personagem-item:hover {
-            transform: translateX(5px);
-            background: rgba(255,255,255,0.1);
-        }
-
-        .personagem-item.pc {
-            border-left-color: var(--blue-energy);
-        }
-
-        .personagem-item.npc {
-            border-left-color: #e74c3c;
-        }
-
-        .personagem-item.selecionado {
-            background: rgba(212, 175, 55, 0.2);
-            border: 1px solid var(--gold);
-        }
-
-        .personagem-item.aguardando {
-            border-left-color: #ffaa00;
-            background: rgba(255, 170, 0, 0.1);
-        }
-
-        .personagem-cor {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .personagem-nome {
-            flex: 1;
-            font-weight: 500;
-            word-break: break-word;
-        }
-
-        .personagem-status {
-            font-size: 0.7rem;
-            color: #ffaa00;
-            font-style: italic;
-            white-space: nowrap;
-        }
-
-        .personagem-pv {
-            font-size: 0.8rem;
-            color: #ff6b6b;
-            white-space: nowrap;
-        }
-
-        .badge-posicionar {
-            background: #ffaa00;
-            color: var(--bg-primary);
-            padding: 2px 6px;
-            border-radius: 12px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            margin-left: 5px;
-            white-space: nowrap;
-        }
-
-        /* Loading */
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(11, 15, 26, 0.95);
-            z-index: 4000;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .loading-overlay.active {
-            display: flex;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--gold);
-            border-top-color: var(--gold-bright);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--gold);
-            color: var(--bg-primary);
-            padding: 12px 24px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
-            display: none;
-            align-items: center;
-            gap: 8px;
-            z-index: 5000;
-            font-weight: 600;
-            max-width: 90%;
-            word-break: break-word;
-        }
-
-        .toast.show {
-            display: flex;
-        }
-
-        .toast.erro {
-            background: #e74c3c;
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
-        }
-
-        /* Responsivo - Mobile */
-        @media (max-width: 1024px) {
-            .container {
-                flex-direction: column;
-                height: auto;
-                min-height: 100vh;
-                padding: 10px;
-                gap: 10px;
-            }
-            
-            .mapa-area {
-                min-height: 50vh;
-            }
-            
-            .painel-lateral {
-                min-width: 100%;
-                max-width: 100%;
-                height: auto;
-                max-height: 50vh;
-            }
-            
-            .canvas-container {
-                min-height: 300px;
-            }
-            
-            .combate-header {
-                padding: 10px;
-            }
-            
-            .btn-combate {
-                padding: 6px 12px;
-                font-size: 0.9rem;
-            }
-            
-            .turno-badge {
-                padding: 6px 12px;
-                font-size: 1rem;
-            }
-            
-            .instrucoes {
-                padding: 8px 10px;
-                font-size: 0.8rem;
-                gap: 10px;
-            }
-        }
-
-        /* Mobile pequeno */
-        @media (max-width: 480px) {
-            .turno-info {
-                width: 100%;
-                justify-content: center;
-            }
-            
-            .controles-gm {
-                width: 100%;
-                justify-content: center;
-            }
-            
-            .btn-combate {
-                flex: 1;
-                justify-content: center;
-            }
-            
-            .instrucoes span {
-                width: 100%;
-                text-align: center;
-            }
-        }
+       * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+    --bg-primary: #0B0F1A;
+    --bg-secondary: #111827;
+    --gold: #D4AF37;
+    --gold-bright: #F4D03F;
+    --blue-energy: #1E90FF;
+    --blue-glow: #00BFFF;
+    --text-primary: #E5E7EB;
+    --text-secondary: #9CA3AF;
+    --bg-card: rgba(17, 24, 39, 0.8);
+    --border-glow: rgba(212, 175, 55, 0.3);
+    --hex-border: #000000;
+    --hex-highlight: rgba(212, 175, 55, 0.3);
+    --hex-move: rgba(46, 204, 113, 0.3);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(ellipse at 20% 80%, rgba(212, 175, 55, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(30, 144, 255, 0.1) 0%, transparent 50%),
+        var(--bg-primary);
+    z-index: -1;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+    padding: 20px;
+    gap: 20px;
+}
+
+/* Área principal do mapa */
+.mapa-area {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    border-left: 5px solid var(--gold);
+    border-right: 2px solid var(--border-glow);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* Barra de controle do combate */
+.combate-header {
+    padding: 15px 20px;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--gold);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.turno-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.turno-badge {
+    background: var(--gold);
+    color: var(--bg-primary);
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 1.2rem;
+    font-family: 'Cinzel', serif;
+    white-space: nowrap;
+}
+
+.vez-indicador {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg-primary);
+    border-radius: 30px;
+    border: 1px solid var(--gold);
+    flex-wrap: wrap;
+}
+
+.vez-indicador .jogadores {
+    color: var(--blue-energy);
+    font-weight: 600;
+}
+
+.vez-indicador .npcs {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.vez-indicador .ativo {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+.controles-gm {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-combate {
+    background: transparent;
+    border: 2px solid var(--gold);
+    color: var(--gold);
+    padding: 8px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: 'Cinzel', serif;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.btn-combate:hover:not(:disabled) {
+    background: var(--gold);
+    color: var(--bg-primary);
+    box-shadow: 0 0 15px var(--gold);
+}
+
+.btn-combate.primario {
+    background: var(--gold);
+    color: var(--bg-primary);
+}
+
+.btn-combate.primario:hover:not(:disabled) {
+    background: var(--gold-bright);
+    box-shadow: 0 0 20px var(--gold);
+}
+
+.btn-combate:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Canvas do mapa - ORIGINAL RESTAURADO */
+.canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: 300px;
+}
+
+#mapaCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 1000px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    cursor: crosshair;
+}
+
+/* Instruções */
+.instrucoes {
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-glow);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.instrucoes i {
+    color: var(--gold);
+    margin-right: 5px;
+}
+
+.instrucoes .destaque {
+    background: var(--gold);
+    color: var(--bg-primary);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+/* Painel lateral */
+.painel-lateral {
+    flex: 1;
+    background: var(--bg-card);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    border-left: 5px solid var(--blue-energy);
+    border-right: 2px solid var(--border-glow);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 280px;
+    max-width: 350px;
+}
+
+.painel-header {
+    padding: 15px 20px;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--blue-energy);
+    flex-shrink: 0;
+}
+
+.painel-header h3 {
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: clamp(1rem, 2vw, 1.2rem);
+}
+
+.painel-header h3 i {
+    color: var(--blue-energy);
+}
+
+.painel-conteudo {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ficha rápida */
+.ficha-rapida {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--gold);
+}
+
+.ficha-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.ficha-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--bg-primary);
+}
+
+.ficha-nome {
+    font-weight: 700;
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    color: var(--gold);
+    word-break: break-word;
+}
+
+.ficha-tipo {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.ficha-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.stat-item {
+    background: var(--bg-primary);
+    padding: 8px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.defesas-rapidas {
+    display: flex;
+    justify-content: space-between;
+    background: var(--bg-primary);
+    padding: 8px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.defesa-item {
+    text-align: center;
+    flex: 1;
+}
+
+.defesa-item .valor {
+    font-weight: 700;
+    color: var(--gold-bright);
+}
+
+.acoes-painel {
+    margin-top: 15px;
+}
+
+.btn-acao {
+    width: 100%;
+    padding: 12px 10px;
+    margin-bottom: 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--blue-energy);
+    color: var(--text-primary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+}
+
+.btn-acao:hover:not(:disabled) {
+    background: var(--blue-energy);
+    color: var(--bg-primary);
+}
+
+.btn-acao:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.btn-acao .dano {
+    color: var(--gold);
+    font-weight: 600;
+}
+
+/* Lista de personagens */
+.personagens-lista {
+    margin-top: 20px;
+}
+
+.secao-lista {
+    margin-bottom: 20px;
+}
+
+.secao-titulo {
+    color: var(--gold);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-bottom: 1px solid var(--border-glow);
+    padding-bottom: 5px;
+}
+
+.personagem-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 8px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: clamp(0.85rem, 2vw, 0.9rem);
+}
+
+.personagem-item:hover {
+    transform: translateX(5px);
+    background: rgba(255,255,255,0.1);
+}
+
+.personagem-item.pc {
+    border-left-color: var(--blue-energy);
+}
+
+.personagem-item.npc {
+    border-left-color: #e74c3c;
+}
+
+.personagem-item.selecionado {
+    background: rgba(212, 175, 55, 0.2);
+    border: 1px solid var(--gold);
+}
+
+.personagem-item.aguardando {
+    border-left-color: #ffaa00;
+    background: rgba(255, 170, 0, 0.1);
+}
+
+.personagem-cor {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.personagem-nome {
+    flex: 1;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.personagem-status {
+    font-size: 0.7rem;
+    color: #ffaa00;
+    font-style: italic;
+    white-space: nowrap;
+}
+
+.personagem-pv {
+    font-size: 0.8rem;
+    color: #ff6b6b;
+    white-space: nowrap;
+}
+
+.badge-posicionar {
+    background: #ffaa00;
+    color: var(--bg-primary);
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    margin-left: 5px;
+    white-space: nowrap;
+}
+
+/* Loading */
+.loading-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(11, 15, 26, 0.95);
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--gold);
+    border-top-color: var(--gold-bright);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--gold);
+    color: var(--bg-primary);
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    z-index: 5000;
+    font-weight: 600;
+    max-width: 90%;
+    word-break: break-word;
+}
+
+.toast.show {
+    display: flex;
+}
+
+.toast.erro {
+    background: #e74c3c;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* ============================================ */
+/* AJUSTES EXCLUSIVOS PARA MOBILE - NÃO MEXE NO MAPA */
+/* ============================================ */
+
+/* Tablets e dispositivos médios */
+@media (max-width: 1024px) {
+    .container {
+        flex-direction: column;
+        height: 100vh;
+        padding: 10px;
+        gap: 10px;
+        overflow: hidden;
+    }
+    
+    /* Mapa mantém altura generosa */
+    .mapa-area {
+        flex: 0 0 50vh;
+        min-height: 50vh;
+        max-height: 50vh;
+    }
+    
+    /* Painel lateral com altura adequada e scroll */
+    .painel-lateral {
+        flex: 0 0 calc(50vh - 20px);
+        min-width: 100%;
+        max-width: 100%;
+        height: auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .painel-conteudo {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        max-height: calc(50vh - 80px);
+    }
+    
+    /* Canvas mantém proporções */
+    .canvas-container {
+        min-height: 200px;
+        padding: 10px;
+    }
+    
+    /* Ajustes na lista de personagens - MAIS ESPAÇO */
+    .personagens-lista {
+        margin-top: 15px;
+    }
+    
+    .personagem-item {
+        padding: 14px 12px;
+        margin-bottom: 10px;
+        font-size: 1rem;
+    }
+    
+    .personagem-nome {
+        font-size: 1rem;
+    }
+    
+    .personagem-status {
+        font-size: 0.8rem;
+        white-space: normal;
+        max-width: 100px;
+        text-align: right;
+    }
+    
+    .personagem-pv {
+        font-size: 0.9rem;
+        min-width: 70px;
+        text-align: right;
+    }
+    
+    /* Ajustes na ficha */
+    .ficha-rapida {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .ficha-stats {
+        gap: 8px;
+    }
+    
+    .btn-acao {
+        padding: 14px 12px;
+        font-size: 1rem;
+    }
+    
+    .btn-acao .dano {
+        font-size: 1rem;
+    }
+    
+    /* Header mais compacto */
+    .combate-header {
+        padding: 10px 12px;
+    }
+    
+    .btn-combate {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+    
+    .turno-badge {
+        padding: 6px 12px;
+        font-size: 1rem;
+    }
+    
+    .instrucoes {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+/* Celulares */
+@media (max-width: 768px) {
+    .container {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .mapa-area {
+        flex: 0 0 45vh;
+        min-height: 45vh;
+        max-height: 45vh;
+    }
+    
+    .painel-lateral {
+        flex: 0 0 calc(55vh - 16px);
+        min-height: 0;
+    }
+    
+    .painel-conteudo {
+        max-height: calc(55vh - 90px);
+        padding: 12px;
+    }
+    
+    .personagem-item {
+        padding: 16px 12px;
+        gap: 12px;
+    }
+    
+    .personagem-cor {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .personagem-nome {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .personagem-status {
+        font-size: 0.9rem;
+        background: rgba(255, 170, 0, 0.15);
+        padding: 4px 8px;
+        border-radius: 16px;
+    }
+    
+    .personagem-pv {
+        font-size: 1rem;
+        background: rgba(255, 107, 107, 0.15);
+        padding: 4px 8px;
+        border-radius: 16px;
+    }
+    
+    .turno-info {
+        gap: 8px;
+    }
+    
+    .btn-combate {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+    }
+    
+    .vez-indicador {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+}
+
+/* Celulares pequenos */
+@media (max-width: 480px) {
+    .container {
+        padding: 5px;
+        gap: 5px;
+    }
+    
+    .mapa-area {
+        flex: 0 0 40vh;
+        min-height: 40vh;
+        max-height: 40vh;
+    }
+    
+    .painel-lateral {
+        flex: 0 0 calc(60vh - 10px);
+    }
+    
+    .painel-conteudo {
+        max-height: calc(60vh - 100px);
+        padding: 10px;
+    }
+    
+    .personagem-item {
+        padding: 18px 12px;
+        margin-bottom: 12px;
+    }
+    
+    .personagem-nome {
+        font-size: 1.2rem;
+    }
+    
+    .personagem-status {
+        font-size: 1rem;
+        padding: 4px 10px;
+    }
+    
+    .personagem-pv {
+        font-size: 1.1rem;
+        padding: 4px 10px;
+    }
+    
+    .turno-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .controles-gm {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .btn-combate {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 5px;
+        font-size: 0.75rem;
+    }
+    
+    .btn-combate i {
+        font-size: 0.8rem;
+    }
+    
+    .instrucoes span {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .ficha-rapida {
+        padding: 12px;
+    }
+    
+    .ficha-header {
+        gap: 8px;
+    }
+    
+    .ficha-avatar {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
+    }
+    
+    .ficha-nome {
+        font-size: 1.1rem;
+    }
+    
+    .stat-item {
+        padding: 6px;
+    }
+    
+    .defesas-rapidas {
+        padding: 6px;
+    }
+    
+    .btn-acao {
+        padding: 16px 12px;
+        font-size: 1.1rem;
+    }
+}
+
+/* Ajuste para garantir que ambos os painéis estejam sempre visíveis */
+@media (max-height: 700px) and (max-width: 1024px) {
+    .mapa-area {
+        flex: 0 0 45vh;
+        min-height: 45vh;
+    }
+    
+    .painel-lateral {
+        flex: 0 0 calc(55vh - 20px);
+    }
+    
+    .painel-conteudo {
+        max-height: calc(55vh - 90px);
+    }
+    
+    .personagem-item {
+        padding: 12px 10px;
+    }
+}
+
+/* Remover overflow hidden do body no mobile para permitir scroll natural */
+@media (max-width: 1024px) {
+    body {
+        overflow: auto;
+    }
+}
     </style>
 </head>
 <body>
