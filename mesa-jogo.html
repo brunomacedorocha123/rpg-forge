@@ -1627,7 +1627,7 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -1664,7 +1664,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Elementos DOM
+        // ===========================================
+        // ELEMENTOS DOM
+        // ===========================================
         const loadingOverlay = document.getElementById('loadingOverlay');
         const sessaoTitulo = document.getElementById('sessaoTitulo');
         const btnSair = document.getElementById('btnSair');
@@ -1729,13 +1731,22 @@
         const tabsCritico = document.querySelectorAll('.critico-tab');
         const tabelasCritico = document.querySelectorAll('.tabela-criticos');
 
-        // Elementos da Tabela de Distância
-        const stInput = document.getElementById('stInput');
-        const btnCalcularDistancia = document.getElementById('btnCalcularDistancia');
-        const distanciaValor = document.getElementById('distanciaValor');
-        const distanciaInfo = document.getElementById('distanciaInfo');
+        // ===========================================
+        // ELEMENTOS DA TABELA DE DISTÂNCIA (CRIAR)
+        // ===========================================
+        // Vou criar dinamicamente os inputs de ST e Peso
+        const tabelaDistancia = document.getElementById('tabela-distancia');
+        
+        // Variáveis para os elementos (serão preenchidos depois)
+        let stInput = null;
+        let pesoInput = null;
+        let btnCalcularDistancia = null;
+        let distanciaValor = null;
+        let distanciaInfo = null;
 
-        // Variáveis globais
+        // ===========================================
+        // VARIÁVEIS GLOBAIS
+        // ===========================================
         let currentUser = null;
         let sessaoAtual = null;
         let campanhaIdCustom = null;
@@ -1744,6 +1755,9 @@
         let magiasNpc = [];
         let tabelaAtual = 'ful-ataque';
 
+        // ===========================================
+        // FUNÇÕES AUXILIARES
+        // ===========================================
         function showLoading() { loadingOverlay.classList.add('active'); }
         function hideLoading() { loadingOverlay.classList.remove('active'); }
 
@@ -1752,7 +1766,126 @@
             return urlParams.get('sessao');
         }
 
-        // Botão Voltar
+        // ===========================================
+        // CRIAR INTERFACE DA TABELA DE DISTÂNCIA
+        // ===========================================
+        function criarInterfaceDistancia() {
+            if (!tabelaDistancia) return;
+            
+            // Limpar conteúdo atual
+            tabelaDistancia.innerHTML = '';
+            
+            // Criar HTML da calculadora corrigida
+            tabelaDistancia.innerHTML = `
+                <h4><i class="fas fa-arrows-alt-h"></i> Cálculo de Distância (ST ÷ Peso × 1.2)</h4>
+                
+                <div class="distancia-calculadora">
+                    <div class="distancia-input-group" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px;">
+                        <div class="distancia-input" style="flex: 1; min-width: 150px;">
+                            <label style="display: block; color: var(--text-secondary); margin-bottom: 8px;">ST do Personagem</label>
+                            <input type="number" id="stInput" min="1" step="1" value="10" style="width:100%; padding:12px; background:var(--bg-primary); border:2px solid var(--gold); border-radius:10px; color:var(--gold-bright); font-size:1.2rem; font-weight:600;">
+                        </div>
+                        <div class="distancia-input" style="flex: 1; min-width: 150px;">
+                            <label style="display: block; color: var(--text-secondary); margin-bottom: 8px;">Peso (kg)</label>
+                            <input type="number" id="pesoInput" min="0.1" step="0.1" value="1" style="width:100%; padding:12px; background:var(--bg-primary); border:2px solid var(--gold); border-radius:10px; color:var(--gold-bright); font-size:1.2rem; font-weight:600;">
+                        </div>
+                        <button class="upload-btn" id="btnCalcularDistancia" style="padding: 12px 25px;">
+                            <i class="fas fa-calculator"></i> Calcular
+                        </button>
+                    </div>
+
+                    <div class="distancia-resultado" id="distanciaResultado" style="background: var(--bg-primary); border-radius: 12px; padding: 20px; margin-top: 20px; text-align: center; border: 1px solid var(--gold);">
+                        <span class="rotulo" style="display: block; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 8px;">DISTÂNCIA MÁXIMA</span>
+                        <span class="valor" id="distanciaValor" style="font-size: 2.5rem; font-weight: 700; color: var(--gold-bright);">12 m</span>
+                        <div class="distancia-info" id="distanciaInfo" style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">
+                            ST 10 ÷ 1kg = 10 × 1.2 = 12m
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; background: var(--bg-secondary); border-radius: 12px; padding: 15px;">
+                        <p style="color: var(--gold); margin-bottom: 10px;"><i class="fas fa-info-circle"></i> Fórmula:</p>
+                        <p style="color: var(--text-primary); font-family: monospace; font-size: 1.1rem;">(ST ÷ Peso) × 1.2 = Distância em metros</p>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">• ST/Peso mínimo: <strong>0,5</strong><br>• Resultado <strong>arredondado</strong> para o metro mais próximo</p>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <p style="color: var(--gold); margin-bottom: 10px;">📊 Exemplos:</p>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid var(--gold);">
+                                <strong>ST 10 / 1kg</strong> = 12m
+                            </div>
+                            <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid var(--gold);">
+                                <strong>ST 10 / 10kg</strong> = 1m
+                            </div>
+                            <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid var(--gold);">
+                                <strong>ST 8 / 20kg</strong> = 1m (mínimo 0,5)
+                            </div>
+                            <div style="background: var(--bg-primary); padding: 10px; border-radius: 8px; border-left: 3px solid var(--gold);">
+                                <strong>ST 15 / 5kg</strong> = 4m
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Capturar os elementos criados
+            stInput = document.getElementById('stInput');
+            pesoInput = document.getElementById('pesoInput');
+            btnCalcularDistancia = document.getElementById('btnCalcularDistancia');
+            distanciaValor = document.getElementById('distanciaValor');
+            distanciaInfo = document.getElementById('distanciaInfo');
+            
+            // Adicionar evento de calcular
+            if (btnCalcularDistancia) {
+                btnCalcularDistancia.addEventListener('click', calcularDistancia);
+                // Calcular ao carregar
+                calcularDistancia();
+            }
+        }
+
+        // ===========================================
+        // FUNÇÃO DE CÁLCULO DA DISTÂNCIA - CORRIGIDA
+        // ===========================================
+        function calcularDistancia() {
+            if (!stInput || !pesoInput || !distanciaValor || !distanciaInfo) return;
+            
+            // Pega os valores dos inputs
+            let st = parseFloat(stInput.value);
+            let peso = parseFloat(pesoInput.value);
+            
+            // Validação dos valores
+            if (isNaN(st) || st < 1) st = 1;
+            if (isNaN(peso) || peso < 0.1) peso = 0.1;
+            
+            // PASSO 1: ST ÷ Peso (com mínimo de 0.5)
+            let divisao = st / peso;
+            let divisaoOriginal = divisao;
+            if (divisao < 0.5) divisao = 0.5;
+            
+            // PASSO 2: Multiplica por 1.2
+            let distancia = divisao * 1.2;
+            
+            // PASSO 3: Arredonda para o inteiro mais próximo
+            let distanciaArredondada = Math.round(distancia);
+            
+            // PASSO 4: Garantir que não seja 0 (mínimo 1 metro)
+            if (distanciaArredondada < 1) distanciaArredondada = 1;
+            
+            // Atualiza a interface
+            distanciaValor.textContent = distanciaArredondada + ' m';
+            
+            let infoTexto = `ST ${st} ÷ ${peso}kg = ${divisaoOriginal.toFixed(2)}`;
+            if (divisaoOriginal < 0.5) {
+                infoTexto += ` (mínimo 0,5 aplicado)`;
+            }
+            infoTexto += ` × 1.2 = ${distancia.toFixed(2)}m → ${distanciaArredondada}m`;
+            
+            distanciaInfo.innerHTML = infoTexto;
+        }
+
+        // ===========================================
+        // BOTÕES DE NAVEGAÇÃO
+        // ===========================================
         btnVoltar.addEventListener('click', () => {
             window.location.href = 'dashboard-gm.html';
         });
@@ -1760,6 +1893,8 @@
         // Modal Tabelas
         btnTabelas.addEventListener('click', () => {
             modalTabelas.classList.add('active');
+            // Garantir que a interface da distância está criada
+            criarInterfaceDistancia();
         });
 
         btnFecharTabelas.addEventListener('click', () => {
@@ -1775,39 +1910,17 @@
                 const tabelaId = tab.dataset.tabela;
                 document.querySelectorAll('.tabela-conteudo').forEach(t => t.classList.remove('ativa'));
                 document.getElementById(`tabela-${tabelaId}`).classList.add('ativa');
+                
+                // Se for a aba de distância, recriar a interface
+                if (tabelaId === 'distancia') {
+                    criarInterfaceDistancia();
+                }
             });
         });
 
-        // Calculadora de Distância
-        if (btnCalcularDistancia) {
-            btnCalcularDistancia.addEventListener('click', () => {
-                let st = parseFloat(stInput.value);
-                if (isNaN(st) || st < 0.5) st = 0.5;
-                
-                const fator = st * 1.2;
-                const fatorArredondado = Math.round(fator * 10) / 10;
-                
-                distanciaValor.textContent = fatorArredondado;
-                distanciaInfo.innerHTML = `ST base: ${st} → Fator 1.2x = ${fatorArredondado}`;
-            });
-            
-            // Calcular ao carregar
-            btnCalcularDistancia.click();
-        }
-
-        // Função: ABRIR COMBATE TÁTICO
-        function abrirCombateTatico() {
-            const sessaoId = getSessaoIdFromUrl();
-            if (!sessaoId) {
-                alert('ID da sessão não encontrado!');
-                return;
-            }
-            
-            const url = `combate-tatico.html?sessao=${sessaoId}`;
-            window.open(url, '_blank', 'width=1400,height=800,resizable=yes,scrollbars=yes');
-        }
-
+        // ===========================================
         // SISTEMA DE CRÍTICOS
+        // ===========================================
         const tabelas = {
             'ful-ataque': [
                 "Não pode se esquivar",
@@ -1900,12 +2013,25 @@
             });
         }
 
+        // ===========================================
         // BOTÃO ABRIR COMBATE
+        // ===========================================
         if (btnAbrirCombate) {
-            btnAbrirCombate.addEventListener('click', abrirCombateTatico);
+            btnAbrirCombate.addEventListener('click', () => {
+                const sessaoId = getSessaoIdFromUrl();
+                if (!sessaoId) {
+                    alert('ID da sessão não encontrado!');
+                    return;
+                }
+                
+                const url = `combate-tatico.html?sessao=${sessaoId}`;
+                window.open(url, '_blank', 'width=1400,height=800,resizable=yes,scrollbars=yes');
+            });
         }
 
+        // ===========================================
         // UPLOAD DE CENÁRIO
+        // ===========================================
         uploadCenario.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file || !sessaoAtual) return;
@@ -1964,7 +2090,9 @@
             }
         });
 
+        // ===========================================
         // SISTEMA DE ROLAGEM - PERÍCIA
+        // ===========================================
         btnRolarPericia.addEventListener('click', async () => {
             const dezena = Math.floor(Math.random() * 10);
             const unidade = Math.floor(Math.random() * 10);
@@ -1992,7 +2120,9 @@
             }
         });
 
+        // ===========================================
         // SISTEMA DE ROLAGEM - DANO
+        // ===========================================
         btnRolarDano.addEventListener('click', async () => {
             const qtd = parseInt(qtdDadosDano.value) || 1;
             const mod = parseInt(modificadorDano.value) || 0;
@@ -2026,7 +2156,9 @@
             }
         });
 
+        // ===========================================
         // MODAL NPC - FUNCIONALIDADE DE ABAS
+        // ===========================================
         document.querySelectorAll('.subaba[data-npc-tab]').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.subaba').forEach(t => t.classList.remove('ativa'));
@@ -2038,7 +2170,9 @@
             });
         });
 
-        // Adicionar ataque
+        // ===========================================
+        // ATAQUES
+        // ===========================================
         function renderizarAtaques() {
             if (!ataquesContainer) return;
             
@@ -2106,7 +2240,9 @@
             });
         }
 
-        // Adicionar magia
+        // ===========================================
+        // MAGIAS
+        // ===========================================
         function renderizarMagiasNpc() {
             if (!magiasNpcContainer) return;
             
@@ -2166,7 +2302,9 @@
             });
         }
 
-        // Salvar NPC
+        // ===========================================
+        // SALVAR NPC
+        // ===========================================
         if (btnSalvarNpc) {
             btnSalvarNpc.addEventListener('click', async () => {
                 if (!sessaoAtual) {
@@ -2274,7 +2412,9 @@
             });
         }
 
+        // ===========================================
         // CARREGAR SESSÃO
+        // ===========================================
         async function carregarSessao() {
             const sessaoId = getSessaoIdFromUrl();
             if (!sessaoId) {
