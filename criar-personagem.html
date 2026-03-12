@@ -2690,24 +2690,24 @@ body {
                 <div class="card-section">
                     <h2><i class="fas fa-user-circle"></i> Aparência e Economia</h2>
                     
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="aparencia">Aparência</label>
-                            <select id="aparencia">
-                                <option value="feio">Feio (-5% reações)</option>
-                                <option value="normal" selected>Normal</option>
-                                <option value="atraente">Atraente (+5% reações)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="riqueza">Riqueza Inicial</label>
-                            <select id="riqueza">
-                                <option value="pobre">Pobre (metade)</option>
-                                <option value="medio" selected>Médio (base)</option>
-                                <option value="rico">Rico (5x)</option>
-                            </select>
-                        </div>
-                    </div>
+                   <div class="form-row">
+    <div class="form-group">
+        <label for="aparencia">Aparência</label>
+        <select id="aparencia">
+            <option value="feio">Feio (-5% reações)</option>
+            <option value="normal" selected>Normal</option>
+            <option value="atraente">Atraente (+10% reações)</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="riqueza">Riqueza Inicial</label>
+        <select id="riqueza">
+            <option value="pobre">Pobre (metade dinheiro)</option>
+            <option value="medio" selected>Médio (base)</option>
+            <option value="rico">Rico (5x dinheiro)</option>
+        </select>
+    </div>
+</div>
 
                     <div class="form-group">
                         <label for="dinheiroBase">Valor Base ($)</label>
@@ -4383,8 +4383,8 @@ const vantagensData = {
         nome: 'VT extra +10%', 
         efeito: 'Aumenta VT em 10% (aumenta PV, PF e PM permanentemente)' 
     },
-    atraente: { nome: 'Atraente', efeito: '+5% reações sociais' },
-    rico: { nome: 'Rico', efeito: 'Começa com 5× dinheiro base' },
+    atraente: { nome: 'Atraente', efeito: '+10% reações sociais, +3% Persuasão, +3% Sociabilidade' },
+    rico: { nome: 'Rico', efeito: 'Começa com 5× dinheiro base, +5% Sociabilidade, +5% reações' },
     ataqueBrutal: { nome: 'Ataque Brutal', efeito: 'Gasta PF para aumentar dano crítico' },
     corpoResistente: { nome: 'Corpo Resistente', efeito: 'RD +2, +10% resistência a venenos/toxinas' }
 };
@@ -4659,11 +4659,66 @@ function getResistenciaMagia() {
     return Math.min(90, resistencia);
 }
 
+// ===== NOVAS FUNÇÕES PARA BÔNUS DE APARÊNCIA E RIQUEZA =====
+function getAparencia() {
+    const select = document.getElementById('aparencia');
+    return select ? select.value : 'normal';
+}
+
+function getRiqueza() {
+    const select = document.getElementById('riqueza');
+    return select ? select.value : 'medio';
+}
+
+function getBonusReacao() {
+    let bonus = 0;
+    const aparencia = getAparencia();
+    const riqueza = getRiqueza();
+    
+    // Bônus da aparência
+    if (aparencia === 'atraente') bonus += 10;
+    else if (aparencia === 'feio') bonus -= 5;
+    
+    // Bônus do carisma
+    if (vantagensSelecionadas.has('carisma')) bonus += 5;
+    
+    // Bônus da riqueza
+    if (riqueza === 'rico') bonus += 5;
+    else if (riqueza === 'pobre') bonus -= 10;
+    
+    return bonus;
+}
+
 function getBonusPericia(periciaId) {
     let bonus = 0;
-    if (periciaId === 'persuasao' && vantagensSelecionadas.has('carisma')) {
-        bonus += 2;
+    
+    const aparencia = getAparencia();
+    const riqueza = getRiqueza();
+    
+    // ===== BÔNUS DO ATRAENTE =====
+    if (aparencia === 'atraente') {
+        if (periciaId === 'persuasao') bonus += 3;
+        if (periciaId === 'sociabilidade') bonus += 3;
     }
+    
+    // ===== BÔNUS DO CARISMA =====
+    if (vantagensSelecionadas.has('carisma')) {
+        if (periciaId === 'persuasao') bonus += 3;
+        if (periciaId === 'sociabilidade') bonus += 3;
+        if (periciaId === 'comercio') bonus += 5;
+        if (periciaId === 'oratoria') bonus += 2;
+    }
+    
+    // ===== BÔNUS DA RIQUEZA =====
+    if (riqueza === 'rico' && periciaId === 'sociabilidade') bonus += 5;
+    else if (riqueza === 'pobre' && periciaId === 'sociabilidade') bonus -= 10;
+    
+    // ===== BÔNUS DA ORIENTAÇÃO DO EXPLORADOR =====
+    if (vantagensSelecionadas.has('orientacaoExplorador')) {
+        if (periciaId === 'sobrevivencia') bonus += 5;
+        if (periciaId === 'rastreamento') bonus += 3;
+    }
+    
     return bonus;
 }
 
@@ -5473,23 +5528,30 @@ function renderizarPericiasAdquiridas() {
         
         let bonusExtra = getBonusPericia(id);
         
-        if (vantagensSelecionadas.has('orientacaoExplorador')) {
-            if (id === 'sobrevivencia') {
-                bonusExtra += 5;
-            }
-            if (id === 'rastreamento') {
-                bonusExtra += 3;
-            }
-        }
-        
         const nh = atributoBase + bonus + bonusExtra;
+        
+        // Montar string de origem dos bônus
+        let origemBonus = '';
+        if (bonusExtra > 0) {
+            const fontes = [];
+            const aparencia = getAparencia();
+            const riqueza = getRiqueza();
+            
+            if (aparencia === 'atraente' && (id === 'persuasao' || id === 'sociabilidade')) fontes.push('Atraente');
+            if (vantagensSelecionadas.has('carisma')) fontes.push('Carisma');
+            if (riqueza === 'rico' && id === 'sociabilidade') fontes.push('Rico');
+            if (riqueza === 'pobre' && id === 'sociabilidade') fontes.push('Pobre');
+            if (vantagensSelecionadas.has('orientacaoExplorador') && (id === 'sobrevivencia' || id === 'rastreamento')) fontes.push('Orientação');
+            
+            origemBonus = ` + ${bonusExtra}% (${fontes.join(', ')})`;
+        }
         
         return `
             <div class="pericia-adquirida" data-pericia-id="${id}">
                 <div class="pericia-adquirida-info">
                     <h4>${pericia.nome}</h4>
                     <div class="nivel">Nível ${dados.nivel} <span class="bonus">(+${bonus}%)</span></div>
-                    <div class="nh">NH: <span>${nh}%</span> (${pericia.atributo.toUpperCase()} ${atributoBase}% + ${bonus}%${bonusExtra > 0 ? ` + ${bonusExtra}%` : ''})</div>
+                    <div class="nh">NH: <span>${nh}%</span> (${pericia.atributo.toUpperCase()} ${atributoBase}% + ${bonus}%${bonusExtra > 0 ? origemBonus : ''})</div>
                 </div>
                 <div class="pericia-adquirida-acoes">
                     <button class="btn-pericia btn-aumentar-pericia" data-pericia-id="${id}" ${dados.nivel >= 5 ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
@@ -5880,6 +5942,7 @@ function selecionarVantagem(card) {
     atualizarContadoresAbas();
     atualizarLimitesCards();
     atualizarInterface();
+    renderizarPericiasAdquiridas(); // Atualiza perícias para mostrar novos bônus
     triggerAutoSave();
 }
 
@@ -5906,6 +5969,7 @@ function selecionarDesvantagem(card) {
     atualizarContadoresAbas();
     atualizarLimitesCards();
     atualizarInterface();
+    renderizarPericiasAdquiridas(); // Atualiza perícias para mostrar novos bônus
     triggerAutoSave();
 }
 
@@ -7002,6 +7066,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    document.getElementById('aparencia')?.addEventListener('change', () => {
+        renderizarPericiasAdquiridas();
+        atualizarInterface();
+        triggerAutoSave();
+    });
+    
     document.getElementById('riqueza')?.addEventListener('change', function() {
         if (inventario.corpo.length > 0 || inventario.mochila.length > 0 || inventario.deposito.length > 0) {
             if (confirm('Mudar o nível de riqueza irá remover todos os itens comprados. Deseja continuar?')) {
@@ -7010,6 +7080,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 atualizarDinheiroDisplay();
                 renderizarInventario();
                 atualizarInterface();
+                renderizarPericiasAdquiridas();
                 triggerAutoSave();
             } else {
                 this.value = personagemTemp?.riqueza || 'medio';
@@ -7017,6 +7088,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             dinheiro = calcularDinheiroInicial();
             atualizarDinheiroDisplay();
+            renderizarPericiasAdquiridas();
             triggerAutoSave();
         }
     });
