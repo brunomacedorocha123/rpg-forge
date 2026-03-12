@@ -2978,17 +2978,15 @@ const dadosMagiasAr = {
         return Math.min(85, bloqueio);
     }
 
-   // ============================================
+  // ============================================
 // NOVO CÁLCULO DE DESLOCAMENTO COM ARREDONDAMENTO
 // ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
     
-    // Calcula os valores brutos
     const andarBruto = soma * 0.1;
     const correrBruto = soma * 0.3;
     
-   
     function arredondarDeslocamento(valor) {
         const parteInteira = Math.floor(valor);
         const parteDecimal = valor - parteInteira;
@@ -3005,495 +3003,1428 @@ function calcularDeslocamento() {
     
     return { andar, correr };
 }
-    function calcularCarga() {
-        let pesoTotal = 0;
-        if (personagemAtual?.inventario?.corpo) {
-            personagemAtual.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-        }
-        if (personagemAtual?.inventario?.mochila) {
-            personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-        }
-        return pesoTotal;
-    }
 
-    function calcularRD() {
-        let rd = getRDExtra();
-        if (personagemAtual?.inventario?.corpo) {
-            personagemAtual.inventario.corpo.forEach(item => {
-                if (item.rd) rd += item.rd;
-            });
-        }
-        return rd;
+function calcularCarga() {
+    let pesoTotal = 0;
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
-
-    function calcularNHPericia(periciaId, dados) {
-        const pericia = catalogoPericias.find(p => p.id === periciaId);
-        if (!pericia) return 0;
-        let atributoBase = pericia.atributo === 'dx' ? getDXPercentual() : getIQPercentual();
-        const bonus = (dados.nivel || 0) * 4;
-        const bonusExtra = getBonusPericia(periciaId);
-        return atributoBase + bonus + bonusExtra;
+    if (personagemAtual?.inventario?.mochila) {
+        personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
+    return pesoTotal;
+}
 
-    function calcularNHMagia(magiaId, nivel, escola) {
-        const dados = escola === 'agua' ? dadosMagiasAgua[magiaId] : 
-                      escola === 'ar' ? dadosMagiasAr[magiaId] : 
-                      escola === 'gelo' ? dadosMagiasGelo[magiaId] :
-                      escola === 'fogo' ? dadosMagiasFogo[magiaId] :
-                      dadosMagiasTerra[magiaId];
-        if (!dados) return 0;
-        return getIQPercentual() + 10 + (nivel || 0);
+function calcularRD() {
+    let rd = getRDExtra();
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => {
+            if (item.rd) rd += item.rd;
+        });
     }
+    return rd;
+}
 
-    function contarMagiasDesbloqueadas(escola) {
-        if (!personagemAtual?.escolas?.[escola]?.magias) return 0;
-        return Object.values(personagemAtual.escolas[escola].magias).filter(m => m.desbloqueada).length;
+// ============================================
+// FUNÇÕES PARA BÔNUS DE APARÊNCIA E RIQUEZA
+// ============================================
+
+function getAparencia() {
+    return personagemAtual?.aparencia || 'normal';
+}
+
+function getRiqueza() {
+    return personagemAtual?.riqueza || 'medio';
+}
+
+function getBonusReacao() {
+    let bonus = 0;
+    const aparencia = getAparencia();
+    const riqueza = getRiqueza();
+    
+    if (aparencia === 'atraente') bonus += 10;
+    else if (aparencia === 'feio') bonus -= 5;
+    
+    if (personagemAtual?.vantagens?.includes('carisma')) bonus += 5;
+    
+    if (riqueza === 'rico') bonus += 5;
+    else if (riqueza === 'pobre') bonus -= 10;
+    
+    return bonus;
+}
+
+function getBonusPericia(periciaId) {
+    let bonus = 0;
+    
+    const aparencia = getAparencia();
+    const riqueza = getRiqueza();
+    
+    if (aparencia === 'atraente') {
+        if (periciaId === 'persuasao') bonus += 3;
+        if (periciaId === 'sociabilidade') bonus += 3;
     }
-
-    function atualizarDisplayPP() {
-        if (!personagemAtual) return;
-        
-        if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
-        if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
-        
-        const ppDisponivel = personagemAtual.ppDisponivel - personagemAtual.ppGasto;
-        
-        if (ppDisponivelValor) ppDisponivelValor.textContent = ppDisponivel;
-        if (ppGastoValor) ppGastoValor.textContent = personagemAtual.ppGasto;
-        if (ppDisponivelHeader) ppDisponivelHeader.textContent = ppDisponivel;
-        if (ppPericias) ppPericias.textContent = personagemAtual.ppGasto + ' PP';
-        if (ppMagias) ppMagias.textContent = personagemAtual.ppGasto + ' PP';
+    
+    if (personagemAtual?.vantagens?.includes('carisma')) {
+        if (periciaId === 'persuasao') bonus += 3;
+        if (periciaId === 'sociabilidade') bonus += 3;
+        if (periciaId === 'comercio') bonus += 5;
+        if (periciaId === 'oratoria') bonus += 2;
     }
-
-    window.adicionarPP = async function(valor) {
-        if (!personagemAtual || !currentUser) return;
-        
-        const novoPPTotal = (personagemAtual.ppDisponivel || 0) + valor;
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, { 
-                ppDisponivel: novoPPTotal 
-            });
-            
-            personagemAtual.ppDisponivel = novoPPTotal;
-            atualizarDisplayPP();
-            showToast(`+${valor} PP adicionados!`);
-            
-        } catch (error) {
-            showToast('Erro ao adicionar PP', true);
-        }
+    
+    if (riqueza === 'rico' && periciaId === 'sociabilidade') bonus += 5;
+    else if (riqueza === 'pobre' && periciaId === 'sociabilidade') bonus -= 10;
+    
+    if (personagemAtual?.vantagens?.includes('orientacaoExplorador')) {
+        if (periciaId === 'sobrevivencia') bonus += 5;
+        if (periciaId === 'rastreamento') bonus += 3;
     }
+    
+    return bonus;
+}
 
-    window.comprarPericia = async function(periciaId) {
-        if (!personagemAtual || !currentUser) return;
+function calcularNHPericia(periciaId, dados) {
+    const pericia = catalogoPericias.find(p => p.id === periciaId);
+    if (!pericia) return 0;
+    let atributoBase = pericia.atributo === 'dx' ? getDXPercentual() : getIQPercentual();
+    const bonus = (dados.nivel || 0) * 4;
+    const bonusExtra = getBonusPericia(periciaId);
+    return atributoBase + bonus + bonusExtra;
+}
+
+function calcularNHMagia(magiaId, nivel, escola) {
+    const dados = escola === 'agua' ? dadosMagiasAgua[magiaId] : 
+                  escola === 'ar' ? dadosMagiasAr[magiaId] : 
+                  escola === 'gelo' ? dadosMagiasGelo[magiaId] :
+                  escola === 'fogo' ? dadosMagiasFogo[magiaId] :
+                  dadosMagiasTerra[magiaId];
+    if (!dados) return 0;
+    return getIQPercentual() + 10 + (nivel || 0);
+}
+
+function contarMagiasDesbloqueadas(escola) {
+    if (!personagemAtual?.escolas?.[escola]?.magias) return 0;
+    return Object.values(personagemAtual.escolas[escola].magias).filter(m => m.desbloqueada).length;
+}
+
+function atualizarDisplayPP() {
+    if (!personagemAtual) return;
+    
+    if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
+    if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
+    
+    const ppDisponivel = personagemAtual.ppDisponivel - personagemAtual.ppGasto;
+    
+    if (ppDisponivelValor) ppDisponivelValor.textContent = ppDisponivel;
+    if (ppGastoValor) ppGastoValor.textContent = personagemAtual.ppGasto;
+    if (ppDisponivelHeader) ppDisponivelHeader.textContent = ppDisponivel;
+    if (ppPericias) ppPericias.textContent = personagemAtual.ppGasto + ' PP';
+    if (ppMagias) ppMagias.textContent = personagemAtual.ppGasto + ' PP';
+}
+
+window.adicionarPP = async function(valor) {
+    if (!personagemAtual || !currentUser) return;
+    
+    const novoPPTotal = (personagemAtual.ppDisponivel || 0) + valor;
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { 
+            ppDisponivel: novoPPTotal 
+        });
         
-        const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
-        const nivelAtual = periciaExistente.nivel || 0;
-        const novoNivel = nivelAtual + 1;
+        personagemAtual.ppDisponivel = novoPPTotal;
+        atualizarDisplayPP();
+        showToast(`+${valor} PP adicionados!`);
         
-        if (novoNivel > 5) return;
-        
-        const custoTotal = tabelaCustosPericias[novoNivel];
-        const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
-        const custoDiferenca = custoTotal - custoAtual;
-        
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        if (custoDiferenca > ppDisponivel) {
-            showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
-            return;
-        }
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            
-            const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
-            
-            await updateDoc(personagemRef, {
-                [`pericias.${periciaId}.nivel`]: novoNivel,
-                ppGasto: novoPpGasto
-            });
-            
-            if (!personagemAtual.pericias) personagemAtual.pericias = {};
-            personagemAtual.pericias[periciaId] = { nivel: novoNivel };
-            personagemAtual.ppGasto = novoPpGasto;
-            
-            renderizarFicha();
-            showToast('Perícia adquirida!');
-            
-        } catch (error) {
-            showToast('Erro ao comprar perícia', true);
-        }
+    } catch (error) {
+        showToast('Erro ao adicionar PP', true);
     }
+}
 
-    window.comprarMagia = async function(escola, magiaId) {
-        if (!personagemAtual || !currentUser) return;
+window.comprarPericia = async function(periciaId) {
+    if (!personagemAtual || !currentUser) return;
+    
+    const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
+    const nivelAtual = periciaExistente.nivel || 0;
+    const novoNivel = nivelAtual + 1;
+    
+    if (novoNivel > 5) return;
+    
+    const custoTotal = tabelaCustosPericias[novoNivel];
+    const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+    const custoDiferenca = custoTotal - custoAtual;
+    
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    if (custoDiferenca > ppDisponivel) {
+        showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+        return;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
         
-        if (!personagemAtual.escolas) personagemAtual.escolas = { 
-            agua: { magias: {} }, 
-            ar: { magias: {} }, 
-            gelo: { magias: {} },
-            fogo: { magias: {} },
-            terra: { magias: {} }
+        const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+        
+        await updateDoc(personagemRef, {
+            [`pericias.${periciaId}.nivel`]: novoNivel,
+            ppGasto: novoPpGasto
+        });
+        
+        if (!personagemAtual.pericias) personagemAtual.pericias = {};
+        personagemAtual.pericias[periciaId] = { nivel: novoNivel };
+        personagemAtual.ppGasto = novoPpGasto;
+        
+        renderizarFicha();
+        showToast('Perícia adquirida!');
+        
+    } catch (error) {
+        showToast('Erro ao comprar perícia', true);
+    }
+}
+
+window.comprarMagia = async function(escola, magiaId) {
+    if (!personagemAtual || !currentUser) return;
+    
+    if (!personagemAtual.escolas) personagemAtual.escolas = { 
+        agua: { magias: {} }, 
+        ar: { magias: {} }, 
+        gelo: { magias: {} },
+        fogo: { magias: {} },
+        terra: { magias: {} }
+    };
+    if (!personagemAtual.escolas[escola]) personagemAtual.escolas[escola] = { magias: {} };
+    if (!personagemAtual.escolas[escola].magias) personagemAtual.escolas[escola].magias = {};
+    
+    const magiaExistente = personagemAtual.escolas[escola].magias[magiaId];
+    if (magiaExistente?.desbloqueada) {
+        showToast('Magia já desbloqueada!', true);
+        return;
+    }
+    
+    const custo = 2;
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    if (custo > ppDisponivel) {
+        showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+        return;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        
+        const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
+        
+        await updateDoc(personagemRef, {
+            [`escolas.${escola}.magias.${magiaId}.desbloqueada`]: true,
+            [`escolas.${escola}.magias.${magiaId}.nivel`]: 1,
+            ppGasto: novoPpGasto
+        });
+        
+        personagemAtual.escolas[escola].magias[magiaId] = {
+            desbloqueada: true,
+            nivel: 1
         };
-        if (!personagemAtual.escolas[escola]) personagemAtual.escolas[escola] = { magias: {} };
-        if (!personagemAtual.escolas[escola].magias) personagemAtual.escolas[escola].magias = {};
+        personagemAtual.ppGasto = novoPpGasto;
         
-        const magiaExistente = personagemAtual.escolas[escola].magias[magiaId];
-        if (magiaExistente?.desbloqueada) {
-            showToast('Magia já desbloqueada!', true);
-            return;
+        renderizarFicha();
+        
+        let nomeMagia = '';
+        if (escola === 'agua') nomeMagia = dadosMagiasAgua[magiaId]?.nome;
+        else if (escola === 'ar') nomeMagia = dadosMagiasAr[magiaId]?.nome;
+        else if (escola === 'gelo') nomeMagia = dadosMagiasGelo[magiaId]?.nome;
+        else if (escola === 'fogo') nomeMagia = dadosMagiasFogo[magiaId]?.nome;
+        else if (escola === 'terra') nomeMagia = dadosMagiasTerra[magiaId]?.nome;
+        
+        showToast(`${nomeMagia || magiaId} desbloqueada!`);
+        
+    } catch (error) {
+        showToast('Erro ao comprar magia', true);
+    }
+}
+
+window.comprarEquipamento = async function(item, categoria) {
+    if (!personagemAtual || !currentUser) return;
+    
+    if (personagemAtual.dinheiro < item.preco) {
+        showToast('Dinheiro insuficiente!', true);
+        return;
+    }
+    
+    try {
+        const novoItem = {
+            id: item.id + '_' + Date.now(),
+            nome: item.nome,
+            tipo: item.tipo,
+            preco: item.preco,
+            peso: item.peso,
+            quantidade: 1
+        };
+        
+        if (item.dano) novoItem.dano = item.dano;
+        if (item.rd) novoItem.rd = item.rd;
+        if (item.bonus) novoItem.bonus = item.bonus;
+        if (item.st) novoItem.st = item.st;
+        
+        if (!personagemAtual.inventario) personagemAtual.inventario = { deposito: [] };
+        if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
+        
+        personagemAtual.inventario.deposito.push(novoItem);
+        personagemAtual.dinheiro -= item.preco;
+        
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario,
+            dinheiro: personagemAtual.dinheiro
+        });
+        
+        renderizarFicha();
+        showToast(`${item.nome} comprado!`);
+        
+    } catch (error) {
+        showToast('Erro ao comprar', true);
+    }
+}
+
+window.filtrarPericias = function(filtro) {
+    document.querySelectorAll('[onclick^="filtrarPericias"]').forEach(btn => {
+        if (btn.textContent.includes('Todas') && filtro === 'todas') {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else if (btn.textContent.includes('Mental') && filtro === 'mental') {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else if (btn.textContent.includes('Física') && filtro === 'fisica') {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else {
+            btn.style.background = '#2a2a3c';
+            btn.style.color = '#ffd700';
         }
+    });
+    renderizarCatalogoPericias(filtro);
+}
+
+window.filtrarLoja = function(filtro) {
+    filtroLojaAtual = filtro;
+    document.querySelectorAll('[onclick^="filtrarLoja"]').forEach(btn => {
+        if (btn.textContent.toLowerCase().includes(filtro)) {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else {
+            btn.style.background = '#2a2a3c';
+            btn.style.color = '#ffd700';
+        }
+    });
+    renderizarLojaEquipamentos(filtro);
+}
+
+window.mudarAbaPericia = function(aba) {
+    document.querySelectorAll('.pericias-tab').forEach(btn => {
+        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
+    });
+    document.getElementById('minhasPericias').style.display = aba === 'minhas' ? 'block' : 'none';
+    document.getElementById('catalogoPericias').style.display = aba === 'catalogo' ? 'block' : 'none';
+    if (aba === 'catalogo') {
+        renderizarCatalogoPericias('todas');
+    }
+}
+
+window.mudarAbaMagia = function(aba) {
+    abaMagiaAtual = aba;
+    document.querySelectorAll('.magias-tab').forEach(btn => {
+        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
+    });
+    
+    const minhasDiv = document.getElementById(`minhasMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
+    const catalogoDiv = document.getElementById(`catalogoMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
+    
+    if (minhasDiv) minhasDiv.style.display = aba === 'minhas' ? 'block' : 'none';
+    if (catalogoDiv) catalogoDiv.style.display = aba === 'catalogo' ? 'block' : 'none';
+    
+    if (aba === 'catalogo') {
+        renderizarCatalogoMagias(escolaAtual);
+    }
+}
+
+window.mudarAbaEquipamento = function(aba) {
+    document.querySelectorAll('.equipamentos-tab').forEach(btn => {
+        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'inventario' ? 'Inventário' : 'Comprar'));
+    });
+    document.getElementById('meuInventario').style.display = aba === 'inventario' ? 'block' : 'none';
+    document.getElementById('lojaEquipamentos').style.display = aba === 'loja' ? 'block' : 'none';
+    if (aba === 'loja') {
+        renderizarLojaEquipamentos(filtroLojaAtual);
+    }
+}
+
+function renderizarCatalogoPericias(filtro = 'todas') {
+    const container = document.getElementById('catalogoPericiasLista');
+    if (!container) return;
+    
+    const periciasFiltradas = catalogoPericias.filter(p => filtro === 'todas' || p.tipo === filtro);
+    let html = '';
+    
+    periciasFiltradas.forEach(pericia => {
+        const temPericia = personagemAtual.pericias?.[pericia.id];
+        const nivelAtual = temPericia?.nivel || 0;
+        const podeComprar = nivelAtual < 5;
         
-        const custo = 2;
+        const custoProximoNivel = tabelaCustosPericias[nivelAtual + 1] || 0;
+        const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+        const custoDiferenca = custoProximoNivel - custoAtual;
         const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
         
-        if (custo > ppDisponivel) {
-            showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
-            return;
-        }
+        html += `
+            <div class="pericia-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #ffd700;">${pericia.nome}</strong>
+                        <span style="font-size: 11px; background: ${pericia.tipo === 'mental' ? '#4a6da8' : '#8b4a6d'}; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">
+                            ${pericia.tipo === 'mental' ? 'IQ' : 'DX'}
+                        </span>
+                    </div>
+                    <span style="color: ${nivelAtual > 0 ? '#ffd700' : '#a0a0b0'};">
+                        Nv ${nivelAtual}/5
+                    </span>
+                </div>
+                
+                ${nivelAtual > 0 ? `
+                    <div style="font-size: 12px; color: #4CAF50; margin: 5px 0;">
+                        NH: ${calcularNHPericia(pericia.id, { nivel: nivelAtual })}%
+                    </div>
+                ` : ''}
+                
+                ${podeComprar ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                        <span style="font-size: 12px;">
+                            ${nivelAtual === 0 ? 'Desbloquear' : 'Evoluir'}: <strong style="color: #ffd700;">${custoDiferenca} PP</strong>
+                        </span>
+                        <button class="btn-xp" onclick="comprarPericia('${pericia.id}')" 
+                                ${custoDiferenca > ppDisponivel ? 'disabled' : ''}>
+                            ${nivelAtual === 0 ? 'Comprar' : 'Evoluir'}
+                        </button>
+                    </div>
+                ` : `
+                    <div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">
+                        <i class="fas fa-check-circle"></i> Nível máximo!
+                    </div>
+                `}
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderizarCatalogoMagias(escola) {
+    const container = document.getElementById(`catalogoMagiasLista${escola.charAt(0).toUpperCase() + escola.slice(1)}`);
+    if (!container) return;
+    
+    const dados = escola === 'agua' ? dadosMagiasAgua :
+                  escola === 'ar' ? dadosMagiasAr :
+                  escola === 'gelo' ? dadosMagiasGelo :
+                  escola === 'fogo' ? dadosMagiasFogo :
+                  dadosMagiasTerra;
+    
+    if (!personagemAtual.escolas) personagemAtual.escolas = { 
+        agua: { magias: {} }, 
+        ar: { magias: {} }, 
+        gelo: { magias: {} },
+        fogo: { magias: {} },
+        terra: { magias: {} }
+    };
+    if (!personagemAtual.escolas[escola]) personagemAtual.escolas[escola] = { magias: {} };
+    if (!personagemAtual.escolas[escola].magias) personagemAtual.escolas[escola].magias = {};
+    
+    const magiasDesbloqueadas = contarMagiasDesbloqueadas(escola);
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    let html = '';
+    
+    Object.entries(dados).forEach(([id, magia]) => {
+        const temMagia = personagemAtual.escolas[escola].magias[id]?.desbloqueada || false;
+        const podeDesbloquear = !temMagia && magiasDesbloqueadas + 1 >= magia.nivelRequerido;
+        const botaoHabilitado = podeDesbloquear && ppDisponivel >= 2;
         
+        html += `
+            <div class="magia-card-catalogo" style="margin-bottom: 12px; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid ${temMagia ? '#ffd700' : '#2a2a3c'}; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #ffd700; font-size: 16px;">
+                            <i class="fas ${magia.icone}" style="color: #4a9fff; margin-right: 8px;"></i>
+                            ${magia.nome}
+                        </strong>
+                        <span style="font-size: 11px; background: #4a6da8; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">
+                            Nível ${magia.nivelRequerido}+
+                        </span>
+                    </div>
+                    <span style="color: ${temMagia ? '#4CAF50' : '#a0a0b0'}; font-weight: 600;">
+                        ${temMagia ? '✓ DESBLOQUEADA' : ''}
+                    </span>
+                </div>
+                
+                <div style="display: flex; gap: 15px; font-size: 12px; color: #a0a0b0; margin: 8px 0;">
+                    <span><i class="fas fa-bolt" style="color: #ffd700;"></i> ${magia.custoPM} PM</span>
+                    <span><i class="fas fa-clock" style="color: #4a9fff;"></i> ${magia.tempoConjuracao}</span>
+                </div>
+                
+                <div style="font-size: 12px; color: #a0a0b0; margin-bottom: 8px;">
+                    <span style="color: #ffd700;">Efeito inicial:</span> ${magia.efeitos[1]}
+                </div>
+                
+                ${temMagia ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: rgba(255,215,0,0.1); padding: 8px; border-radius: 6px;">
+                        <span style="color: #ffd700;">Nível atual: ${personagemAtual.escolas[escola].magias[id].nivel || 1}</span>
+                        <span style="color: #4CAF50;">NH: ${calcularNHMagia(id, personagemAtual.escolas[escola].magias[id].nivel || 1, escola)}%</span>
+                    </div>
+                ` : ''}
+                
+                ${!temMagia ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                        <div>
+                            ${podeDesbloquear ? 
+                                `<span style="color: #ffd700;">Custo: <strong>2 PP</strong> (você tem ${ppDisponivel} PP)</span>` : 
+                                `<span style="color: #ff6b6b;">Requer ${magia.nivelRequerido} magias desbloqueadas</span>`
+                            }
+                        </div>
+                        ${podeDesbloquear ? `
+                            <button class="btn-xp" onclick="comprarMagia('${escola}', '${id}')" 
+                                    style="background: ${botaoHabilitado ? '#ffd700' : '#2a2a3c'}; color: ${botaoHabilitado ? '#14141f' : '#ffd700'}; padding: 6px 15px;"
+                                    ${!botaoHabilitado ? 'disabled' : ''}>
+                                Desbloquear (2 PP)
+                            </button>
+                        ` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderizarLojaEquipamentos(categoria) {
+    const container = document.getElementById('lojaEquipamentosLista');
+    if (!container) return;
+    
+    const itens = catalogoEquipamentos[categoria] || [];
+    let html = '';
+    
+    itens.forEach(item => {
+        html += `
+            <div class="equipamento-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #ffd700;">${item.nome}</strong>
+                        ${item.st ? `<span style="font-size: 11px; background: #8b4a6d; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">ST ${item.st}</span>` : ''}
+                    </div>
+                    <span style="color: #ffd700;">$${item.preco}</span>
+                </div>
+                
+                <div style="display: flex; gap: 15px; font-size: 12px; color: #a0a0b0; margin: 5px 0;">
+                    ${item.dano ? `<span>Dano: ${item.dano}</span>` : ''}
+                    ${item.rd ? `<span>RD: ${item.rd}</span>` : ''}
+                    ${item.bonus ? `<span>Bônus: +${item.bonus}</span>` : ''}
+                    <span>Peso: ${item.peso} kg</span>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <button class="btn-xp" onclick='comprarEquipamento(${JSON.stringify(item).replace(/'/g, "\\'")}, "${categoria}")' 
+                            style="background: ${personagemAtual?.dinheiro < item.preco ? '#2a2a3c' : '#ffd700'}; color: ${personagemAtual?.dinheiro < item.preco ? '#ffd700' : '#14141f'};"
+                            ${personagemAtual?.dinheiro < item.preco ? 'disabled' : ''}>
+                        Comprar
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderizarFicha() {
+    if (!personagemAtual) return;
+
+    personagemNome.textContent = personagemAtual.nome || 'Sem nome';
+    personagemClasse.textContent = personagemAtual.classe || 'Sem classe';
+    if (personagemAtual.fotoURL) {
+        personagemFoto.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
+    }
+
+    const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
+                        (personagemAtual.atributos?.dx?.esferas || 0) +
+                        (personagemAtual.atributos?.iq?.esferas || 0) +
+                        (personagemAtual.atributos?.vigor?.esferas || 0) +
+                        (personagemAtual.atributos?.vt?.esferas || 0);
+    const nivel = totalEsferas + 1;
+    
+    personagemAtual.nivel = nivel;
+    if (nivelPersonagem) nivelPersonagem.textContent = nivel;
+    if (dinheiroHeader) dinheiroHeader.textContent = personagemAtual.dinheiro || 0;
+    if (dinheiroValor) dinheiroValor.textContent = personagemAtual.dinheiro || 0;
+
+    const pvMax = calcularPV();
+    const pmMax = calcularPM();
+    const pfMax = calcularPF();
+    
+    const pvAtual = personagemAtual.statusCombate?.vidaAtual !== undefined ? 
+                    Math.min(personagemAtual.statusCombate.vidaAtual, pvMax) : pvMax;
+    const pmAtual = personagemAtual.statusCombate?.manaAtual !== undefined ? 
+                    Math.min(personagemAtual.statusCombate.manaAtual, pmMax) : pmMax;
+    const pfAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
+                    Math.min(personagemAtual.statusCombate.fadigaAtual, pfMax) : pfMax;
+
+    if (pvTexto) pvTexto.textContent = `${pvAtual}/${pvMax}`;
+    if (pmTexto) pmTexto.textContent = `${pmAtual}/${pmMax}`;
+    if (pfTexto) pfTexto.textContent = `${pfAtual}/${pfMax}`;
+    
+    if (pvBarra) pvBarra.style.width = (pvAtual / pvMax) * 100 + '%';
+    if (pmBarra) pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
+    if (pfBarra) pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
+
+    const xpAtual = personagemAtual.xpAtual || 0;
+    const xpNecessario = getXpProximoNivel(nivel);
+    const percentualXp = (xpAtual / xpNecessario) * 100;
+    
+    if (xpTexto) xpTexto.textContent = `${xpAtual} / ${xpNecessario}`;
+    if (xpBarra) {
+        xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
+        xpBarra.textContent = Math.round(percentualXp) + '%';
+    }
+
+    if (atributosContainer) {
+        atributosContainer.innerHTML = `
+            <div class="atributo-item" onclick="gastarEsfera('st')">
+                <span class="atributo-nome">ST</span>
+                <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.st?.esferas || 0))}</div>
+                <span class="atributo-valor">${getSTFixo()} <span class="atributo-percentual">${getSTPercentual()}%</span></span>
+            </div>
+            <div class="atributo-item" onclick="gastarEsfera('dx')">
+                <span class="atributo-nome">DX</span>
+                <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.dx?.esferas || 0))}</div>
+                <span class="atributo-valor">${getDXFixo()} <span class="atributo-percentual">${getDXPercentual()}%</span></span>
+            </div>
+            <div class="atributo-item" onclick="gastarEsfera('iq')">
+                <span class="atributo-nome">IQ</span>
+                <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.iq?.esferas || 0))}</div>
+                <span class="atributo-valor">${getIQFixo()} <span class="atributo-percentual">${getIQPercentual()}%</span></span>
+            </div>
+            <div class="atributo-item" onclick="gastarEsfera('vigor')">
+                <span class="atributo-nome">VIGOR</span>
+                <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.vigor?.esferas || 0))}</div>
+                <span class="atributo-valor">${getVIGORFixo()} <span class="atributo-percentual">${getVIGORPercentual()}%</span></span>
+            </div>
+            <div class="atributo-item" onclick="gastarEsfera('vt')">
+                <span class="atributo-nome">VT</span>
+                <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.vt?.esferas || 0))}</div>
+                <span class="atributo-valor">${getVTFixo()}</span>
+            </div>
+        `;
+    }
+
+    const esquiva = calcularEsquiva();
+    const aparar = calcularAparar();
+    const bloqueio = calcularBloqueio();
+
+    if (defesasContainer) {
+        defesasContainer.innerHTML = `
+            <div class="defesa-card">
+                <div class="defesa-nome">Esquiva</div>
+                <div class="defesa-valor">${esquiva}<small>%</small></div>
+            </div>
+            <div class="defesa-card">
+                <div class="defesa-nome">Aparar</div>
+                <div class="defesa-valor">${aparar}<small>%</small></div>
+            </div>
+            <div class="defesa-card">
+                <div class="defesa-nome">Bloqueio</div>
+                <div class="defesa-valor">${bloqueio}<small>%</small></div>
+            </div>
+        `;
+    }
+
+    const desloc = calcularDeslocamento();
+    if (deslocamentoTexto) deslocamentoTexto.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
+    if (rdTotal) rdTotal.textContent = calcularRD();
+    if (danoBase) danoBase.textContent = calcularDanoBase();
+
+    if (periciasContainer) {
+        let periciasHTML = '';
+        const periciasArray = Object.entries(personagemAtual.pericias || {});
+        if (periciasArray.length === 0) {
+            periciasHTML = '<div style="text-align: center; color: #a0a0b0; padding: 20px;">Nenhuma perícia adquirida</div>';
+        } else {
+            periciasArray.sort((a, b) => a[0].localeCompare(b[0]));
+            periciasArray.forEach(([id, dados]) => {
+                const pericia = catalogoPericias.find(p => p.id === id);
+                if (!pericia) return;
+                const nh = calcularNHPericia(id, dados);
+                periciasHTML += `
+                    <div class="pericia-item">
+                        <div style="display: flex; align-items: center;">
+                            <span class="pericia-nome">${pericia.nome}</span>
+                            <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <span class="pericia-nh">${nh}%</span>
+                            <button class="btn-pericia" onclick="abrirModalPericia('${id}')">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        periciasContainer.innerHTML = periciasHTML;
+    }
+
+    if (vantagensContainer) {
+        const vantagensMap = new Map();
+        (personagemAtual.vantagens || []).forEach(v => vantagensMap.set(v, true));
+        const vantagensUnicas = Array.from(vantagensMap.keys());
+        const vantagensHTML = vantagensUnicas.map(v => {
+            const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
+            return `<span class="tag vantagem">${nomeV}</span>`;
+        }).join('');
+        vantagensContainer.innerHTML = vantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
+    }
+
+    if (desvantagensContainer) {
+        const desvantagensMap = new Map();
+        (personagemAtual.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
+        if (personagemAtual.fobia) {
+            desvantagensMap.set(`fobia:${personagemAtual.fobia}`, true);
+        }
+        const desvantagensUnicas = Array.from(desvantagensMap.keys());
+        const desvantagensHTML = desvantagensUnicas.map(d => {
+            let nomeD = d;
+            if (d.startsWith('fobia:')) {
+                nomeD = 'Fobia: ' + d.replace('fobia:', '');
+            } else {
+                nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
+            }
+            return `<span class="tag desvantagem">${nomeD}</span>`;
+        }).join('');
+        desvantagensContainer.innerHTML = desvantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
+    }
+
+    renderizarMinhasMagias('agua');
+    renderizarMinhasMagias('ar');
+    renderizarMinhasMagias('gelo');
+    renderizarMinhasMagias('fogo');
+    renderizarMinhasMagias('terra');
+
+    renderizarInventario();
+    atualizarDisplayPP();
+}
+
+function renderizarMinhasMagias(escola) {
+    const container = document.getElementById(`magiasContainer${escola.charAt(0).toUpperCase() + escola.slice(1)}`);
+    if (!container) return;
+    
+    const dados = escola === 'agua' ? dadosMagiasAgua :
+                  escola === 'ar' ? dadosMagiasAr :
+                  escola === 'gelo' ? dadosMagiasGelo :
+                  escola === 'fogo' ? dadosMagiasFogo :
+                  dadosMagiasTerra;
+    
+    if (!personagemAtual.escolas?.[escola]?.magias) {
+        container.innerHTML = '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
+        return;
+    }
+    
+    let magiasHTML = '';
+    const ordemMagias = Object.keys(dados);
+    
+    ordemMagias.forEach(id => {
+        const magia = personagemAtual.escolas[escola].magias[id];
+        if (!magia || !magia.desbloqueada) return;
+        
+        const dadosMagia = dados[id];
+        if (!dadosMagia) return;
+        
+        const nh = calcularNHMagia(id, magia.nivel || 1, escola);
+        magiasHTML += `
+            <div class="magia-card" onclick="abrirModalMagia('${escola}', '${id}')">
+                <div class="magia-nome">
+                    <i class="fas ${dadosMagia.icone}" style="color: #4a9fff;"></i>
+                    ${dadosMagia.nome}
+                </div>
+                <div style="display: flex; gap: 10px; font-size: 11px; color: #a0a0b0; margin-bottom: 5px;">
+                    <span><i class="fas fa-bolt" style="color: #ffd700;"></i> ${dadosMagia.custoPM} PM</span>
+                    <span><i class="fas fa-clock" style="color: #4a9fff;"></i> ${dadosMagia.tempoConjuracao}</span>
+                </div>
+                <div class="magia-info">
+                    <span>Nv ${magia.nivel || 1}</span>
+                    <span>${nh}%</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = magiasHTML || '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
+}
+
+function renderizarInventario() {
+    const renderizarLista = (itens, local) => {
+        if (!itens || itens.length === 0) {
+            return '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Vazio</div>';
+        }
+        return itens.map(item => `
+            <div class="item-card">
+                <div>
+                    <div class="item-nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
+                    <div class="item-detalhes">
+                        <span>${item.peso} kg</span>
+                        ${item.dano ? `<span>${item.dano}</span>` : ''}
+                        ${item.rd ? `<span>RD ${item.rd}</span>` : ''}
+                        ${item.bonus ? `<span>+${item.bonus}</span>` : ''}
+                        ${item.st ? `<span>ST ${item.st}</span>` : ''}
+                        ${item.efeito ? `<span class="tag" style="font-size: 10px; padding: 2px 4px;">${item.efeito}</span>` : ''}
+                    </div>
+                </div>
+                <div class="item-acoes">
+                    ${local !== 'deposito' ? `<button class="btn-item" onclick="moverItem('${item.id}', '${local}', 'deposito')" title="Mover para Depósito"><i class="fas fa-arrow-right"></i></button>` : ''}
+                    ${local === 'mochila' ? `<button class="btn-item" onclick="equiparItem('${item.id}')" title="Equipar"><i class="fas fa-user"></i></button>` : ''}
+                    ${local === 'corpo' ? `<button class="btn-item" onclick="guardarItem('${item.id}')" title="Guardar na Mochila"><i class="fas fa-shopping-bag"></i></button>` : ''}
+                    ${local === 'deposito' ? `<button class="btn-item" onclick="pegarItem('${item.id}')" title="Pegar"><i class="fas fa-arrow-left"></i></button>` : ''}
+                    <button class="btn-item" onclick="venderItem('${item.id}', '${local}')" title="Vender (50%)"><i class="fas fa-coins"></i></button>
+                    <button class="btn-item" onclick="excluirItem('${item.id}', '${local}')" title="Excluir"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `).join('');
+    };
+    
+    if (inventarioCorpo) inventarioCorpo.innerHTML = renderizarLista(personagemAtual?.inventario?.corpo, 'corpo');
+    if (inventarioMochila) inventarioMochila.innerHTML = renderizarLista(personagemAtual?.inventario?.mochila, 'mochila');
+    if (inventarioDeposito) inventarioDeposito.innerHTML = renderizarLista(personagemAtual?.inventario?.deposito, 'deposito');
+    
+    document.querySelectorAll('.inventario-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
+            tab.classList.add('ativa');
+            document.querySelectorAll('.item-lista').forEach(l => l.classList.remove('ativa'));
+            const targetId = `inventario${tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)}`;
+            const target = document.getElementById(targetId);
+            if (target) target.classList.add('ativa');
+        });
+    });
+}
+
+window.alterarXP = async function(valor) {
+    if (!personagemAtual || !currentUser) return;
+    let novoXP = (personagemAtual.xpAtual || 0) + valor;
+    if (novoXP < 0) novoXP = 0;
+    
+    const xpNecessario = getXpProximoNivel(personagemAtual.nivel);
+    
+    if (novoXP >= xpNecessario && !esferaPendente) {
+        esferaPendente = true;
+        novoXP = 0;
         try {
             const personagemRef = doc(db, "personagens", personagemAtual.id);
-            
-            const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
-            
-            await updateDoc(personagemRef, {
-                [`escolas.${escola}.magias.${magiaId}.desbloqueada`]: true,
-                [`escolas.${escola}.magias.${magiaId}.nivel`]: 1,
-                ppGasto: novoPpGasto
-            });
-            
-            personagemAtual.escolas[escola].magias[magiaId] = {
-                desbloqueada: true,
-                nivel: 1
-            };
-            personagemAtual.ppGasto = novoPpGasto;
-            
-            renderizarFicha();
-            
-            let nomeMagia = '';
-            if (escola === 'agua') nomeMagia = dadosMagiasAgua[magiaId]?.nome;
-            else if (escola === 'ar') nomeMagia = dadosMagiasAr[magiaId]?.nome;
-            else if (escola === 'gelo') nomeMagia = dadosMagiasGelo[magiaId]?.nome;
-            else if (escola === 'fogo') nomeMagia = dadosMagiasFogo[magiaId]?.nome;
-            else if (escola === 'terra') nomeMagia = dadosMagiasTerra[magiaId]?.nome;
-            
-            showToast(`${nomeMagia || magiaId} desbloqueada!`);
-            
+            await updateDoc(personagemRef, { xpAtual: novoXP });
+            personagemAtual.xpAtual = novoXP;
+            modalGanharEsfera.classList.add('active');
+            showToast('Ganhou 1 esfera! Escolha onde gastar.');
         } catch (error) {
-            showToast('Erro ao comprar magia', true);
+            showToast('Erro ao ganhar esfera', true);
+            esferaPendente = false;
         }
-    }
-
-    window.comprarEquipamento = async function(item, categoria) {
-        if (!personagemAtual || !currentUser) return;
-        
-        if (personagemAtual.dinheiro < item.preco) {
-            showToast('Dinheiro insuficiente!', true);
-            return;
-        }
-        
+    } else {
         try {
-            const novoItem = {
-                id: item.id + '_' + Date.now(),
-                nome: item.nome,
-                tipo: item.tipo,
-                preco: item.preco,
-                peso: item.peso,
-                quantidade: 1
-            };
-            
-            if (item.dano) novoItem.dano = item.dano;
-            if (item.rd) novoItem.rd = item.rd;
-            if (item.bonus) novoItem.bonus = item.bonus;
-            if (item.st) novoItem.st = item.st;
-            
-            if (!personagemAtual.inventario) personagemAtual.inventario = { deposito: [] };
-            if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
-            
-            personagemAtual.inventario.deposito.push(novoItem);
-            personagemAtual.dinheiro -= item.preco;
-            
             const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                inventario: personagemAtual.inventario,
-                dinheiro: personagemAtual.dinheiro
-            });
-            
-            renderizarFicha();
-            showToast(`${item.nome} comprado!`);
-            
+            await updateDoc(personagemRef, { xpAtual: novoXP });
+            personagemAtual.xpAtual = novoXP;
         } catch (error) {
-            showToast('Erro ao comprar', true);
+            showToast('Erro ao alterar XP', true);
         }
     }
-
-    window.filtrarPericias = function(filtro) {
-        document.querySelectorAll('[onclick^="filtrarPericias"]').forEach(btn => {
-            if (btn.textContent.includes('Todas') && filtro === 'todas') {
-                btn.style.background = '#ffd700';
-                btn.style.color = '#14141f';
-            } else if (btn.textContent.includes('Mental') && filtro === 'mental') {
-                btn.style.background = '#ffd700';
-                btn.style.color = '#14141f';
-            } else if (btn.textContent.includes('Física') && filtro === 'fisica') {
-                btn.style.background = '#ffd700';
-                btn.style.color = '#14141f';
-            } else {
-                btn.style.background = '#2a2a3c';
-                btn.style.color = '#ffd700';
-            }
-        });
-        renderizarCatalogoPericias(filtro);
+    
+    const percentual = (novoXP / xpNecessario) * 100;
+    if (xpTexto) xpTexto.textContent = `${novoXP} / ${xpNecessario}`;
+    if (xpBarra) {
+        xpBarra.style.width = Math.min(100, Math.max(0, percentual)) + '%';
+        xpBarra.textContent = Math.round(percentual) + '%';
     }
+};
 
-    window.filtrarLoja = function(filtro) {
-        filtroLojaAtual = filtro;
-        document.querySelectorAll('[onclick^="filtrarLoja"]').forEach(btn => {
-            if (btn.textContent.toLowerCase().includes(filtro)) {
-                btn.style.background = '#ffd700';
-                btn.style.color = '#14141f';
-            } else {
-                btn.style.background = '#2a2a3c';
-                btn.style.color = '#ffd700';
-            }
-        });
-        renderizarLojaEquipamentos(filtro);
+window.gastarEsfera = async function(atributo) {
+    if (!esferaPendente || !personagemAtual || !currentUser) return;
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        const campo = `atributos.${atributo}.esferas`;
+        const valorAtual = personagemAtual.atributos?.[atributo]?.esferas || 0;
+        await updateDoc(personagemRef, { [campo]: valorAtual + 1 });
+        if (!personagemAtual.atributos) personagemAtual.atributos = {};
+        if (!personagemAtual.atributos[atributo]) personagemAtual.atributos[atributo] = {};
+        personagemAtual.atributos[atributo].esferas = valorAtual + 1;
+        modalGanharEsfera.classList.remove('active');
+        esferaPendente = false;
+        renderizarFicha();
+        showToast(`Esfera gasta em ${atributo.toUpperCase()}!`);
+    } catch (error) {
+        showToast('Erro ao gastar esfera', true);
     }
+};
 
-    window.mudarAbaPericia = function(aba) {
-        document.querySelectorAll('.pericias-tab').forEach(btn => {
-            btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
-        });
-        document.getElementById('minhasPericias').style.display = aba === 'minhas' ? 'block' : 'none';
-        document.getElementById('catalogoPericias').style.display = aba === 'catalogo' ? 'block' : 'none';
-        if (aba === 'catalogo') {
-            renderizarCatalogoPericias('todas');
-        }
+window.alterarRecurso = async function(tipo, valor) {
+    if (!personagemAtual || !currentUser) return;
+    let campo = '', valorMax = 0, valorAtual = 0;
+    if (tipo === 'pv') {
+        campo = 'statusCombate.vidaAtual';
+        valorMax = calcularPV();
+        valorAtual = personagemAtual.statusCombate?.vidaAtual !== undefined ? 
+                    Math.min(personagemAtual.statusCombate.vidaAtual, valorMax) : valorMax;
+    } else if (tipo === 'pm') {
+        campo = 'statusCombate.manaAtual';
+        valorMax = calcularPM();
+        valorAtual = personagemAtual.statusCombate?.manaAtual !== undefined ? 
+                    Math.min(personagemAtual.statusCombate.manaAtual, valorMax) : valorMax;
+    } else if (tipo === 'pf') {
+        campo = 'statusCombate.fadigaAtual';
+        valorMax = calcularPF();
+        valorAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
+                    Math.min(personagemAtual.statusCombate.fadigaAtual, valorMax) : valorMax;
+    } else {
+        return;
     }
+    
+    const novoValor = Math.min(Math.max(valorAtual + valor, 0), valorMax);
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { [campo]: novoValor });
+        if (tipo === 'pv') personagemAtual.statusCombate.vidaAtual = novoValor;
+        if (tipo === 'pm') personagemAtual.statusCombate.manaAtual = novoValor;
+        if (tipo === 'pf') personagemAtual.statusCombate.fadigaAtual = novoValor;
+        const textoEl = document.getElementById(`${tipo}Texto`);
+        const barraEl = document.getElementById(`${tipo}Barra`);
+        if (textoEl) textoEl.textContent = `${novoValor}/${valorMax}`;
+        if (barraEl) barraEl.style.width = (novoValor / valorMax) * 100 + '%';
+        showToast(`${tipo.toUpperCase()} alterado!`);
+    } catch (error) {
+        showToast('Erro ao alterar recurso', true);
+    }
+};
 
-    window.mudarAbaMagia = function(aba) {
-        abaMagiaAtual = aba;
-        document.querySelectorAll('.magias-tab').forEach(btn => {
-            btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
+window.alterarDinheiro = async function(valor) {
+    if (!personagemAtual || !currentUser) return;
+    const novoValor = Math.max(0, (personagemAtual.dinheiro || 0) + valor);
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { dinheiro: novoValor });
+        personagemAtual.dinheiro = novoValor;
+        if (dinheiroValor) dinheiroValor.textContent = novoValor;
+        if (dinheiroHeader) dinheiroHeader.textContent = novoValor;
+        showToast('Dinheiro alterado!');
+    } catch (error) {
+        showToast('Erro ao alterar dinheiro', true);
+    }
+};
+
+window.abrirModalPericia = function(periciaId) {
+    const pericia = catalogoPericias.find(p => p.id === periciaId);
+    if (!pericia) return;
+    
+    const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
+    const nivelAtual = periciaExistente.nivel || 0;
+    
+    periciaModalAtual = {
+        id: periciaId,
+        nome: pericia.nome,
+        nivelAtual: nivelAtual,
+        novoNivel: nivelAtual
+    };
+    
+    modalPericiaTitulo.textContent = pericia.nome;
+    
+    let linhas = '';
+    for (let i = 1; i <= 5; i++) {
+        const classe = i === nivelAtual ? 'nivel-atual' : '';
+        const custo = tabelaCustosPericias[i];
+        linhas += `<tr class="${classe}"><td>${i}</td><td>+${i*4}%</td><td>${custo} PP</td></tr>`;
+    }
+    tabelaPericia.innerHTML = linhas;
+    
+    modalPericiaNivel.textContent = nivelAtual;
+    atualizarModalPericia();
+    modalPericia.classList.add('active');
+};
+
+function atualizarModalPericia() {
+    if (!periciaModalAtual) return;
+    const novoNivel = periciaModalAtual.novoNivel;
+    const nivelAtual = periciaModalAtual.nivelAtual;
+    const podeAumentar = novoNivel < 5;
+    const podeDiminuir = novoNivel > nivelAtual && novoNivel > 1;
+    modalPericiaMenos.disabled = !podeDiminuir;
+    modalPericiaMais.disabled = !podeAumentar;
+    const custoTotal = tabelaCustosPericias[novoNivel] || 0;
+    const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+    const custoDiferenca = custoTotal - custoAtual;
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    modalPericiaCusto.textContent = custoDiferenca + ' PP';
+    modalPericiaConfirmar.disabled = custoDiferenca > ppDisponivel;
+}
+
+modalPericiaMenos.addEventListener('click', () => {
+    if (periciaModalAtual) {
+        periciaModalAtual.novoNivel--;
+        modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
+        atualizarModalPericia();
+    }
+});
+
+modalPericiaMais.addEventListener('click', () => {
+    if (periciaModalAtual) {
+        periciaModalAtual.novoNivel++;
+        modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
+        atualizarModalPericia();
+    }
+});
+
+modalPericiaCancelar.addEventListener('click', () => {
+    modalPericia.classList.remove('active');
+});
+
+modalPericiaConfirmar.addEventListener('click', async () => {
+    if (!periciaModalAtual || !personagemAtual) return;
+    
+    const novoNivel = periciaModalAtual.novoNivel;
+    const nivelAtual = periciaModalAtual.nivelAtual;
+    const custoTotal = tabelaCustosPericias[novoNivel];
+    const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+    const custoDiferenca = custoTotal - custoAtual;
+    
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    if (custoDiferenca > ppDisponivel) {
+        showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+        return;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        
+        const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+        
+        await updateDoc(personagemRef, {
+            [`pericias.${periciaModalAtual.id}.nivel`]: novoNivel,
+            ppGasto: novoPpGasto
         });
+        
+        if (!personagemAtual.pericias) personagemAtual.pericias = {};
+        personagemAtual.pericias[periciaModalAtual.id] = { nivel: novoNivel };
+        personagemAtual.ppGasto = novoPpGasto;
+        
+        modalPericia.classList.remove('active');
+        renderizarFicha();
+        showToast('Perícia atualizada!');
+    } catch (error) {
+        showToast('Erro ao atualizar perícia', true);
+    }
+});
+
+window.abrirModalMagia = function(escola, magiaId) {
+    const magia = personagemAtual?.escolas?.[escola]?.magias?.[magiaId];
+    const dados = escola === 'agua' ? dadosMagiasAgua[magiaId] :
+                  escola === 'ar' ? dadosMagiasAr[magiaId] :
+                  escola === 'gelo' ? dadosMagiasGelo[magiaId] :
+                  escola === 'fogo' ? dadosMagiasFogo[magiaId] :
+                  dadosMagiasTerra[magiaId];
+    if (!magia || !dados) return;
+    
+    escolaMagiaModalAtual = escola;
+    magiaModalAtual = magiaId;
+    modalMagiaTitulo.textContent = dados.nome;
+    
+    if (modalMagiaCustoPM) modalMagiaCustoPM.textContent = dados.custoPM + ' PM';
+    if (modalMagiaTempo) modalMagiaTempo.textContent = dados.tempoConjuracao;
+    
+    let linhas = '';
+    const iqPercentual = getIQPercentual();
+    const nhBase = iqPercentual + 10;
+    
+    for (let i = 1; i <= 10; i++) {
+        const classe = i === (magia.nivel || 1) ? 'nivel-atual' : '';
+        const nh = nhBase + i;
+        const efeito = dados.efeitos[i] || '-';
+        
+        const custoPM = dados.custoPM;
+        const tempo = dados.tempoConjuracao;
+        
+        linhas += `<tr class="${classe}">
+            <td>${i}</td>
+            <td>${efeito}</td>
+            <td>${nh}%</td>
+            <td>${custoPM} PM</td>
+            <td>${tempo}</td>
+        </tr>`;
+    }
+    tabelaMagia.innerHTML = linhas;
+    
+    const nivelAtual = magia.nivel || 1;
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    modalMagiaCusto.textContent = nivelAtual >= 10 ? 'Nível Máximo' : '2 PP';
+    modalMagiaComprar.disabled = nivelAtual >= 10 || 2 > ppDisponivel;
+    
+    modalMagia.classList.add('active');
+};
+
+modalMagiaFechar.addEventListener('click', () => {
+    modalMagia.classList.remove('active');
+});
+
+modalMagiaComprar.addEventListener('click', async () => {
+    if (!magiaModalAtual || !personagemAtual) return;
+    
+    const magia = personagemAtual.escolas?.[escolaMagiaModalAtual]?.magias?.[magiaModalAtual];
+    if (!magia || magia.nivel >= 10) return;
+    
+    const custo = 2;
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    if (custo > ppDisponivel) {
+        showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+        return;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        
+        const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
+        
+        await updateDoc(personagemRef, {
+            [`escolas.${escolaMagiaModalAtual}.magias.${magiaModalAtual}.nivel`]: (magia.nivel || 1) + 1,
+            ppGasto: novoPpGasto
+        });
+        
+        magia.nivel = (magia.nivel || 1) + 1;
+        personagemAtual.ppGasto = novoPpGasto;
+        
+        modalMagia.classList.remove('active');
+        renderizarFicha();
+        showToast('Magia evoluída!');
+    } catch (error) {
+        showToast('Erro ao evoluir magia', true);
+    }
+});
+
+async function moverItem(itemId, origem, destino) {
+    if (!personagemAtual?.inventario) return;
+    const origemArray = personagemAtual.inventario[origem];
+    if (!origemArray) return;
+    const index = origemArray.findIndex(i => i.id === itemId);
+    if (index === -1) return;
+    const item = origemArray[index];
+    if (!personagemAtual.inventario[destino]) personagemAtual.inventario[destino] = [];
+    origemArray.splice(index, 1);
+    personagemAtual.inventario[destino].push(item);
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
+        renderizarInventario();
+        renderizarFicha();
+        showToast('Item movido!');
+    } catch (error) {
+        showToast('Erro ao mover item', true);
+    }
+}
+
+window.moverItem = moverItem;
+window.equiparItem = (itemId) => moverItem(itemId, 'mochila', 'corpo');
+window.guardarItem = (itemId) => moverItem(itemId, 'corpo', 'mochila');
+window.pegarItem = (itemId) => moverItem(itemId, 'deposito', 'mochila');
+
+window.venderItem = async function(itemId, local) {
+    if (!personagemAtual?.inventario) return;
+    const localArray = personagemAtual.inventario[local];
+    if (!localArray) return;
+    const index = localArray.findIndex(i => i.id === itemId);
+    if (index === -1) return;
+    const item = localArray[index];
+    const valorVenda = Math.floor((item.preco || 0) * 0.5 * (item.quantidade || 1));
+    
+    if (item.quantidade > 1) {
+        item.quantidade--;
+    } else {
+        localArray.splice(index, 1);
+    }
+    
+    personagemAtual.dinheiro = (personagemAtual.dinheiro || 0) + valorVenda;
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario,
+            dinheiro: personagemAtual.dinheiro
+        });
+        renderizarInventario();
+        renderizarFicha();
+        showToast(`Item vendido por $${valorVenda}!`);
+    } catch (error) {
+        showToast('Erro ao vender', true);
+    }
+};
+
+window.excluirItem = async function(itemId, local) {
+    if (!personagemAtual?.inventario) return;
+    if (!confirm('Tem certeza que deseja excluir este item?')) return;
+    
+    const localArray = personagemAtual.inventario[local];
+    if (!localArray) return;
+    const index = localArray.findIndex(i => i.id === itemId);
+    if (index === -1) return;
+    
+    localArray.splice(index, 1);
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
+        renderizarInventario();
+        renderizarFicha();
+        showToast('Item excluído!');
+    } catch (error) {
+        showToast('Erro ao excluir item', true);
+    }
+};
+
+// ============================================
+// FUNÇÕES DO MODAL DE CRIAR ITEM
+// ============================================
+window.abrirModalCriarItem = function() {
+    if (!personagemAtual || !currentUser) {
+        showToast('Carregue o personagem primeiro', true);
+        return;
+    }
+    
+    document.getElementById('criarItemTipo').value = 'arma';
+    document.getElementById('criarItemNome').value = '';
+    document.getElementById('criarItemPeso').value = '1.0';
+    document.getElementById('criarItemPreco').value = '0';
+    document.getElementById('criarItemDano').value = '';
+    document.getElementById('criarItemST').value = '0';
+    document.getElementById('criarItemRD').value = '0';
+    document.getElementById('criarItemBonus').value = '0';
+    document.getElementById('criarItemVE').value = '';
+    document.getElementById('criarItemQuantidade').value = '1';
+    document.getElementById('criarItemEfeito').value = '';
+    
+    atualizarCamposItem();
+    
+    modalCriarItem.classList.add('active');
+};
+
+function atualizarCamposItem() {
+    const tipo = criarItemTipo.value;
+    
+    camposArma.style.display = 'none';
+    camposArmadura.style.display = 'none';
+    camposEscudo.style.display = 'none';
+    
+    if (tipo === 'arma') {
+        camposArma.style.display = 'grid';
+    } else if (tipo === 'armadura') {
+        camposArmadura.style.display = 'block';
+    } else if (tipo === 'escudo') {
+        camposEscudo.style.display = 'grid';
+    }
+}
+
+criarItemTipo.addEventListener('change', atualizarCamposItem);
+
+modalCriarItemCancelar.addEventListener('click', () => {
+    modalCriarItem.classList.remove('active');
+});
+
+modalCriarItemConfirmar.addEventListener('click', async () => {
+    if (!personagemAtual || !currentUser) return;
+    
+    const tipo = document.getElementById('criarItemTipo').value;
+    const nome = document.getElementById('criarItemNome').value.trim();
+    const peso = parseFloat(document.getElementById('criarItemPeso').value) || 0;
+    const preco = parseInt(document.getElementById('criarItemPreco').value) || 0;
+    const quantidade = parseInt(document.getElementById('criarItemQuantidade').value) || 1;
+    const efeito = document.getElementById('criarItemEfeito').value.trim();
+    const local = document.querySelector('input[name="criarItemLocal"]:checked').value;
+    
+    if (!nome) {
+        showToast('Digite um nome para o item!', true);
+        return;
+    }
+    
+    if (peso <= 0) {
+        showToast('O peso deve ser maior que zero!', true);
+        return;
+    }
+    
+    const novoItem = {
+        id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        nome: nome,
+        tipo: tipo,
+        peso: peso,
+        preco: preco,
+        quantidade: quantidade
+    };
+    
+    if (tipo === 'arma') {
+        const dano = document.getElementById('criarItemDano').value.trim();
+        const st = parseInt(document.getElementById('criarItemST').value) || 0;
+        if (dano) novoItem.dano = dano;
+        if (st > 0) novoItem.st = st;
+    } else if (tipo === 'armadura') {
+        const rd = parseInt(document.getElementById('criarItemRD').value) || 0;
+        if (rd > 0) novoItem.rd = rd;
+    } else if (tipo === 'escudo') {
+        const bonus = parseInt(document.getElementById('criarItemBonus').value) || 0;
+        const ve = document.getElementById('criarItemVE').value.trim();
+        if (bonus > 0) novoItem.bonus = bonus;
+        if (ve) novoItem.ve = ve;
+    }
+    
+    if (efeito) novoItem.efeito = efeito;
+    
+    if (!personagemAtual.inventario) {
+        personagemAtual.inventario = {
+            corpo: [],
+            mochila: [],
+            deposito: []
+        };
+    }
+    
+    if (!personagemAtual.inventario[local]) {
+        personagemAtual.inventario[local] = [];
+    }
+    
+    personagemAtual.inventario[local].push(novoItem);
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario
+        });
+        
+        modalCriarItem.classList.remove('active');
+        renderizarInventario();
+        renderizarFicha();
+        showToast(`Item "${nome}" criado com sucesso!`);
+        
+    } catch (error) {
+        showToast('Erro ao criar item', true);
+    }
+});
+
+document.querySelectorAll('.btn-atributo-esfera').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const atributo = btn.dataset.atributo;
+        gastarEsfera(atributo);
+    });
+});
+
+fecharModalEsfera.addEventListener('click', () => {
+    modalGanharEsfera.classList.remove('active');
+    esferaPendente = false;
+});
+
+btnSair.addEventListener('click', async () => {
+    await signOut(auth);
+    window.location.href = 'index.html';
+});
+
+document.querySelectorAll('.escolas-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
+        tab.classList.add('ativa');
+        
+        escolaAtual = tab.dataset.escola;
+        
+        document.querySelectorAll('.conteudo-escola').forEach(div => div.classList.remove('ativa'));
+        document.getElementById(`conteudo${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`).classList.add('ativa');
         
         const minhasDiv = document.getElementById(`minhasMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
         const catalogoDiv = document.getElementById(`catalogoMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
         
-        if (minhasDiv) minhasDiv.style.display = aba === 'minhas' ? 'block' : 'none';
-        if (catalogoDiv) catalogoDiv.style.display = aba === 'catalogo' ? 'block' : 'none';
+        if (minhasDiv) minhasDiv.style.display = abaMagiaAtual === 'minhas' ? 'block' : 'none';
+        if (catalogoDiv) catalogoDiv.style.display = abaMagiaAtual === 'catalogo' ? 'block' : 'none';
         
-        if (aba === 'catalogo') {
+        if (abaMagiaAtual === 'catalogo') {
             renderizarCatalogoMagias(escolaAtual);
         }
+    });
+});
+
+async function carregarPersonagem() {
+    personagemId = getPersonagemIdFromUrl();
+    if (!personagemId) {
+        showToast('ID do personagem não encontrado!', true);
+        setTimeout(() => window.location.href = 'campanhas.html', 2000);
+        return;
     }
 
-    window.mudarAbaEquipamento = function(aba) {
-        document.querySelectorAll('.equipamentos-tab').forEach(btn => {
-            btn.classList.toggle('ativa', btn.textContent.includes(aba === 'inventario' ? 'Inventário' : 'Comprar'));
-        });
-        document.getElementById('meuInventario').style.display = aba === 'inventario' ? 'block' : 'none';
-        document.getElementById('lojaEquipamentos').style.display = aba === 'loja' ? 'block' : 'none';
-        if (aba === 'loja') {
-            renderizarLojaEquipamentos(filtroLojaAtual);
+    showLoading();
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemId);
+        const personagemSnap = await getDoc(personagemRef);
+        
+        if (!personagemSnap.exists()) {
+            showToast('Personagem não encontrado!', true);
+            setTimeout(() => window.location.href = 'campanhas.html', 2000);
+            return;
         }
-    }
-
-    function renderizarCatalogoPericias(filtro = 'todas') {
-        const container = document.getElementById('catalogoPericiasLista');
-        if (!container) return;
         
-        const periciasFiltradas = catalogoPericias.filter(p => filtro === 'todas' || p.tipo === filtro);
-        let html = '';
-        
-        periciasFiltradas.forEach(pericia => {
-            const temPericia = personagemAtual.pericias?.[pericia.id];
-            const nivelAtual = temPericia?.nivel || 0;
-            const podeComprar = nivelAtual < 5;
-            
-            const custoProximoNivel = tabelaCustosPericias[nivelAtual + 1] || 0;
-            const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
-            const custoDiferenca = custoProximoNivel - custoAtual;
-            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-            
-            html += `
-                <div class="pericia-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong style="color: #ffd700;">${pericia.nome}</strong>
-                            <span style="font-size: 11px; background: ${pericia.tipo === 'mental' ? '#4a6da8' : '#8b4a6d'}; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">
-                                ${pericia.tipo === 'mental' ? 'IQ' : 'DX'}
-                            </span>
-                        </div>
-                        <span style="color: ${nivelAtual > 0 ? '#ffd700' : '#a0a0b0'};">
-                            Nv ${nivelAtual}/5
-                        </span>
-                    </div>
-                    
-                    ${nivelAtual > 0 ? `
-                        <div style="font-size: 12px; color: #4CAF50; margin: 5px 0;">
-                            NH: ${calcularNHPericia(pericia.id, { nivel: nivelAtual })}%
-                        </div>
-                    ` : ''}
-                    
-                    ${podeComprar ? `
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                            <span style="font-size: 12px;">
-                                ${nivelAtual === 0 ? 'Desbloquear' : 'Evoluir'}: <strong style="color: #ffd700;">${custoDiferenca} PP</strong>
-                            </span>
-                            <button class="btn-xp" onclick="comprarPericia('${pericia.id}')" 
-                                    ${custoDiferenca > ppDisponivel ? 'disabled' : ''}>
-                                ${nivelAtual === 0 ? 'Comprar' : 'Evoluir'}
-                            </button>
-                        </div>
-                    ` : `
-                        <div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">
-                            <i class="fas fa-check-circle"></i> Nível máximo!
-                        </div>
-                    `}
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html;
-    }
-
-    function renderizarCatalogoMagias(escola) {
-        const container = document.getElementById(`catalogoMagiasLista${escola.charAt(0).toUpperCase() + escola.slice(1)}`);
-        if (!container) return;
-        
-        const dados = escola === 'agua' ? dadosMagiasAgua :
-                      escola === 'ar' ? dadosMagiasAr :
-                      escola === 'gelo' ? dadosMagiasGelo :
-                      escola === 'fogo' ? dadosMagiasFogo :
-                      dadosMagiasTerra;
-        
-        if (!personagemAtual.escolas) personagemAtual.escolas = { 
-            agua: { magias: {} }, 
-            ar: { magias: {} }, 
-            gelo: { magias: {} },
-            fogo: { magias: {} },
-            terra: { magias: {} }
+        personagemAtual = {
+            id: personagemSnap.id,
+            ...personagemSnap.data()
         };
-        if (!personagemAtual.escolas[escola]) personagemAtual.escolas[escola] = { magias: {} };
-        if (!personagemAtual.escolas[escola].magias) personagemAtual.escolas[escola].magias = {};
+
+        if (!personagemAtual.escolas) personagemAtual.escolas = {};
+        if (!personagemAtual.escolas.fogo) personagemAtual.escolas.fogo = { magias: {} };
+        if (!personagemAtual.escolas.terra) personagemAtual.escolas.terra = { magias: {} };
         
-        const magiasDesbloqueadas = contarMagiasDesbloqueadas(escola);
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+        if (!personagemAtual.inventario) {
+            personagemAtual.inventario = {
+                corpo: [],
+                mochila: [],
+                deposito: []
+            };
+        } else {
+            if (!personagemAtual.inventario.corpo) personagemAtual.inventario.corpo = [];
+            if (!personagemAtual.inventario.mochila) personagemAtual.inventario.mochila = [];
+            if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
+        }
+
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("personagem_id", "==", personagemId)
+        );
+        const vinculosSnap = await getDocs(vinculosQuery);
         
-        let html = '';
-        
-        Object.entries(dados).forEach(([id, magia]) => {
-            const temMagia = personagemAtual.escolas[escola].magias[id]?.desbloqueada || false;
-            const podeDesbloquear = !temMagia && magiasDesbloqueadas + 1 >= magia.nivelRequerido;
-            const botaoHabilitado = podeDesbloquear && ppDisponivel >= 2;
+        if (!vinculosSnap.empty) {
+            const vinculo = vinculosSnap.docs[0].data();
+            const campanhasQuery = query(
+                collection(db, "campanhas"),
+                where("id", "==", vinculo.campanha_id)
+            );
+            const campanhasSnap = await getDocs(campanhasQuery);
             
-            html += `
-                <div class="magia-card-catalogo" style="margin-bottom: 12px; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid ${temMagia ? '#ffd700' : '#2a2a3c'}; border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong style="color: #ffd700; font-size: 16px;">
-                                <i class="fas ${magia.icone}" style="color: #4a9fff; margin-right: 8px;"></i>
-                                ${magia.nome}
-                            </strong>
-                            <span style="font-size: 11px; background: #4a6da8; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">
-                                Nível ${magia.nivelRequerido}+
-                            </span>
-                        </div>
-                        <span style="color: ${temMagia ? '#4CAF50' : '#a0a0b0'}; font-weight: 600;">
-                            ${temMagia ? '✓ DESBLOQUEADA' : ''}
-                        </span>
-                    </div>
-                    
-                    <div style="display: flex; gap: 15px; font-size: 12px; color: #a0a0b0; margin: 8px 0;">
-                        <span><i class="fas fa-bolt" style="color: #ffd700;"></i> ${magia.custoPM} PM</span>
-                        <span><i class="fas fa-clock" style="color: #4a9fff;"></i> ${magia.tempoConjuracao}</span>
-                    </div>
-                    
-                    <div style="font-size: 12px; color: #a0a0b0; margin-bottom: 8px;">
-                        <span style="color: #ffd700;">Efeito inicial:</span> ${magia.efeitos[1]}
-                    </div>
-                    
-                    ${temMagia ? `
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: rgba(255,215,0,0.1); padding: 8px; border-radius: 6px;">
-                            <span style="color: #ffd700;">Nível atual: ${personagemAtual.escolas[escola].magias[id].nivel || 1}</span>
-                            <span style="color: #4CAF50;">NH: ${calcularNHMagia(id, personagemAtual.escolas[escola].magias[id].nivel || 1, escola)}%</span>
-                        </div>
-                    ` : ''}
-                    
-                    ${!temMagia ? `
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-                            <div>
-                                ${podeDesbloquear ? 
-                                    `<span style="color: #ffd700;">Custo: <strong>2 PP</strong> (você tem ${ppDisponivel} PP)</span>` : 
-                                    `<span style="color: #ff6b6b;">Requer ${magia.nivelRequerido} magias desbloqueadas</span>`
-                                }
-                            </div>
-                            ${podeDesbloquear ? `
-                                <button class="btn-xp" onclick="comprarMagia('${escola}', '${id}')" 
-                                        style="background: ${botaoHabilitado ? '#ffd700' : '#2a2a3c'}; color: ${botaoHabilitado ? '#14141f' : '#ffd700'}; padding: 6px 15px;"
-                                        ${!botaoHabilitado ? 'disabled' : ''}>
-                                    Desbloquear (2 PP)
-                                </button>
-                            ` : ''}
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html;
-    }
-
-    function renderizarLojaEquipamentos(categoria) {
-        const container = document.getElementById('lojaEquipamentosLista');
-        if (!container) return;
-        
-        const itens = catalogoEquipamentos[categoria] || [];
-        let html = '';
-        
-        itens.forEach(item => {
-            html += `
-                <div class="equipamento-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong style="color: #ffd700;">${item.nome}</strong>
-                            ${item.st ? `<span style="font-size: 11px; background: #8b4a6d; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">ST ${item.st}</span>` : ''}
-                        </div>
-                        <span style="color: #ffd700;">$${item.preco}</span>
-                    </div>
-                    
-                    <div style="display: flex; gap: 15px; font-size: 12px; color: #a0a0b0; margin: 5px 0;">
-                        ${item.dano ? `<span>Dano: ${item.dano}</span>` : ''}
-                        ${item.rd ? `<span>RD: ${item.rd}</span>` : ''}
-                        ${item.bonus ? `<span>Bônus: +${item.bonus}</span>` : ''}
-                        <span>Peso: ${item.peso} kg</span>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                        <button class="btn-xp" onclick='comprarEquipamento(${JSON.stringify(item).replace(/'/g, "\\'")}, "${categoria}")' 
-                                style="background: ${personagemAtual?.dinheiro < item.preco ? '#2a2a3c' : '#ffd700'}; color: ${personagemAtual?.dinheiro < item.preco ? '#ffd700' : '#14141f'};"
-                                ${personagemAtual?.dinheiro < item.preco ? 'disabled' : ''}>
-                            Comprar
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html;
-    }
-
-    function renderizarFicha() {
-        if (!personagemAtual) return;
-
-        personagemNome.textContent = personagemAtual.nome || 'Sem nome';
-        personagemClasse.textContent = personagemAtual.classe || 'Sem classe';
-        if (personagemAtual.fotoURL) {
-            personagemFoto.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
+            if (!campanhasSnap.empty) {
+                campanhaAtual = {
+                    docId: campanhasSnap.docs[0].id,
+                    ...campanhasSnap.docs[0].data()
+                };
+                const breadcrumbCampanha = document.getElementById('breadcrumbCampanha');
+                const linkCampanha = document.getElementById('linkCampanha');
+                if (breadcrumbCampanha) {
+                    breadcrumbCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                    breadcrumbCampanha.textContent = campanhaAtual.nome || 'Campanha';
+                }
+                if (linkCampanha) {
+                    linkCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                }
+            }
         }
 
         const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
@@ -3501,935 +4432,46 @@ function calcularDeslocamento() {
                             (personagemAtual.atributos?.iq?.esferas || 0) +
                             (personagemAtual.atributos?.vigor?.esferas || 0) +
                             (personagemAtual.atributos?.vt?.esferas || 0);
-        const nivel = totalEsferas + 1;
-        
-        personagemAtual.nivel = nivel;
-        if (nivelPersonagem) nivelPersonagem.textContent = nivel;
-        if (dinheiroHeader) dinheiroHeader.textContent = personagemAtual.dinheiro || 0;
-        if (dinheiroValor) dinheiroValor.textContent = personagemAtual.dinheiro || 0;
+        personagemAtual.nivel = totalEsferas + 1;
 
-        const pvMax = calcularPV();
-        const pmMax = calcularPM();
-        const pfMax = calcularPF();
-        
-        const pvAtual = personagemAtual.statusCombate?.vidaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.vidaAtual, pvMax) : pvMax;
-        const pmAtual = personagemAtual.statusCombate?.manaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.manaAtual, pmMax) : pmMax;
-        const pfAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.fadigaAtual, pfMax) : pfMax;
-
-        if (pvTexto) pvTexto.textContent = `${pvAtual}/${pvMax}`;
-        if (pmTexto) pmTexto.textContent = `${pmAtual}/${pmMax}`;
-        if (pfTexto) pfTexto.textContent = `${pfAtual}/${pfMax}`;
-        
-        if (pvBarra) pvBarra.style.width = (pvAtual / pvMax) * 100 + '%';
-        if (pmBarra) pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
-        if (pfBarra) pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
-
-        const xpAtual = personagemAtual.xpAtual || 0;
-        const xpNecessario = getXpProximoNivel(nivel);
-        const percentualXp = (xpAtual / xpNecessario) * 100;
-        
-        if (xpTexto) xpTexto.textContent = `${xpAtual} / ${xpNecessario}`;
-        if (xpBarra) {
-            xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
-            xpBarra.textContent = Math.round(percentualXp) + '%';
-        }
-
-        if (atributosContainer) {
-            atributosContainer.innerHTML = `
-                <div class="atributo-item" onclick="gastarEsfera('st')">
-                    <span class="atributo-nome">ST</span>
-                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.st?.esferas || 0))}</div>
-                    <span class="atributo-valor">${getSTFixo()} <span class="atributo-percentual">${getSTPercentual()}%</span></span>
-                </div>
-                <div class="atributo-item" onclick="gastarEsfera('dx')">
-                    <span class="atributo-nome">DX</span>
-                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.dx?.esferas || 0))}</div>
-                    <span class="atributo-valor">${getDXFixo()} <span class="atributo-percentual">${getDXPercentual()}%</span></span>
-                </div>
-                <div class="atributo-item" onclick="gastarEsfera('iq')">
-                    <span class="atributo-nome">IQ</span>
-                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.iq?.esferas || 0))}</div>
-                    <span class="atributo-valor">${getIQFixo()} <span class="atributo-percentual">${getIQPercentual()}%</span></span>
-                </div>
-                <div class="atributo-item" onclick="gastarEsfera('vigor')">
-                    <span class="atributo-nome">VIGOR</span>
-                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.vigor?.esferas || 0))}</div>
-                    <span class="atributo-valor">${getVIGORFixo()} <span class="atributo-percentual">${getVIGORPercentual()}%</span></span>
-                </div>
-                <div class="atributo-item" onclick="gastarEsfera('vt')">
-                    <span class="atributo-nome">VT</span>
-                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagemAtual.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagemAtual.atributos?.vt?.esferas || 0))}</div>
-                    <span class="atributo-valor">${getVTFixo()}</span>
-                </div>
-            `;
-        }
-
-        const esquiva = calcularEsquiva();
-        const aparar = calcularAparar();
-        const bloqueio = calcularBloqueio();
-
-        if (defesasContainer) {
-            defesasContainer.innerHTML = `
-                <div class="defesa-card">
-                    <div class="defesa-nome">Esquiva</div>
-                    <div class="defesa-valor">${esquiva}<small>%</small></div>
-                </div>
-                <div class="defesa-card">
-                    <div class="defesa-nome">Aparar</div>
-                    <div class="defesa-valor">${aparar}<small>%</small></div>
-                </div>
-                <div class="defesa-card">
-                    <div class="defesa-nome">Bloqueio</div>
-                    <div class="defesa-valor">${bloqueio}<small>%</small></div>
-                </div>
-            `;
-        }
-
-        const desloc = calcularDeslocamento();
-        if (deslocamentoTexto) deslocamentoTexto.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
-        if (rdTotal) rdTotal.textContent = calcularRD();
-        if (danoBase) danoBase.textContent = calcularDanoBase();
-
-        if (periciasContainer) {
-            let periciasHTML = '';
-            const periciasArray = Object.entries(personagemAtual.pericias || {});
-            if (periciasArray.length === 0) {
-                periciasHTML = '<div style="text-align: center; color: #a0a0b0; padding: 20px;">Nenhuma perícia adquirida</div>';
-            } else {
-                periciasArray.sort((a, b) => a[0].localeCompare(b[0]));
-                periciasArray.forEach(([id, dados]) => {
-                    const pericia = catalogoPericias.find(p => p.id === id);
-                    if (!pericia) return;
-                    const nh = calcularNHPericia(id, dados);
-                    periciasHTML += `
-                        <div class="pericia-item">
-                            <div style="display: flex; align-items: center;">
-                                <span class="pericia-nome">${pericia.nome}</span>
-                                <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
-                            </div>
-                            <div style="display: flex; align-items: center;">
-                                <span class="pericia-nh">${nh}%</span>
-                                <button class="btn-pericia" onclick="abrirModalPericia('${id}')">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-            periciasContainer.innerHTML = periciasHTML;
-        }
-
-        if (vantagensContainer) {
-            const vantagensMap = new Map();
-            (personagemAtual.vantagens || []).forEach(v => vantagensMap.set(v, true));
-            const vantagensUnicas = Array.from(vantagensMap.keys());
-            const vantagensHTML = vantagensUnicas.map(v => {
-                const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
-                return `<span class="tag vantagem">${nomeV}</span>`;
-            }).join('');
-            vantagensContainer.innerHTML = vantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
-        }
-
-        if (desvantagensContainer) {
-            const desvantagensMap = new Map();
-            (personagemAtual.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
-            if (personagemAtual.fobia) {
-                desvantagensMap.set(`fobia:${personagemAtual.fobia}`, true);
-            }
-            const desvantagensUnicas = Array.from(desvantagensMap.keys());
-            const desvantagensHTML = desvantagensUnicas.map(d => {
-                let nomeD = d;
-                if (d.startsWith('fobia:')) {
-                    nomeD = 'Fobia: ' + d.replace('fobia:', '');
-                } else {
-                    nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
-                }
-                return `<span class="tag desvantagem">${nomeD}</span>`;
-            }).join('');
-            desvantagensContainer.innerHTML = desvantagensHTML || '<div style="color: #a0a0b0;">Nenhuma</div>';
-        }
-
-        renderizarMinhasMagias('agua');
-        renderizarMinhasMagias('ar');
-        renderizarMinhasMagias('gelo');
-        renderizarMinhasMagias('fogo');
-        renderizarMinhasMagias('terra');
-
-        renderizarInventario();
-        atualizarDisplayPP();
-    }
-
-    function renderizarMinhasMagias(escola) {
-        const container = document.getElementById(`magiasContainer${escola.charAt(0).toUpperCase() + escola.slice(1)}`);
-        if (!container) return;
-        
-        const dados = escola === 'agua' ? dadosMagiasAgua :
-                      escola === 'ar' ? dadosMagiasAr :
-                      escola === 'gelo' ? dadosMagiasGelo :
-                      escola === 'fogo' ? dadosMagiasFogo :
-                      dadosMagiasTerra;
-        
-        if (!personagemAtual.escolas?.[escola]?.magias) {
-            container.innerHTML = '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
-            return;
-        }
-        
-        let magiasHTML = '';
-        const ordemMagias = Object.keys(dados);
-        
-        ordemMagias.forEach(id => {
-            const magia = personagemAtual.escolas[escola].magias[id];
-            if (!magia || !magia.desbloqueada) return;
-            
-            const dadosMagia = dados[id];
-            if (!dadosMagia) return;
-            
-            const nh = calcularNHMagia(id, magia.nivel || 1, escola);
-            magiasHTML += `
-                <div class="magia-card" onclick="abrirModalMagia('${escola}', '${id}')">
-                    <div class="magia-nome">
-                        <i class="fas ${dadosMagia.icone}" style="color: #4a9fff;"></i>
-                        ${dadosMagia.nome}
-                    </div>
-                    <div style="display: flex; gap: 10px; font-size: 11px; color: #a0a0b0; margin-bottom: 5px;">
-                        <span><i class="fas fa-bolt" style="color: #ffd700;"></i> ${dadosMagia.custoPM} PM</span>
-                        <span><i class="fas fa-clock" style="color: #4a9fff;"></i> ${dadosMagia.tempoConjuracao}</span>
-                    </div>
-                    <div class="magia-info">
-                        <span>Nv ${magia.nivel || 1}</span>
-                        <span>${nh}%</span>
-                    </div>
-                </div>
-            `;
-        });
-        
-        container.innerHTML = magiasHTML || '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
-    }
-
-    function renderizarInventario() {
-        const renderizarLista = (itens, local) => {
-            if (!itens || itens.length === 0) {
-                return '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Vazio</div>';
-            }
-            return itens.map(item => `
-                <div class="item-card">
-                    <div>
-                        <div class="item-nome">${item.nome}${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}</div>
-                        <div class="item-detalhes">
-                            <span>${item.peso} kg</span>
-                            ${item.dano ? `<span>${item.dano}</span>` : ''}
-                            ${item.rd ? `<span>RD ${item.rd}</span>` : ''}
-                            ${item.bonus ? `<span>+${item.bonus}</span>` : ''}
-                            ${item.st ? `<span>ST ${item.st}</span>` : ''}
-                            ${item.efeito ? `<span class="tag" style="font-size: 10px; padding: 2px 4px;">${item.efeito}</span>` : ''}
-                        </div>
-                    </div>
-                    <div class="item-acoes">
-                        ${local !== 'deposito' ? `<button class="btn-item" onclick="moverItem('${item.id}', '${local}', 'deposito')" title="Mover para Depósito"><i class="fas fa-arrow-right"></i></button>` : ''}
-                        ${local === 'mochila' ? `<button class="btn-item" onclick="equiparItem('${item.id}')" title="Equipar"><i class="fas fa-user"></i></button>` : ''}
-                        ${local === 'corpo' ? `<button class="btn-item" onclick="guardarItem('${item.id}')" title="Guardar na Mochila"><i class="fas fa-shopping-bag"></i></button>` : ''}
-                        ${local === 'deposito' ? `<button class="btn-item" onclick="pegarItem('${item.id}')" title="Pegar"><i class="fas fa-arrow-left"></i></button>` : ''}
-                        <button class="btn-item" onclick="venderItem('${item.id}', '${local}')" title="Vender (50%)"><i class="fas fa-coins"></i></button>
-                        <button class="btn-item" onclick="excluirItem('${item.id}', '${local}')" title="Excluir"><i class="fas fa-trash"></i></button>
-                    </div>
-                </div>
-            `).join('');
-        };
-        
-        if (inventarioCorpo) inventarioCorpo.innerHTML = renderizarLista(personagemAtual?.inventario?.corpo, 'corpo');
-        if (inventarioMochila) inventarioMochila.innerHTML = renderizarLista(personagemAtual?.inventario?.mochila, 'mochila');
-        if (inventarioDeposito) inventarioDeposito.innerHTML = renderizarLista(personagemAtual?.inventario?.deposito, 'deposito');
-        
-        document.querySelectorAll('.inventario-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
-                tab.classList.add('ativa');
-                document.querySelectorAll('.item-lista').forEach(l => l.classList.remove('ativa'));
-                const targetId = `inventario${tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)}`;
-                const target = document.getElementById(targetId);
-                if (target) target.classList.add('ativa');
-            });
-        });
-    }
-
-    window.alterarXP = async function(valor) {
-        if (!personagemAtual || !currentUser) return;
-        let novoXP = (personagemAtual.xpAtual || 0) + valor;
-        if (novoXP < 0) novoXP = 0;
-        
-        const xpNecessario = getXpProximoNivel(personagemAtual.nivel);
-        
-        if (novoXP >= xpNecessario && !esferaPendente) {
-            esferaPendente = true;
-            novoXP = 0;
-            try {
-                const personagemRef = doc(db, "personagens", personagemAtual.id);
-                await updateDoc(personagemRef, { xpAtual: novoXP });
-                personagemAtual.xpAtual = novoXP;
-                modalGanharEsfera.classList.add('active');
-                showToast('Ganhou 1 esfera! Escolha onde gastar.');
-            } catch (error) {
-                showToast('Erro ao ganhar esfera', true);
-                esferaPendente = false;
-            }
-        } else {
-            try {
-                const personagemRef = doc(db, "personagens", personagemAtual.id);
-                await updateDoc(personagemRef, { xpAtual: novoXP });
-                personagemAtual.xpAtual = novoXP;
-            } catch (error) {
-                showToast('Erro ao alterar XP', true);
-            }
-        }
-        
-        const percentual = (novoXP / xpNecessario) * 100;
-        if (xpTexto) xpTexto.textContent = `${novoXP} / ${xpNecessario}`;
-        if (xpBarra) {
-            xpBarra.style.width = Math.min(100, Math.max(0, percentual)) + '%';
-            xpBarra.textContent = Math.round(percentual) + '%';
-        }
-    };
-
-    window.gastarEsfera = async function(atributo) {
-        if (!esferaPendente || !personagemAtual || !currentUser) return;
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            const campo = `atributos.${atributo}.esferas`;
-            const valorAtual = personagemAtual.atributos?.[atributo]?.esferas || 0;
-            await updateDoc(personagemRef, { [campo]: valorAtual + 1 });
-            if (!personagemAtual.atributos) personagemAtual.atributos = {};
-            if (!personagemAtual.atributos[atributo]) personagemAtual.atributos[atributo] = {};
-            personagemAtual.atributos[atributo].esferas = valorAtual + 1;
-            modalGanharEsfera.classList.remove('active');
-            esferaPendente = false;
-            renderizarFicha();
-            showToast(`Esfera gasta em ${atributo.toUpperCase()}!`);
-        } catch (error) {
-            showToast('Erro ao gastar esfera', true);
-        }
-    };
-
-    window.alterarRecurso = async function(tipo, valor) {
-        if (!personagemAtual || !currentUser) return;
-        let campo = '', valorMax = 0, valorAtual = 0;
-        if (tipo === 'pv') {
-            campo = 'statusCombate.vidaAtual';
-            valorMax = calcularPV();
-            valorAtual = personagemAtual.statusCombate?.vidaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.vidaAtual, valorMax) : valorMax;
-        } else if (tipo === 'pm') {
-            campo = 'statusCombate.manaAtual';
-            valorMax = calcularPM();
-            valorAtual = personagemAtual.statusCombate?.manaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.manaAtual, valorMax) : valorMax;
-        } else if (tipo === 'pf') {
-            campo = 'statusCombate.fadigaAtual';
-            valorMax = calcularPF();
-            valorAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.fadigaAtual, valorMax) : valorMax;
-        } else {
-            return;
-        }
-        
-        const novoValor = Math.min(Math.max(valorAtual + valor, 0), valorMax);
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, { [campo]: novoValor });
-            if (tipo === 'pv') personagemAtual.statusCombate.vidaAtual = novoValor;
-            if (tipo === 'pm') personagemAtual.statusCombate.manaAtual = novoValor;
-            if (tipo === 'pf') personagemAtual.statusCombate.fadigaAtual = novoValor;
-            const textoEl = document.getElementById(`${tipo}Texto`);
-            const barraEl = document.getElementById(`${tipo}Barra`);
-            if (textoEl) textoEl.textContent = `${novoValor}/${valorMax}`;
-            if (barraEl) barraEl.style.width = (novoValor / valorMax) * 100 + '%';
-            showToast(`${tipo.toUpperCase()} alterado!`);
-        } catch (error) {
-            showToast('Erro ao alterar recurso', true);
-        }
-    };
-
-    window.alterarDinheiro = async function(valor) {
-        if (!personagemAtual || !currentUser) return;
-        const novoValor = Math.max(0, (personagemAtual.dinheiro || 0) + valor);
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, { dinheiro: novoValor });
-            personagemAtual.dinheiro = novoValor;
-            if (dinheiroValor) dinheiroValor.textContent = novoValor;
-            if (dinheiroHeader) dinheiroHeader.textContent = novoValor;
-            showToast('Dinheiro alterado!');
-        } catch (error) {
-            showToast('Erro ao alterar dinheiro', true);
-        }
-    };
-
-    window.abrirModalPericia = function(periciaId) {
-        const pericia = catalogoPericias.find(p => p.id === periciaId);
-        if (!pericia) return;
-        
-        const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
-        const nivelAtual = periciaExistente.nivel || 0;
-        
-        periciaModalAtual = {
-            id: periciaId,
-            nome: pericia.nome,
-            nivelAtual: nivelAtual,
-            novoNivel: nivelAtual
-        };
-        
-        modalPericiaTitulo.textContent = pericia.nome;
-        
-        let linhas = '';
-        for (let i = 1; i <= 5; i++) {
-            const classe = i === nivelAtual ? 'nivel-atual' : '';
-            const custo = tabelaCustosPericias[i];
-            linhas += `<tr class="${classe}"><td>${i}</td><td>+${i*4}%</td><td>${custo} PP</td></tr>`;
-        }
-        tabelaPericia.innerHTML = linhas;
-        
-        modalPericiaNivel.textContent = nivelAtual;
-        atualizarModalPericia();
-        modalPericia.classList.add('active');
-    };
-
-    function atualizarModalPericia() {
-        if (!periciaModalAtual) return;
-        const novoNivel = periciaModalAtual.novoNivel;
-        const nivelAtual = periciaModalAtual.nivelAtual;
-        const podeAumentar = novoNivel < 5;
-        const podeDiminuir = novoNivel > nivelAtual && novoNivel > 1;
-        modalPericiaMenos.disabled = !podeDiminuir;
-        modalPericiaMais.disabled = !podeAumentar;
-        const custoTotal = tabelaCustosPericias[novoNivel] || 0;
-        const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
-        const custoDiferenca = custoTotal - custoAtual;
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        modalPericiaCusto.textContent = custoDiferenca + ' PP';
-        modalPericiaConfirmar.disabled = custoDiferenca > ppDisponivel;
-    }
-
-    modalPericiaMenos.addEventListener('click', () => {
-        if (periciaModalAtual) {
-            periciaModalAtual.novoNivel--;
-            modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
-            atualizarModalPericia();
-        }
-    });
-
-    modalPericiaMais.addEventListener('click', () => {
-        if (periciaModalAtual) {
-            periciaModalAtual.novoNivel++;
-            modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
-            atualizarModalPericia();
-        }
-    });
-
-    modalPericiaCancelar.addEventListener('click', () => {
-        modalPericia.classList.remove('active');
-    });
-
-    modalPericiaConfirmar.addEventListener('click', async () => {
-        if (!periciaModalAtual || !personagemAtual) return;
-        
-        const novoNivel = periciaModalAtual.novoNivel;
-        const nivelAtual = periciaModalAtual.nivelAtual;
-        const custoTotal = tabelaCustosPericias[novoNivel];
-        const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
-        const custoDiferenca = custoTotal - custoAtual;
-        
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        if (custoDiferenca > ppDisponivel) {
-            showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
-            return;
-        }
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            
-            const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
-            
-            await updateDoc(personagemRef, {
-                [`pericias.${periciaModalAtual.id}.nivel`]: novoNivel,
-                ppGasto: novoPpGasto
-            });
-            
-            if (!personagemAtual.pericias) personagemAtual.pericias = {};
-            personagemAtual.pericias[periciaModalAtual.id] = { nivel: novoNivel };
-            personagemAtual.ppGasto = novoPpGasto;
-            
-            modalPericia.classList.remove('active');
-            renderizarFicha();
-            showToast('Perícia atualizada!');
-        } catch (error) {
-            showToast('Erro ao atualizar perícia', true);
-        }
-    });
-
-    // ============================================
-    // FUNÇÃO ABRIR MODAL MAGIA (MODIFICADA)
-    // ============================================
-    window.abrirModalMagia = function(escola, magiaId) {
-        const magia = personagemAtual?.escolas?.[escola]?.magias?.[magiaId];
-        const dados = escola === 'agua' ? dadosMagiasAgua[magiaId] :
-                      escola === 'ar' ? dadosMagiasAr[magiaId] :
-                      escola === 'gelo' ? dadosMagiasGelo[magiaId] :
-                      escola === 'fogo' ? dadosMagiasFogo[magiaId] :
-                      dadosMagiasTerra[magiaId];
-        if (!magia || !dados) return;
-        
-        escolaMagiaModalAtual = escola;
-        magiaModalAtual = magiaId;
-        modalMagiaTitulo.textContent = dados.nome;
-        
-        // NOVO: Mostrar custo e tempo
-        if (modalMagiaCustoPM) modalMagiaCustoPM.textContent = dados.custoPM + ' PM';
-        if (modalMagiaTempo) modalMagiaTempo.textContent = dados.tempoConjuracao;
-        
-        // MODIFICADO: Tabela com novas colunas
-        let linhas = '';
-        const iqPercentual = getIQPercentual();
-        const nhBase = iqPercentual + 10;
-        
-        for (let i = 1; i <= 10; i++) {
-            const classe = i === (magia.nivel || 1) ? 'nivel-atual' : '';
-            const nh = nhBase + i;
-            const efeito = dados.efeitos[i] || '-';
-            
-            // Custo e tempo fixos (podem variar por nível se quiser)
-            const custoPM = dados.custoPM;
-            const tempo = dados.tempoConjuracao;
-            
-            linhas += `<tr class="${classe}">
-                <td>${i}</td>
-                <td>${efeito}</td>
-                <td>${nh}%</td>
-                <td>${custoPM} PM</td>
-                <td>${tempo}</td>
-            </tr>`;
-        }
-        tabelaMagia.innerHTML = linhas;
-        
-        const nivelAtual = magia.nivel || 1;
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        modalMagiaCusto.textContent = nivelAtual >= 10 ? 'Nível Máximo' : '2 PP';
-        modalMagiaComprar.disabled = nivelAtual >= 10 || 2 > ppDisponivel;
-        
-        modalMagia.classList.add('active');
-    };
-
-    modalMagiaFechar.addEventListener('click', () => {
-        modalMagia.classList.remove('active');
-    });
-
-    modalMagiaComprar.addEventListener('click', async () => {
-        if (!magiaModalAtual || !personagemAtual) return;
-        
-        const magia = personagemAtual.escolas?.[escolaMagiaModalAtual]?.magias?.[magiaModalAtual];
-        if (!magia || magia.nivel >= 10) return;
-        
-        const custo = 2;
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        if (custo > ppDisponivel) {
-            showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
-            return;
-        }
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            
-            const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
-            
-            await updateDoc(personagemRef, {
-                [`escolas.${escolaMagiaModalAtual}.magias.${magiaModalAtual}.nivel`]: (magia.nivel || 1) + 1,
-                ppGasto: novoPpGasto
-            });
-            
-            magia.nivel = (magia.nivel || 1) + 1;
-            personagemAtual.ppGasto = novoPpGasto;
-            
-            modalMagia.classList.remove('active');
-            renderizarFicha();
-            showToast('Magia evoluída!');
-        } catch (error) {
-            showToast('Erro ao evoluir magia', true);
-        }
-    });
-
-    async function moverItem(itemId, origem, destino) {
-        if (!personagemAtual?.inventario) return;
-        const origemArray = personagemAtual.inventario[origem];
-        if (!origemArray) return;
-        const index = origemArray.findIndex(i => i.id === itemId);
-        if (index === -1) return;
-        const item = origemArray[index];
-        if (!personagemAtual.inventario[destino]) personagemAtual.inventario[destino] = [];
-        origemArray.splice(index, 1);
-        personagemAtual.inventario[destino].push(item);
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
-            renderizarInventario();
-            renderizarFicha();
-            showToast('Item movido!');
-        } catch (error) {
-            showToast('Erro ao mover item', true);
-        }
-    }
-
-    window.moverItem = moverItem;
-    window.equiparItem = (itemId) => moverItem(itemId, 'mochila', 'corpo');
-    window.guardarItem = (itemId) => moverItem(itemId, 'corpo', 'mochila');
-    window.pegarItem = (itemId) => moverItem(itemId, 'deposito', 'mochila');
-
-    window.venderItem = async function(itemId, local) {
-        if (!personagemAtual?.inventario) return;
-        const localArray = personagemAtual.inventario[local];
-        if (!localArray) return;
-        const index = localArray.findIndex(i => i.id === itemId);
-        if (index === -1) return;
-        const item = localArray[index];
-        const valorVenda = Math.floor((item.preco || 0) * 0.5 * (item.quantidade || 1));
-        
-        if (item.quantidade > 1) {
-            item.quantidade--;
-        } else {
-            localArray.splice(index, 1);
-        }
-        
-        personagemAtual.dinheiro = (personagemAtual.dinheiro || 0) + valorVenda;
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                inventario: personagemAtual.inventario,
-                dinheiro: personagemAtual.dinheiro
-            });
-            renderizarInventario();
-            renderizarFicha();
-            showToast(`Item vendido por $${valorVenda}!`);
-        } catch (error) {
-            showToast('Erro ao vender', true);
-        }
-    };
-
-    window.excluirItem = async function(itemId, local) {
-        if (!personagemAtual?.inventario) return;
-        if (!confirm('Tem certeza que deseja excluir este item?')) return;
-        
-        const localArray = personagemAtual.inventario[local];
-        if (!localArray) return;
-        const index = localArray.findIndex(i => i.id === itemId);
-        if (index === -1) return;
-        
-        localArray.splice(index, 1);
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
-            renderizarInventario();
-            renderizarFicha();
-            showToast('Item excluído!');
-        } catch (error) {
-            showToast('Erro ao excluir item', true);
-        }
-    };
-
-    // ============================================
-    // FUNÇÕES DO MODAL DE CRIAR ITEM
-    // ============================================
-    window.abrirModalCriarItem = function() {
-        if (!personagemAtual || !currentUser) {
-            showToast('Carregue o personagem primeiro', true);
-            return;
-        }
-        
-        // Resetar campos
-        document.getElementById('criarItemTipo').value = 'arma';
-        document.getElementById('criarItemNome').value = '';
-        document.getElementById('criarItemPeso').value = '1.0';
-        document.getElementById('criarItemPreco').value = '0';
-        document.getElementById('criarItemDano').value = '';
-        document.getElementById('criarItemST').value = '0';
-        document.getElementById('criarItemRD').value = '0';
-        document.getElementById('criarItemBonus').value = '0';
-        document.getElementById('criarItemVE').value = '';
-        document.getElementById('criarItemQuantidade').value = '1';
-        document.getElementById('criarItemEfeito').value = '';
-        
-        // Mostrar campos apropriados
-        atualizarCamposItem();
-        
-        modalCriarItem.classList.add('active');
-    };
-
-    function atualizarCamposItem() {
-        const tipo = criarItemTipo.value;
-        
-        camposArma.style.display = 'none';
-        camposArmadura.style.display = 'none';
-        camposEscudo.style.display = 'none';
-        
-        if (tipo === 'arma') {
-            camposArma.style.display = 'grid';
-        } else if (tipo === 'armadura') {
-            camposArmadura.style.display = 'block';
-        } else if (tipo === 'escudo') {
-            camposEscudo.style.display = 'grid';
-        }
-    }
-
-    criarItemTipo.addEventListener('change', atualizarCamposItem);
-
-    modalCriarItemCancelar.addEventListener('click', () => {
-        modalCriarItem.classList.remove('active');
-    });
-
-    modalCriarItemConfirmar.addEventListener('click', async () => {
-        if (!personagemAtual || !currentUser) return;
-        
-        const tipo = document.getElementById('criarItemTipo').value;
-        const nome = document.getElementById('criarItemNome').value.trim();
-        const peso = parseFloat(document.getElementById('criarItemPeso').value) || 0;
-        const preco = parseInt(document.getElementById('criarItemPreco').value) || 0;
-        const quantidade = parseInt(document.getElementById('criarItemQuantidade').value) || 1;
-        const efeito = document.getElementById('criarItemEfeito').value.trim();
-        const local = document.querySelector('input[name="criarItemLocal"]:checked').value;
-        
-        if (!nome) {
-            showToast('Digite um nome para o item!', true);
-            return;
-        }
-        
-        if (peso <= 0) {
-            showToast('O peso deve ser maior que zero!', true);
-            return;
-        }
-        
-        // Criar objeto do item
-        const novoItem = {
-            id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-            nome: nome,
-            tipo: tipo,
-            peso: peso,
-            preco: preco,
-            quantidade: quantidade
-        };
-        
-        // Adicionar campos específicos
-        if (tipo === 'arma') {
-            const dano = document.getElementById('criarItemDano').value.trim();
-            const st = parseInt(document.getElementById('criarItemST').value) || 0;
-            if (dano) novoItem.dano = dano;
-            if (st > 0) novoItem.st = st;
-        } else if (tipo === 'armadura') {
-            const rd = parseInt(document.getElementById('criarItemRD').value) || 0;
-            if (rd > 0) novoItem.rd = rd;
-        } else if (tipo === 'escudo') {
-            const bonus = parseInt(document.getElementById('criarItemBonus').value) || 0;
-            const ve = document.getElementById('criarItemVE').value.trim();
-            if (bonus > 0) novoItem.bonus = bonus;
-            if (ve) novoItem.ve = ve;
-        }
-        
-        // Adicionar efeito especial
-        if (efeito) novoItem.efeito = efeito;
-        
-        // Garantir estrutura do inventário
-        if (!personagemAtual.inventario) {
-            personagemAtual.inventario = {
-                corpo: [],
-                mochila: [],
-                deposito: []
+        if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
+        if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
+        if (!personagemAtual.xpAtual) personagemAtual.xpAtual = 0;
+        if (!personagemAtual.statusCombate) {
+            personagemAtual.statusCombate = {
+                vidaAtual: calcularPV(),
+                manaAtual: calcularPM(),
+                fadigaAtual: calcularPF()
             };
         }
-        
-        if (!personagemAtual.inventario[local]) {
-            personagemAtual.inventario[local] = [];
-        }
-        
-        // Adicionar item ao inventário
-        personagemAtual.inventario[local].push(novoItem);
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                inventario: personagemAtual.inventario
-            });
-            
-            modalCriarItem.classList.remove('active');
-            renderizarInventario();
-            renderizarFicha();
-            showToast(`Item "${nome}" criado com sucesso!`);
-            
-        } catch (error) {
-            showToast('Erro ao criar item', true);
-        }
-    });
 
-    document.querySelectorAll('.btn-atributo-esfera').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const atributo = btn.dataset.atributo;
-            gastarEsfera(atributo);
+        renderizarFicha();
+        
+        onSnapshot(personagemRef, (doc) => {
+            if (doc.exists()) {
+                personagemAtual = {
+                    id: doc.id,
+                    ...doc.data()
+                };
+                renderizarFicha();
+            }
         });
-    });
+        
+    } catch (error) {
+        showToast('Erro ao carregar personagem', true);
+    } finally {
+        hideLoading();
+    }
+}
 
-    fecharModalEsfera.addEventListener('click', () => {
-        modalGanharEsfera.classList.remove('active');
-        esferaPendente = false;
-    });
-
-    btnSair.addEventListener('click', async () => {
-        await signOut(auth);
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        await carregarPersonagem();
+    } else {
         window.location.href = 'index.html';
-    });
-
-    document.querySelectorAll('.escolas-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
-            tab.classList.add('ativa');
-            
-            escolaAtual = tab.dataset.escola;
-            
-            document.querySelectorAll('.conteudo-escola').forEach(div => div.classList.remove('ativa'));
-            document.getElementById(`conteudo${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`).classList.add('ativa');
-            
-            const minhasDiv = document.getElementById(`minhasMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
-            const catalogoDiv = document.getElementById(`catalogoMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
-            
-            if (minhasDiv) minhasDiv.style.display = abaMagiaAtual === 'minhas' ? 'block' : 'none';
-            if (catalogoDiv) catalogoDiv.style.display = abaMagiaAtual === 'catalogo' ? 'block' : 'none';
-            
-            if (abaMagiaAtual === 'catalogo') {
-                renderizarCatalogoMagias(escolaAtual);
-            }
-        });
-    });
-
-    async function carregarPersonagem() {
-        personagemId = getPersonagemIdFromUrl();
-        if (!personagemId) {
-            showToast('ID do personagem não encontrado!', true);
-            setTimeout(() => window.location.href = 'campanhas.html', 2000);
-            return;
-        }
-
-        showLoading();
-        
-        try {
-            const personagemRef = doc(db, "personagens", personagemId);
-            const personagemSnap = await getDoc(personagemRef);
-            
-            if (!personagemSnap.exists()) {
-                showToast('Personagem não encontrado!', true);
-                setTimeout(() => window.location.href = 'campanhas.html', 2000);
-                return;
-            }
-            
-            personagemAtual = {
-                id: personagemSnap.id,
-                ...personagemSnap.data()
-            };
-
-            if (!personagemAtual.escolas) personagemAtual.escolas = {};
-            if (!personagemAtual.escolas.fogo) personagemAtual.escolas.fogo = { magias: {} };
-            if (!personagemAtual.escolas.terra) personagemAtual.escolas.terra = { magias: {} };
-            
-            // Garantir estrutura do inventário
-            if (!personagemAtual.inventario) {
-                personagemAtual.inventario = {
-                    corpo: [],
-                    mochila: [],
-                    deposito: []
-                };
-            } else {
-                if (!personagemAtual.inventario.corpo) personagemAtual.inventario.corpo = [];
-                if (!personagemAtual.inventario.mochila) personagemAtual.inventario.mochila = [];
-                if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
-            }
-
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("personagem_id", "==", personagemId)
-            );
-            const vinculosSnap = await getDocs(vinculosQuery);
-            
-            if (!vinculosSnap.empty) {
-                const vinculo = vinculosSnap.docs[0].data();
-                const campanhasQuery = query(
-                    collection(db, "campanhas"),
-                    where("id", "==", vinculo.campanha_id)
-                );
-                const campanhasSnap = await getDocs(campanhasQuery);
-                
-                if (!campanhasSnap.empty) {
-                    campanhaAtual = {
-                        docId: campanhasSnap.docs[0].id,
-                        ...campanhasSnap.docs[0].data()
-                    };
-                    const breadcrumbCampanha = document.getElementById('breadcrumbCampanha');
-                    const linkCampanha = document.getElementById('linkCampanha');
-                    if (breadcrumbCampanha) {
-                        breadcrumbCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
-                        breadcrumbCampanha.textContent = campanhaAtual.nome || 'Campanha';
-                    }
-                    if (linkCampanha) {
-                        linkCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
-                    }
-                }
-            }
-
-            const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
-                                (personagemAtual.atributos?.dx?.esferas || 0) +
-                                (personagemAtual.atributos?.iq?.esferas || 0) +
-                                (personagemAtual.atributos?.vigor?.esferas || 0) +
-                                (personagemAtual.atributos?.vt?.esferas || 0);
-            personagemAtual.nivel = totalEsferas + 1;
-
-            if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
-            if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
-            if (!personagemAtual.xpAtual) personagemAtual.xpAtual = 0;
-            if (!personagemAtual.statusCombate) {
-                personagemAtual.statusCombate = {
-                    vidaAtual: calcularPV(),
-                    manaAtual: calcularPM(),
-                    fadigaAtual: calcularPF()
-                };
-            }
-
-            renderizarFicha();
-            
-            onSnapshot(personagemRef, (doc) => {
-                if (doc.exists()) {
-                    personagemAtual = {
-                        id: doc.id,
-                        ...doc.data()
-                    };
-                    renderizarFicha();
-                }
-            });
-            
-        } catch (error) {
-            showToast('Erro ao carregar personagem', true);
-        } finally {
-            hideLoading();
-        }
     }
-
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            await carregarPersonagem();
-        } else {
-            window.location.href = 'index.html';
-        }
-    });
+});
 </script>
 </body>
 </html>
