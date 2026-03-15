@@ -1,5 +1,5 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA SOLO - VERSÃO CORRIGIDA
+// SISTEMA DE COMBATE AKALANATA SOLO - VERSÃO COMPLETA E CORRIGIDA
 // Baseado no Manual do Jogador - Akalanata System
 // ============================================
 
@@ -19,7 +19,7 @@ const INIMIGOS = {
         vigor: 9,
         inteligencia: 6,
         pericias: {
-            "luta": 1  // CORRIGIDO: briga → luta
+            "luta": 1
         },
         derivados: {
             esquiva: 35,
@@ -46,7 +46,7 @@ const INIMIGOS = {
         vigor: 8,
         inteligencia: 4,
         pericias: {
-            "luta": 2  // CORRIGIDO: briga → luta
+            "luta": 2
         },
         derivados: {
             esquiva: 45,
@@ -133,7 +133,7 @@ function rolar2d10() {
         resultado: resultado,
         str: `[${dado1}][${dado2}] = ${resultado}`,
         critico: resultado <= 5,
-        falhaCritica: resultado >= 95 // Manual diz 95-100
+        falhaCritica: resultado >= 95
     };
 }
 
@@ -146,7 +146,6 @@ function calcularDanoPersonagem(personagem, arma = null) {
     
     let dano = rolarDados(danoBaseFormula);
     
-    // Bônus de arma
     if (arma?.dano) {
         if (typeof arma.dano === 'string') {
             if (arma.dano.includes('d')) {
@@ -156,6 +155,10 @@ function calcularDanoPersonagem(personagem, arma = null) {
                 dano += bonus;
             }
         }
+    }
+    
+    if (arma && !arma.distancia) {
+        dano += Math.floor(esferasST / 2);
     }
     
     return Math.max(1, dano);
@@ -170,25 +173,60 @@ function calcularNH(personagem, periciaId) {
     
     const nivel = pericia.nivel || 0;
     
-    // Determina atributo base (Manual: DX para físicas, IQ para mentais)
     const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga', 
                              'acrobacia', 'furtividade', 'cavalgar', 'natacao', 'fuga', 'arremesso',
                              'esgrima', 'bastao', 'capa', 'chicote', 'mangual', 'corrida'];
     
-    let atributoBase = 40; // Base padrão
+    let atributoBase = 40;
     
     if (periciasFisicas.includes(periciaId)) {
         const dxEsferas = personagem.atributos?.dx?.esferas || 0;
-        atributoBase = 40 + (dxEsferas * 2); // Manual: DX% = 40% + (DX×2)%
+        atributoBase = 40 + (dxEsferas * 2);
     } else {
         const iqEsferas = personagem.atributos?.iq?.esferas || 0;
-        atributoBase = 40 + (iqEsferas * 2); // Manual: IQ% = 40% + (IQ×2)%
+        atributoBase = 40 + (iqEsferas * 2);
     }
     
-    // Manual: NH = Atributo% + (Nível × 4%)
     const nh = atributoBase + (nivel * 4);
     
     return Math.min(95, Math.max(5, nh));
+}
+
+// ===== TESTE DE PERÍCIA COM 2d10 =====
+function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
+    if (!personagem) {
+        return { sucesso: false, critico: false, falhaCritica: false, resultado: 0, nh: 0 };
+    }
+    
+    const nh = calcularNH(personagem, periciaId) + modificador;
+    const rolagem = rolar2d10();
+    
+    const cdFinal = cd !== null ? cd : nh;
+    
+    const critico = rolagem.resultado <= 5;
+    const falhaCritica = rolagem.resultado >= 95;
+    
+    let sucesso = false;
+    if (critico) {
+        sucesso = true;
+    } else if (falhaCritica) {
+        sucesso = false;
+    } else {
+        sucesso = rolagem.resultado <= cdFinal;
+    }
+    
+    return {
+        sucesso,
+        critico,
+        falhaCritica,
+        nh,
+        cd: cdFinal,
+        rolagem: rolagem.resultado,
+        rolagemStr: rolagem.str,
+        margem: sucesso ? cdFinal - rolagem.resultado : rolagem.resultado - cdFinal,
+        periciaId,
+        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em ${periciaId} | ${rolagem.str} vs ${cdFinal}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
+    };
 }
 
 // ===== CALCULAR DEFESAS (Manual) =====
@@ -198,15 +236,13 @@ function calcularEsquiva(personagem) {
     const dxEsferas = personagem.atributos?.dx?.esferas || 0;
     const vigorEsferas = personagem.atributos?.vigor?.esferas || 0;
     
-    // Manual: DX% = 40% + (DX×2)%, VIGOR% = 40% + (VIGOR×3)%
     const dxPercent = 40 + (dxEsferas * 2);
     const vigorPercent = 40 + (vigorEsferas * 3);
     
-    // Manual: Esquiva = (DX% + VIGOR%)/2 + 5%
     let esquiva = Math.floor((dxPercent + vigorPercent) / 2) + 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) {
-        esquiva += 5; // Manual: Reflexos Rápidos +5% em todas defesas
+        esquiva += 5;
     }
     
     return Math.min(80, Math.max(5, esquiva));
@@ -221,7 +257,6 @@ function calcularAparar(personagem) {
     const dxEsferas = personagem.atributos?.dx?.esferas || 0;
     const dxPercent = 40 + (dxEsferas * 2);
     
-    // Encontra a melhor perícia de arma
     const periciasAparar = ['espada', 'machado', 'lanca', 'adaga', 'esgrima', 'bastao'];
     let melhorBonus = 0;
     
@@ -233,7 +268,6 @@ function calcularAparar(personagem) {
         }
     });
     
-    // Manual: Aparar = DX% + (Perícia×4)%
     let aparar = dxPercent + melhorBonus + 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) aparar += 5;
@@ -254,7 +288,6 @@ function calcularBloqueio(personagem) {
     const periciaEscudo = personagem.pericias?.escudo;
     const bonusPericia = periciaEscudo ? (periciaEscudo.nivel || 0) * 4 : 0;
     
-    // Manual: Bloqueio = DX% + (Escudo×4)% + bônus do escudo
     const escudo = personagem.inventario.corpo?.find(item => item.bonus);
     const bonusEscudo = escudo?.bonus ? escudo.bonus * 5 : 0;
     
@@ -271,7 +304,7 @@ function calcularRDTotal(personagem) {
     let rd = 0;
     
     if (personagem.vantagens?.includes('corpoResistente')) {
-        rd += 2; // Manual: Corpo Resistente RD+2
+        rd += 2;
     }
     
     personagem.inventario?.corpo?.forEach(item => {
@@ -283,8 +316,7 @@ function calcularRDTotal(personagem) {
 
 // ===== TESTE DE ATAQUE (Manual) =====
 function testeAtaque(atacante, defensor, periciaAtaque = null) {
-    // Determina perícia usada
-    let periciaUsada = periciaAtaque || 'luta'; // Padrão: luta
+    let periciaUsada = periciaAtaque || 'luta';
     
     if (atacante.inventario?.corpo) {
         const arma = atacante.inventario.corpo.find(item => item.dano);
@@ -300,7 +332,6 @@ function testeAtaque(atacante, defensor, periciaAtaque = null) {
     
     const nhAtacante = calcularNH(atacante, periciaUsada);
     
-    // Escolhe melhor defesa do defensor
     const esquiva = calcularEsquiva(defensor);
     const aparar = calcularAparar(defensor);
     const bloqueio = calcularBloqueio(defensor);
@@ -318,14 +349,13 @@ function testeAtaque(atacante, defensor, periciaAtaque = null) {
     
     const rolagem = rolar2d10();
     
-    // Manual: Chance de acerto = NH atacante - (defesa/2)
     const chanceFinal = Math.max(5, Math.min(95, nhAtacante - Math.floor(defesa / 2)));
     
     let acertou = false;
     if (rolagem.critico) {
-        acertou = true; // Crítico sempre acerta
+        acertou = true;
     } else if (rolagem.falhaCritica) {
-        acertou = false; // Falha crítica sempre erra
+        acertou = false;
     } else {
         acertou = rolagem.resultado <= chanceFinal;
     }
@@ -344,7 +374,7 @@ function testeAtaque(atacante, defensor, periciaAtaque = null) {
     };
 }
 
-// ===== CLASSE DE COMBATE =====
+// ===== CLASSE DE COMBATE - VERSÃO CORRIGIDA SEM DUPLICAÇÃO =====
 class Combate {
     constructor(personagem, inimigoId, callbacks = {}) {
         console.log('⚔️ Criando combate:', inimigoId);
@@ -356,10 +386,11 @@ class Combate {
         this.turno = 'jogador';
         this.rodada = 1;
         this.fim = false;
-        this._processando = false; // 🟢 NOVO: evita múltiplas ações
+        this._processando = false;
         this._timeout = null;
+        this.bonusDefesa = 0;
+        this.esquivando = false;
         
-        // Status do personagem (Manual: PV = VT × 8)
         if (!this.personagem.statusCombate) {
             const vt = 5 + (this.personagem.atributos?.vt?.esferas || 0);
             const vigor = 5 + (this.personagem.atributos?.vigor?.esferas || 0);
@@ -372,7 +403,6 @@ class Combate {
             };
         }
         
-        // Log inicial
         this._log('⚔️ COMBATE INICIADO!');
         this._log(`${this.personagem.nome} vs ${this.inimigo.nome}`);
         this._log('✨ SEU TURNO!');
@@ -416,9 +446,7 @@ class Combate {
         }
     }
     
-    // ===== AÇÃO: ATACAR =====
     atacar() {
-        // 🟢 PREVENIR MÚLTIPLAS EXECUÇÕES
         if (this._processando) {
             console.log('⚠️ Já processando uma ação');
             return false;
@@ -447,7 +475,6 @@ class Combate {
             const rdInimigo = this.inimigo.armadura || 0;
             let danoFinal = Math.max(1, dano - rdInimigo);
             
-            // Manual: Crítico (01-06) dobra dano após RD
             if (teste.critico) {
                 danoFinal *= 2;
                 this._log(`✨ ATAQUE FULMINANTE! Dano dobrado!`, 'critico');
@@ -480,14 +507,12 @@ class Combate {
         
         this._atualizarUI();
         
-        // Passa a vez para o inimigo
         this.turno = 'inimigo';
         this._timeout = setTimeout(() => this._turnoInimigo(), 1500);
         
         return true;
     }
     
-    // ===== TURNO DO INIMIGO =====
     _turnoInimigo() {
         this._timeout = null;
         this._processando = false;
@@ -498,16 +523,34 @@ class Combate {
         this._log(`--- Rodada ${this.rodada} ---`);
         this._log(`👹 Turno de ${this.inimigo.nome}`);
         
-        // Decide ação (80% atacar)
-        if (Math.random() < 0.8) {
+        if (Math.random() < this.inimigo.agressividade) {
             const dano = rolarDados(this.inimigo.danoFormula || "1d6");
             const rd = calcularRDTotal(this.personagem);
             let danoFinal = Math.max(1, dano - rd);
             
-            const rolagem = rolar2d10();
+            let defesaBase = calcularEsquiva(this.personagem);
+            let tipoDefesa = 'esquiva';
             
-            // Chance de acerto simplificada (50% base)
-            if (rolagem.resultado <= 50 || rolagem.critico) {
+            const aparar = calcularAparar(this.personagem);
+            const bloqueio = calcularBloqueio(this.personagem);
+            
+            if (bloqueio > 0 && bloqueio > defesaBase) {
+                defesaBase = bloqueio;
+                tipoDefesa = 'bloqueio';
+            }
+            if (aparar > 0 && aparar > defesaBase) {
+                defesaBase = aparar;
+                tipoDefesa = 'aparar';
+            }
+            
+            const periciaInimigo = this.inimigo.pericias?.luta ? 'luta' : 'espada';
+            const nivelPericia = this.inimigo.pericias?.[periciaInimigo] || 0;
+            const nhInimigo = 40 + (nivelPericia * 4);
+            
+            const rolagem = rolar2d10();
+            const chanceAcerto = Math.max(10, Math.min(95, nhInimigo - Math.floor(defesaBase / 2)));
+            
+            if (rolagem.resultado <= chanceAcerto || rolagem.critico) {
                 if (rolagem.critico) {
                     danoFinal *= 2;
                     this._log(`✨ ATAQUE FULMINANTE do inimigo!`, 'critico');
@@ -518,7 +561,7 @@ class Combate {
                     this.personagem.statusCombate.vidaAtual = 0;
                 }
                 
-                this._log(`🎯 ${this.inimigo.nome} ACERTOU! Dano: ${danoFinal}`, 'dano');
+                this._log(`🎯 ${this.inimigo.nome} ACERTOU! Dano: ${danoFinal} (${dano} - ${rd} RD) | Defesa: ${tipoDefesa} (${defesaBase}%)`, 'dano');
                 
                 if (this.personagem.statusCombate.vidaAtual <= 0) {
                     this._log(`💀 ${this.personagem.nome} foi DERROTADO!`, 'falha');
@@ -532,7 +575,7 @@ class Combate {
                     return;
                 }
             } else {
-                this._log(`❌ ${this.inimigo.nome} ERROU!`, 'cura');
+                this._log(`❌ ${this.inimigo.nome} ERROU! Rolagem: ${rolagem.str} vs ${chanceAcerto}% | Defesa: ${tipoDefesa} (${defesaBase}%)`, 'cura');
             }
         } else {
             this._log(`🛡️ ${this.inimigo.nome} defende!`);
@@ -540,14 +583,12 @@ class Combate {
         
         this._atualizarUI();
         
-        // Volta turno para jogador
         if (!this.fim) {
             this.turno = 'jogador';
             this._log('✨ SEU TURNO!', 'critico');
         }
     }
     
-    // ===== AÇÃO: DEFENDER =====
     defender() {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
@@ -555,6 +596,7 @@ class Combate {
         this._processando = true;
         
         this._log(`🛡️ ${this.personagem.nome} defende!`);
+        this.bonusDefesa = 20;
         
         this.turno = 'inimigo';
         this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
@@ -563,20 +605,23 @@ class Combate {
         return true;
     }
     
-    // ===== AÇÃO: ESQUIVAR =====
     esquivar() {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
         this._limparTimeout();
         this._processando = true;
         
-        const esquiva = calcularEsquiva(this.personagem);
+        this._log(`🏃 ${this.personagem.nome} tenta esquivar!`);
+        
+        const esquivaBase = calcularEsquiva(this.personagem);
         const rolagem = rolar2d10();
         
-        if (rolagem.resultado <= esquiva || rolagem.critico) {
-            this._log(`✅ ESQUIVOU! (${rolagem.str} vs ${esquiva}%)`, 'cura');
+        if (rolagem.resultado <= esquivaBase || rolagem.critico) {
+            this._log(`✅ ESQUIVOU! Rolagem: ${rolagem.str} vs Esquiva ${esquivaBase}%`, 'cura');
+            this.esquivando = true;
         } else {
-            this._log(`❌ Falhou ao esquivar! (${rolagem.str} vs ${esquiva}%)`, 'falha');
+            this._log(`❌ Falhou ao esquivar! Rolagem: ${rolagem.str} vs Esquiva ${esquivaBase}%`, 'falha');
+            this.esquivando = false;
         }
         
         this.turno = 'inimigo';
@@ -586,19 +631,20 @@ class Combate {
         return true;
     }
     
-    // ===== AÇÃO: FUGIR =====
     fugir() {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
         this._limparTimeout();
         this._processando = true;
         
-        const dx = this.personagem.atributos?.dx?.esferas || 0;
-        const chance = 40 + (dx * 2) + 20; // DX% + 20
+        const dxEsferas = this.personagem.atributos?.dx?.esferas || 0;
+        const dxPercent = 40 + (dxEsferas * 2);
+        const chanceFuga = dxPercent + 20;
+        
         const rolagem = rolar2d10();
         
-        if (rolagem.resultado <= chance || rolagem.critico) {
-            this._log(`🏃 FUGIU! (${rolagem.str} vs ${chance}%)`, 'cura');
+        if (rolagem.resultado <= chanceFuga || rolagem.critico) {
+            this._log(`🏃 FUGA BEM-SUCEDIDA! Rolagem: ${rolagem.str} vs ${chanceFuga}%`, 'cura');
             this.fim = true;
             this.turno = 'fim';
             this._processando = false;
@@ -608,7 +654,7 @@ class Combate {
                 this.callbacks.onFuga();
             }
         } else {
-            this._log(`❌ Falhou ao fugir! (${rolagem.str} vs ${chance}%)`, 'falha');
+            this._log(`❌ Falhou ao tentar fugir! Rolagem: ${rolagem.str} vs ${chanceFuga}%`, 'falha');
             this.turno = 'inimigo';
             this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
             this._atualizarUI();
@@ -617,9 +663,18 @@ class Combate {
         return true;
     }
     
-    // ===== AÇÃO: MAGIA =====
-    usarMagia() {
-        this._log('✨ Magias em desenvolvimento!');
+    usarMagia(magiaId) {
+        if (this._processando || this.fim || this.turno !== 'jogador') return false;
+        
+        this._limparTimeout();
+        this._processando = true;
+        
+        this._log(`✨ Sistema de magias em desenvolvimento!`, 'normal');
+        
+        this.turno = 'inimigo';
+        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
+        this._atualizarUI();
+        
         return false;
     }
     
@@ -640,6 +695,7 @@ if (typeof window !== 'undefined') {
     window.rolar2d10 = rolar2d10;
     window.calcularDanoPersonagem = calcularDanoPersonagem;
     window.calcularNH = calcularNH;
+    window.testarPericia = testarPericia;
     window.calcularEsquiva = calcularEsquiva;
     window.calcularAparar = calcularAparar;
     window.calcularBloqueio = calcularBloqueio;
@@ -647,7 +703,6 @@ if (typeof window !== 'undefined') {
     window.testeAtaque = testeAtaque;
     
     console.log('✅ Sistema de Combate carregado!');
-    console.log('📌 Perícias disponíveis:', Object.keys(INIMIGOS));
 }
 
 // Exportar para Node.js
