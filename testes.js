@@ -1,146 +1,315 @@
 // FILE: testes.js
 // ============================================
-// TESTES.JS - SISTEMA DE PERÍCIAS E ROLAGENS
+// SISTEMA DE TESTES E PERÍCIAS - AKALANATA SOLO
 // ============================================
 
-// ===== TABELA DE PERÍCIAS =====
+// ===== CATÁLOGO DE PERÍCIAS =====
 const CATALOGO_PERICIAS = [
-    // Perícias Mentais (IQ)
-    { id: "persuasao", nome: "Persuasão", tipo: "mental", atributo: "iq", descricao: "Convencer outros com palavras." },
+    // Perícias de Combate (Físicas - base DX)
+    { id: "espada", nome: "Espada", tipo: "fisica", atributo: "dx", descricao: "Lutar com espadas de todos os tipos." },
+    { id: "arco", nome: "Arco", tipo: "fisica", atributo: "dx", descricao: "Atirar com arcos longos e curtos." },
+    { id: "besta", nome: "Besta", tipo: "fisica", atributo: "dx", descricao: "Usar bestas leves e pesadas." },
+    { id: "escudo", nome: "Escudo", tipo: "fisica", atributo: "dx", descricao: "Bloquear ataques com escudo." },
+    { id: "briga", nome: "Briga", tipo: "fisica", atributo: "dx", descricao: "Lutar desarmado ou com armas improvisadas." },
+    { id: "machado", nome: "Machado", tipo: "fisica", atributo: "dx", descricao: "Manusear machados de batalha." },
+    { id: "lanca", nome: "Lança", tipo: "fisica", atributo: "dx", descricao: "Usar lanças e armas de haste." },
+    { id: "adaga", nome: "Adaga", tipo: "fisica", atributo: "dx", descricao: "Lutar com adagas e facas." },
+    
+    // Perícias Físicas (base DX)
+    { id: "acrobacia", nome: "Acrobacia", tipo: "fisica", atributo: "dx", descricao: "Saltos, quedas, equilíbrio e cambalhotas." },
+    { id: "furtividade", nome: "Furtividade", tipo: "fisica", atributo: "dx", descricao: "Mover-se sem ser notado." },
+    { id: "cavalgar", nome: "Cavalgar", tipo: "fisica", atributo: "dx", descricao: "Montar e controlar cavalos." },
+    { id: "natacao", nome: "Natação", tipo: "fisica", atributo: "dx", descricao: "Nadar em águas calmas ou turbulentas." },
+    { id: "fuga", nome: "Fuga", tipo: "fisica", atributo: "dx", descricao: "Escapar de amarras e situações." },
+    { id: "arremesso", nome: "Arremesso", tipo: "fisica", atributo: "dx", descricao: "Arremessar objetos com precisão." },
+    
+    // Perícias Mentais (base IQ)
+    { id: "persuasao", nome: "Persuasão", tipo: "mental", atributo: "iq", descricao: "Convencer outros com argumentos." },
     { id: "intimidacao", nome: "Intimidação", tipo: "mental", atributo: "iq", descricao: "Amedrontar através de ameaças." },
     { id: "observar", nome: "Observar", tipo: "mental", atributo: "iq", descricao: "Perceber detalhes no ambiente." },
-    { id: "sobrevivencia", nome: "Sobrevivência", tipo: "mental", atributo: "iq", descricao: "Rastrear, caçar, acampar." },
+    { id: "sobrevivencia", nome: "Sobrevivência", tipo: "mental", atributo: "iq", descricao: "Rastrear, caçar, acampar, encontrar alimentos." },
     { id: "medicina", nome: "Medicina", tipo: "mental", atributo: "iq", descricao: "Curar ferimentos e doenças." },
     { id: "historia", nome: "História", tipo: "mental", atributo: "iq", descricao: "Conhecimento sobre o passado." },
-    { id: "arqueologia", nome: "Arqueologia", tipo: "mental", atributo: "iq", descricao: "Entender ruínas e artefatos." },
+    { id: "arqueologia", nome: "Arqueologia", tipo: "mental", atributo: "iq", descricao: "Entender ruínas e artefatos antigos." },
     { id: "comercio", nome: "Comércio", tipo: "mental", atributo: "iq", descricao: "Negociar preços justos." },
     { id: "detectarMentira", nome: "Detectar Mentira", tipo: "mental", atributo: "iq", descricao: "Perceber quando alguém mente." },
-    
-    // Perícias Físicas (DX)
-    { id: "espada", nome: "Espada", tipo: "fisica", atributo: "dx", descricao: "Lutar com espadas." },
-    { id: "arco", nome: "Arco", tipo: "fisica", atributo: "dx", descricao: "Atirar com arcos." },
-    { id: "escudo", nome: "Escudo", tipo: "fisica", atributo: "dx", descricao: "Bloquear com escudo." },
-    { id: "fuga", nome: "Fuga", tipo: "fisica", atributo: "dx", descricao: "Escapar de amarras e situações." },
-    { id: "furtividade", nome: "Furtividade", tipo: "fisica", atributo: "dx", descricao: "Mover-se sem ser notado." },
-    { id: "acrobacia", nome: "Acrobacia", tipo: "fisica", atributo: "dx", descricao: "Saltos, quedas, equilíbrio." },
-    { id: "cavalgar", nome: "Cavalgar", tipo: "fisica", atributo: "dx", descricao: "Montar e controlar cavalos." },
-    { id: "natacao", nome: "Natação", tipo: "fisica", atributo: "dx", descricao: "Nadar em águas calmas ou turbulentas." }
+    { id: "adestramento", nome: "Adestramento", tipo: "mental", atributo: "iq", descricao: "Treinar e comandar animais." },
+    { id: "alquimia", nome: "Alquimia", tipo: "mental", atributo: "iq", descricao: "Criar poções e compostos." },
+    { id: "primeirosSocorros", nome: "Primeiros Socorros", tipo: "mental", atributo: "iq", descricao: "Estabilizar feridos." },
+    { id: "rastreamento", nome: "Rastreamento", tipo: "mental", atributo: "iq", descricao: "Seguir pistas e rastros." },
+    { id: "oratoria", nome: "Oratória", tipo: "mental", atributo: "iq", descricao: "Falar para multidões." }
 ];
 
-// ===== CALCULAR BÔNUS DE PERÍCIA =====
-function calcularBonusPericia(personagem, periciaId) {
-    if (!personagem || !periciaId) return 0;
+// ===== TABELA DE DIFICULDADE (CDs) =====
+const TABELA_CD = {
+    "trivial": 5,
+    "facil": 10,
+    "medio": 15,
+    "desafiador": 20,
+    "dificil": 25,
+    "muito_dificil": 30,
+    "heroico": 35,
+    "quase_impossivel": 40
+};
+
+// ===== ROLAR 2d10 PARA PORCENTAGEM =====
+function rolar2d10() {
+    const dado1 = Math.floor(Math.random() * 10) + 1; // 1-10
+    const dado2 = Math.floor(Math.random() * 10) + 1; // 1-10
     
-    // Pegar nível da perícia
+    // O primeiro dado é a dezena, o segundo é a unidade
+    // Se der 10, considera 0
+    const dezena = dado1 === 10 ? 0 : dado1;
+    const unidade = dado2 === 10 ? 0 : dado2;
+    
+    const resultado = (dezena * 10) + unidade;
+    
+    return {
+        dezena: dado1,
+        unidade: dado2,
+        resultado: resultado === 0 ? 100 : resultado, // 00 vira 100
+        str: `[${dado1}][${dado2}] = ${resultado === 0 ? 100 : resultado}`
+    };
+}
+
+// ===== ROLAR DADOS GENÉRICOS (formato "XdY+Z") =====
+function rolarDados(formula) {
+    // Suporta formatos como "1d20", "2d6+2", "1d-1"
+    const regex = /(\d+)d(\d+)([+-]\d+)?/i;
+    const match = formula.match(regex);
+    
+    if (!match) {
+        // Tenta formato simples com modificador tipo "1d-1"
+        const regex2 = /(\d+)d(\d+)([+-])(\d+)?/i;
+        const match2 = formula.match(regex2);
+        if (match2) {
+            const quantidade = parseInt(match2[1]) || 1;
+            const faces = parseInt(match2[2]) || 6;
+            const operador = match2[3];
+            const modificador = parseInt(match2[4]) || 0;
+            
+            let total = 0;
+            for (let i = 0; i < quantidade; i++) {
+                total += Math.floor(Math.random() * faces) + 1;
+            }
+            
+            if (operador === '+') total += modificador;
+            else total -= modificador;
+            
+            return Math.max(1, total);
+        }
+        return 0;
+    }
+    
+    const quantidade = parseInt(match[1]) || 1;
+    const faces = parseInt(match[2]) || 20;
+    const modificador = parseInt(match[3]) || 0;
+    
+    let total = 0;
+    for (let i = 0; i < quantidade; i++) {
+        total += Math.floor(Math.random() * faces) + 1;
+    }
+    
+    return total + modificador;
+}
+
+// ===== CALCULAR BÔNUS DE ATRIBUTO =====
+function getAtributoPercentual(personagem, atributo) {
+    if (!personagem || !atributo) return 40;
+    
+    const esferas = personagem.atributos?.[atributo]?.esferas || 0;
+    
+    switch(atributo) {
+        case 'st': return 40 + (esferas * 3); // ST: +3% por esfera
+        case 'dx': return 40 + (esferas * 2); // DX: +2% por esfera
+        case 'iq': return 40 + (esferas * 2); // IQ: +2% por esfera
+        case 'vigor': return 40 + (esferas * 3); // VIGOR: +3% por esfera
+        default: return 40;
+    }
+}
+
+// ===== CALCULAR NH (Nível de Habilidade) DE PERÍCIA =====
+function calcularNH(personagem, periciaId) {
+    if (!personagem || !periciaId) return 5;
+    
+    // Buscar perícia no personagem
     const pericia = personagem.pericias?.[periciaId];
-    if (!pericia) return 0;
+    if (!pericia) return 5; // NH 5% sem perícia
     
     const nivel = pericia.nivel || 0;
     
-    // Bônus base: +4% por nível
-    let bonus = nivel * 4;
-    
-    // Bônus por atributo
+    // Encontrar a perícia no catálogo
     const periciaInfo = CATALOGO_PERICIAS.find(p => p.id === periciaId);
+    
+    // Atributo base
+    let atributoBase = 40;
     if (periciaInfo) {
-        if (periciaInfo.atributo === 'iq') {
-            const iqEsferas = personagem.atributos?.iq?.esferas || 0;
-            bonus += 40 + (iqEsferas * 2); // IQ base
-        } else if (periciaInfo.atributo === 'dx') {
+        if (periciaInfo.atributo === 'dx') {
             const dxEsferas = personagem.atributos?.dx?.esferas || 0;
-            bonus += 40 + (dxEsferas * 2); // DX base
+            atributoBase = 40 + (dxEsferas * 2);
+        } else if (periciaInfo.atributo === 'iq') {
+            const iqEsferas = personagem.atributos?.iq?.esferas || 0;
+            atributoBase = 40 + (iqEsferas * 2);
         }
     }
+    
+    // Bônus por nível da perícia (+4% por nível)
+    const bonusPericia = nivel * 4;
     
     // Bônus por vantagens
+    let bonusVantagens = 0;
     if (personagem.vantagens) {
-        if (personagem.vantagens.includes('carisma') && periciaId === 'persuasao') {
-            bonus += 5;
-        }
         if (personagem.vantagens.includes('reflexosRapidos') && periciaInfo?.tipo === 'fisica') {
-            bonus += 5;
+            bonusVantagens += 5;
+        }
+        if (personagem.vantagens.includes('carisma') && (periciaId === 'persuasao' || periciaId === 'oratoria')) {
+            bonusVantagens += 5;
+        }
+        if (personagem.vantagens.includes('aptidaoMagica') && periciaId === 'alquimia') {
+            bonusVantagens += 5;
+        }
+        if (personagem.vantagens.includes('orientacaoExplorador') && (periciaId === 'sobrevivencia' || periciaId === 'rastreamento')) {
+            bonusVantagens += 5;
         }
     }
     
-    return Math.min(95, bonus); // Máximo 95%
+    const nh = atributoBase + bonusPericia + bonusVantagens;
+    
+    return Math.min(95, Math.max(5, nh));
 }
 
-// ===== ROLAR TESTE DE PERÍCIA =====
-function rolarTestePericia(personagem, periciaId, cd = 10, modificador = 0) {
+// ===== TESTE DE PERÍCIA COMPLETO =====
+function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
     if (!personagem) {
         return {
             sucesso: false,
             critico: false,
             falhaCritica: false,
-            valorRolado: 0,
-            chance: 0,
+            resultado: 0,
+            nh: 0,
             mensagem: "Personagem inválido"
         };
     }
     
-    // Calcular chance de sucesso
-    const bonus = calcularBonusPericia(personagem, periciaId);
-    const chance = Math.min(95, bonus + modificador);
+    const nh = calcularNH(personagem, periciaId) + modificador;
+    const rolagem = rolar2d10();
     
-    // Rolar d100
-    const valorRolado = Math.floor(Math.random() * 100) + 1;
+    // Crítico: 01-05 (rolagem <= 5)
+    const critico = rolagem.resultado <= 5;
     
-    // Verificar crítico (5 ou menos)
-    const critico = valorRolado <= 5;
+    // Falha crítica: 96-00 (rolagem >= 96)
+    const falhaCritica = rolagem.resultado >= 96;
     
-    // Verificar falha crítica (96 ou mais)
-    const falhaCritica = valorRolado >= 96;
+    // Determinar CD (se não fornecido, usa NH)
+    const cdFinal = cd !== null ? cd : nh;
     
-    // Verificar sucesso (valorRolado <= chance)
+    // Sucesso: rolagem <= CD, a menos que seja crítico/falha crítica
     let sucesso = false;
     if (critico) {
-        sucesso = true; // Crítico sempre sucesso
+        sucesso = true;
     } else if (falhaCritica) {
-        sucesso = false; // Falha crítica sempre falha
+        sucesso = false;
     } else {
-        sucesso = valorRolado <= chance;
+        sucesso = rolagem.resultado <= cdFinal;
     }
     
-    // Se CD for especificado, usar CD em vez da chance
-    if (cd > 0) {
-        sucesso = valorRolado <= cd;
+    // Buscar nome da perícia
+    const periciaInfo = CATALOGO_PERICIAS.find(p => p.id === periciaId);
+    const nomePericia = periciaInfo ? periciaInfo.nome : periciaId;
+    
+    return {
+        sucesso,
+        critico,
+        falhaCritica,
+        nh,
+        cd: cdFinal,
+        rolagem: rolagem.resultado,
+        rolagemStr: rolagem.str,
+        margem: sucesso ? cdFinal - rolagem.resultado : rolagem.resultado - cdFinal,
+        periciaId,
+        nomePericia,
+        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em ${nomePericia} | Rolagem: ${rolagem.str} | ${cd !== null ? 'CD' : 'NH'}: ${cdFinal}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
+    };
+}
+
+// ===== TESTE RESISTIDO (dois personagens) =====
+function testeResistido(personagem1, pericia1, personagem2, pericia2, modificador1 = 0, modificador2 = 0) {
+    const teste1 = testarPericia(personagem1, pericia1, null, modificador1);
+    const teste2 = testarPericia(personagem2, pericia2, null, modificador2);
+    
+    let vencedor = null;
+    let mensagem = "";
+    
+    if (teste1.critico && !teste2.critico) {
+        vencedor = 1;
+        mensagem = `${personagem1.nome} vence com CRÍTICO!`;
+    } else if (teste2.critico && !teste1.critico) {
+        vencedor = 2;
+        mensagem = `${personagem2.nome} vence com CRÍTICO!`;
+    } else if (teste1.sucesso && !teste2.sucesso) {
+        vencedor = 1;
+        mensagem = `${personagem1.nome} vence (sucesso vs falha)`;
+    } else if (teste2.sucesso && !teste1.sucesso) {
+        vencedor = 2;
+        mensagem = `${personagem2.nome} vence (sucesso vs falha)`;
+    } else if (teste1.sucesso && teste2.sucesso) {
+        // Ambos sucesso, compara margem
+        if (teste1.margem > teste2.margem) {
+            vencedor = 1;
+            mensagem = `${personagem1.nome} vence por margem (${teste1.margem} vs ${teste2.margem})`;
+        } else if (teste2.margem > teste1.margem) {
+            vencedor = 2;
+            mensagem = `${personagem2.nome} vence por margem (${teste2.margem} vs ${teste1.margem})`;
+        } else {
+            mensagem = `EMPATE! Ambos com margem ${teste1.margem}`;
+        }
+    } else {
+        // Ambos falharam
+        mensagem = `Ambos falharam!`;
+    }
+    
+    return {
+        vencedor,
+        teste1,
+        teste2,
+        mensagem
+    };
+}
+
+// ===== TESTE DE ATRIBUTO =====
+function testarAtributo(personagem, atributo, cd = 15, modificador = 0) {
+    if (!personagem) return null;
+    
+    const percentual = getAtributoPercentual(personagem, atributo) + modificador;
+    const rolagem = rolar2d10();
+    
+    const critico = rolagem.resultado <= 5;
+    const falhaCritica = rolagem.resultado >= 96;
+    
+    let sucesso = false;
+    if (critico) {
+        sucesso = true;
+    } else if (falhaCritica) {
+        sucesso = false;
+    } else {
+        sucesso = rolagem.resultado <= cd;
     }
     
     return {
         sucesso,
         critico,
         falhaCritica,
-        valorRolado,
-        chance,
+        percentual,
         cd,
-        bonus,
-        periciaId,
-        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} | Rolou: ${valorRolado} | Chance: ${chance}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
+        rolagem: rolagem.resultado,
+        rolagemStr: rolagem.str,
+        atributo,
+        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em teste de ${atributo.toUpperCase()} | Rolagem: ${rolagem.str} vs CD ${cd}`
     };
 }
 
-// ===== ROLAR DADO GENÉRICO =====
-function rolarDado(lados = 20, quantidade = 1) {
-    let total = 0;
-    const resultados = [];
-    
-    for (let i = 0; i < quantidade; i++) {
-        const resultado = Math.floor(Math.random() * lados) + 1;
-        resultados.push(resultado);
-        total += resultado;
-    }
-    
-    return {
-        total,
-        resultados,
-        lados,
-        quantidade,
-        mensagem: `${quantidade}d${lados}: [${resultados.join(', ')}] = ${total}`
-    };
-}
-
-// ===== ENCONTRAR PERÍCIA PELO NOME =====
-function encontrarPericia(termo) {
+// ===== BUSCAR PERÍCIA POR NOME OU ID =====
+function buscarPericia(termo) {
     const termoLower = termo.toLowerCase();
     return CATALOGO_PERICIAS.filter(p => 
         p.nome.toLowerCase().includes(termoLower) || 
@@ -148,13 +317,73 @@ function encontrarPericia(termo) {
     );
 }
 
-// Exportar
+// ===== LISTAR PERÍCIAS DO PERSONAGEM =====
+function listarPericiasPersonagem(personagem) {
+    if (!personagem || !personagem.pericias) return [];
+    
+    const lista = [];
+    for (const [id, dados] of Object.entries(personagem.pericias)) {
+        const info = CATALOGO_PERICIAS.find(p => p.id === id);
+        if (info) {
+            lista.push({
+                id,
+                nome: info.nome,
+                nivel: dados.nivel || 0,
+                tipo: info.tipo,
+                nh: calcularNH(personagem, id)
+            });
+        }
+    }
+    
+    // Ordenar por nome
+    return lista.sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+// ===== VERIFICAR SE PODE USAR PERÍCIA =====
+function podeUsarPericia(personagem, periciaId) {
+    if (!personagem) return false;
+    
+    const pericia = personagem.pericias?.[periciaId];
+    if (!pericia) return false;
+    
+    // Verificar se tem nível
+    return (pericia.nivel || 0) > 0;
+}
+
+// ===== CALCULAR BÔNUS DE SITUAÇÃO =====
+function bonusSituacao(descricao) {
+    const bonusMap = {
+        "vantagem_esmagadora": 10,
+        "vantagem_significativa": 5,
+        "vantagem_pequena": 2,
+        "desvantagem_pequena": -2,
+        "desvantagem_significativa": -5,
+        "desvantagem_esmagadora": -10,
+        "ferramentas_adequadas": 3,
+        "ferramentas_improvisadas": -3,
+        "ajuda": 4,
+        "pressa": -3,
+        "cuidadoso": 2
+    };
+    
+    return bonusMap[descricao] || 0;
+}
+
+// Exportar para uso em outros arquivos
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { 
-        CATALOGO_PERICIAS, 
-        calcularBonusPericia, 
-        rolarTestePericia, 
-        rolarDado,
-        encontrarPericia
+    module.exports = {
+        CATALOGO_PERICIAS,
+        TABELA_CD,
+        rolar2d10,
+        rolarDados,
+        getAtributoPercentual,
+        calcularNH,
+        testarPericia,
+        testeResistido,
+        testarAtributo,
+        buscarPericia,
+        listarPericiasPersonagem,
+        podeUsarPericia,
+        bonusSituacao
     };
 }
