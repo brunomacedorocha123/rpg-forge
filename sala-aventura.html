@@ -1116,11 +1116,7 @@
         </div>
     </div>
 
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
+  
   <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
@@ -1132,7 +1128,7 @@
 // ============================================
 
 // ============================================
-// FIREBASE CONFIG (USANDO FIREBASE 8.10.0)
+// FIREBASE CONFIG
 // ============================================
 const firebaseConfig = {
     apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
@@ -1143,7 +1139,6 @@ const firebaseConfig = {
     appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
 };
 
-// Inicializa Firebase (se não estiver inicializado)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -1158,7 +1153,6 @@ let aventuraAtual = null;
 let combateAtual = null;
 let userId = null;
 let personagensLista = [];
-let combatLogObserver = null;
 
 // Elementos DOM
 const elements = {
@@ -1325,7 +1319,7 @@ function calcularNivel(personagem) {
 function calcularEsquiva(personagem) {
     let esquiva = Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) + 5;
     if (personagem.vantagens?.includes('reflexosRapidos')) esquiva += 5;
-    return Math.min(75, Math.max(0, esquiva));
+    return Math.min(80, Math.max(5, esquiva));
 }
 
 function calcularAparar(personagem) {
@@ -1333,12 +1327,12 @@ function calcularAparar(personagem) {
     if (!temArma) return 0;
     
     const periciaEspada = personagem.pericias?.espada?.nivel || 0;
-    let aparar = getDXPercentual(personagem) + (periciaEspada * 4);
+    let aparar = getDXPercentual(personagem) + (periciaEspada * 4) + 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagem.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
-    return Math.min(80, Math.max(0, aparar));
+    return Math.min(80, Math.max(5, aparar));
 }
 
 function calcularBloqueio(personagem) {
@@ -1346,14 +1340,14 @@ function calcularBloqueio(personagem) {
     if (!temEscudo) return 0;
     
     const periciaEscudo = personagem.pericias?.escudo?.nivel || 0;
-    let bloqueio = getDXPercentual(personagem) + (periciaEscudo * 4);
+    let bloqueio = getDXPercentual(personagem) + (periciaEscudo * 4) + 5;
     
     const escudo = personagem.inventario.corpo?.find(item => item.bonus);
     if (escudo?.bonus) bloqueio += escudo.bonus * 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
     
-    return Math.min(85, Math.max(0, bloqueio));
+    return Math.min(85, Math.max(5, bloqueio));
 }
 
 function calcularRDTotal(personagem) {
@@ -1579,7 +1573,7 @@ function atualizarModalPericias() {
     for (const [id, dados] of Object.entries(personagemAtual.pericias)) {
         const periciaInfo = window.CATALOGO_PERICIAS?.find(p => p.id === id);
         const nome = periciaInfo?.nome || id;
-        const nh = calcularNH(personagemAtual, id);
+        const nh = window.calcularNH ? window.calcularNH(personagemAtual, id) : 0;
         html += `
             <div class="pericia-item">
                 <div class="pericia-nome">${nome} (Nível ${dados.nivel || 0})</div>
@@ -1887,6 +1881,8 @@ class AventuraSolo {
     }
     
     atualizarBotoesCombate(estado) {
+        console.log('🎮 Atualizando botões - Turno:', estado.turno, 'Fim:', estado.fim);
+        
         const botoes = [
             elements.btnAtaque,
             elements.btnDefender,
@@ -1897,8 +1893,16 @@ class AventuraSolo {
         
         botoes.forEach(btn => {
             if (btn) {
-                btn.disabled = estado.turno !== 'jogador' || estado.fim;
-                btn.classList.toggle('active-turn', estado.turno === 'jogador' && !estado.fim);
+                const deveHabilitar = (estado.turno === 'jogador' && !estado.fim);
+                
+                btn.disabled = !deveHabilitar;
+                console.log(`Botão ${btn.id}: ${deveHabilitar ? 'HABILITADO' : 'desabilitado'}`);
+                
+                if (deveHabilitar) {
+                    btn.classList.add('active-turn');
+                } else {
+                    btn.classList.remove('active-turn');
+                }
             }
         });
     }
@@ -1913,19 +1917,17 @@ function iniciarCombateUI(combate) {
     console.log('🎯 Iniciando combate UI...');
     combateAtual = combate;
     
-    // Mostrar painel de combate
     if (elements.narrativeArea) elements.narrativeArea.style.display = 'none';
     if (elements.combatPanel) {
         elements.combatPanel.style.display = 'block';
         elements.combatPanel.classList.add('active');
     }
     
-    // Limpar log
     if (elements.combatLog) {
         elements.combatLog.innerHTML = '<div class="log-entry">⚔️ Combate iniciado!</div>';
     }
     
-    // REMOVER TODOS OS LISTENERS ANTIGOS
+    // REMOVER LISTENERS ANTIGOS
     const botoes = [
         { btn: elements.btnAtaque, id: 'btnAtaque' },
         { btn: elements.btnDefender, id: 'btnDefender' },
@@ -1948,7 +1950,6 @@ function iniciarCombateUI(combate) {
         if (combateAtual && combateAtual.turno === 'jogador' && !combateAtual.fim) {
             combateAtual.atacar();
         } else {
-            console.log('⛔ Não é seu turno ou combate acabou');
             if (combateAtual?.fim) mostrarToast('Combate já acabou!', 'normal');
             else if (combateAtual?.turno !== 'jogador') mostrarToast('Aguarde seu turno!', 'normal');
         }
@@ -1971,11 +1972,6 @@ function iniciarCombateUI(combate) {
     elements.btnMagia.addEventListener('click', function() {
         console.log('✨ Botão Magia clicado');
         mostrarToast('Sistema de magias em desenvolvimento', 'normal');
-        if (combateAtual && combateAtual.turno === 'jogador' && !combateAtual.fim) {
-            // Placeholder - só passa o turno
-            combateAtual.turno = 'inimigo';
-            setTimeout(() => combateAtual.turnoInimigo(), 1200);
-        }
     });
     
     elements.btnFugir.addEventListener('click', function() {
@@ -1985,11 +1981,14 @@ function iniciarCombateUI(combate) {
         }
     });
     
-    // Atualizar estado inicial dos botões
-    if (combateAtual) {
-        const estado = combateAtual.getEstado();
-        aventuraAtual.atualizarBotoesCombate(estado);
-    }
+    // FORÇAR ATUALIZAÇÃO DOS BOTÕES
+    setTimeout(() => {
+        if (combateAtual) {
+            const estado = combateAtual.getEstado();
+            aventuraAtual.atualizarBotoesCombate(estado);
+            console.log('🔄 Botões atualizados após iniciar combate');
+        }
+    }, 500);
 }
 
 function finalizarCombateUI() {
@@ -2045,7 +2044,6 @@ async function inicializar() {
         userId = user.uid;
         console.log('👤 Usuário:', userId);
         
-        // Verificar se os sistemas estão carregados
         console.log('📦 Sistemas carregados:', {
             CENAS: !!window.CENAS,
             INIMIGOS: !!window.INIMIGOS,
@@ -2112,14 +2110,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Fechar modais ao clicar fora
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) {
         e.target.classList.remove('active');
     }
 });
 
-// Tecla ESC fecha modais
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay.active').forEach(modal => {
@@ -2128,7 +2124,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Exporta funções globais
 window.abrirModal = abrirModal;
 window.fecharModal = fecharModal;
 window.processarEscolha = window.processarEscolha;
