@@ -328,8 +328,11 @@
             height: 100%;
             background-size: cover;
             background-position: center;
+            background-repeat: no-repeat;
             position: relative;
             background-image: linear-gradient(135deg, #2c1e12, #4a3a2a);
+            /* SEM ZOOM - imagem normal */
+            image-rendering: auto;
         }
 
         .scenario-image::before {
@@ -369,6 +372,7 @@
             border: 3px solid var(--burnished-gold);
             background-size: cover;
             background-position: center;
+            background-repeat: no-repeat;
         }
 
         .npc-name {
@@ -910,15 +914,18 @@
         </div>
     </div>
 
-    <script src="cenas.js"></script>
-    <script src="combate.js"></script>
-    <script src="testes.js"></script>
-
+    <!-- PRIMEIRO: Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
+    <!-- DEPOIS: Seus arquivos -->
+    <script src="cenas.js"></script>
+    <script src="testes.js"></script>
+    <script src="combate.js"></script>
+
     <script>
+        // CONFIGURAÇÃO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
             authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -928,16 +935,19 @@
             appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
         };
 
+        // INICIALIZAR FIREBASE
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // VARIÁVEIS GLOBAIS
         let currentUser = null;
         let personagemAtual = null;
         let cenaAtual = "grito_estrada";
         let emCombate = false;
         let combateInstance = null;
 
+        // ELEMENTOS DOM
         const elements = {
             loading: document.getElementById('loadingOverlay'),
             toast: document.getElementById('toast'),
@@ -982,6 +992,7 @@
             defesaBloqueio: document.getElementById('defesaBloqueio')
         };
 
+        // FUNÇÕES AUXILIARES
         function showLoading() { elements.loading.classList.add('active'); }
         function hideLoading() { elements.loading.classList.remove('active'); }
 
@@ -1008,6 +1019,7 @@
             elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
         }
 
+        // FUNÇÕES DE CÁLCULO
         function getEsferas(atributo) {
             return personagemAtual?.atributos?.[atributo]?.esferas || 0;
         }
@@ -1140,7 +1152,10 @@
         }
 
         function renderizarCena(cenaId) {
-            if (!window.CENAS) return;
+            if (!window.CENAS) {
+                showToast('❌ Erro: Cenas não carregadas!', true);
+                return;
+            }
             
             const cena = window.CENAS[cenaId] || window.CENAS["grito_estrada"];
             
@@ -1151,6 +1166,8 @@
 
             if (cena.imagem) {
                 elements.cenarioImagem.style.backgroundImage = `url('${cena.imagem}')`;
+            } else {
+                elements.cenarioImagem.style.backgroundImage = 'linear-gradient(135deg, #2c1e12, #4a3a2a)';
             }
 
             if (cena.npc) {
@@ -1161,6 +1178,8 @@
                 
                 if (cena.npc.portrait) {
                     elements.npcPortrait.style.backgroundImage = `url('${cena.npc.portrait}')`;
+                } else {
+                    elements.npcPortrait.style.backgroundImage = 'none';
                 }
             }
 
@@ -1178,11 +1197,16 @@
                     
                     return `<button class="btn-choice" onclick="${acao}">${op.texto}</button>`;
                 }).join('');
+            } else {
+                elements.choiceButtons.innerHTML = '';
             }
         }
 
         function realizarTestePericia(periciaId, cd, cenaSucesso, cenaFalha) {
-            if (!window.testarPericia) return;
+            if (!window.testarPericia) {
+                showToast('❌ Sistema de perícias não carregado!', true);
+                return;
+            }
             
             showLoading();
             setTimeout(() => {
@@ -1197,7 +1221,10 @@
         }
 
         function iniciarCombate(inimigoId = 'saqueador_faminto') {
-            if (!personagemAtual || !window.Combate || !window.INIMIGOS) return;
+            if (!personagemAtual || !window.Combate || !window.INIMIGOS) {
+                showToast('❌ Sistema de combate não carregado!', true);
+                return;
+            }
             
             emCombate = true;
             
@@ -1218,7 +1245,7 @@
                     finalizarCombate(false);
                 },
                 onFuga: () => {
-                    finalizarCombate(false);
+                    finalizarCombate(false, true);
                 }
             });
 
@@ -1255,15 +1282,18 @@
             };
         }
 
-        function finalizarCombate(vitoria) {
+        function finalizarCombate(vitoria, fuga = false) {
             emCombate = false;
             elements.combatPanel.classList.remove('active');
             elements.narrativeArea.style.display = 'block';
             
             if (vitoria) {
                 renderizarCena('pos_combate');
+            } else if (fuga) {
+                renderizarCena('grito_estrada');
             } else {
                 renderizarCena('grito_estrada');
+                showToast('❌ Você foi derrotado...', true);
             }
         }
 
@@ -1381,6 +1411,7 @@
                 
             } catch (error) {
                 showToast('❌ Erro ao carregar personagem', true);
+                console.error('Erro:', error);
             } finally {
                 hideLoading();
             }
@@ -1411,6 +1442,14 @@
                     modal.classList.remove('active');
                 }
             });
+        });
+
+        // VERIFICAR SE TODOS OS MÓDULOS FORAM CARREGADOS
+        window.addEventListener('load', () => {
+            console.log('✅ Página carregada!');
+            console.log('📦 CENAS:', window.CENAS ? 'OK' : 'FALTA');
+            console.log('📦 testes:', window.testarPericia ? 'OK' : 'FALTA');
+            console.log('📦 Combate:', window.Combate ? 'OK' : 'FALTA');
         });
     </script>
 </body>
