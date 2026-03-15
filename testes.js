@@ -1,6 +1,6 @@
-// FILE: testes.js
 // ============================================
 // SISTEMA DE TESTES E PERÍCIAS - AKALANATA SOLO
+// VERSÃO CORRIGIDA - SEM CONFLITOS
 // ============================================
 
 // ===== CATÁLOGO DE PERÍCIAS =====
@@ -52,8 +52,8 @@ const TABELA_CD = {
     "quase_impossivel": 40
 };
 
-// ===== ROLAR 2d10 PARA PORCENTAGEM =====
-function rolar2d10() {
+// ===== FUNÇÃO DE ROLAGEM 2d10 (renomeada para evitar conflito) =====
+function rolar2d10Teste() {
     const dado1 = Math.floor(Math.random() * 10) + 1; // 1-10
     const dado2 = Math.floor(Math.random() * 10) + 1; // 1-10
     
@@ -66,47 +66,35 @@ function rolar2d10() {
         dezena: dado1,
         unidade: dado2,
         resultado: resultado === 0 ? 100 : resultado,
-        str: `[${dado1}][${dado2}] = ${resultado === 0 ? 100 : resultado}`
+        str: `[${dado1}][${dado2}] = ${resultado === 0 ? 100 : resultado}`,
+        critico: resultado <= 5,
+        falhaCritica: resultado >= 96
     };
 }
 
-// ===== ROLAR DADOS GENÉRICOS (formato "XdY+Z") =====
-function rolarDados(formula) {
-    const regex = /(\d+)d(\d+)([+-]\d+)?/i;
+// ===== ROLAR DADOS GENÉRICOS (renomeada para evitar conflito) =====
+function rolarDadosTeste(formula) {
+    if (!formula) return 1;
+    
+    // Suporte para formatos como "1d8", "2d6+2", "1d20-1"
+    const regex = /^(\d+)d(\d+)([+-]\d+)?$/i;
     const match = formula.match(regex);
     
     if (!match) {
-        const regex2 = /(\d+)d(\d+)([+-])(\d+)?/i;
-        const match2 = formula.match(regex2);
-        if (match2) {
-            const quantidade = parseInt(match2[1]) || 1;
-            const faces = parseInt(match2[2]) || 6;
-            const operador = match2[3];
-            const modificador = parseInt(match2[4]) || 0;
-            
-            let total = 0;
-            for (let i = 0; i < quantidade; i++) {
-                total += Math.floor(Math.random() * faces) + 1;
-            }
-            
-            if (operador === '+') total += modificador;
-            else total -= modificador;
-            
-            return Math.max(1, total);
-        }
-        return 0;
+        console.warn(`Fórmula de dano inválida: ${formula}`);
+        return 1;
     }
     
     const quantidade = parseInt(match[1]) || 1;
-    const faces = parseInt(match[2]) || 20;
-    const modificador = parseInt(match[3]) || 0;
+    const faces = parseInt(match[2]) || 6;
+    const modificador = match[3] ? parseInt(match[3]) : 0;
     
     let total = 0;
     for (let i = 0; i < quantidade; i++) {
         total += Math.floor(Math.random() * faces) + 1;
     }
     
-    return total + modificador;
+    return Math.max(1, total + modificador);
 }
 
 // ===== CALCULAR BÔNUS DE ATRIBUTO =====
@@ -183,7 +171,9 @@ function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
     }
     
     const nh = calcularNH(personagem, periciaId) + modificador;
-    const rolagem = rolar2d10();
+    const rolagem = rolar2d10Teste(); // Usa a função renomeada
+    
+    const cdFinal = cd !== null ? cd : nh;
     
     const critico = rolagem.resultado <= 5;
     const falhaCritica = rolagem.resultado >= 96;
@@ -194,7 +184,7 @@ function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
     } else if (falhaCritica) {
         sucesso = false;
     } else {
-        sucesso = rolagem.resultado <= (cd !== null ? cd : nh);
+        sucesso = rolagem.resultado <= cdFinal;
     }
     
     const periciaInfo = CATALOGO_PERICIAS.find(p => p.id === periciaId);
@@ -205,13 +195,13 @@ function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
         critico,
         falhaCritica,
         nh,
-        cd: cd !== null ? cd : nh,
+        cd: cdFinal,
         rolagem: rolagem.resultado,
         rolagemStr: rolagem.str,
-        margem: sucesso ? (cd !== null ? cd : nh) - rolagem.resultado : rolagem.resultado - (cd !== null ? cd : nh),
+        margem: sucesso ? cdFinal - rolagem.resultado : rolagem.resultado - cdFinal,
         periciaId,
         nomePericia,
-        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em ${nomePericia} | Rolagem: ${rolagem.str} | ${cd !== null ? 'CD' : 'NH'}: ${cd !== null ? cd : nh}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
+        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em ${nomePericia} | Rolagem: ${rolagem.str} | ${cd !== null ? 'CD' : 'NH'}: ${cdFinal}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
     };
 }
 
@@ -262,7 +252,7 @@ function testarAtributo(personagem, atributo, cd = 15, modificador = 0) {
     if (!personagem) return null;
     
     const percentual = getAtributoPercentual(personagem, atributo) + modificador;
-    const rolagem = rolar2d10();
+    const rolagem = rolar2d10Teste(); // Usa a função renomeada
     
     const critico = rolagem.resultado <= 5;
     const falhaCritica = rolagem.resultado >= 96;
@@ -348,12 +338,12 @@ function bonusSituacao(descricao) {
     return bonusMap[descricao] || 0;
 }
 
-// ✅ CORREÇÃO: Expor TUDO ao window no browser
+// ✅ EXPORTAÇÃO GLOBAL (renomeada para evitar conflito com combate.js)
 if (typeof window !== 'undefined') {
     window.CATALOGO_PERICIAS = CATALOGO_PERICIAS;
     window.TABELA_CD = TABELA_CD;
-    window.rolar2d10 = rolar2d10;
-    window.rolarDados = rolarDados;
+    window.rolar2d10Teste = rolar2d10Teste;
+    window.rolarDadosTeste = rolarDadosTeste;
     window.getAtributoPercentual = getAtributoPercentual;
     window.calcularNH = calcularNH;
     window.testarPericia = testarPericia;
@@ -363,6 +353,8 @@ if (typeof window !== 'undefined') {
     window.listarPericiasPersonagem = listarPericiasPersonagem;
     window.podeUsarPericia = podeUsarPericia;
     window.bonusSituacao = bonusSituacao;
+    
+    console.log('✅ Sistema de Perícias carregado!');
 }
 
 // Exportar para Node.js
@@ -370,8 +362,8 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         CATALOGO_PERICIAS,
         TABELA_CD,
-        rolar2d10,
-        rolarDados,
+        rolar2d10Teste,
+        rolarDadosTeste,
         getAtributoPercentual,
         calcularNH,
         testarPericia,
