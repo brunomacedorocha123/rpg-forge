@@ -10,6 +10,11 @@
     <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;600;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
+    <!-- SEUS ARQUIVOS JS -->
+    <script src="testes.js"></script>
+    <script src="cenas.js"></script>
+    <script src="combate.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -802,6 +807,81 @@
             font-size: 0.9rem;
         }
 
+        /* SELETOR DE PERSONAGEM */
+        .personagem-selector {
+            background: var(--gradient-wood);
+            border: var(--border-ornate);
+            border-radius: 25px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .personagem-selector h2 {
+            font-family: var(--font-medieval);
+            color: var(--burnished-gold);
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        
+        .personagem-lista {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .personagem-card {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid var(--burnished-gold);
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+        
+        .personagem-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(191,155,92,0.3);
+            background: rgba(191,155,92,0.2);
+        }
+        
+        .personagem-card h3 {
+            color: var(--burnished-gold);
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+        
+        .personagem-card p {
+            color: var(--aged-paper);
+            font-size: 0.9rem;
+            margin: 3px 0;
+        }
+        
+        .personagem-card .nivel {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .btn-selecionar {
+            background: var(--burnished-gold);
+            color: var(--deep-wood);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            margin-top: 10px;
+            width: 100%;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-selecionar:hover {
+            background: #d4af37;
+            transform: scale(1.05);
+        }
+
         @media (max-width: 1200px) {
             .main-grid { grid-template-columns: 280px 1fr 280px; }
         }
@@ -827,7 +907,7 @@
 <body>
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
-        <div class="loading-text">Carregando seu personagem...</div>
+        <div class="loading-text">Carregando...</div>
     </div>
 
     <div class="toast" id="toast"><span id="toastMessage"></span></div>
@@ -865,6 +945,15 @@
         </div>
     </div>
 
+    <!-- MODAL SELETOR DE PERSONAGEM -->
+    <div class="modal-overlay" id="modalSeletorPersonagem">
+        <div class="modal-content" style="max-width: 800px;">
+            <button class="modal-close" onclick="fecharModal('modalSeletorPersonagem')">&times;</button>
+            <h2><i class="fas fa-users"></i> Selecione seu Personagem</h2>
+            <div id="personagemLista" class="personagem-lista"></div>
+        </div>
+    </div>
+
     <div class="container">
         <nav class="top-nav">
             <div class="nav-brand">
@@ -885,7 +974,14 @@
             <span class="current" id="aventuraNome">O Grito na Estrada</span>
         </div>
 
-        <div class="main-grid">
+        <!-- SELETOR DE PERSONAGEM (aparece se não tiver personagem selecionado) -->
+        <div id="seletorContainer" class="personagem-selector" style="display: none;">
+            <h2><i class="fas fa-dragon"></i> Escolha seu Herói</h2>
+            <p style="margin-bottom: 20px; color: var(--aged-paper);">Selecione qual personagem você quer levar nesta aventura:</p>
+            <div id="seletorLista" class="personagem-lista"></div>
+        </div>
+
+        <div class="main-grid" id="mainGrid" style="display: none;">
             <!-- Painel do Personagem -->
             <div class="panel">
                 <div class="panel-header">
@@ -894,7 +990,7 @@
                 </div>
                 <div class="panel-body">
                     <div class="character-avatar" id="characterAvatar"></div>
-                    <div class="character-name" id="characterName">Carregando...</div>
+                    <div class="character-name" id="characterName">Selecione um personagem</div>
                     <div class="character-class" id="characterClass"><i class="fas fa-shield-alt"></i> <span>-</span></div>
                     
                     <div class="resource-bar">
@@ -1025,20 +1121,12 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    <!-- SISTEMA AKALANATA SOLO - COMPLETO -->
     <script>
 // ============================================
-// SALA AVENTURA - JAVASCRIPT COMPLETO
-// BASEADO NO SEU SISTEMA DE CRIAÇÃO DE PERSONAGEM
+// CÓDIGO COMPLETO - SALA AVENTURA
 // ============================================
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
-
-// ============================================
-// FIREBASE CONFIG - IGUAL AO SEU ARQUIVO DE CRIAÇÃO
-// ============================================
+// Firebase Config - SUA CONFIG REAL
 const firebaseConfig = {
     apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
     authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -1049,9 +1137,9 @@ const firebaseConfig = {
 };
 
 // Inicializa Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
 
 // ============================================
 // VARIÁVEIS GLOBAIS
@@ -1060,14 +1148,13 @@ let personagemAtual = null;
 let aventuraAtual = null;
 let combateAtual = null;
 let userId = null;
-let cenaAtualId = 'grito_estrada';
+let personagensLista = [];
 
 // Elementos DOM
 const elements = {
     loadingOverlay: document.getElementById('loadingOverlay'),
     toast: document.getElementById('toast'),
     toastMessage: document.getElementById('toastMessage'),
-    
     characterAvatar: document.getElementById('characterAvatar'),
     characterName: document.getElementById('characterName'),
     characterClass: document.getElementById('characterClass'),
@@ -1082,17 +1169,14 @@ const elements = {
     defesaEsquiva: document.getElementById('defesaEsquiva'),
     defesaAparar: document.getElementById('defesaAparar'),
     defesaBloqueio: document.getElementById('defesaBloqueio'),
-    
     cenarioImagem: document.getElementById('cenarioImagem'),
     cenarioTitulo: document.getElementById('cenarioTitulo'),
     narrativeText: document.getElementById('narrativeText'),
     choiceButtons: document.getElementById('choiceButtons'),
-    
     npcPortrait: document.getElementById('npcPortrait'),
     npcName: document.getElementById('npcName'),
     npcState: document.getElementById('npcState'),
     npcDesc: document.getElementById('npcDesc'),
-    
     combatPanel: document.getElementById('combatPanel'),
     narrativeArea: document.getElementById('narrativeArea'),
     turnIndicator: document.getElementById('turnIndicator'),
@@ -1109,14 +1193,17 @@ const elements = {
     playerApararCombat: document.getElementById('playerApararCombat'),
     playerBloqueioCombat: document.getElementById('playerBloqueioCombat'),
     combatLog: document.getElementById('combatLog'),
-    
     btnAtaque: document.getElementById('btnAtaque'),
     btnDefender: document.getElementById('btnDefender'),
     btnEsquivar: document.getElementById('btnEsquivar'),
     btnMagia: document.getElementById('btnMagia'),
     btnFugir: document.getElementById('btnFugir'),
-    
-    btnSair: document.getElementById('btnSair')
+    btnSair: document.getElementById('btnSair'),
+    mainGrid: document.getElementById('mainGrid'),
+    seletorContainer: document.getElementById('seletorContainer'),
+    seletorLista: document.getElementById('seletorLista'),
+    personagemLista: document.getElementById('personagemLista'),
+    modalSeletorPersonagem: document.getElementById('modalSeletorPersonagem')
 };
 
 // ============================================
@@ -1140,8 +1227,18 @@ function mostrarToast(mensagem, tipo = 'normal') {
     }
 }
 
+function abrirModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.add('active');
+}
+
+function fecharModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('active');
+}
+
 // ============================================
-// FUNÇÕES DE CÁLCULO - IGUAIS AO SEU SISTEMA
+// FUNÇÕES DE CÁLCULO
 // ============================================
 function getSTFixo(personagem) {
     return 5 + (personagem.atributos?.st?.esferas || 0);
@@ -1182,21 +1279,17 @@ function getVIGORPercentual(personagem) {
 function calcularPV(personagem) {
     const vt = getVTFixo(personagem);
     let pv = vt * 8;
-    
     if (personagem.vantagens?.includes('htExtra')) {
         pv = Math.floor(pv * 1.10);
     }
-    
     return pv;
 }
 
 function calcularPF(personagem) {
     let pf = getVIGORFixo(personagem) + getVTFixo(personagem);
-    
     if (personagem.vantagens?.includes('fadigaExtra')) {
         pf += 5;
     }
-    
     return pf;
 }
 
@@ -1249,45 +1342,108 @@ function calcularBloqueio(personagem) {
 
 function calcularRDTotal(personagem) {
     let rd = 0;
-    
     if (personagem.vantagens?.includes('corpoResistente')) rd += 2;
-    
     if (personagem.inventario?.corpo) {
         personagem.inventario.corpo.forEach(item => {
             if (item.rd) rd += item.rd;
         });
     }
-    
     return rd;
 }
 
-function getBonusReacao(personagem) {
-    let bonus = 0;
-    
-    if (personagem.aparencia === 'atraente') bonus += 10;
-    else if (personagem.aparencia === 'feio') bonus -= 5;
-    
-    if (personagem.vantagens?.includes('carisma')) bonus += 5;
-    
-    if (personagem.riqueza === 'rico') bonus += 5;
-    else if (personagem.riqueza === 'pobre') bonus -= 10;
-    
-    return bonus;
-}
-
 // ============================================
-// CARREGAR PERSONAGEM DO FIRESTORE
+// CARREGAR PERSONAGENS DO USUÁRIO
 // ============================================
-async function carregarPersonagem(userId) {
+async function carregarPersonagens() {
     try {
         mostrarLoading(true);
         
-        const personagemRef = doc(db, "personagens", userId);
-        const docSnap = await getDoc(personagemRef);
+        const user = auth.currentUser;
+        if (!user) {
+            mostrarToast('Usuário não autenticado!', 'erro');
+            return [];
+        }
         
-        if (!docSnap.exists()) {
+        userId = user.uid;
+        
+        const q = await db.collection('personagens').where('userId', '==', userId).get();
+        
+        if (q.empty) {
+            mostrarToast('Nenhum personagem encontrado!', 'erro');
+            return [];
+        }
+        
+        const personagens = [];
+        q.forEach(doc => {
+            personagens.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        personagensLista = personagens;
+        return personagens;
+        
+    } catch (error) {
+        mostrarToast('Erro ao carregar personagens: ' + error.message, 'erro');
+        return [];
+    } finally {
+        mostrarLoading(false);
+    }
+}
+
+// ============================================
+// RENDERIZAR LISTA DE PERSONAGENS
+// ============================================
+function renderizarListaPersonagens(personagens) {
+    if (!elements.seletorLista) return;
+    
+    if (personagens.length === 0) {
+        elements.seletorLista.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--aged-paper); padding: 40px;">Nenhum personagem encontrado. Crie um personagem primeiro!</div>';
+        return;
+    }
+    
+    let html = '';
+    personagens.forEach(p => {
+        const classe = p.classe || 'guerreiro';
+        const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
+        const nomeClasse = classes[classe] || classe;
+        const nivel = calcularNivel(p);
+        const pv = calcularPV(p);
+        
+        html += `
+            <div class="personagem-card">
+                <h3>${p.nome || 'Sem nome'}</h3>
+                <p><i class="fas fa-shield-alt"></i> ${nomeClasse}</p>
+                <p><i class="fas fa-level-up-alt"></i> Nível <span class="nivel">${nivel}</span></p>
+                <p><i class="fas fa-heart" style="color: #ff6b6b;"></i> PV ${pv}</p>
+                <button class="btn-selecionar" onclick="selecionarPersonagem('${p.id}')">
+                    <i class="fas fa-play"></i> Jogar com este personagem
+                </button>
+            </div>
+        `;
+    });
+    
+    elements.seletorLista.innerHTML = html;
+    
+    if (elements.personagemLista) {
+        elements.personagemLista.innerHTML = html;
+    }
+}
+
+// ============================================
+// SELECIONAR PERSONAGEM
+// ============================================
+window.selecionarPersonagem = async function(personagemId) {
+    try {
+        mostrarLoading(true);
+        
+        const docRef = db.collection('personagens').doc(personagemId);
+        const docSnap = await docRef.get();
+        
+        if (!docSnap.exists) {
             mostrarToast('Personagem não encontrado!', 'erro');
-            return null;
+            return;
         }
         
         const personagem = docSnap.data();
@@ -1305,15 +1461,32 @@ async function carregarPersonagem(userId) {
         }
         
         personagemAtual = personagem;
-        return personagem;
+        personagemAtual.id = personagemId;
+        
+        fecharModal('modalSeletorPersonagem');
+        if (elements.seletorContainer) elements.seletorContainer.style.display = 'none';
+        if (elements.mainGrid) elements.mainGrid.style.display = 'grid';
+        
+        atualizarInterfacePersonagem();
+        
+        if (!aventuraAtual) {
+            aventuraAtual = new AventuraSolo(personagemAtual, {
+                onCenaChange: atualizarCena,
+                onCombateIniciar: iniciarCombateUI,
+                onCombateUpdate: atualizarUICombate,
+                onCombateLog: adicionarLogCombate
+            });
+            aventuraAtual.iniciar('grito_estrada');
+        }
+        
+        mostrarToast(`Bem-vindo, ${personagem.nome}!`);
         
     } catch (error) {
-        mostrarToast('Erro ao carregar: ' + error.message, 'erro');
-        return null;
+        mostrarToast('Erro ao selecionar: ' + error.message, 'erro');
     } finally {
         mostrarLoading(false);
     }
-}
+};
 
 // ============================================
 // ATUALIZAR INTERFACE DO PERSONAGEM
@@ -1330,13 +1503,7 @@ function atualizarInterfacePersonagem() {
     }
     if (elements.characterClass) {
         const classe = personagemAtual.classe || 'guerreiro';
-        const classes = { 
-            guerreiro: 'Guerreiro', 
-            mago: 'Mago', 
-            ladino: 'Ladino', 
-            clerigo: 'Clérigo', 
-            barbaro: 'Bárbaro' 
-        };
+        const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
         elements.characterClass.innerHTML = `<i class="fas fa-shield-alt"></i> <span>${classes[classe] || classe}</span>`;
     }
     
@@ -1373,6 +1540,92 @@ function atualizarInterfacePersonagem() {
     if (elements.defesaEsquiva) elements.defesaEsquiva.textContent = calcularEsquiva(personagemAtual) + '%';
     if (elements.defesaAparar) elements.defesaAparar.textContent = calcularAparar(personagemAtual) + '%';
     if (elements.defesaBloqueio) elements.defesaBloqueio.textContent = calcularBloqueio(personagemAtual) + '%';
+    
+    // Atualizar modais
+    atualizarModalPericias();
+    atualizarModalInventario();
+    atualizarModalStatus();
+}
+
+// ============================================
+// ATUALIZAR MODAIS
+// ============================================
+function atualizarModalPericias() {
+    if (!personagemAtual) return;
+    const div = document.getElementById('modalPericiasContent');
+    if (!div) return;
+    
+    if (!personagemAtual.pericias || Object.keys(personagemAtual.pericias).length === 0) {
+        div.innerHTML = '<p style="text-align: center; color: var(--aged-paper);">Nenhuma perícia</p>';
+        return;
+    }
+    
+    let html = '<div class="pericia-list">';
+    for (const [id, dados] of Object.entries(personagemAtual.pericias)) {
+        const periciaInfo = window.CATALOGO_PERICIAS?.find(p => p.id === id);
+        const nome = periciaInfo?.nome || id;
+        html += `
+            <div class="pericia-item">
+                <div class="pericia-nome">${nome} (Nível ${dados.nivel || 0})</div>
+            </div>
+        `;
+    }
+    html += '</div>';
+    div.innerHTML = html;
+}
+
+function atualizarModalInventario() {
+    if (!personagemAtual) return;
+    const div = document.getElementById('modalInventarioContent');
+    if (!div) return;
+    
+    const inv = personagemAtual.inventario || { corpo: [], mochila: [], deposito: [] };
+    let html = '<div class="inventario-grid">';
+    
+    if (inv.corpo?.length) {
+        html += '<div class="inventario-categoria"><h4><i class="fas fa-user"></i> Equipado</h4>';
+        inv.corpo.forEach(item => {
+            html += `<div class="item-lista"><span>${item.nome}</span>${item.dano ? `<span style="color: #ff6b6b;">${item.dano}</span>` : ''}</div>`;
+        });
+        html += '</div>';
+    }
+    
+    if (inv.mochila?.length) {
+        html += '<div class="inventario-categoria"><h4><i class="fas fa-sack"></i> Mochila</h4>';
+        inv.mochila.forEach(item => {
+            html += `<div class="item-lista"><span>${item.nome}</span></div>`;
+        });
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    div.innerHTML = html || '<p style="text-align: center; color: var(--aged-paper);">Inventário vazio</p>';
+}
+
+function atualizarModalStatus() {
+    if (!personagemAtual) return;
+    const div = document.getElementById('modalStatusContent');
+    if (!div) return;
+    
+    div.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+            <div class="inventario-categoria">
+                <h4>Atributos</h4>
+                <div class="item-lista"><span>ST</span><span>${personagemAtual.atributos?.st?.esferas || 0} esferas</span></div>
+                <div class="item-lista"><span>DX</span><span>${personagemAtual.atributos?.dx?.esferas || 0} esferas</span></div>
+                <div class="item-lista"><span>IQ</span><span>${personagemAtual.atributos?.iq?.esferas || 0} esferas</span></div>
+                <div class="item-lista"><span>Vigor</span><span>${personagemAtual.atributos?.vigor?.esferas || 0} esferas</span></div>
+                <div class="item-lista"><span>VT</span><span>${personagemAtual.atributos?.vt?.esferas || 0} esferas</span></div>
+            </div>
+            <div class="inventario-categoria">
+                <h4>Defesas</h4>
+                <div class="item-lista"><span>Esquiva</span><span>${calcularEsquiva(personagemAtual)}%</span></div>
+                <div class="item-lista"><span>Aparar</span><span>${calcularAparar(personagemAtual)}%</span></div>
+                <div class="item-lista"><span>Bloqueio</span><span>${calcularBloqueio(personagemAtual)}%</span></div>
+                <div class="item-lista"><span>RD Total</span><span>${calcularRDTotal(personagemAtual)}</span></div>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================
@@ -1403,7 +1656,7 @@ function atualizarCena(cena) {
     
     if (elements.choiceButtons && cena.opcoes) {
         elements.choiceButtons.innerHTML = cena.opcoes.map((opcao, index) => `
-            <button class="btn-choice" onclick="window.processarEscolha('${cena.id}', ${index})">
+            <button class="btn-choice" onclick="processarEscolha('${cena.id}', ${index})">
                 ${opcao.texto}
             </button>
         `).join('');
@@ -1430,7 +1683,7 @@ class AventuraSolo {
     irParaCena(cenaId) {
         const cena = window.CENAS?.[cenaId];
         if (!cena) {
-            console.error(`Cena ${cenaId} não encontrada!`);
+            mostrarToast(`Cena não encontrada: ${cenaId}`, 'erro');
             return;
         }
         
@@ -1614,7 +1867,77 @@ class AventuraSolo {
 }
 
 // ============================================
-// PROCESSAR ESCOLHA (EXPOSTA GLOBALMENTE)
+// FUNÇÕES DE COMBATE UI
+// ============================================
+function iniciarCombateUI(combate) {
+    if (!combate) return;
+    
+    combateAtual = combate;
+    
+    if (elements.narrativeArea) elements.narrativeArea.style.display = 'none';
+    if (elements.combatPanel) {
+        elements.combatPanel.style.display = 'block';
+        elements.combatPanel.classList.add('active');
+    }
+    
+    if (elements.combatLog) {
+        elements.combatLog.innerHTML = '';
+    }
+    
+    elements.btnAtaque.onclick = () => {
+        if (combateAtual && combateAtual.turno === 'jogador') {
+            combateAtual.atacar();
+        }
+    };
+    
+    elements.btnDefender.onclick = () => {
+        if (combateAtual && combateAtual.turno === 'jogador') {
+            combateAtual.defender();
+        }
+    };
+    
+    elements.btnEsquivar.onclick = () => {
+        if (combateAtual && combateAtual.turno === 'jogador') {
+            combateAtual.esquivar();
+        }
+    };
+    
+    elements.btnMagia.onclick = () => {
+        if (combateAtual && combateAtual.turno === 'jogador') {
+            combateAtual.usarMagia();
+            mostrarToast('Magias em desenvolvimento', 'normal');
+        }
+    };
+    
+    elements.btnFugir.onclick = () => {
+        if (combateAtual && combateAtual.turno === 'jogador') {
+            combateAtual.fugir();
+        }
+    };
+}
+
+function finalizarCombateUI() {
+    combateAtual = null;
+    
+    if (elements.narrativeArea) elements.narrativeArea.style.display = 'block';
+    if (elements.combatPanel) {
+        elements.combatPanel.style.display = 'none';
+        elements.combatPanel.classList.remove('active');
+    }
+}
+
+function atualizarUICombate(estado) {
+    if (!aventuraAtual) return;
+    aventuraAtual.atualizarUICombate(estado);
+}
+
+function adicionarLogCombate(mensagem, tipo) {
+    if (!aventuraAtual) return;
+    aventuraAtual.adicionarLogCombate(mensagem, tipo);
+}
+
+// ============================================
+// PROCESSAR ESCOLHA
 // ============================================
 window.processarEscolha = function(cenaId, opcaoIndex) {
     if (!aventuraAtual || !aventuraAtual.cenaAtual) return;
@@ -1626,140 +1949,44 @@ window.processarEscolha = function(cenaId, opcaoIndex) {
 };
 
 // ============================================
-// INICIAR COMBATE UI
-// ============================================
-function iniciarCombateUI() {
-    if (elements.narrativeArea) elements.narrativeArea.style.display = 'none';
-    if (elements.combatPanel) {
-        elements.combatPanel.style.display = 'block';
-        elements.combatPanel.classList.add('active');
-    }
-    
-    if (elements.btnAtaque) {
-        elements.btnAtaque.onclick = () => {
-            if (combateAtual && combateAtual.turno === 'jogador') {
-                combateAtual.atacar();
-            }
-        };
-    }
-    
-    if (elements.btnDefender) {
-        elements.btnDefender.onclick = () => {
-            if (combateAtual && combateAtual.turno === 'jogador') {
-                combateAtual.defender();
-            }
-        };
-    }
-    
-    if (elements.btnEsquivar) {
-        elements.btnEsquivar.onclick = () => {
-            if (combateAtual && combateAtual.turno === 'jogador') {
-                combateAtual.esquivar();
-            }
-        };
-    }
-    
-    if (elements.btnMagia) {
-        elements.btnMagia.onclick = () => {
-            if (combateAtual && combateAtual.turno === 'jogador') {
-                combateAtual.usarMagia();
-            }
-        };
-    }
-    
-    if (elements.btnFugir) {
-        elements.btnFugir.onclick = () => {
-            if (combateAtual && combateAtual.turno === 'jogador') {
-                combateAtual.fugir();
-            }
-        };
-    }
-}
-
-function finalizarCombateUI() {
-    if (elements.narrativeArea) elements.narrativeArea.style.display = 'block';
-    if (elements.combatPanel) {
-        elements.combatPanel.style.display = 'none';
-        elements.combatPanel.classList.remove('active');
-    }
-    if (elements.combatLog) elements.combatLog.innerHTML = '<div class="log-entry">⚔️ Combate iniciado!</div>';
-}
-
-// ============================================
 // INICIALIZAÇÃO
 // ============================================
-async function inicializarAplicacao() {
+async function inicializar() {
     mostrarLoading(true);
     
     try {
-        if (!window.CENAS || !window.INIMIGOS || !window.Combate || !window.testarPericia) {
-            mostrarToast('Erro: Sistemas não carregados!', 'erro');
-            console.error('Sistemas necessários:', {
-                CENAS: !!window.CENAS,
-                INIMIGOS: !!window.INIMIGOS,
-                Combate: !!window.Combate,
-                testarPericia: !!window.testarPericia
-            });
-            return;
-        }
-        
         const user = auth.currentUser;
         if (!user) {
             mostrarToast('Usuário não autenticado!', 'erro');
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 2000);
+            setTimeout(() => window.location.href = 'index.html', 2000);
             return;
         }
         
         userId = user.uid;
         
-        personagemAtual = await carregarPersonagem(userId);
-        if (!personagemAtual) {
-            mostrarToast('Personagem não encontrado!', 'erro');
+        const personagens = await carregarPersonagens();
+        
+        if (personagens.length === 0) {
+            mostrarToast('Crie um personagem primeiro!', 'erro');
+            if (elements.seletorContainer) {
+                elements.seletorContainer.style.display = 'block';
+                elements.seletorContainer.innerHTML = '<h2>Nenhum personagem encontrado</h2><p><a href="criar-personagem.html">Clique aqui para criar</a></p>';
+            }
             return;
         }
         
-        atualizarInterfacePersonagem();
-        
-        aventuraAtual = new AventuraSolo(personagemAtual, {
-            onCenaChange: (cena) => {
-                atualizarCena(cena);
-                finalizarCombateUI();
-            },
-            onCombateIniciar: (combate) => {
-                combateAtual = combate;
-                iniciarCombateUI();
-            },
-            onCombateUpdate: (estado) => {
-                aventuraAtual.atualizarUICombate(estado);
-            },
-            onCombateLog: (msg, tipo) => {
-                aventuraAtual.adicionarLogCombate(msg, tipo);
+        if (personagens.length === 1) {
+            await window.selecionarPersonagem(personagens[0].id);
+        } else {
+            if (elements.seletorContainer) {
+                elements.seletorContainer.style.display = 'block';
+                renderizarListaPersonagens(personagens);
             }
-        });
-        
-        aventuraAtual.iniciar('grito_estrada');
-        
-        if (elements.btnSair) {
-            elements.btnSair.onclick = async () => {
-                try {
-                    mostrarLoading(true);
-                    await signOut(auth);
-                    window.location.href = 'index.html';
-                } catch (error) {
-                    mostrarToast('Erro ao sair', 'erro');
-                } finally {
-                    mostrarLoading(false);
-                }
-            };
+            abrirModal('modalSeletorPersonagem');
         }
-        
-        console.log('✅ Aventura Solo iniciada com sucesso!');
         
     } catch (error) {
         mostrarToast('Erro ao inicializar: ' + error.message, 'erro');
-        console.error('Erro na inicialização:', error);
     } finally {
         mostrarLoading(false);
     }
@@ -1769,20 +1996,48 @@ async function inicializarAplicacao() {
 // EVENT LISTENERS
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, (user) => {
+    auth.onAuthStateChanged(user => {
         if (user) {
-            console.log('Usuário autenticado:', user.uid);
-            inicializarAplicacao();
+            inicializar();
         } else {
             window.location.href = 'index.html';
         }
     });
+    
+    if (elements.btnSair) {
+        elements.btnSair.onclick = async () => {
+            try {
+                mostrarLoading(true);
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                mostrarToast('Erro ao sair', 'erro');
+            } finally {
+                mostrarLoading(false);
+            }
+        };
+    }
+});
+
+// Fechar modais ao clicar fora
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('active');
+    }
+});
+
+// Tecla ESC fecha modais
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+            modal.classList.remove('active');
+        });
+    }
 });
 
 // Exporta funções globais
-window.iniciarCombateUI = iniciarCombateUI;
-window.finalizarCombateUI = finalizarCombateUI;
-window.mostrarToast = mostrarToast;
+window.abrirModal = abrirModal;
+window.fecharModal = fecharModal;
     </script>
 </body>
 </html>
