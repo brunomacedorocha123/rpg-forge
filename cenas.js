@@ -234,7 +234,7 @@ A culpa pesa em seus ombros.`,
     "fim_provisorio": {
         id: "fim_provisorio",
         titulo: "Até a Próxima",
-        imagem: "imagens/estrada-norte.jpg",
+        imagem: "estrada-norte.jpg",
         narrativa: `Por enquanto, sua história termina aqui.
 
 Novos capítulos em breve!`,
@@ -242,7 +242,7 @@ Novos capítulos em breve!`,
             nome: "Fim",
             descricao: "Agradecemos por jogar.",
             estado: "neutro",
-            portrait: "imagens/npc-sangue.png"
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "🔄 RECOMEÇAR", acao: "ir_para_cena", destino: "grito_estrada" }
@@ -250,7 +250,12 @@ Novos capítulos em breve!`,
     }
 };
 
-// Exportar para uso em outros arquivos
+// ✅ CORREÇÃO: Sempre expor ao window no browser
+if (typeof window !== 'undefined') {
+    window.CENAS = CENAS;
+}
+
+// Exportar para Node.js (se necessário)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { CENAS };
 }

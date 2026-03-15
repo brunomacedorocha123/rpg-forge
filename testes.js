@@ -57,8 +57,6 @@ function rolar2d10() {
     const dado1 = Math.floor(Math.random() * 10) + 1; // 1-10
     const dado2 = Math.floor(Math.random() * 10) + 1; // 1-10
     
-    // O primeiro dado é a dezena, o segundo é a unidade
-    // Se der 10, considera 0
     const dezena = dado1 === 10 ? 0 : dado1;
     const unidade = dado2 === 10 ? 0 : dado2;
     
@@ -67,19 +65,17 @@ function rolar2d10() {
     return {
         dezena: dado1,
         unidade: dado2,
-        resultado: resultado === 0 ? 100 : resultado, // 00 vira 100
+        resultado: resultado === 0 ? 100 : resultado,
         str: `[${dado1}][${dado2}] = ${resultado === 0 ? 100 : resultado}`
     };
 }
 
 // ===== ROLAR DADOS GENÉRICOS (formato "XdY+Z") =====
 function rolarDados(formula) {
-    // Suporta formatos como "1d20", "2d6+2", "1d-1"
     const regex = /(\d+)d(\d+)([+-]\d+)?/i;
     const match = formula.match(regex);
     
     if (!match) {
-        // Tenta formato simples com modificador tipo "1d-1"
         const regex2 = /(\d+)d(\d+)([+-])(\d+)?/i;
         const match2 = formula.match(regex2);
         if (match2) {
@@ -120,10 +116,10 @@ function getAtributoPercentual(personagem, atributo) {
     const esferas = personagem.atributos?.[atributo]?.esferas || 0;
     
     switch(atributo) {
-        case 'st': return 40 + (esferas * 3); // ST: +3% por esfera
-        case 'dx': return 40 + (esferas * 2); // DX: +2% por esfera
-        case 'iq': return 40 + (esferas * 2); // IQ: +2% por esfera
-        case 'vigor': return 40 + (esferas * 3); // VIGOR: +3% por esfera
+        case 'st': return 40 + (esferas * 3);
+        case 'dx': return 40 + (esferas * 2);
+        case 'iq': return 40 + (esferas * 2);
+        case 'vigor': return 40 + (esferas * 3);
         default: return 40;
     }
 }
@@ -132,16 +128,13 @@ function getAtributoPercentual(personagem, atributo) {
 function calcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
-    // Buscar perícia no personagem
     const pericia = personagem.pericias?.[periciaId];
-    if (!pericia) return 5; // NH 5% sem perícia
+    if (!pericia) return 5;
     
     const nivel = pericia.nivel || 0;
     
-    // Encontrar a perícia no catálogo
     const periciaInfo = CATALOGO_PERICIAS.find(p => p.id === periciaId);
     
-    // Atributo base
     let atributoBase = 40;
     if (periciaInfo) {
         if (periciaInfo.atributo === 'dx') {
@@ -153,10 +146,8 @@ function calcularNH(personagem, periciaId) {
         }
     }
     
-    // Bônus por nível da perícia (+4% por nível)
     const bonusPericia = nivel * 4;
     
-    // Bônus por vantagens
     let bonusVantagens = 0;
     if (personagem.vantagens) {
         if (personagem.vantagens.includes('reflexosRapidos') && periciaInfo?.tipo === 'fisica') {
@@ -194,26 +185,18 @@ function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
     const nh = calcularNH(personagem, periciaId) + modificador;
     const rolagem = rolar2d10();
     
-    // Crítico: 01-05 (rolagem <= 5)
     const critico = rolagem.resultado <= 5;
-    
-    // Falha crítica: 96-00 (rolagem >= 96)
     const falhaCritica = rolagem.resultado >= 96;
     
-    // Determinar CD (se não fornecido, usa NH)
-    const cdFinal = cd !== null ? cd : nh;
-    
-    // Sucesso: rolagem <= CD, a menos que seja crítico/falha crítica
     let sucesso = false;
     if (critico) {
         sucesso = true;
     } else if (falhaCritica) {
         sucesso = false;
     } else {
-        sucesso = rolagem.resultado <= cdFinal;
+        sucesso = rolagem.resultado <= (cd !== null ? cd : nh);
     }
     
-    // Buscar nome da perícia
     const periciaInfo = CATALOGO_PERICIAS.find(p => p.id === periciaId);
     const nomePericia = periciaInfo ? periciaInfo.nome : periciaId;
     
@@ -222,13 +205,13 @@ function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
         critico,
         falhaCritica,
         nh,
-        cd: cdFinal,
+        cd: cd !== null ? cd : nh,
         rolagem: rolagem.resultado,
         rolagemStr: rolagem.str,
-        margem: sucesso ? cdFinal - rolagem.resultado : rolagem.resultado - cdFinal,
+        margem: sucesso ? (cd !== null ? cd : nh) - rolagem.resultado : rolagem.resultado - (cd !== null ? cd : nh),
         periciaId,
         nomePericia,
-        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em ${nomePericia} | Rolagem: ${rolagem.str} | ${cd !== null ? 'CD' : 'NH'}: ${cdFinal}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
+        mensagem: `${sucesso ? '✅ SUCESSO' : '❌ FALHA'} em ${nomePericia} | Rolagem: ${rolagem.str} | ${cd !== null ? 'CD' : 'NH'}: ${cd !== null ? cd : nh}%${critico ? ' (CRÍTICO!)' : ''}${falhaCritica ? ' (FALHA CRÍTICA!)' : ''}`
     };
 }
 
@@ -253,7 +236,6 @@ function testeResistido(personagem1, pericia1, personagem2, pericia2, modificado
         vencedor = 2;
         mensagem = `${personagem2.nome} vence (sucesso vs falha)`;
     } else if (teste1.sucesso && teste2.sucesso) {
-        // Ambos sucesso, compara margem
         if (teste1.margem > teste2.margem) {
             vencedor = 1;
             mensagem = `${personagem1.nome} vence por margem (${teste1.margem} vs ${teste2.margem})`;
@@ -264,7 +246,6 @@ function testeResistido(personagem1, pericia1, personagem2, pericia2, modificado
             mensagem = `EMPATE! Ambos com margem ${teste1.margem}`;
         }
     } else {
-        // Ambos falharam
         mensagem = `Ambos falharam!`;
     }
     
@@ -335,7 +316,6 @@ function listarPericiasPersonagem(personagem) {
         }
     }
     
-    // Ordenar por nome
     return lista.sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
@@ -346,7 +326,6 @@ function podeUsarPericia(personagem, periciaId) {
     const pericia = personagem.pericias?.[periciaId];
     if (!pericia) return false;
     
-    // Verificar se tem nível
     return (pericia.nivel || 0) > 0;
 }
 
@@ -369,7 +348,24 @@ function bonusSituacao(descricao) {
     return bonusMap[descricao] || 0;
 }
 
-// Exportar para uso em outros arquivos
+// ✅ CORREÇÃO: Expor TUDO ao window no browser
+if (typeof window !== 'undefined') {
+    window.CATALOGO_PERICIAS = CATALOGO_PERICIAS;
+    window.TABELA_CD = TABELA_CD;
+    window.rolar2d10 = rolar2d10;
+    window.rolarDados = rolarDados;
+    window.getAtributoPercentual = getAtributoPercentual;
+    window.calcularNH = calcularNH;
+    window.testarPericia = testarPericia;
+    window.testeResistido = testeResistido;
+    window.testarAtributo = testarAtributo;
+    window.buscarPericia = buscarPericia;
+    window.listarPericiasPersonagem = listarPericiasPersonagem;
+    window.podeUsarPericia = podeUsarPericia;
+    window.bonusSituacao = bonusSituacao;
+}
+
+// Exportar para Node.js
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         CATALOGO_PERICIAS,
