@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        /* SEU CSS COMPLETO AQUI (igual ao que você enviou) */
+        /* ===== RESET E VARIÁVEIS ===== */
         * {
             margin: 0;
             padding: 0;
@@ -43,19 +43,6 @@
             color: var(--soft-cream);
             min-height: 100vh;
             overflow-x: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                repeating-linear-gradient(45deg, rgba(191, 155, 92, 0.03) 0px, rgba(191, 155, 92, 0.03) 2px, transparent 2px, transparent 8px);
-            pointer-events: none;
-            z-index: -1;
         }
 
         .container {
@@ -225,7 +212,6 @@
             background-size: cover;
             background-position: center;
             border: 3px solid var(--burnished-gold);
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="%23333"><circle cx="50" cy="40" r="20" fill="%23444"/><circle cx="50" cy="80" r="25" fill="%23444"/></svg>');
         }
 
         .character-name {
@@ -394,7 +380,6 @@
             border: 3px solid var(--burnished-gold);
             background-size: cover;
             background-position: center;
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="40" r="20" fill="%23444"/><circle cx="50" cy="80" r="25" fill="%23444"/><circle cx="35" cy="35" r="3" fill="%23fff"/><circle cx="65" cy="35" r="3" fill="%23fff"/></svg>');
         }
 
         .npc-name {
@@ -724,7 +709,7 @@
     <!-- Loading -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
-        <div class="loading-text">Carregando aventura...</div>
+        <div class="loading-text">Carregando seu personagem...</div>
     </div>
 
     <!-- Toast -->
@@ -898,7 +883,7 @@
         </div>
     </div>
 
-    <!-- Firebase SDK (versão 8.10.0) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -920,150 +905,15 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        
-        // Configurar Firestore
-        db.settings({
-            host: "firestore.googleapis.com",
-            ssl: true
-        });
 
         // ============================================
-        // SISTEMA DE TESTES E PERÍCIAS (do seu testes.js)
+        // VARIÁVEIS GLOBAIS
         // ============================================
-        const CATALOGO_PERICIAS = [
-            { id: "espada", nome: "Espada", tipo: "fisica", atributo: "dx" },
-            { id: "arco", nome: "Arco", tipo: "fisica", atributo: "dx" },
-            { id: "escudo", nome: "Escudo", tipo: "fisica", atributo: "dx" },
-            { id: "briga", nome: "Briga", tipo: "fisica", atributo: "dx" },
-            { id: "furtividade", nome: "Furtividade", tipo: "fisica", atributo: "dx" },
-            { id: "persuasao", nome: "Persuasão", tipo: "mental", atributo: "iq" },
-            { id: "intimidacao", nome: "Intimidação", tipo: "mental", atributo: "iq" },
-            { id: "observar", nome: "Observar", tipo: "mental", atributo: "iq" },
-            { id: "sobrevivencia", nome: "Sobrevivência", tipo: "mental", atributo: "iq" },
-            { id: "medicina", nome: "Medicina", tipo: "mental", atributo: "iq" }
-        ];
-
-        function rolar2d10() {
-            const dado1 = Math.floor(Math.random() * 10) + 1;
-            const dado2 = Math.floor(Math.random() * 10) + 1;
-            const dezena = dado1 === 10 ? 0 : dado1;
-            const unidade = dado2 === 10 ? 0 : dado2;
-            const resultado = (dezena * 10) + unidade;
-            return {
-                dezena: dado1,
-                unidade: dado2,
-                resultado: resultado === 0 ? 100 : resultado,
-                str: `[${dado1}][${dado2}] = ${resultado === 0 ? 100 : resultado}`
-            };
-        }
-
-        function calcularNH(personagem, periciaId) {
-            if (!personagem || !periciaId) return 5;
-            const pericia = personagem.pericias?.[periciaId];
-            if (!pericia) return 5;
-            
-            const nivel = pericia.nivel || 0;
-            const periciaInfo = CATALOGO_PERICIAS.find(p => p.id === periciaId);
-            
-            let atributoBase = 40;
-            if (periciaInfo) {
-                if (periciaInfo.atributo === 'dx') {
-                    const dxEsferas = personagem.atributos?.dx?.esferas || 0;
-                    atributoBase = 40 + (dxEsferas * 2);
-                } else if (periciaInfo.atributo === 'iq') {
-                    const iqEsferas = personagem.atributos?.iq?.esferas || 0;
-                    atributoBase = 40 + (iqEsferas * 2);
-                }
-            }
-            
-            const bonusPericia = nivel * 4;
-            const nh = atributoBase + bonusPericia;
-            return Math.min(95, Math.max(5, nh));
-        }
-
-        function testarPericia(personagem, periciaId, cd = null) {
-            if (!personagem) return { sucesso: false };
-            
-            const nh = calcularNH(personagem, periciaId);
-            const rolagem = rolar2d10();
-            
-            const critico = rolagem.resultado <= 5;
-            const falhaCritica = rolagem.resultado >= 96;
-            const cdFinal = cd !== null ? cd : nh;
-            
-            let sucesso = false;
-            if (critico) sucesso = true;
-            else if (falhaCritica) sucesso = false;
-            else sucesso = rolagem.resultado <= cdFinal;
-            
-            return {
-                sucesso,
-                critico,
-                falhaCritica,
-                nh,
-                cd: cdFinal,
-                rolagem: rolagem.resultado,
-                rolagemStr: rolagem.str
-            };
-        }
-
-        // ============================================
-        // SISTEMA DE COMBATE (do seu combate.js)
-        // ============================================
-        const INIMIGOS = {
-            "saqueador_faminto": {
-                id: "saqueador_faminto",
-                nome: "Saqueador Faminto",
-                vida: 25,
-                vidaMax: 25,
-                armadura: 0,
-                danoFormula: "1d8",
-                forca: 8,
-                destreza: 10,
-                pericias: { briga: 1 },
-                experiencia: 50,
-                ouro: 1
-            },
-            "lobo_solitario": {
-                id: "lobo_solitario",
-                nome: "Lobo Solitário",
-                vida: 18,
-                vidaMax: 18,
-                armadura: 1,
-                danoFormula: "1d6",
-                forca: 7,
-                destreza: 12,
-                pericias: { briga: 2 },
-                experiencia: 30,
-                ouro: 0
-            }
-        };
-
-        function rolarDados(formula) {
-            const regex = /(\d+)d(\d+)([+-]\d+)?/i;
-            const match = formula.match(regex);
-            if (!match) return 4;
-            
-            const quantidade = parseInt(match[1]) || 1;
-            const faces = parseInt(match[2]) || 8;
-            const modificador = parseInt(match[3]) || 0;
-            
-            let total = 0;
-            for (let i = 0; i < quantidade; i++) {
-                total += Math.floor(Math.random() * faces) + 1;
-            }
-            return total + modificador;
-        }
-
-        function calcularRDTotal(personagem) {
-            if (!personagem) return 0;
-            let rd = 0;
-            if (personagem.vantagens?.includes('corpoResistente')) rd += 2;
-            if (personagem.inventario?.corpo) {
-                personagem.inventario.corpo.forEach(item => { if (item.rd) rd += item.rd; });
-            }
-            return rd;
-        }
+        let currentUser = null;
+        let personagemAtual = null;
+        let cenaAtual = "grito_estrada";
+        let emCombate = false;
+        let combateInstance = null;
 
         // ============================================
         // CENAS COMPLETAS (do seu cenas.js)
@@ -1073,23 +923,7 @@
                 id: "grito_estrada",
                 titulo: "O Grito na Estrada",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `O sol está baixo no horizonte enquanto você caminha por uma velha estrada de terra cercada por árvores. A viagem tem sido longa e silenciosa.
-
-De repente, um grito corta o silêncio da estrada.
-
-— SOCORRO!
-
-Você corre alguns passos adiante e encontra um camponês caído no chão, tentando se proteger.
-
-Sobre ele, um homem sujo e mal vestido levanta um pedaço de madeira como se fosse atacar novamente.
-
-Ao perceber sua presença, o agressor vira rapidamente.
-
-— Isso não é da sua conta! — ele rosna.
-
-O camponês olha para você desesperado.
-
-— Por favor… me ajude!`,
+                narrativa: `O sol está baixo no horizonte enquanto você caminha por uma velha estrada de terra cercada por árvores. A viagem tem sido longa e silenciosa.\n\nDe repente, um grito corta o silêncio da estrada.\n\n— SOCORRO!\n\nVocê corre alguns passos adiante e encontra um camponês caído no chão, tentando se proteger.\n\nSobre ele, um homem sujo e mal vestido levanta um pedaço de madeira como se fosse atacar novamente.\n\nAo perceber sua presença, o agressor vira rapidamente.\n\n— Isso não é da sua conta! — ele rosna.\n\nO camponês olha para você desesperado.\n\n— Por favor… me ajude!`,
                 npc: {
                     nome: "Camponês Amedrontado",
                     descricao: "Homem simples, rosto sujo de terra, roupas rasgadas. Ele treme de medo.",
@@ -1098,8 +932,8 @@ O camponês olha para você desesperado.
                 },
                 opcoes: [
                     { texto: "⚔️ ATACAR o agressor", acao: "iniciar_combate", inimigo: "saqueador_faminto" },
-                    { texto: "💬 CONVERSAR", acao: "teste_pericia", pericia: "persuasao", cd: 12, sucesso: "conversa_sucesso", falha: "conversa_falha" },
-                    { texto: "👁️ OBSERVAR", acao: "teste_pericia", pericia: "observar", cd: 10, sucesso: "observar_sucesso", falha: "grito_estrada" },
+                    { texto: "💬 CONVERSAR", acao: "teste_pericia", pericia: "labia", cd: 12, sucesso: "conversa_sucesso", falha: "conversa_falha" },
+                    { texto: "👁️ OBSERVAR", acao: "teste_pericia", pericia: "furtividade", cd: 10, sucesso: "observar_sucesso", falha: "grito_estrada" },
                     { texto: "🏃 FUGIR", acao: "ir_para_cena", destino: "fuga_covarde" }
                 ]
             },
@@ -1107,15 +941,7 @@ O camponês olha para você desesperado.
                 id: "pos_combate",
                 titulo: "O Resgate",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `O saqueador foge pela mata, derrotado.
-
-O camponês se levanta com dificuldade e respira aliviado.
-
-— Obrigado… achei que ele fosse me matar. Meu nome é Edrin.
-
-Ele olha para a direção onde o bandido fugiu.
-
-— Conheço um atalho seguro até Ravena. Quer vir?`,
+                narrativa: `O saqueador foge pela mata, derrotado.\n\nO camponês se levanta com dificuldade e respira aliviado.\n\n— Obrigado… achei que ele fosse me matar. Meu nome é Edrin.\n\nEle olha para a direção onde o bandido fugiu.\n\n— Conheço um atalho seguro até Ravena. Quer vir?`,
                 npc: {
                     nome: "Edrin",
                     descricao: "Camponês grato, de meia-idade.",
@@ -1132,13 +958,7 @@ Ele olha para a direção onde o bandido fugiu.
                 id: "conversa_sucesso",
                 titulo: "Palavras Acalmam",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Suas palavras acalmam o agressor. Ele abaixa o pedaço de madeira.
-
-— Estou com fome... só queria comer...
-
-O camponês dá metade de um pão e o homem foge.
-
-— Meu nome é Edrin. Obrigado.`,
+                narrativa: `Suas palavras acalmam o agressor. Ele abaixa o pedaço de madeira.\n\n— Estou com fome... só queria comer...\n\nO camponês dá metade de um pão e o homem foge.\n\n— Meu nome é Edrin. Obrigado.`,
                 npc: {
                     nome: "Edrin",
                     descricao: "Aliviado por ter escapado sem violência.",
@@ -1154,9 +974,7 @@ O camponês dá metade de um pão e o homem foge.
                 id: "conversa_falha",
                 titulo: "Palavras em Vão",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Suas palavras não o alcançam.
-
-— CHEGA! — ele grita. — VAI MORRER!`,
+                narrativa: `Suas palavras não o alcançam.\n\n— CHEGA! — ele grita. — VAI MORRER!`,
                 npc: {
                     nome: "Saqueador",
                     descricao: "Enfurecido, parte para cima de você.",
@@ -1187,9 +1005,7 @@ O camponês dá metade de um pão e o homem foge.
                 id: "estrada_ravena",
                 titulo: "Caminho para Ravena",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Você e Edrin chegam a Ravena, uma pequena vila pacata.
-
-— Fique à vontade, amigo. Devo minha vida a você.`,
+                narrativa: `Você e Edrin chegam a Ravena, uma pequena vila pacata.\n\n— Fique à vontade, amigo. Devo minha vida a você.`,
                 npc: {
                     nome: "Edrin",
                     descricao: "Agora em casa, mais relaxado.",
@@ -1205,11 +1021,7 @@ O camponês dá metade de um pão e o homem foge.
                 id: "investigar_saqueador",
                 titulo: "Rastro Sangrento",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Você segue o rastro de sangue do saqueador ferido. Ele te leva a uma caverna escondida.
-
-Dentro, você encontra seus pertences: alguns objetos roubados e um diário.
-
-O diário revela que ele não é apenas um bandido comum...`,
+                narrativa: `Você segue o rastro de sangue do saqueador ferido. Ele te leva a uma caverna escondida.\n\nDentro, você encontra seus pertences: alguns objetos roubados e um diário.\n\nO diário revela que ele não é apenas um bandido comum...`,
                 npc: {
                     nome: "—",
                     descricao: "Você está sozinho na caverna.",
@@ -1225,9 +1037,7 @@ O diário revela que ele não é apenas um bandido comum...`,
                 id: "estrada_solitario",
                 titulo: "Sozinho na Estrada",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Você segue seu caminho. A estrada se estende à sua frente.
-
-Sua jornada continua...`,
+                narrativa: `Você segue seu caminho. A estrada se estende à sua frente.\n\nSua jornada continua...`,
                 npc: {
                     nome: "—",
                     descricao: "Você está sozinho.",
@@ -1242,9 +1052,7 @@ Sua jornada continua...`,
                 id: "fuga_covarde",
                 titulo: "Covardia",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Você foge, ignorando os gritos.
-
-A culpa pesa em seus ombros.`,
+                narrativa: `Você foge, ignorando os gritos.\n\nA culpa pesa em seus ombros.`,
                 npc: {
                     nome: "—",
                     descricao: "Você está sozinho com sua consciência.",
@@ -1259,9 +1067,7 @@ A culpa pesa em seus ombros.`,
                 id: "fim_provisorio",
                 titulo: "Até a Próxima",
                 imagem: "imagens/estrada-norte.jpg",
-                narrativa: `Por enquanto, sua história termina aqui.
-
-Novos capítulos em breve!`,
+                narrativa: `Por enquanto, sua história termina aqui.\n\nNovos capítulos em breve!`,
                 npc: {
                     nome: "Fim",
                     descricao: "Agradecemos por jogar.",
@@ -1275,14 +1081,32 @@ Novos capítulos em breve!`,
         };
 
         // ============================================
-        // VARIÁVEIS GLOBAIS
+        // INIMIGOS (do seu combate.js)
         // ============================================
-        let currentUser = null;
-        let personagemAtual = null;
-        let cenaAtual = "grito_estrada";
-        let emCombate = false;
-        let combateInstance = null;
-        let inimigoAtual = null;
+        const INIMIGOS = {
+            "saqueador_faminto": {
+                id: "saqueador_faminto",
+                nome: "Saqueador Faminto",
+                vida: 25,
+                vidaMax: 25,
+                armadura: 0,
+                danoFormula: "1d8",
+                forca: 8,
+                destreza: 10,
+                pericias: { briga: 1 },
+                experiencia: 50,
+                ouro: 1
+            }
+        };
+
+        // ============================================
+        // TABELA DE DANO POR ST
+        // ============================================
+        const TABELA_DANO = {
+            5: "1d-3", 6: "1d-2", 7: "1d-1", 8: "1d", 9: "1d",
+            10: "1d+1", 11: "1d+1", 12: "1d+2", 13: "1d+2", 14: "2d-1",
+            15: "2d-1", 16: "2d", 17: "2d", 18: "2d+1", 19: "2d+1", 20: "2d+2"
+        };
 
         // ============================================
         // ELEMENTOS DOM
@@ -1343,16 +1167,154 @@ Novos capítulos em breve!`,
             return urlParams.get(param);
         }
 
-        function getSTFixo(p) { return 5 + (p?.atributos?.st?.esferas || 0); }
-        function getDXFixo(p) { return 5 + (p?.atributos?.dx?.esferas || 0); }
-        function getIQFixo(p) { return 5 + (p?.atributos?.iq?.esferas || 0); }
-        function getVIGORFixo(p) { return 5 + (p?.atributos?.vigor?.esferas || 0); }
-        function getVTFixo(p) { return 5 + (p?.atributos?.vt?.esferas || 0); }
+        // ============================================
+        // FUNÇÕES DE CÁLCULO BASEADAS NO PERSONAGEM REAL
+        // ============================================
+        function getSTFixo() { return 5 + (personagemAtual?.atributos?.st?.esferas || 0); }
+        function getDXFixo() { return 5 + (personagemAtual?.atributos?.dx?.esferas || 0); }
+        function getIQFixo() { return 5 + (personagemAtual?.atributos?.iq?.esferas || 0); }
+        function getVIGORFixo() { return 5 + (personagemAtual?.atributos?.vigor?.esferas || 0); }
+        function getVTFixo() { return 5 + (personagemAtual?.atributos?.vt?.esferas || 0); }
 
-        function calcularPV(p) { return getVTFixo(p) * 8; }
-        function calcularPM(p) { return getVIGORFixo(p) + getIQFixo(p) + getVTFixo(p); }
-        function calcularPF(p) { return getVIGORFixo(p) + getVTFixo(p); }
-        function calcularRD(p) { return calcularRDTotal(p); }
+        function getSTPercentual() { return 40 + ((personagemAtual?.atributos?.st?.esferas || 0) * 3); }
+        function getDXPercentual() { return 40 + ((personagemAtual?.atributos?.dx?.esferas || 0) * 2); }
+        function getIQPercentual() { return 40 + ((personagemAtual?.atributos?.iq?.esferas || 0) * 2); }
+        function getVIGORPercentual() { return 40 + ((personagemAtual?.atributos?.vigor?.esferas || 0) * 3); }
+
+        function calcularPV() { 
+            let vt = getVTFixo();
+            let pv = vt * 8;
+            if (personagemAtual?.vantagens?.includes('htExtra')) {
+                pv = Math.floor(pv * 1.10);
+            }
+            return pv;
+        }
+
+        function calcularPM() { 
+            return getVIGORFixo() + getIQFixo() + getVTFixo();
+        }
+
+        function calcularPF() { 
+            let pf = getVIGORFixo() + getVTFixo();
+            if (personagemAtual?.vantagens?.includes('fadigaExtra')) {
+                pf += 5;
+            }
+            return pf;
+        }
+
+        function calcularRD() {
+            let rd = 0;
+            if (personagemAtual?.vantagens?.includes('corpoResistente')) rd += 2;
+            if (personagemAtual?.inventario?.corpo) {
+                personagemAtual.inventario.corpo.forEach(item => {
+                    if (item.rd) rd += item.rd;
+                });
+            }
+            return rd;
+        }
+
+        function calcularDanoBase() {
+            const st = getSTFixo();
+            return TABELA_DANO[st] || "1d-3";
+        }
+
+        function calcularEsquiva() {
+            let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) + 5;
+            if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
+            return Math.min(75, esquiva);
+        }
+
+        function calcularNHPericia(periciaId) {
+            const pericia = personagemAtual?.pericias?.[periciaId];
+            if (!pericia) return 5;
+            
+            const nivel = pericia.nivel || 0;
+            
+            // Perícias físicas (usam DX)
+            const periciasFisicas = ['espada', 'boxe', 'furtividade', 'cavalgar', 'arco', 'besta', 'escudo', 'acrobacia'];
+            if (periciasFisicas.includes(periciaId)) {
+                return getDXPercentual() + (nivel * 4);
+            }
+            
+            // Perícias mentais (usam IQ)
+            return getIQPercentual() + (nivel * 4);
+        }
+
+        // ============================================
+        // ROLAGEM 2d10 (VERDADEIRA)
+        // ============================================
+        function rolar2d10() {
+            const d1 = Math.floor(Math.random() * 10) + 1; // 1-10
+            const d2 = Math.floor(Math.random() * 10) + 1; // 1-10
+            
+            // O primeiro dado é a dezena, o segundo é a unidade
+            const dezena = d1 === 10 ? 0 : d1;
+            const unidade = d2 === 10 ? 0 : d2;
+            
+            const resultado = (dezena * 10) + unidade;
+            
+            return {
+                d1, d2,
+                resultado: resultado === 0 ? 100 : resultado,
+                str: `[${d1}][${d2}] = ${resultado === 0 ? 100 : resultado}`
+            };
+        }
+
+        function rolarDados(formula) {
+            // Suporta formatos como "1d8", "2d6+2"
+            const regex = /(\d+)d(\d+)([+-]\d+)?/i;
+            const match = formula.match(regex);
+            
+            if (!match) return 4;
+            
+            const quantidade = parseInt(match[1]) || 1;
+            const faces = parseInt(match[2]) || 8;
+            const modificador = parseInt(match[3]) || 0;
+            
+            let total = 0;
+            for (let i = 0; i < quantidade; i++) {
+                total += Math.floor(Math.random() * faces) + 1;
+            }
+            
+            return total + modificador;
+        }
+
+        // ============================================
+        // TESTE DE PERÍCIA
+        // ============================================
+        function testarPericia(periciaId, cd = null) {
+            const nh = calcularNHPericia(periciaId);
+            const rolagem = rolar2d10();
+            
+            // Crítico: 01-05
+            const critico = rolagem.resultado <= 5;
+            
+            // Falha crítica: 96-00
+            const falhaCritica = rolagem.resultado >= 96;
+            
+            // Sucesso: rolagem <= CD (ou NH se CD não fornecido)
+            const cdFinal = cd !== null ? cd : nh;
+            
+            let sucesso = false;
+            if (critico) {
+                sucesso = true;
+            } else if (falhaCritica) {
+                sucesso = false;
+            } else {
+                sucesso = rolagem.resultado <= cdFinal;
+            }
+            
+            return {
+                sucesso,
+                critico,
+                falhaCritica,
+                nh,
+                cd: cdFinal,
+                rolagem: rolagem.resultado,
+                rolagemStr: rolagem.str,
+                periciaId
+            };
+        }
 
         // ============================================
         // RENDERIZAR PERSONAGEM
@@ -1369,6 +1331,7 @@ Novos capítulos em breve!`,
                 elements.characterAvatar.style.backgroundImage = `url('${p.fotoURL}')`;
             }
 
+            // Nível = total de esferas + 1
             const totalEsferas = (p.atributos?.st?.esferas || 0) +
                                 (p.atributos?.dx?.esferas || 0) +
                                 (p.atributos?.iq?.esferas || 0) +
@@ -1377,9 +1340,10 @@ Novos capítulos em breve!`,
             const nivel = totalEsferas + 1;
             elements.nivelValue.textContent = nivel;
 
-            const pvMax = calcularPV(p);
-            const pmMax = calcularPM(p);
-            const pfMax = calcularPF(p);
+            // PV, PM, PF
+            const pvMax = calcularPV();
+            const pmMax = calcularPM();
+            const pfMax = calcularPF();
 
             const pvAtual = p.statusCombate?.vidaAtual || pvMax;
             const pmAtual = p.statusCombate?.manaAtual || pmMax;
@@ -1393,18 +1357,19 @@ Novos capítulos em breve!`,
             elements.pmBar.style.width = (pmAtual / pmMax) * 100 + '%';
             elements.pfBar.style.width = (pfAtual / pfMax) * 100 + '%';
 
+            // Atributos
             elements.attributesGrid.innerHTML = `
-                <div class="attribute-item"><div class="attribute-label">ST</div><div class="attribute-value">${getSTFixo(p)}</div></div>
-                <div class="attribute-item"><div class="attribute-label">DX</div><div class="attribute-value">${getDXFixo(p)}</div></div>
-                <div class="attribute-item"><div class="attribute-label">IQ</div><div class="attribute-value">${getIQFixo(p)}</div></div>
-                <div class="attribute-item"><div class="attribute-label">VIG</div><div class="attribute-value">${getVIGORFixo(p)}</div></div>
-                <div class="attribute-item"><div class="attribute-label">VT</div><div class="attribute-value">${getVTFixo(p)}</div></div>
-                <div class="attribute-item"><div class="attribute-label">RD</div><div class="attribute-value">${calcularRD(p)}</div></div>
+                <div class="attribute-item"><div class="attribute-label">ST</div><div class="attribute-value">${getSTFixo()}</div></div>
+                <div class="attribute-item"><div class="attribute-label">DX</div><div class="attribute-value">${getDXFixo()}</div></div>
+                <div class="attribute-item"><div class="attribute-label">IQ</div><div class="attribute-value">${getIQFixo()}</div></div>
+                <div class="attribute-item"><div class="attribute-label">VIG</div><div class="attribute-value">${getVIGORFixo()}</div></div>
+                <div class="attribute-item"><div class="attribute-label">VT</div><div class="attribute-value">${getVTFixo()}</div></div>
+                <div class="attribute-item"><div class="attribute-label">RD</div><div class="attribute-value">${calcularRD()}</div></div>
             `;
 
             elements.playerHpCombat.textContent = pvAtual;
             elements.playerPmCombat.textContent = pmAtual;
-            elements.playerRdCombat.textContent = calcularRD(p);
+            elements.playerRdCombat.textContent = calcularRD();
         }
 
         // ============================================
@@ -1418,27 +1383,24 @@ Novos capítulos em breve!`,
             elements.cenarioTitulo.textContent = cena.titulo;
             elements.narrativeText.textContent = cena.narrativa;
 
-            // CARREGAR IMAGEM DO CENÁRIO
+            // Carregar imagem do cenário
             if (cena.imagem) {
                 elements.cenarioImagem.style.backgroundImage = `url('${cena.imagem}')`;
-            } else {
-                elements.cenarioImagem.style.backgroundImage = '';
             }
 
+            // Carregar NPC
             if (cena.npc) {
                 elements.npcName.textContent = cena.npc.nome;
                 elements.npcDesc.textContent = cena.npc.descricao;
                 elements.npcState.className = `npc-state state-${cena.npc.estado}`;
                 elements.npcState.textContent = cena.npc.estado.charAt(0).toUpperCase() + cena.npc.estado.slice(1);
                 
-                // CARREGAR PORTAIT DO NPC
                 if (cena.npc.portrait) {
                     elements.npcPortrait.style.backgroundImage = `url('${cena.npc.portrait}')`;
-                } else {
-                    elements.npcPortrait.style.backgroundImage = '';
                 }
             }
 
+            // Botões de escolha
             if (cena.opcoes && cena.opcoes.length > 0) {
                 elements.choiceButtons.innerHTML = cena.opcoes.map(op => {
                     let acao = '';
@@ -1449,8 +1411,6 @@ Novos capítulos em breve!`,
                         acao = `realizarTestePericia('${op.pericia}', ${op.cd}, '${op.sucesso}', '${op.falha}')`;
                     } else if (op.acao === 'ir_para_cena') {
                         acao = `renderizarCena('${op.destino}')`;
-                    } else {
-                        acao = `showToast('Ação não implementada: ${op.acao}')`;
                     }
                     
                     return `<button class="btn-choice" onclick="${acao}">${op.texto}</button>`;
@@ -1464,7 +1424,7 @@ Novos capítulos em breve!`,
         function realizarTestePericia(periciaId, cd, cenaSucesso, cenaFalha) {
             showLoading();
             setTimeout(() => {
-                const resultado = testarPericia(personagemAtual, periciaId, cd);
+                const resultado = testarPericia(periciaId, cd);
                 
                 let mensagem = `🧪 Teste de ${periciaId}: ${resultado.rolagemStr} | `;
                 mensagem += resultado.sucesso ? '✅ SUCESSO' : '❌ FALHA';
@@ -1485,6 +1445,8 @@ Novos capítulos em breve!`,
         // ============================================
         // COMBATE
         // ============================================
+        let inimigoAtual = null;
+        
         function iniciarCombate(inimigoId = 'saqueador_faminto') {
             if (!personagemAtual) {
                 showToast('Personagem não carregado!', true);
@@ -1514,46 +1476,70 @@ Novos capítulos em breve!`,
             elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
         }
 
-        function finalizarCombate(vitoria) {
+        async function finalizarCombate(vitoria) {
             emCombate = false;
             elements.combatPanel.classList.remove('active');
             elements.narrativeArea.style.display = 'block';
             
-            if (vitoria) {
+            if (vitoria && inimigoAtual) {
                 // Ganhou XP e ouro
-                if (inimigoAtual) {
-                    personagemAtual.xp = (personagemAtual.xp || 0) + (inimigoAtual.experiencia || 50);
-                    personagemAtual.dinheiro = (personagemAtual.dinheiro || 0) + (inimigoAtual.ouro || 0);
-                    showToast(`Vitória! +${inimigoAtual.experiencia || 50} XP, +${inimigoAtual.ouro || 0} ouro`);
+                const xpGanho = inimigoAtual.experiencia || 50;
+                const ouroGanho = inimigoAtual.ouro || 0;
+                
+                personagemAtual.xpAtual = (personagemAtual.xpAtual || 0) + xpGanho;
+                personagemAtual.dinheiro = (personagemAtual.dinheiro || 0) + ouroGanho;
+                
+                // Salvar no Firestore
+                try {
+                    const personagemRef = doc(db, "personagens", personagemAtual.id);
+                    await updateDoc(personagemRef, {
+                        xpAtual: personagemAtual.xpAtual,
+                        dinheiro: personagemAtual.dinheiro
+                    });
+                } catch (error) {
+                    console.error('Erro ao salvar progresso:', error);
                 }
+                
+                showToast(`Vitória! +${xpGanho} XP, +${ouroGanho} ouro`);
                 renderizarCena('pos_combate');
             } else {
-                // Derrota - reinicia ou volta
                 showToast('Você foi derrotado...', true);
                 setTimeout(() => {
                     if (personagemAtual) {
-                        personagemAtual.statusCombate.vidaAtual = calcularPV(personagemAtual);
+                        personagemAtual.statusCombate.vidaAtual = calcularPV();
                     }
                     renderizarCena('grito_estrada');
                 }, 2000);
             }
+            
+            renderizarPersonagem();
         }
 
         window.combateAtacar = function() {
             if (!emCombate || !inimigoAtual) return;
             
-            // Usar o sistema de 2d10 para teste de ataque
-            const periciaAtaque = personagemAtual.pericias?.espada ? 'espada' : 'briga';
-            const teste = testarPericia(personagemAtual, periciaAtaque);
+            // Descobrir qual perícia de arma usar
+            let periciaAtaque = 'espada';
+            if (personagemAtual.pericias?.espada) {
+                periciaAtaque = 'espada';
+            } else if (personagemAtual.pericias?.boxe) {
+                periciaAtaque = 'boxe';
+            }
+            
+            const teste = testarPericia(periciaAtaque);
             
             if (teste.sucesso) {
-                // Calcular dano
-                const danoBase = rolarDados("1d8");
+                // Calcular dano baseado na ST
+                const st = getSTFixo();
+                const danoFormula = TABELA_DANO[st] || "1d-3";
+                const dano = rolarDados(danoFormula);
+                
+                // Aplicar armadura do inimigo
                 const rdInimigo = inimigoAtual.armadura || 0;
-                const danoFinal = Math.max(1, danoBase - rdInimigo);
+                const danoFinal = Math.max(1, dano - rdInimigo);
                 
                 inimigoAtual.vida -= danoFinal;
-                adicionarLog(`⚔️ SEU ATAQUE: ${teste.rolagemStr} | Dano: ${danoFinal} (${danoBase} - ${rdInimigo} RD)`);
+                adicionarLog(`⚔️ SEU ATAQUE: ${teste.rolagemStr} | Dano: ${danoFinal} (${dano} - ${rdInimigo} RD)`);
                 
                 if (teste.critico) adicionarLog(`✨ CRÍTICO! Dano máximo!`);
                 
@@ -1570,21 +1556,20 @@ Novos capítulos em breve!`,
                 elements.enemyHpCurrent.textContent = inimigoAtual.vida;
             } else {
                 adicionarLog(`❌ SEU ATAQUE ERROU: ${teste.rolagemStr}`);
-                if (teste.falhaCritica) adicionarLog(`💥 FALHA CRÍTICA! Você tropeça!`);
             }
             
             setTimeout(turnoInimigo, 1000);
         };
 
         window.combateDefender = function() {
-            adicionarLog(`🛡️ Você assume posição defensiva! (RD +2 neste turno)`);
+            adicionarLog(`🛡️ Você assume posição defensiva!`);
             personagemAtual._defendendo = true;
             setTimeout(turnoInimigo, 1000);
         };
 
         window.combateEsquivar = function() {
             adicionarLog(`🏃 Você tenta esquivar!`);
-            const teste = testarPericia(personagemAtual, 'acrobacia') || { sucesso: Math.random() > 0.5 };
+            const teste = testarPericia('acrobacia') || { sucesso: Math.random() > 0.5 };
             if (teste.sucesso) {
                 adicionarLog(`✅ Esquiva bem-sucedida!`);
                 personagemAtual._esquivando = true;
@@ -1595,12 +1580,12 @@ Novos capítulos em breve!`,
         };
 
         window.combateMagia = function() {
-            adicionarLog(`✨ Você tenta usar magia... (sem mana)`);
+            adicionarLog(`✨ Você tenta usar magia... (sistema em desenvolvimento)`);
             setTimeout(turnoInimigo, 1000);
         };
 
         window.combateFugir = function() {
-            const teste = testarPericia(personagemAtual, 'fuga') || { sucesso: Math.random() > 0.4 };
+            const teste = testarPericia('fuga') || { sucesso: Math.random() > 0.4 };
             if (teste.sucesso) {
                 adicionarLog(`🏃 Você conseguiu fugir!`);
                 finalizarCombate(false);
@@ -1617,7 +1602,7 @@ Novos capítulos em breve!`,
             
             // Calcular dano do inimigo
             const dano = rolarDados(inimigoAtual.danoFormula || "1d6");
-            let rd = calcularRD(personagemAtual);
+            let rd = calcularRD();
             
             // Bônus de defesa
             if (personagemAtual._defendendo) {
@@ -1632,7 +1617,7 @@ Novos capítulos em breve!`,
                 delete personagemAtual._esquivando;
             }
             
-            // Teste se o inimigo acerta (simplificado)
+            // Teste se o inimigo acerta
             const acertou = Math.random() * 100 <= chanceAcerto;
             
             if (acertou) {
@@ -1653,6 +1638,16 @@ Novos capítulos em breve!`,
             }
             
             adicionarLog(`--- SEU TURNO ---`);
+            
+            // Salvar status no Firestore
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                updateDoc(personagemRef, {
+                    "statusCombate.vidaAtual": personagemAtual.statusCombate.vidaAtual
+                });
+            } catch (error) {
+                console.error('Erro ao salvar status:', error);
+            }
         }
 
         // ============================================
@@ -1667,7 +1662,7 @@ Novos capítulos em breve!`,
                 if (modalId === 'modalPericias') {
                     let html = '';
                     for (let [id, pericia] of Object.entries(personagemAtual.pericias || {})) {
-                        const nh = calcularNH(personagemAtual, id);
+                        const nh = calcularNHPericia(id);
                         html += `<div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; margin:5px 0;">
                             <strong>${id}</strong> · Nível ${pericia.nivel || 0} · NH ${nh}%
                         </div>`;
@@ -1696,8 +1691,9 @@ Novos capítulos em breve!`,
                         <p><strong>Idade:</strong> ${personagemAtual.idade || '?'}</p>
                         <p><strong>Vantagens:</strong> ${(personagemAtual.vantagens || []).join(', ') || 'Nenhuma'}</p>
                         <p><strong>Desvantagens:</strong> ${(personagemAtual.desvantagens || []).join(', ') || 'Nenhuma'}</p>
-                        <p><strong>XP:</strong> ${personagemAtual.xp || 0}</p>
+                        <p><strong>XP:</strong> ${personagemAtual.xpAtual || 0}</p>
                         <p><strong>Dinheiro:</strong> $${personagemAtual.dinheiro || 0}</p>
+                        <p><strong>PP Disponível:</strong> ${(personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0)}</p>
                     `;
                 }
             }
@@ -1710,7 +1706,7 @@ Novos capítulos em breve!`,
         };
 
         // ============================================
-        // CARREGAR PERSONAGEM
+        // CARREGAR PERSONAGEM DO FIRESTORE (SEM FALLBACK)
         // ============================================
         async function carregarPersonagem(personagemId) {
             showLoading();
@@ -1721,44 +1717,8 @@ Novos capítulos em breve!`,
                 const docSnap = await docRef.get();
                 
                 if (!docSnap.exists) {
-                    console.error('Personagem não encontrado');
-                    showToast('Personagem não encontrado! Usando dados de exemplo', true);
-                    
-                    // Usar dados de exemplo
-                    personagemAtual = {
-                        nome: "Orlando, O Louco",
-                        classe: "guerreiro",
-                        fotoURL: "https://i.imgur.com/xlp69H3.jpeg",
-                        atributos: {
-                            st: { esferas: 2 },
-                            dx: { esferas: 2 },
-                            iq: { esferas: 1 },
-                            vigor: { esferas: 2 },
-                            vt: { esferas: 2 }
-                        },
-                        pericias: {
-                            espada: { nivel: 2 },
-                            briga: { nivel: 1 },
-                            persuasao: { nivel: 1 },
-                            observar: { nivel: 1 }
-                        },
-                        statusCombate: {
-                            vidaAtual: 56,
-                            manaAtual: 22,
-                            fadigaAtual: 16
-                        },
-                        inventario: { 
-                            mochila: [{ nome: "Poção de Cura", peso: 0.5 }], 
-                            corpo: [{ nome: "Cota de Malha", rd: 3 }] 
-                        },
-                        vantagens: ["reflexosRapidos", "sorte"],
-                        desvantagens: ["excessoConfianca"],
-                        xp: 0,
-                        dinheiro: 50
-                    };
-                    
-                    renderizarPersonagem();
-                    renderizarCena('grito_estrada');
+                    console.error('Personagem não encontrado no Firestore');
+                    showToast('❌ Personagem não encontrado!', true);
                     hideLoading();
                     return;
                 }
@@ -1766,40 +1726,40 @@ Novos capítulos em breve!`,
                 const data = docSnap.data();
                 console.log('Personagem encontrado:', data.nome);
                 
+                // Verificar se o personagem pertence ao usuário logado
                 if (data.userId !== currentUser?.uid) {
-                    showToast('Acesso negado!', true);
-                    setTimeout(() => window.location.href = 'aventuras-solo.html', 2000);
+                    showToast('❌ Acesso negado! Este personagem não pertence a você.', true);
+                    setTimeout(() => window.location.href = 'aventuras-solo.html', 3000);
                     return;
                 }
                 
-                personagemAtual = { id: docSnap.id, ...data };
+                // Atribuir os dados REAIS do Firestore
+                personagemAtual = { 
+                    id: docSnap.id, 
+                    ...data 
+                };
                 
+                // Garantir statusCombate
                 if (!personagemAtual.statusCombate) {
                     personagemAtual.statusCombate = {
-                        vidaAtual: calcularPV(personagemAtual),
-                        manaAtual: calcularPM(personagemAtual),
-                        fadigaAtual: calcularPF(personagemAtual)
+                        vidaAtual: calcularPV(),
+                        manaAtual: calcularPM(),
+                        fadigaAtual: calcularPF()
                     };
                 }
                 
+                // Renderizar com os dados REAIS
                 renderizarPersonagem();
-                renderizarCena('grito_estrada');
-                showToast('Personagem carregado!');
+                
+                // Iniciar a aventura
+                const aventuraId = getParamFromUrl('aventura') || 'grito_estrada';
+                renderizarCena(aventuraId);
+                
+                showToast(`✅ Personagem ${personagemAtual.nome} carregado!`);
                 
             } catch (error) {
                 console.error('Erro detalhado:', error);
-                showToast('Erro ao carregar: ' + error.message, true);
-                
-                // Fallback: dados de exemplo
-                personagemAtual = {
-                    nome: "Orlando, O Louco",
-                    classe: "guerreiro",
-                    atributos: { st: { esferas: 2 }, dx: { esferas: 2 }, iq: { esferas: 1 }, vigor: { esferas: 2 }, vt: { esferas: 2 } },
-                    pericias: { espada: { nivel: 2 }, briga: { nivel: 1 } },
-                    statusCombate: { vidaAtual: 56, manaAtual: 22, fadigaAtual: 16 }
-                };
-                renderizarPersonagem();
-                renderizarCena('grito_estrada');
+                showToast('❌ Erro ao carregar: ' + error.message, true);
             } finally {
                 hideLoading();
             }
@@ -1818,15 +1778,7 @@ Novos capítulos em breve!`,
                 if (personagemId) {
                     await carregarPersonagem(personagemId);
                 } else {
-                    showToast('ID do personagem não encontrado! Usando exemplo', true);
-                    personagemAtual = {
-                        nome: "Orlando, O Louco",
-                        classe: "guerreiro",
-                        atributos: { st: { esferas: 2 }, dx: { esferas: 2 }, iq: { esferas: 1 }, vigor: { esferas: 2 }, vt: { esferas: 2 } },
-                        pericias: { espada: { nivel: 2 }, briga: { nivel: 1 } }
-                    };
-                    renderizarPersonagem();
-                    renderizarCena('grito_estrada');
+                    showToast('❌ ID do personagem não encontrado na URL!', true);
                 }
             } else {
                 console.log('Usuário não logado, redirecionando...');
@@ -1847,21 +1799,6 @@ Novos capítulos em breve!`,
                 }
             });
         });
-
-        // Fallback rápido se nada carregar
-        setTimeout(() => {
-            if (!personagemAtual) {
-                personagemAtual = {
-                    nome: "Orlando, O Louco",
-                    classe: "guerreiro",
-                    atributos: { st: { esferas: 2 }, dx: { esferas: 2 }, iq: { esferas: 1 }, vigor: { esferas: 2 }, vt: { esferas: 2 } },
-                    pericias: { espada: { nivel: 2 }, briga: { nivel: 1 } }
-                };
-                renderizarPersonagem();
-                renderizarCena('grito_estrada');
-                hideLoading();
-            }
-        }, 3000);
     </script>
 </body>
 </html>
