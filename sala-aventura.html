@@ -1027,7 +1027,7 @@
 
     <!-- SISTEMA AKALANATA SOLO - COMPLETO -->
     <script>
-      // ============================================
+ // ============================================
 // AKALANATA SOLO - SISTEMA COMPLETO (JS PURO)
 // ============================================
 
@@ -1245,10 +1245,69 @@ Novos capítulos em breve!`,
         opcoes: [
             { texto: "🔄 RECOMEÇAR", acao: "ir_para_cena", destino: "grito_estrada" }
         ]
+    },
+
+    "questionar_mercador": {
+        id: "questionar_mercador",
+        titulo: "O Mercador Misterioso",
+        imagem: "imagens/estrada-norte.jpg",
+        narrativa: `Você confronta Edrin sobre o símbolo. Ele suspira.
+
+— Você é perspicaz. Sou mercador, não camponês. Estava sendo roubado por um ex-guarda. Obrigado pela ajuda.`,
+        npc: {
+            nome: "Edrin, o Mercador",
+            descricao: "Agora revelado como comerciante.",
+            estado: "amigavel",
+            portrait: "imagens/npc-sangue.png"
+        },
+        opcoes: [
+            { texto: "💰 PEDIR RECOMPENSA", acao: "ir_para_cena", destino: "recompensa_mercador" },
+            { texto: "🤝 ACEITAR explicação", acao: "ir_para_cena", destino: "estrada_ravena" }
+        ]
+    },
+
+    "recompensa_mercador": {
+        id: "recompensa_mercador",
+        titulo: "Recompensa",
+        imagem: "imagens/estrada-norte.jpg",
+        narrativa: `Edrin sorri e lhe entrega 10 moedas de prata.
+
+— Justo. Você salvou minha mercadoria.
+
+(+10 pratas adicionadas ao inventário)`,
+        npc: {
+            nome: "Edrin",
+            descricao: "Grato e generoso.",
+            estado: "amigavel",
+            portrait: "imagens/npc-sangue.png"
+        },
+        opcoes: [
+            { texto: "👥 Ir para Ravena", acao: "ir_para_cena", destino: "estrada_ravena" }
+        ],
+        recompensa: { ouro: 10 }
+    },
+
+    "diario_saqueador": {
+        id: "diario_saqueador",
+        titulo: "Segredos Revelados",
+        imagem: "imagens/estrada-norte.jpg",
+        narrativa: `O diário revela que o "saqueador" é na verdade um ex-guarda real, traído por seu lorde. Ele rouba para alimentar refugiados de uma vila queimada.
+
+Você encontra 5 pratas e um anel de selo real.`,
+        npc: {
+            nome: "—",
+            descricao: "A verdade muda tudo.",
+            estado: "neutro",
+            portrait: "imagens/npc-sangue.png"
+        },
+        opcoes: [
+            { texto: "🔄 RECOMEÇAR", acao: "ir_para_cena", destino: "grito_estrada" }
+        ],
+        recompensa: { ouro: 5, item: "Anel de Selo Real" }
     }
 };
 
-// ===== MÓDULO 2: SISTEMA DE DADOS E TESTES =====
+// ===== MÓDULO 2: CATÁLOGO DE PERÍCIAS =====
 
 const CATALOGO_PERICIAS = [
     { id: "espada", nome: "Espada", tipo: "fisica", atributo: "dx", descricao: "Lutar com espadas de todos os tipos." },
@@ -1281,9 +1340,71 @@ const CATALOGO_PERICIAS = [
     { id: "oratoria", nome: "Oratória", tipo: "mental", atributo: "iq", descricao: "Falar para multidões." }
 ];
 
-// 🎲 ROLAGEM 2d10 PARA PERÍCIAS/HABILIDADES (01-100)
-// Primeiro dado = dezena (0-9), Segundo = unidade (0-9)
-// 00 = 100 (crítico/falha crítica depende do sistema)
+// ===== MÓDULO 3: INIMIGOS =====
+
+const INIMIGOS = {
+    "saqueador_faminto": {
+        id: "saqueador_faminto",
+        nome: "Saqueador Faminto",
+        vida: 25,
+        vidaMax: 25,
+        descricao: "Homem magro, roupas rasgadas e aparência cansada.",
+        armadura: 0,
+        danoFormula: "1d6",
+        forca: 8,
+        destreza: 10,
+        vigor: 9,
+        pericias: { briga: 1 },
+        derivados: { esquiva: 35, aparar: 0, bloqueio: 0, rdExtra: 0 },
+        agressividade: 0.8,
+        experiencia: 50,
+        ouro: 3
+    },
+    
+    "lobo_solitario": {
+        id: "lobo_solitario",
+        nome: "Lobo Solitário",
+        vida: 18,
+        vidaMax: 18,
+        descricao: "Um lobo magro, olhos famintos brilhando na escuridão.",
+        armadura: 1,
+        danoFormula: "1d6",
+        forca: 7,
+        destreza: 12,
+        vigor: 8,
+        pericias: { briga: 2 },
+        derivados: { esquiva: 45, aparar: 0, bloqueio: 0, rdExtra: 0 },
+        agressividade: 0.9,
+        experiencia: 30,
+        ouro: 0
+    },
+
+    "guarda_corrompido": {
+        id: "guarda_corrompido",
+        nome: "Guarda Corrompido",
+        vida: 35,
+        vidaMax: 35,
+        descricao: "Ex-soldado com armadura enferrujada.",
+        armadura: 2,
+        danoFormula: "1d8",
+        forca: 11,
+        destreza: 10,
+        vigor: 11,
+        pericias: { espada: 2, escudo: 1 },
+        derivados: { esquiva: 30, aparar: 40, bloqueio: 35, rdExtra: 2 },
+        agressividade: 0.7,
+        experiencia: 75,
+        ouro: 8
+    }
+};
+
+// ===== MÓDULO 4: SISTEMA DE DADOS =====
+
+/**
+ * Rola 2d10 para testes de perícia (resultado 01-100)
+ * Primeiro dado = dezena (0-9), Segundo = unidade (0-9)
+ * 00 = 100 (crítico/falha crítica)
+ */
 function rolar2d10() {
     const dado1 = Math.floor(Math.random() * 10); // 0-9 (dezena)
     const dado2 = Math.floor(Math.random() * 10); // 0-9 (unidade)
@@ -1296,14 +1417,18 @@ function rolar2d10() {
         dado2,           // unidade (0-9)
         resultado: resultadoFinal,  // 1-100
         str: `[${dado1}][${dado2}] = ${resultadoFinal}`,
-        critico: resultadoFinal <= 5,      // 01-05
-        falhaCritica: resultadoFinal >= 96 // 96-100
+        critico: resultadoFinal <= 5,      // 01-05 = crítico
+        falhaCritica: resultadoFinal >= 96 // 96-100 = falha crítica
     };
 }
 
-// 🎲 ROLAGEM DE DANO (dados tradicionais: 1d8, 2d6, etc.)
+/**
+ * Rola dados de dano tradicionais (1d6, 2d8, etc.)
+ */
 function rolarDano(formula) {
-    // Remove espaços e normaliza
+    if (!formula) return 1;
+    
+    // Normaliza a fórmula
     formula = formula.toString().trim().toLowerCase().replace(/\s/g, '');
     
     // Padrão: XdY+Z ou XdY-Z (ex: 1d8, 2d6+3, 1d6-1)
@@ -1332,12 +1457,19 @@ function rolarDano(formula) {
     // Garante mínimo 1 de dano
     const resultadoFinal = Math.max(1, total);
     
-    console.log(`🎲 DANO ${formula}: [${rolagens.join(',')}]${match[3] || ''} = ${resultadoFinal}`);
-    
-    return resultadoFinal;
+    return {
+        total: resultadoFinal,
+        rolagens: rolagens,
+        formula: formula,
+        str: `[${rolagens.join(',')}]${match[3] || ''} = ${resultadoFinal}`
+    };
 }
 
-// Cálculo de atributos
+// ===== MÓDULO 5: CÁLCULOS DO PERSONAGEM =====
+
+/**
+ * Retorna valor percentual base de um atributo
+ */
 function getAtributoPercentual(personagem, atributo) {
     if (!personagem || !atributo) return 40;
     const esferas = personagem.atributos?.[atributo]?.esferas || 0;
@@ -1347,10 +1479,14 @@ function getAtributoPercentual(personagem, atributo) {
         case 'dx': return 40 + (esferas * 2);
         case 'iq': return 40 + (esferas * 2);
         case 'vigor': return 40 + (esferas * 3);
+        case 'vt': return 40 + (esferas * 3);
         default: return 40;
     }
 }
 
+/**
+ * Calcula Nível de Habilidade (NH) de uma perícia
+ */
 function calcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
@@ -1362,13 +1498,7 @@ function calcularNH(personagem, periciaId) {
     
     let atributoBase = 40;
     if (periciaInfo) {
-        if (periciaInfo.atributo === 'dx') {
-            const dxEsferas = personagem.atributos?.dx?.esferas || 0;
-            atributoBase = 40 + (dxEsferas * 2);
-        } else if (periciaInfo.atributo === 'iq') {
-            const iqEsferas = personagem.atributos?.iq?.esferas || 0;
-            atributoBase = 40 + (iqEsferas * 2);
-        }
+        atributoBase = getAtributoPercentual(personagem, periciaInfo.atributo);
     }
     
     const bonusPericia = nivel * 4;
@@ -1387,7 +1517,9 @@ function calcularNH(personagem, periciaId) {
     return Math.min(95, Math.max(5, nh));
 }
 
-// Teste de perícia usando 2d10 (01-100)
+/**
+ * Testa uma perícia usando 2d10 (01-100)
+ */
 function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
     if (!personagem) {
         return {
@@ -1434,6 +1566,9 @@ function testarPericia(personagem, periciaId, cd = null, modificador = 0) {
     };
 }
 
+/**
+ * Lista todas as perícias do personagem com NH calculado
+ */
 function listarPericiasPersonagem(personagem) {
     if (!personagem || !personagem.pericias) return [];
     
@@ -1446,6 +1581,8 @@ function listarPericiasPersonagem(personagem) {
                 nome: info.nome,
                 nivel: dados.nivel || 0,
                 tipo: info.tipo,
+                atributo: info.atributo,
+                descricao: info.descricao,
                 nh: calcularNH(personagem, id)
             });
         }
@@ -1454,45 +1591,7 @@ function listarPericiasPersonagem(personagem) {
     return lista.sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
-// ===== MÓDULO 3: SISTEMA DE COMBATE =====
-
-const INIMIGOS = {
-    "saqueador_faminto": {
-        id: "saqueador_faminto",
-        nome: "Saqueador Faminto",
-        vida: 25,
-        vidaMax: 25,
-        descricao: "Homem magro, roupas rasgadas e aparência cansada.",
-        armadura: 0,
-        danoFormula: "1d8",
-        forca: 8,
-        destreza: 10,
-        vigor: 9,
-        pericias: { briga: 1 },
-        derivados: { esquiva: 35, aparar: 0, bloqueio: 0, rdExtra: 0 },
-        agressividade: 0.8,
-        experiencia: 50,
-        ouro: 1
-    },
-    
-    "lobo_solitario": {
-        id: "lobo_solitario",
-        nome: "Lobo Solitário",
-        vida: 18,
-        vidaMax: 18,
-        descricao: "Um lobo magro, olhos famintos brilhando na escuridão.",
-        armadura: 1,
-        danoFormula: "1d6",
-        forca: 7,
-        destreza: 12,
-        vigor: 8,
-        pericias: { briga: 2 },
-        derivados: { esquiva: 45, aparar: 0, bloqueio: 0, rdExtra: 0 },
-        agressividade: 0.9,
-        experiencia: 30,
-        ouro: 0
-    }
-};
+// ===== MÓDULO 6: CÁLCULOS DE COMBATE =====
 
 // Tabela de dano baseado em ST (força)
 const TABELA_DANO_ST = {
@@ -1502,14 +1601,14 @@ const TABELA_DANO_ST = {
     18: "3d-1", 19: "3d-1", 20: "3d"
 };
 
-// Converte fórmula de dano ST para valor numérico
-function calcularDanoST(formula) {
-    // Remove espaços
-    formula = formula.replace(/\s/g, '');
+/**
+ * Calcula dano base do personagem baseado em ST
+ */
+function calcularDanoST(esferasST) {
+    const formula = TABELA_DANO_ST[esferasST] || "1d-3";
     
-    // Padrões: "1d", "1d+1", "1d-1", "2d-1", "3d", etc.
+    // Converte fórmula como "1d+1" para rolagem
     const match = formula.match(/^(\d+)d([+-]\d+)?$/);
-    
     if (!match) return 1;
     
     const quantidade = parseInt(match[1]);
@@ -1517,40 +1616,37 @@ function calcularDanoST(formula) {
     
     let total = 0;
     for (let i = 0; i < quantidade; i++) {
-        total += Math.floor(Math.random() * 6) + 1; // d6 para dano base
+        total += Math.floor(Math.random() * 6) + 1;
     }
     
-    total += modificador;
-    return Math.max(1, total);
+    return Math.max(1, total + modificador);
 }
 
+/**
+ * Calcula dano total do personagem (base + arma)
+ */
 function calcularDanoPersonagem(personagem, arma = null) {
     if (!personagem) return 1;
     
     const esferasST = personagem.atributos?.st?.esferas || 0;
-    const formulaBase = TABELA_DANO_ST[esferasST] || "1d-3";
+    let dano = calcularDanoST(esferasST);
     
-    // Dano base do personagem
-    let dano = calcularDanoST(formulaBase);
-    
-    // Bônus da arma (se houver)
+    // Bônus da arma
     if (arma && arma.dano) {
-        if (typeof arma.dano === 'string') {
-            // Se for fórmula como "1d8", "2d6", etc.
-            if (arma.dano.includes('d')) {
-                dano += rolarDano(arma.dano);
-            } else {
-                // Bônus fixo como "+2"
-                const bonus = parseInt(arma.dano) || 0;
-                dano += bonus;
-            }
+        if (typeof arma.dano === 'string' && arma.dano.includes('d')) {
+            const resultado = rolarDano(arma.dano);
+            dano += resultado.total;
+        } else {
+            dano += parseInt(arma.dano) || 0;
         }
     }
     
     return Math.max(1, dano);
 }
 
-// Defesas
+/**
+ * Calcula Esquiva do personagem
+ */
 function calcularEsquiva(personagem) {
     if (!personagem) return 5;
     
@@ -1568,6 +1664,9 @@ function calcularEsquiva(personagem) {
     return Math.min(95, Math.max(5, esquiva));
 }
 
+/**
+ * Calcula Aparar do personagem
+ */
 function calcularAparar(personagem) {
     if (!personagem) return 0;
     
@@ -1587,6 +1686,9 @@ function calcularAparar(personagem) {
     return Math.min(95, Math.max(5, aparar));
 }
 
+/**
+ * Calcula Bloqueio do personagem
+ */
 function calcularBloqueio(personagem) {
     if (!personagem) return 0;
     
@@ -1608,6 +1710,9 @@ function calcularBloqueio(personagem) {
     return Math.min(95, Math.max(5, bloqueio));
 }
 
+/**
+ * Calcula RD (Redução de Dano) total
+ */
 function calcularRDTotal(personagem) {
     if (!personagem) return 0;
     
@@ -1625,7 +1730,9 @@ function calcularRDTotal(personagem) {
     return rd;
 }
 
-// Teste de ataque (usa 2d10 vs defesa do alvo)
+/**
+ * Teste de ataque usando 2d10
+ */
 function testeAtaque(atacante, defensor, tipoDefesa = 'esquiva', periciaAtaque = 'espada') {
     if (!atacante || !defensor) {
         return { acertou: false, mensagem: 'Dados inválidos' };
@@ -1653,23 +1760,24 @@ function testeAtaque(atacante, defensor, tipoDefesa = 'esquiva', periciaAtaque =
     const rolagem = rolar2d10();
     
     // Fórmula: acerta se rolagem <= NH e rolagem > (defesa/2)
-    // Ou simplificado: chance = NH - (defesa/2)
+    // Simplificado: chance = NH - (defesa/2)
     const chanceFinal = Math.max(5, nhAtacante - Math.floor(defesa / 2));
     const acertou = rolagem.resultado <= chanceFinal;
     
     return {
         acertou,
+        critico: rolagem.critico,
+        falhaCritica: rolagem.falhaCritica,
         rolagem: rolagem.resultado,
         rolagemStr: rolagem.str,
         nhAtacante,
         defesa,
-        chanceFinal,
-        critico: rolagem.critico,
-        falhaCritica: rolagem.falhaCritica
+        chanceFinal
     };
 }
 
-// Classe de Combate
+// ===== MÓDULO 7: CLASSE DE COMBATE =====
+
 class Combate {
     constructor(personagem, inimigoId, callbacks = {}) {
         this.personagem = personagem;
@@ -1682,12 +1790,21 @@ class Combate {
         this.bonusDefesa = 0;
         this.esquivou = false;
         
+        // Inicializa status de combate se não existir
+        if (!this.personagem.statusCombate) {
+            this.personagem.statusCombate = {
+                vidaAtual: this.calcularVidaMax(),
+                manaAtual: this.calcularManaMax(),
+                fadigaAtual: this.calcularFadigaMax()
+            };
+        }
+        
         this.adicionarLog(`⚔️ COMBATE INICIADO - Rodada ${this.rodada}`);
         this.adicionarLog(`${this.personagem.nome} vs ${this.inimigo.nome}`);
     }
     
     adicionarLog(mensagem, tipo = 'normal') {
-        this.log.push({ mensagem, tipo });
+        this.log.push({ mensagem, tipo, timestamp: Date.now() });
         if (this.callbacks.onLog) {
             this.callbacks.onLog(mensagem, tipo);
         }
@@ -1698,20 +1815,27 @@ class Combate {
             this.callbacks.onAtualizar({
                 inimigoVida: this.inimigo.vida,
                 inimigoVidaMax: this.inimigo.vidaMax,
-                personagemVida: this.personagem.statusCombate?.vidaAtual,
+                personagemVida: this.personagem.statusCombate?.vidaAtual || 0,
                 personagemVidaMax: this.calcularVidaMax(),
-                personagemMana: this.personagem.statusCombate?.manaAtual,
+                personagemMana: this.personagem.statusCombate?.manaAtual || 0,
                 personagemManaMax: this.calcularManaMax(),
+                personagemFadiga: this.personagem.statusCombate?.fadigaAtual || 0,
+                personagemFadigaMax: this.calcularFadigaMax(),
                 turno: this.turno,
                 rodada: this.rodada,
-                fim: this.fim
+                fim: this.fim,
+                log: this.log
             });
         }
     }
     
     calcularVidaMax() {
         const vt = 5 + (this.personagem.atributos?.vt?.esferas || 0);
-        return vt * 8;
+        let pv = vt * 8;
+        if (this.personagem.vantagens?.includes('vtExtra10')) {
+            pv = Math.floor(pv * 1.1);
+        }
+        return pv;
     }
     
     calcularManaMax() {
@@ -1721,28 +1845,35 @@ class Combate {
         return vigor + iq + vt;
     }
     
+    calcularFadigaMax() {
+        const vigor = 5 + (this.personagem.atributos?.vigor?.esferas || 0);
+        const vt = 5 + (this.personagem.atributos?.vt?.esferas || 0);
+        return vigor + vt;
+    }
+    
     atacar() {
         if (this.fim || this.turno !== 'jogador') return false;
         
         this.adicionarLog(`👉 ${this.personagem.nome} ataca!`);
         
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
+        const periciaUsada = arma ? (arma.tipo === 'espada' ? 'espada' : 'briga') : 'briga';
         
-        // Teste de acaque com 2d10
-        const teste = testeAtaque(this.personagem, this.inimigo, 'esquiva', 'espada');
+        // Teste de ataque com 2d10
+        const teste = testeAtaque(this.personagem, this.inimigo, 'esquiva', periciaUsada);
         
         if (teste.acertou || teste.critico) {
-            // Dano: usa rolagem de dados tradicional (1d8, etc.)
-            const dano = calcularDanoPersonagem(this.personagem, arma);
+            // Dano: usa rolagem de dados tradicional
+            const resultadoDano = calcularDanoPersonagem(this.personagem, arma);
             const rdInimigo = this.inimigo.armadura || 0;
-            const danoFinal = Math.max(1, dano - rdInimigo);
+            const danoFinal = Math.max(1, resultadoDano - rdInimigo);
             
             // Crítico = dano dobrado
             const danoAplicado = teste.critico ? danoFinal * 2 : danoFinal;
             this.inimigo.vida -= danoAplicado;
             
             let criticoStr = teste.critico ? ' (CRÍTICO! Dano dobrado)' : '';
-            this.adicionarLog(`🎯 ACERTOU${criticoStr}! ${danoAplicado} dano (${dano} - ${rdInimigo} RD) | ${teste.rolagemStr}`, 'dano');
+            this.adicionarLog(`🎯 ACERTOU${criticoStr}! ${danoAplicado} dano (${resultadoDano} - ${rdInimigo} RD) | ${teste.rolagemStr}`, 'dano');
             
             if (this.inimigo.vida <= 0) {
                 this.inimigo.vida = 0;
@@ -1753,7 +1884,8 @@ class Combate {
                 if (this.callbacks.onVitoria) {
                     this.callbacks.onVitoria({
                         xp: this.inimigo.experiencia || 50,
-                        ouro: this.inimigo.ouro || 0
+                        ouro: this.inimigo.ouro || 0,
+                        inimigo: this.inimigo.id
                     });
                 }
             }
@@ -1775,7 +1907,7 @@ class Combate {
     defender() {
         if (this.fim || this.turno !== 'jogador') return false;
         
-        this.adicionarLog(`🛡️ ${this.personagem.nome} defende! (+20% esquiva)`);
+        this.adicionarLog(`🛡️ ${this.personagem.nome} defende! (+20% esquiva neste turno)`);
         this.bonusDefesa = 20;
         
         this.turno = 'inimigo';
@@ -1822,7 +1954,7 @@ class Combate {
         const rolagem = rolar2d10();
         
         if (rolagem.resultado <= chanceFuga || rolagem.critico) {
-            this.adicionarLog(`🏃 FUGA! ${rolagem.str} vs ${chanceFuga}%`, 'cura');
+            this.adicionarLog(`🏃 FUGA BEM SUCEDIDA! ${rolagem.str} vs ${chanceFuga}%`, 'cura');
             this.fim = true;
             this.turno = 'fim';
             if (this.callbacks.onFuga) this.callbacks.onFuga();
@@ -1845,8 +1977,9 @@ class Combate {
         const acao = Math.random() < this.inimigo.agressividade ? 'atacar' : 'defender';
         
         if (acao === 'atacar') {
-            // Dano do inimigo (rolagem tradicional 1d8, 1d6, etc.)
-            const dano = rolarDano(this.inimigo.danoFormula || "1d6");
+            // Dano do inimigo
+            const danoResult = rolarDano(this.inimigo.danoFormula || "1d6");
+            const dano = danoResult.total;
             
             // Defesa do jogador
             let defesaBase = calcularEsquiva(this.personagem);
@@ -1874,16 +2007,16 @@ class Combate {
                 }
                 
                 const criticoStr = rolagem.critico ? ' (CRÍTICO!)' : '';
-                this.adicionarLog(`🎯 ACERTOU${criticoStr}! ${danoFinal} dano (${dano} - ${rd} RD) | ${rolagem.str}`, 'dano');
+                this.adicionarLog(`🎯 INIMIGO ACERTOU${criticoStr}! ${danoFinal} dano (${dano} - ${rd} RD) | ${rolagem.str}`, 'dano');
                 
                 if (this.personagem.statusCombate.vidaAtual <= 0) {
-                    this.adicionarLog(`💀 ${this.personagem.nome} DERROTADO!`, 'falha');
+                    this.adicionarLog(`💀 ${this.personagem.nome} FOI DERROTADO!`, 'falha');
                     this.fim = true;
                     this.turno = 'fim';
                     if (this.callbacks.onDerrota) this.callbacks.onDerrota();
                 }
             } else {
-                this.adicionarLog(`❌ ERROU! ${rolagem.str}`);
+                this.adicionarLog(`❌ Inimigo errou! ${rolagem.str}`);
             }
         } else {
             this.adicionarLog(`🛡️ ${this.inimigo.nome} defende!`);
@@ -1897,67 +2030,251 @@ class Combate {
             this.adicionarLog(`✨ Seu turno!`, 'critico');
         }
     }
-}
-
-// ===== MÓDULO 4: FUNÇÕES DE CÁLCULO DO PERSONAGEM =====
-
-function getEsferas(atributo) {
-    return personagemAtual?.atributos?.[atributo]?.esferas || 0;
-}
-
-function getValorFixo(atributo) {
-    return 5 + getEsferas(atributo);
-}
-
-function getPercentual(atributo) {
-    const esferas = getEsferas(atributo);
-    if (atributo === 'st' || atributo === 'vigor') {
-        return 40 + (esferas * 3);
+    
+    getEstado() {
+        return {
+            turno: this.turno,
+            rodada: this.rodada,
+            fim: this.fim,
+            inimigo: {
+                nome: this.inimigo.nome,
+                vida: this.inimigo.vida,
+                vidaMax: this.inimigo.vidaMax,
+                descricao: this.inimigo.descricao
+            },
+            personagem: {
+                vida: this.personagem.statusCombate?.vidaAtual || 0,
+                vidaMax: this.calcularVidaMax(),
+                mana: this.personagem.statusCombate?.manaAtual || 0,
+                manaMax: this.calcularManaMax()
+            },
+            log: this.log
+        };
     }
-    return 40 + (esferas * 2);
 }
 
-function calcularPV() {
-    const vt = getValorFixo('vt');
-    let pv = vt * 8;
-    if (personagemAtual?.vantagens?.includes('vtExtra10')) {
-        pv = Math.floor(pv * 1.1);
+// ===== MÓDULO 8: GERENCIADOR DE AVENTURA =====
+
+class AventuraSolo {
+    constructor(personagem, callbacks = {}) {
+        this.personagem = personagem;
+        this.callbacks = callbacks;
+        this.cenaAtual = null;
+        this.historico = [];
+        this.combateAtual = null;
+        this.inventarioTemp = { ouro: 0, itens: [] };
     }
-    return pv;
-}
-
-function calcularPM() {
-    return getValorFixo('vigor') + getValorFixo('iq') + getValorFixo('vt');
-}
-
-function calcularPF() {
-    return getValorFixo('vigor') + getValorFixo('vt');
-}
-
-function calcularRD() {
-    let rd = 0;
-    if (personagemAtual?.vantagens?.includes('corpoResistente')) rd += 2;
-    if (personagemAtual?.inventario?.corpo) {
-        personagemAtual.inventario.corpo.forEach(item => {
-            if (item.rd) rd += item.rd;
+    
+    iniciar(cenaId = 'grito_estrada') {
+        this.irParaCena(cenaId);
+    }
+    
+    irParaCena(cenaId) {
+        const cena = CENAS[cenaId];
+        if (!cena) {
+            console.error(`Cena ${cenaId} não encontrada!`);
+            return;
+        }
+        
+        this.cenaAtual = cena;
+        this.historico.push(cenaId);
+        
+        // Processa recompensas se houver
+        if (cena.recompensa) {
+            if (cena.recompensa.ouro) {
+                this.inventarioTemp.ouro += cena.recompensa.ouro;
+            }
+            if (cena.recompensa.item) {
+                this.inventarioTemp.itens.push(cena.recompensa.item);
+            }
+        }
+        
+        if (this.callbacks.onCenaChange) {
+            this.callbacks.onCenaChange(cena);
+        }
+    }
+    
+    processarEscolha(opcao) {
+        if (!opcao) return;
+        
+        switch(opcao.acao) {
+            case 'ir_para_cena':
+                this.irParaCena(opcao.destino);
+                break;
+                
+            case 'iniciar_combate':
+                this.iniciarCombate(opcao.inimigo);
+                break;
+                
+            case 'teste_pericia':
+                this.realizarTestePericia(opcao);
+                break;
+                
+            default:
+                console.warn(`Ação desconhecida: ${opcao.acao}`);
+        }
+    }
+    
+    iniciarCombate(inimigoId) {
+        this.combateAtual = new Combate(this.personagem, inimigoId, {
+            onLog: (msg, tipo) => {
+                if (this.callbacks.onCombateLog) this.callbacks.onCombateLog(msg, tipo);
+            },
+            onAtualizar: (estado) => {
+                if (this.callbacks.onCombateUpdate) this.callbacks.onCombateUpdate(estado);
+            },
+            onVitoria: (recompensa) => {
+                this.inventarioTemp.ouro += recompensa.ouro;
+                if (this.callbacks.onCombateVitoria) {
+                    this.callbacks.onCombateVitoria(recompensa);
+                }
+                // Volta para cena pós-combate após delay
+                setTimeout(() => {
+                    this.combateAtual = null;
+                    this.irParaCena('pos_combate');
+                }, 2000);
+            },
+            onDerrota: () => {
+                if (this.callbacks.onCombateDerrota) this.callbacks.onCombateDerrota();
+            },
+            onFuga: () => {
+                if (this.callbacks.onCombateFuga) this.callbacks.onCombateFuga();
+                this.combateAtual = null;
+                this.irParaCena('estrada_solitario');
+            }
         });
+        
+        if (this.callbacks.onCombateIniciar) {
+            this.callbacks.onCombateIniciar(this.combateAtual);
+        }
     }
-    return rd;
+    
+    realizarTestePericia(opcao) {
+        const resultado = testarPericia(this.personagem, opcao.pericia, opcao.cd);
+        
+        if (this.callbacks.onTestePericia) {
+            this.callbacks.onTestePericia(resultado);
+        }
+        
+        // Delay para mostrar resultado antes de mudar de cena
+        setTimeout(() => {
+            if (resultado.sucesso) {
+                this.irParaCena(opcao.sucesso);
+            } else {
+                this.irParaCena(opcao.falha);
+            }
+        }, 1500);
+    }
+    
+    executarAcaoCombate(acao) {
+        if (!this.combateAtual) return;
+        
+        switch(acao) {
+            case 'atacar':
+                return this.combateAtual.atacar();
+            case 'defender':
+                return this.combateAtual.defender();
+            case 'esquivar':
+                return this.combateAtual.esquivar();
+            case 'magia':
+                return this.combateAtual.usarMagia();
+            case 'fugir':
+                return this.combateAtual.fugir();
+            default:
+                console.warn(`Ação de combate desconhecida: ${acao}`);
+                return false;
+        }
+    }
+    
+    getProgresso() {
+        return {
+            cenaAtual: this.cenaAtual?.id,
+            historico: this.historico,
+            totalCenas: Object.keys(CENAS).length,
+            cenasVisitadas: [...new Set(this.historico)].length,
+            ouroGanho: this.inventarioTemp.ouro,
+            itensGanhos: this.inventarioTemp.itens
+        };
+    }
 }
 
-// ===== EXPORTAR PARA USO GLOBAL =====
+// ===== MÓDULO 9: FUNÇÕES AUXILIARES =====
 
-// Tornar tudo disponível no window
+/**
+ * Cria um personagem básico para testes
+ */
+function criarPersonagemExemplo() {
+    return {
+        nome: "Aldric",
+        classe: "Guerreiro",
+        nivel: 1,
+        atributos: {
+            st: { esferas: 2, valor: 7 },      // Força
+            dx: { esferas: 1, valor: 6 },      // Destreza
+            iq: { esferas: 0, valor: 5 },      // Inteligência
+            vigor: { esferas: 1, valor: 6 },   // Vigor
+            vt: { esferas: 1, valor: 6 }       // Vitalidade
+        },
+        pericias: {
+            espada: { nivel: 2 },
+            escudo: { nivel: 1 },
+            briga: { nivel: 1 },
+            persuasao: { nivel: 1 },
+            observar: { nivel: 1 }
+        },
+        vantagens: ['reflexosRapidos'],
+        inventario: {
+            corpo: [
+                { nome: "Espada Longa", dano: "1d8", tipo: "espada" },
+                { nome: "Escudo de Madeira", bonus: 1, rd: 1 }
+            ],
+            mochila: []
+        },
+        statusCombate: {
+            vidaAtual: 48,
+            manaAtual: 17,
+            fadigaAtual: 12
+        }
+    };
+}
+
+/**
+ * Exporta dados da aventura para save
+ */
+function exportarSave(aventura) {
+    return JSON.stringify({
+        personagem: aventura.personagem,
+        cenaAtual: aventura.cenaAtual?.id,
+        historico: aventura.historico,
+        inventarioTemp: aventura.inventarioTemp,
+        timestamp: Date.now()
+    });
+}
+
+/**
+ * Importa dados de save
+ */
+function importarSave(jsonString) {
+    try {
+        return JSON.parse(jsonString);
+    } catch (e) {
+        console.error("Save corrompido:", e);
+        return null;
+    }
+}
+
+// ===== EXPORTAÇÃO GLOBAL =====
+
 if (typeof window !== 'undefined') {
+    // Dados
     window.CENAS = CENAS;
     window.CATALOGO_PERICIAS = CATALOGO_PERICIAS;
     window.INIMIGOS = INIMIGOS;
     window.TABELA_DANO_ST = TABELA_DANO_ST;
     
-    // Funções de rolagem
+    // Funções de dados
     window.rolar2d10 = rolar2d10;
     window.rolarDano = rolarDano;
-    window.calcularDanoST = calcularDanoST;
     
     // Funções de personagem
     window.getAtributoPercentual = getAtributoPercentual;
@@ -1966,26 +2283,42 @@ if (typeof window !== 'undefined') {
     window.listarPericiasPersonagem = listarPericiasPersonagem;
     
     // Funções de combate
+    window.calcularDanoST = calcularDanoST;
     window.calcularDanoPersonagem = calcularDanoPersonagem;
     window.calcularEsquiva = calcularEsquiva;
     window.calcularAparar = calcularAparar;
     window.calcularBloqueio = calcularBloqueio;
     window.calcularRDTotal = calcularRDTotal;
     window.testeAtaque = testeAtaque;
-    window.Combate = Combate;
     
-    // Funções auxiliares
-    window.calcularPV = calcularPV;
-    window.calcularPM = calcularPM;
-    window.calcularPF = calcularPF;
-    window.calcularRD = calcularRD;
-    window.getEsferas = getEsferas;
-    window.getValorFixo = getValorFixo;
-    window.getPercentual = getPercentual;
+    // Classes
+    window.Combate = Combate;
+    window.AventuraSolo = AventuraSolo;
+    
+    // Utilitários
+    window.criarPersonagemExemplo = criarPersonagemExemplo;
+    window.exportarSave = exportarSave;
+    window.importarSave = importarSave;
 }
 
-console.log('🎲 AKALANATA SOLO - Sistema de Dados Carregado');
-console.log('📌 Perícias: 2d10 (01-100) | Dano: 1d8, 2d6, etc.');
+// Log de inicialização
+console.log('🎲 AKALANATA SOLO - Sistema Carregado');
+console.log('📌 Perícias: 2d10 (01-100) | Dano: 1d6, 1d8, etc.');
+console.log('📌 Classes: Combate, AventuraSolo');
+console.log('📌 Use: const aventura = new AventuraSolo(personagem, callbacks)');
+
+// Exportação para Node.js (se necessário)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        CENAS, CATALOGO_PERICIAS, INIMIGOS, TABELA_DANO_ST,
+        rolar2d10, rolarDano,
+        getAtributoPercentual, calcularNH, testarPericia, listarPericiasPersonagem,
+        calcularDanoST, calcularDanoPersonagem, calcularEsquiva, calcularAparar, 
+        calcularBloqueio, calcularRDTotal, testeAtaque,
+        Combate, AventuraSolo,
+        criarPersonagemExemplo, exportarSave, importarSave
+    };
+}
     </script>
 </body>
 </html>
