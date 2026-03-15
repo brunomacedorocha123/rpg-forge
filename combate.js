@@ -85,6 +85,61 @@ const INIMIGOS = {
         portrait: "guarda.png",
         experiencia: 75,
         ouro: 5
+    },
+    
+    "esqueleto_guerreiro": {
+        id: "esqueleto_guerreiro",
+        nome: "Esqueleto Guerreiro",
+        vida: 30,
+        vidaMax: 30,
+        descricao: "Restos mortais animados, segurando uma espada enferrujada.",
+        equipamento: "Espada longa enferrujada",
+        armadura: 2,
+        danoFormula: "1d8",
+        forca: 10,
+        destreza: 10,
+        vigor: 0,
+        inteligencia: 5,
+        pericias: {
+            "espada": 2
+        },
+        derivados: {
+            esquiva: 35,
+            aparar: 40,
+            bloqueio: 0
+        },
+        agressividade: 0.9,
+        portrait: "esqueleto.png",
+        experiencia: 60,
+        ouro: 2
+    },
+    
+    "bandido_astuto": {
+        id: "bandido_astuto",
+        nome: "Bandido Astuto",
+        vida: 22,
+        vidaMax: 22,
+        descricao: "Um ladrão ágil com uma adaga na mão.",
+        equipamento: "Adaga afiada",
+        armadura: 0,
+        danoFormula: "1d6+1",
+        forca: 8,
+        destreza: 13,
+        vigor: 9,
+        inteligencia: 9,
+        pericias: {
+            "adaga": 2,
+            "furtividade": 2
+        },
+        derivados: {
+            esquiva: 50,
+            aparar: 30,
+            bloqueio: 0
+        },
+        agressividade: 0.6,
+        portrait: "bandido.png",
+        experiencia: 45,
+        ouro: 3
     }
 };
 
@@ -100,6 +155,7 @@ const TABELA_DANO_ST = {
 function rolarDados(formula) {
     if (!formula) return 1;
     
+    // Suporta formatos como "1d6", "2d8", "1d8+1", etc.
     const regex = /^(\d+)d(\d+)([+-]\d+)?$/i;
     const match = formula.match(regex);
     
@@ -125,6 +181,7 @@ function rolar2d10() {
     const dado1 = Math.floor(Math.random() * 10) + 1; // 1-10
     const dado2 = Math.floor(Math.random() * 10) + 1; // 1-10
     
+    // Converter para percentual (00-99, com 00 sendo 100)
     let resultado = (dado1 === 10 ? 0 : dado1) * 10 + (dado2 === 10 ? 0 : dado2);
     if (resultado === 0) resultado = 100;
     
@@ -137,6 +194,44 @@ function rolar2d10() {
     };
 }
 
+// ===== CALCULAR ATRIBUTOS FIXOS =====
+function getSTFixo(personagem) {
+    return 5 + (personagem.atributos?.st?.esferas || 0);
+}
+
+function getDXFixo(personagem) {
+    return 5 + (personagem.atributos?.dx?.esferas || 0);
+}
+
+function getIQFixo(personagem) {
+    return 5 + (personagem.atributos?.iq?.esferas || 0);
+}
+
+function getVIGORFixo(personagem) {
+    return 5 + (personagem.atributos?.vigor?.esferas || 0);
+}
+
+function getVTFixo(personagem) {
+    return 5 + (personagem.atributos?.vt?.esferas || 0);
+}
+
+// ===== CALCULAR PERCENTUAIS =====
+function getSTPercentual(personagem) {
+    return 40 + ((personagem.atributos?.st?.esferas || 0) * 3);
+}
+
+function getDXPercentual(personagem) {
+    return 40 + ((personagem.atributos?.dx?.esferas || 0) * 2);
+}
+
+function getIQPercentual(personagem) {
+    return 40 + ((personagem.atributos?.iq?.esferas || 0) * 2);
+}
+
+function getVIGORPercentual(personagem) {
+    return 40 + ((personagem.atributos?.vigor?.esferas || 0) * 3);
+}
+
 // ===== CALCULAR DANO DO PERSONAGEM =====
 function calcularDanoPersonagem(personagem, arma = null) {
     if (!personagem) return 1;
@@ -146,6 +241,7 @@ function calcularDanoPersonagem(personagem, arma = null) {
     
     let dano = rolarDados(danoBaseFormula);
     
+    // Adicionar dano da arma se houver
     if (arma?.dano) {
         if (typeof arma.dano === 'string') {
             if (arma.dano.includes('d')) {
@@ -157,6 +253,7 @@ function calcularDanoPersonagem(personagem, arma = null) {
         }
     }
     
+    // Bônus de força para armas corpo a corpo
     if (arma && !arma.distancia) {
         dano += Math.floor(esferasST / 2);
     }
@@ -173,6 +270,7 @@ function calcularNH(personagem, periciaId) {
     
     const nivel = pericia.nivel || 0;
     
+    // Lista de perícias físicas (baseadas em DX)
     const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga', 
                              'acrobacia', 'furtividade', 'cavalgar', 'natacao', 'fuga', 'arremesso',
                              'esgrima', 'bastao', 'capa', 'chicote', 'mangual', 'corrida'];
@@ -307,9 +405,12 @@ function calcularRDTotal(personagem) {
         rd += 2;
     }
     
-    personagem.inventario?.corpo?.forEach(item => {
-        if (item.rd) rd += item.rd;
-    });
+    // Soma RD de itens equipados
+    if (personagem.inventario?.corpo) {
+        personagem.inventario.corpo.forEach(item => {
+            if (item.rd) rd += item.rd;
+        });
+    }
     
     return rd;
 }
@@ -318,6 +419,7 @@ function calcularRDTotal(personagem) {
 function testeAtaque(atacante, defensor, periciaAtaque = null) {
     let periciaUsada = periciaAtaque || 'luta';
     
+    // Determinar perícia baseada na arma do atacante
     if (atacante.inventario?.corpo) {
         const arma = atacante.inventario.corpo.find(item => item.dano);
         if (arma) {
@@ -332,10 +434,12 @@ function testeAtaque(atacante, defensor, periciaAtaque = null) {
     
     const nhAtacante = calcularNH(atacante, periciaUsada);
     
+    // Calcular defesas do defensor
     const esquiva = calcularEsquiva(defensor);
     const aparar = calcularAparar(defensor);
     const bloqueio = calcularBloqueio(defensor);
     
+    // Escolher a melhor defesa disponível
     let defesa = esquiva;
     let defesaUsada = 'esquiva';
     
@@ -349,6 +453,7 @@ function testeAtaque(atacante, defensor, periciaAtaque = null) {
     
     const rolagem = rolar2d10();
     
+    // Chance de acerto: NH do atacante reduzido pela metade da defesa do alvo
     const chanceFinal = Math.max(5, Math.min(95, nhAtacante - Math.floor(defesa / 2)));
     
     let acertou = false;
@@ -379,6 +484,7 @@ class Combate {
     constructor(personagem, inimigoId, callbacks = {}) {
         console.log('⚔️ Criando combate:', inimigoId);
         
+        // Criar cópia profunda para não modificar o original
         this.personagem = JSON.parse(JSON.stringify(personagem));
         this.inimigo = JSON.parse(JSON.stringify(INIMIGOS[inimigoId] || INIMIGOS.saqueador_faminto));
         this.callbacks = callbacks;
@@ -391,16 +497,22 @@ class Combate {
         this.bonusDefesa = 0;
         this.esquivando = false;
         
+        // Garantir que o personagem tem status de combate
         if (!this.personagem.statusCombate) {
-            const vt = 5 + (this.personagem.atributos?.vt?.esferas || 0);
-            const vigor = 5 + (this.personagem.atributos?.vigor?.esferas || 0);
-            const iq = 5 + (this.personagem.atributos?.iq?.esferas || 0);
+            const vt = getVTFixo(this.personagem);
+            const vigor = getVIGORFixo(this.personagem);
+            const iq = getIQFixo(this.personagem);
             
             this.personagem.statusCombate = {
                 vidaAtual: vt * 8,
                 manaAtual: vigor + iq + vt,
                 fadigaAtual: vigor + vt
             };
+        }
+        
+        // Inicializar vida do inimigo se necessário
+        if (!this.inimigo.vida && this.inimigo.vidaMax) {
+            this.inimigo.vida = this.inimigo.vidaMax;
         }
         
         this._log('⚔️ COMBATE INICIADO!');
@@ -411,6 +523,7 @@ class Combate {
     }
     
     _log(mensagem, tipo = 'normal') {
+        console.log(`[COMBATE] ${mensagem}`);
         if (this.callbacks.onLog) {
             this.callbacks.onLog(mensagem, tipo);
         }
@@ -422,16 +535,17 @@ class Combate {
                 turno: this.turno,
                 rodada: this.rodada,
                 fim: this.fim,
-                inimigoVida: this.inimigo.vida,
-                inimigoVidaMax: this.inimigo.vidaMax,
+                inimigoVida: this.inimigo.vida || 0,
+                inimigoVidaMax: this.inimigo.vidaMax || 0,
                 personagemVida: this.personagem.statusCombate?.vidaAtual || 0,
-                personagemVidaMax: this._calcularVidaMax()
+                personagemVidaMax: this._calcularVidaMax(),
+                isPlayerTurn: this.turno === 'jogador' && !this.fim
             });
         }
     }
     
     _calcularVidaMax() {
-        const vt = 5 + (this.personagem.atributos?.vt?.esferas || 0);
+        const vt = getVTFixo(this.personagem);
         let pv = vt * 8;
         if (this.personagem.vantagens?.includes('htExtra')) {
             pv = Math.floor(pv * 1.1);
@@ -447,6 +561,7 @@ class Combate {
     }
     
     atacar() {
+        // Verificações de estado
         if (this._processando) {
             console.log('⚠️ Já processando uma ação');
             return false;
@@ -462,11 +577,13 @@ class Combate {
             return false;
         }
         
-        this._limparTimeout();
+        // Marcar como processando para evitar duplicação
         this._processando = true;
+        this._limparTimeout();
         
         this._log(`👉 ${this.personagem.nome} ataca!`);
         
+        // Encontrar arma equipada
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
         const teste = testeAtaque(this.personagem, this.inimigo);
         
@@ -485,6 +602,7 @@ class Combate {
             
             this._log(`🎯 ACERTOU! Dano: ${danoFinal} (${dano} - ${rdInimigo} RD) | Rolagem: ${teste.rolagemStr}`, 'dano');
             
+            // Verificar se inimigo morreu
             if (this.inimigo.vida <= 0) {
                 this._log(`💀 ${this.inimigo.nome} foi DERROTADO!`, 'critico');
                 this.fim = true;
@@ -505,9 +623,14 @@ class Combate {
             this._log(`❌ ERROU${falhaStr}! Rolagem: ${teste.rolagemStr} vs ${teste.chanceFinal}%`, 'falha');
         }
         
+        // Atualizar UI antes de mudar turno
         this._atualizarUI();
         
+        // Mudar para turno do inimigo
         this.turno = 'inimigo';
+        this._processando = false; // Liberar flag
+        
+        // Agendar turno do inimigo
         this._timeout = setTimeout(() => this._turnoInimigo(), 1500);
         
         return true;
@@ -515,19 +638,21 @@ class Combate {
     
     _turnoInimigo() {
         this._timeout = null;
-        this._processando = false;
         
+        // Verificar se ainda está no turno do inimigo e combate não acabou
         if (this.fim || this.turno !== 'inimigo') return;
         
         this.rodada++;
         this._log(`--- Rodada ${this.rodada} ---`);
         this._log(`👹 Turno de ${this.inimigo.nome}`);
         
-        if (Math.random() < this.inimigo.agressividade) {
+        // Chance do inimigo atacar baseado na agressividade
+        if (Math.random() < (this.inimigo.agressividade || 0.8)) {
             const dano = rolarDados(this.inimigo.danoFormula || "1d6");
             const rd = calcularRDTotal(this.personagem);
             let danoFinal = Math.max(1, dano - rd);
             
+            // Calcular defesa do personagem
             let defesaBase = calcularEsquiva(this.personagem);
             let tipoDefesa = 'esquiva';
             
@@ -543,6 +668,7 @@ class Combate {
                 tipoDefesa = 'aparar';
             }
             
+            // Calcular chance de acerto do inimigo
             const periciaInimigo = this.inimigo.pericias?.luta ? 'luta' : 'espada';
             const nivelPericia = this.inimigo.pericias?.[periciaInimigo] || 0;
             const nhInimigo = 40 + (nivelPericia * 4);
@@ -550,7 +676,9 @@ class Combate {
             const rolagem = rolar2d10();
             const chanceAcerto = Math.max(10, Math.min(95, nhInimigo - Math.floor(defesaBase / 2)));
             
-            if (rolagem.resultado <= chanceAcerto || rolagem.critico) {
+            let acertou = rolagem.resultado <= chanceAcerto || rolagem.critico;
+            
+            if (acertou) {
                 if (rolagem.critico) {
                     danoFinal *= 2;
                     this._log(`✨ ATAQUE FULMINANTE do inimigo!`, 'critico');
@@ -563,6 +691,7 @@ class Combate {
                 
                 this._log(`🎯 ${this.inimigo.nome} ACERTOU! Dano: ${danoFinal} (${dano} - ${rd} RD) | Defesa: ${tipoDefesa} (${defesaBase}%)`, 'dano');
                 
+                // Verificar se personagem morreu
                 if (this.personagem.statusCombate.vidaAtual <= 0) {
                     this._log(`💀 ${this.personagem.nome} foi DERROTADO!`, 'falha');
                     this.fim = true;
@@ -581,26 +710,33 @@ class Combate {
             this._log(`🛡️ ${this.inimigo.nome} defende!`);
         }
         
+        // Atualizar UI após ação do inimigo
         this._atualizarUI();
         
+        // Só muda para turno do jogador se o combate não acabou
         if (!this.fim) {
             this.turno = 'jogador';
             this._log('✨ SEU TURNO!', 'critico');
+            
+            // ATUALIZAR UI NOVAMENTE PARA GARANTIR QUE OS BOTÕES FICAM HABILITADOS
+            this._atualizarUI();
         }
     }
     
     defender() {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
-        this._limparTimeout();
         this._processando = true;
+        this._limparTimeout();
         
         this._log(`🛡️ ${this.personagem.nome} defende!`);
-        this.bonusDefesa = 20;
+        this.bonusDefesa = 20; // Bônus para a próxima defesa
         
         this.turno = 'inimigo';
-        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
+        this._processando = false;
         this._atualizarUI();
+        
+        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
         
         return true;
     }
@@ -608,12 +744,12 @@ class Combate {
     esquivar() {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
-        this._limparTimeout();
         this._processando = true;
+        this._limparTimeout();
         
         this._log(`🏃 ${this.personagem.nome} tenta esquivar!`);
         
-        const esquivaBase = calcularEsquiva(this.personagem);
+        const esquivaBase = calcularEsquiva(this.personagem) + this.bonusDefesa;
         const rolagem = rolar2d10();
         
         if (rolagem.resultado <= esquivaBase || rolagem.critico) {
@@ -625,8 +761,10 @@ class Combate {
         }
         
         this.turno = 'inimigo';
-        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
+        this._processando = false;
         this._atualizarUI();
+        
+        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
         
         return true;
     }
@@ -634,8 +772,8 @@ class Combate {
     fugir() {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
-        this._limparTimeout();
         this._processando = true;
+        this._limparTimeout();
         
         const dxEsferas = this.personagem.atributos?.dx?.esferas || 0;
         const dxPercent = 40 + (dxEsferas * 2);
@@ -656,8 +794,10 @@ class Combate {
         } else {
             this._log(`❌ Falhou ao tentar fugir! Rolagem: ${rolagem.str} vs ${chanceFuga}%`, 'falha');
             this.turno = 'inimigo';
-            this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
+            this._processando = false;
             this._atualizarUI();
+            
+            this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
         }
         
         return true;
@@ -666,14 +806,16 @@ class Combate {
     usarMagia(magiaId) {
         if (this._processando || this.fim || this.turno !== 'jogador') return false;
         
-        this._limparTimeout();
         this._processando = true;
+        this._limparTimeout();
         
         this._log(`✨ Sistema de magias em desenvolvimento!`, 'normal');
         
         this.turno = 'inimigo';
-        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
+        this._processando = false;
         this._atualizarUI();
+        
+        this._timeout = setTimeout(() => this._turnoInimigo(), 1200);
         
         return false;
     }
@@ -682,7 +824,8 @@ class Combate {
         return {
             turno: this.turno,
             rodada: this.rodada,
-            fim: this.fim
+            fim: this.fim,
+            isPlayerTurn: this.turno === 'jogador' && !this.fim
         };
     }
 }
@@ -701,11 +844,29 @@ if (typeof window !== 'undefined') {
     window.calcularBloqueio = calcularBloqueio;
     window.calcularRDTotal = calcularRDTotal;
     window.testeAtaque = testeAtaque;
+    window.getSTFixo = getSTFixo;
+    window.getDXFixo = getDXFixo;
+    window.getIQFixo = getIQFixo;
+    window.getVIGORFixo = getVIGORFixo;
+    window.getVTFixo = getVTFixo;
     
-    console.log('✅ Sistema de Combate carregado!');
+    console.log('✅ Sistema de Combate carregado e corrigido!');
 }
 
 // Exportar para Node.js
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { INIMIGOS, Combate };
+    module.exports = { 
+        INIMIGOS, 
+        Combate,
+        rolarDados,
+        rolar2d10,
+        calcularDanoPersonagem,
+        calcularNH,
+        testarPericia,
+        calcularEsquiva,
+        calcularAparar,
+        calcularBloqueio,
+        calcularRDTotal,
+        testeAtaque
+    };
 }
