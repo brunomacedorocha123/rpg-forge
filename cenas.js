@@ -1,6 +1,6 @@
 // ============================================
 // CENAS.JS - TODAS AS CENAS DA AVENTURA SOLO
-// VERSÃO CORRIGIDA - CAMINHOS DE IMAGEM AJUSTADOS
+// VERSÃO CORRIGIDA - COM CENA PÓS-COMBATE
 // ============================================
 
 const CENAS = {
@@ -8,7 +8,7 @@ const CENAS = {
     "grito_estrada": {
         id: "grito_estrada",
         titulo: "O Grito na Estrada",
-        imagem: "estrada-norte.jpg", // CORRIGIDO: remove "imagens/"
+        imagem: "estrada-norte.jpg",
         narrativa: `O sol está baixo no horizonte enquanto você caminha por uma velha estrada de terra cercada por árvores. A viagem tem sido longa e silenciosa.
 
 De repente, um grito corta o silêncio da estrada.
@@ -30,7 +30,7 @@ O camponês olha para você desesperado.
             nome: "Camponês Amedrontado",
             descricao: "Homem simples, rosto sujo de terra, roupas rasgadas. Ele treme de medo.",
             estado: "neutro",
-            portrait: "npc-sangue.png" // CORRIGIDO: remove "imagens/"
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { 
@@ -62,30 +62,42 @@ O camponês olha para você desesperado.
         ]
     },
 
-    // ===== PÓS-COMBATE =====
+    // ===== 🔥 NOVA CENA PÓS-COMBATE (CORRIGIDA) =====
     "pos_combate": {
         id: "pos_combate",
-        titulo: "O Resgate",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
-        narrativa: `O saqueador foge pela mata, derrotado.
+        titulo: "Vitória!",
+        imagem: "estrada-norte.jpg",
+        narrativa: `O saqueador cai, derrotado.
 
-O camponês se levanta com dificuldade e respira aliviado.
+O camponês se levanta, aliviado, e limpa a sujeira das roupas.
 
-— Obrigado… achei que ele fosse me matar. Meu nome é Edrin.
+— Obrigado, aventureiro! Você salvou minha vida! Meu nome é Edrin.
 
-Ele olha para a direção onde o bandido fugiu.
+Ele estende a mão em gratidão e aponta para a estrada à frente.
 
-— Conheço um atalho seguro até Ravena. Quer vir?`,
+— Ravena fica a poucas horas daqui. Se quiser, posso te acompanhar até lá. Conheço um atalho seguro.`,
         npc: {
             nome: "Edrin",
-            descricao: "Camponês grato, de meia-idade.",
+            descricao: "Camponês grato pela sua ajuda. Seu olhar é sincero.",
             estado: "amigavel",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
-            { texto: "👥 ACOMPANHAR Edrin", acao: "ir_para_cena", destino: "estrada_ravena" },
-            { texto: "🔍 INVESTIGAR saqueador", acao: "ir_para_cena", destino: "investigar_saqueador" },
-            { texto: "🌄 SEGUIR VIAGEM", acao: "ir_para_cena", destino: "estrada_solitario" }
+            { 
+                texto: "👥 ACOMPANHAR Edrin até Ravena", 
+                acao: "ir_para_cena", 
+                destino: "estrada_ravena" 
+            },
+            { 
+                texto: "🔍 INVESTIGAR o corpo do saqueador", 
+                acao: "ir_para_cena", 
+                destino: "investigar_saqueador" 
+            },
+            { 
+                texto: "🌄 SEGUIR viagem sozinho", 
+                acao: "ir_para_cena", 
+                destino: "estrada_solitario" 
+            }
         ]
     },
 
@@ -93,7 +105,7 @@ Ele olha para a direção onde o bandido fugiu.
     "conversa_sucesso": {
         id: "conversa_sucesso",
         titulo: "Palavras Acalmam",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Suas palavras acalmam o agressor. Ele abaixa o pedaço de madeira.
 
 — Estou com fome... só queria comer...
@@ -105,7 +117,7 @@ O camponês dá metade de um pão e o homem foge.
             nome: "Edrin",
             descricao: "Aliviado por ter escapado sem violência.",
             estado: "amigavel",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "👥 Acompanhar Edrin", acao: "ir_para_cena", destino: "estrada_ravena" },
@@ -117,7 +129,7 @@ O camponês dá metade de um pão e o homem foge.
     "conversa_falha": {
         id: "conversa_falha",
         titulo: "Palavras em Vão",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Suas palavras não o alcançam.
 
 — CHEGA! — ele grita. — VAI MORRER!`,
@@ -125,7 +137,7 @@ O camponês dá metade de um pão e o homem foge.
             nome: "Saqueador",
             descricao: "Enfurecido, parte para cima de você.",
             estado: "hostil",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "⚔️ DEFENDER-SE", acao: "iniciar_combate", inimigo: "saqueador_faminto" }
@@ -136,13 +148,13 @@ O camponês dá metade de um pão e o homem foge.
     "observar_sucesso": {
         id: "observar_sucesso",
         titulo: "Detalhes Importantes",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Você percebe que o camponês tem um símbolo de mercador em sua bolsa. Ele não é quem parece ser.`,
         npc: {
             nome: "???",
             descricao: "Você desconfia deste homem.",
             estado: "neutro",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "⚔️ ATACAR agressor", acao: "iniciar_combate", inimigo: "saqueador_faminto" },
@@ -154,7 +166,7 @@ O camponês dá metade de um pão e o homem foge.
     "estrada_ravena": {
         id: "estrada_ravena",
         titulo: "Caminho para Ravena",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Você e Edrin chegam a Ravena, uma pequena vila pacata.
 
 — Fique à vontade, amigo. Devo minha vida a você.`,
@@ -162,7 +174,7 @@ O camponês dá metade de um pão e o homem foge.
             nome: "Edrin",
             descricao: "Agora em casa, mais relaxado.",
             estado: "amigavel",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "🏨 IR à estalagem", acao: "ir_para_cena", destino: "fim_provisorio" },
@@ -174,7 +186,7 @@ O camponês dá metade de um pão e o homem foge.
     "investigar_saqueador": {
         id: "investigar_saqueador",
         titulo: "Rastro Sangrento",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Você segue o rastro de sangue do saqueador ferido. Ele te leva a uma caverna escondida.
 
 Dentro, você encontra seus pertences: alguns objetos roubados e um diário.
@@ -184,7 +196,7 @@ O diário revela que ele não é apenas um bandido comum...`,
             nome: "—",
             descricao: "Você está sozinho na caverna.",
             estado: "neutro",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "📖 LER o diário", acao: "ir_para_cena", destino: "diario_saqueador" },
@@ -196,7 +208,7 @@ O diário revela que ele não é apenas um bandido comum...`,
     "estrada_solitario": {
         id: "estrada_solitario",
         titulo: "Sozinho na Estrada",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Você segue seu caminho. A estrada se estende à sua frente.
 
 Sua jornada continua...`,
@@ -204,7 +216,7 @@ Sua jornada continua...`,
             nome: "—",
             descricao: "Você está sozinho.",
             estado: "neutro",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "🔄 RECOMEÇAR", acao: "ir_para_cena", destino: "grito_estrada" }
@@ -215,7 +227,7 @@ Sua jornada continua...`,
     "fuga_covarde": {
         id: "fuga_covarde",
         titulo: "Covardia",
-        imagem: "estrada-norte.jpg", // CORRIGIDO
+        imagem: "estrada-norte.jpg",
         narrativa: `Você foge, ignorando os gritos.
 
 A culpa pesa em seus ombros.`,
@@ -223,7 +235,7 @@ A culpa pesa em seus ombros.`,
             nome: "—",
             descricao: "Você está sozinho com sua consciência.",
             estado: "neutro",
-            portrait: "npc-sangue.png" // CORRIGIDO
+            portrait: "npc-sangue.png"
         },
         opcoes: [
             { texto: "🔄 TENTAR NOVAMENTE", acao: "ir_para_cena", destino: "grito_estrada" }
@@ -249,7 +261,7 @@ Novos capítulos em breve!`,
         ]
     },
 
-    // ===== NOVAS CENAS PARA COMPLETAR O FLUXO =====
+    // ===== DIÁRIO DO SAQUEADOR =====
     "diario_saqueador": {
         id: "diario_saqueador",
         titulo: "O Diário do Bandido",
@@ -271,6 +283,7 @@ Você encontra um mapa rabiscado mostrando a localização de um baú.`,
         ]
     },
 
+    // ===== TESOURO ESCONDIDO =====
     "tesouro_escondido": {
         id: "tesouro_escondido",
         titulo: "O Tesouro Escondido",
@@ -296,6 +309,7 @@ Sua aventura rendeu frutos!`,
         ]
     },
 
+    // ===== QUESTIONAR MERCADOR =====
     "questionar_mercador": {
         id: "questionar_mercador",
         titulo: "O Mercador Disfarçado",
