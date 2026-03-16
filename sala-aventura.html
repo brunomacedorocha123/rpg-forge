@@ -1225,7 +1225,8 @@
 
 <script>
 // ============================================
-// SALA AVENTURA - JAVASCRIPT COMPLETO COM PV CORRIGIDO
+// SALA AVENTURA - VERSÃO FIRESTORE
+// PV ATUALIZA NO PAINEL ESQUERDO!
 // ============================================
 
 // ============================================
@@ -1309,7 +1310,6 @@ const elements = {
     btnMagia: document.getElementById('btnMagia'),
     btnFugir: document.getElementById('btnFugir'),
     
-    // Elementos de defesa
     defesaContainer: document.getElementById('defesaContainer'),
     btnDefesaEsquiva: document.getElementById('btnDefesaEsquiva'),
     btnDefesaAparar: document.getElementById('btnDefesaAparar'),
@@ -1492,7 +1492,7 @@ function calcularRDTotal(personagem) {
 }
 
 // ============================================
-// 🔥 FUNÇÃO PARA ATUALIZAR PV NA UI (ADICIONADA)
+// ATUALIZAR PV NA UI
 // ============================================
 function atualizarPVNaUI() {
     console.log('🔄 Atualizando PV na interface...');
@@ -1507,7 +1507,6 @@ function atualizarPVNaUI() {
     
     console.log(`❤️ PV: ${vidaAtual}/${vidaMax}`);
     
-    // Atualizar painel esquerdo
     if (elements.hpText) {
         elements.hpText.textContent = `${vidaAtual}/${vidaMax}`;
     }
@@ -1515,15 +1514,13 @@ function atualizarPVNaUI() {
         const percentual = (vidaAtual / vidaMax) * 100;
         elements.hpBar.style.width = `${percentual}%`;
     }
-    
-    // Atualizar painel de combate
     if (elements.playerHpCombat) {
         elements.playerHpCombat.textContent = vidaAtual;
     }
 }
 
 // ============================================
-// FUNÇÃO PARA ATUALIZAR VALORES DAS DEFESAS
+// ATUALIZAR VALORES DE DEFESA
 // ============================================
 function atualizarValoresDefesa() {
     if (!personagemAtual) return;
@@ -1533,7 +1530,6 @@ function atualizarValoresDefesa() {
     const bloqueio = calcularBloqueio(personagemAtual);
     const rd = calcularRDTotal(personagemAtual);
     
-    // Atualizar painel superior
     if (elements.playerEsquivaCombat) {
         elements.playerEsquivaCombat.textContent = esquiva;
     }
@@ -1547,7 +1543,6 @@ function atualizarValoresDefesa() {
         elements.playerRdCombat.textContent = rd;
     }
     
-    // Atualizar valores nos botões de defesa
     if (elements.defesaEsquivaValor) {
         elements.defesaEsquivaValor.textContent = `(${esquiva}%)`;
     }
@@ -1560,7 +1555,7 @@ function atualizarValoresDefesa() {
 }
 
 // ============================================
-// CARREGAR PERSONAGENS DO USUÁRIO
+// CARREGAR PERSONAGENS
 // ============================================
 async function carregarPersonagens() {
     try {
@@ -1663,9 +1658,16 @@ window.selecionarPersonagem = async function(personagemId) {
             
             personagem.statusCombate = {
                 vidaAtual: pv,
+                vidaMax: pv,
                 manaAtual: pm,
-                fadigaAtual: pf
+                manaMax: pm,
+                fadigaAtual: pf,
+                fadigaMax: pf
             };
+            
+            await docRef.update({
+                statusCombate: personagem.statusCombate
+            });
         }
         
         personagemAtual = personagem;
@@ -1839,7 +1841,7 @@ function atualizarModalStatus() {
 }
 
 // ============================================
-// FUNÇÃO PARA CARREGAR IMAGENS
+// CARREGAR IMAGEM COM FALLBACK
 // ============================================
 function carregarImagemComFallback(elemento, caminho, fallback) {
     if (!elemento) return;
@@ -1902,12 +1904,12 @@ function atualizarCena(cena) {
 }
 
 // ============================================
-// FUNÇÃO INICIAR COMBATE UI
+// INICIAR COMBATE UI
 // ============================================
 function iniciarCombateUI(combate) {
     if (!combate) return;
     
-    console.log('🎯 Iniciando combate UI...');
+    console.log('🎯 Iniciando combate UI...', combate);
     combateAtual = combate;
     
     if (elements.narrativeArea) elements.narrativeArea.style.display = 'none';
@@ -1936,26 +1938,36 @@ function iniciarCombateUI(combate) {
     // ADICIONAR LISTENERS PARA AÇÕES NORMAIS
     elements.btnAtaque.addEventListener('click', function() {
         console.log('⚔️ Botão Atacar clicado');
-        if (combateAtual && !combateAtual.fim && combateAtual.turno === 'jogador' && !combateAtual.aguardandoDefesa) {
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
             combateAtual.atacar();
         } else {
-            if (combateAtual?.fim) mostrarToast('Combate já acabou!', 'normal');
-            else if (combateAtual?.turno !== 'jogador') mostrarToast('Aguarde seu turno!', 'normal');
-            else if (combateAtual?.aguardandoDefesa) mostrarToast('Você precisa defender!', 'normal');
+            if (combateAtual?.status?.fim) mostrarToast('Combate já acabou!', 'normal');
+            else if (combateAtual?.status?.turno !== 'jogador') mostrarToast('Aguarde seu turno!', 'normal');
+            else if (combateAtual?.status?.aguardandoDefesa) mostrarToast('Você precisa defender!', 'normal');
         }
     });
     
     elements.btnDefender.addEventListener('click', function() {
         console.log('🛡️ Botão Defender clicado');
-        if (combateAtual && !combateAtual.fim && combateAtual.turno === 'jogador' && !combateAtual.aguardandoDefesa) {
-            combateAtual.defender();
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
+            combateAtual._log(`🛡️ ${combateAtual.personagem.nome} defende!`);
+            combateAtual._atualizarFirestore({
+                'status.turno': 'inimigo',
+                'bonusDefesa': 10
+            });
+            setTimeout(() => combateAtual._turnoInimigo(), 1000);
         }
     });
     
     elements.btnEsquivar.addEventListener('click', function() {
         console.log('🏃 Botão Esquivar clicado');
-        if (combateAtual && !combateAtual.fim && combateAtual.turno === 'jogador' && !combateAtual.aguardandoDefesa) {
-            combateAtual.esquivar();
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
+            combateAtual._log(`🏃 ${combateAtual.personagem.nome} prepara esquiva!`);
+            combateAtual._atualizarFirestore({
+                'status.turno': 'inimigo',
+                'modoEsquiva': true
+            });
+            setTimeout(() => combateAtual._turnoInimigo(), 1000);
         }
     });
     
@@ -1966,7 +1978,7 @@ function iniciarCombateUI(combate) {
     
     elements.btnFugir.addEventListener('click', function() {
         console.log('🏃 Botão Fugir clicado');
-        if (combateAtual && !combateAtual.fim && combateAtual.turno === 'jogador' && !combateAtual.aguardandoDefesa) {
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
             combateAtual.fugir();
         }
     });
@@ -1974,38 +1986,26 @@ function iniciarCombateUI(combate) {
     // ADICIONAR LISTENERS PARA DEFESAS
     elements.btnDefesaEsquiva.addEventListener('click', function() {
         console.log('🛡️ Defesa: Esquiva');
-        if (combateAtual && combateAtual.aguardandoDefesa) {
+        if (combateAtual && combateAtual.status?.aguardandoDefesa) {
             combateAtual.defenderComEsquiva();
-            // Forçar atualização do PV após defesa
-            setTimeout(atualizarPVNaUI, 100);
         }
     });
     
     elements.btnDefesaAparar.addEventListener('click', function() {
         console.log('⚔️ Defesa: Aparar');
-        if (combateAtual && combateAtual.aguardandoDefesa) {
+        if (combateAtual && combateAtual.status?.aguardandoDefesa) {
             combateAtual.defenderComAparar();
-            setTimeout(atualizarPVNaUI, 100);
         }
     });
     
     elements.btnDefesaBloqueio.addEventListener('click', function() {
         console.log('🛡️ Defesa: Bloqueio');
-        if (combateAtual && combateAtual.aguardandoDefesa) {
+        if (combateAtual && combateAtual.status?.aguardandoDefesa) {
             combateAtual.defenderComBloqueio();
-            setTimeout(atualizarPVNaUI, 100);
         }
     });
     
-    // Atualizar valores das defesas
     atualizarValoresDefesa();
-    
-    setTimeout(() => {
-        if (combateAtual) {
-            console.log('🔄 Botões atualizados após iniciar combate');
-            combateAtual._atualizarUI();
-        }
-    }, 100);
 }
 
 function finalizarCombateUI() {
@@ -2028,12 +2028,11 @@ function adicionarLogCombate(mensagem, tipo) {
 }
 
 // ============================================
-// FUNÇÃO PARA ATUALIZAR UI DE COMBATE
+// ATUALIZAR UI DE COMBATE
 // ============================================
 function atualizarUICombate(estado) {
     if (!aventuraAtual) return;
     
-    // Atualizar elementos básicos
     if (elements.enemyName) elements.enemyName.textContent = estado.inimigo?.nome || 'Inimigo';
     if (elements.enemyHpBar) {
         const pct = estado.inimigoVidaMax > 0 ? (estado.inimigoVida / estado.inimigoVidaMax) * 100 : 0;
@@ -2045,19 +2044,14 @@ function atualizarUICombate(estado) {
         elements.enemyStatus.textContent = estado.inimigoVida > 0 ? 'Vivo' : 'Derrotado';
     }
     
-    // Atualizar PV do personagem
     if (elements.playerHpCombat) {
         elements.playerHpCombat.textContent = estado.personagemVida || 0;
     }
-    
-    // Atualizar outros status
     if (elements.playerPmCombat) elements.playerPmCombat.textContent = estado.personagemMana || 0;
     if (elements.playerPfCombat) elements.playerPfCombat.textContent = estado.personagemFadiga || 0;
     
-    // Atualizar valores de defesa
     atualizarValoresDefesa();
     
-    // Também atualizar o painel esquerdo
     if (personagemAtual && personagemAtual.statusCombate) {
         const vidaMax = calcularPV(personagemAtual);
         const vidaAtual = personagemAtual.statusCombate.vidaAtual;
@@ -2070,7 +2064,6 @@ function atualizarUICombate(estado) {
         }
     }
     
-    // Atualizar indicador de turno
     if (elements.turnIndicator) {
         if (estado.fim) {
             elements.turnIndicator.textContent = '⚔️ Combate Encerrado';
@@ -2087,7 +2080,6 @@ function atualizarUICombate(estado) {
         }
     }
     
-    // Mostrar/esconder container de defesa
     if (elements.defesaContainer) {
         if (estado.aguardandoDefesa) {
             elements.defesaContainer.style.display = 'block';
@@ -2096,14 +2088,13 @@ function atualizarUICombate(estado) {
         }
     }
     
-    // Atualizar botões de ação
     if (aventuraAtual) {
         aventuraAtual.atualizarBotoesCombate(estado);
     }
 }
 
 // ============================================
-// CLASSE AVENTURA
+// CLASSE AVENTURA SOLO
 // ============================================
 class AventuraSolo {
     constructor(personagem, callbacks = {}) {
@@ -2169,14 +2160,16 @@ class AventuraSolo {
     }
     
     iniciarCombate(inimigoId) {
-        if (!window.Combate) {
+        if (!window.CombateFirestore) {
             mostrarToast('Erro: Sistema de combate não carregado!', 'erro');
             return;
         }
         
-        console.log('⚔️ Iniciando combate contra:', inimigoId);
+        console.log('⚔️ Iniciando combate Firestore contra:', inimigoId);
         
-        this.combateAtual = new window.Combate(this.personagem, inimigoId, {
+        const sessaoId = this.personagem.id + '_' + Date.now();
+        
+        this.combateAtual = new window.CombateFirestore(sessaoId, this.personagem, inimigoId, {
             onLog: (msg, tipo) => {
                 this.adicionarLogCombate(msg, tipo);
                 if (this.callbacks.onCombateLog) this.callbacks.onCombateLog(msg, tipo);
@@ -2184,7 +2177,6 @@ class AventuraSolo {
             onAtualizar: (estado) => {
                 this.atualizarUICombate(estado);
                 if (this.callbacks.onCombateUpdate) this.callbacks.onCombateUpdate(estado);
-                // Forçar atualização do PV
                 setTimeout(atualizarPVNaUI, 50);
             },
             onVitoria: (recompensa) => {
@@ -2209,12 +2201,16 @@ class AventuraSolo {
                 if (this.callbacks.onCombateFuga) this.callbacks.onCombateFuga();
                 this.combateAtual = null;
                 this.irParaCena('estrada_solitario');
+            },
+            onIniciar: (estado) => {
+                if (this.callbacks.onCombateIniciar) {
+                    this.callbacks.onCombateIniciar(this.combateAtual);
+                }
+            },
+            onErro: (erro) => {
+                mostrarToast('Erro no combate: ' + erro, 'erro');
             }
         });
-        
-        if (this.callbacks.onCombateIniciar) {
-            this.callbacks.onCombateIniciar(this.combateAtual);
-        }
     }
     
     realizarTestePericia(opcao) {
@@ -2237,23 +2233,6 @@ class AventuraSolo {
                 this.irParaCena(opcao.falha);
             }
         }, 1500);
-    }
-    
-    executarAcaoCombate(acao) {
-        if (!this.combateAtual) return false;
-        
-        console.log('⚔️ Executando ação:', acao);
-        
-        switch(acao) {
-            case 'atacar': return this.combateAtual.atacar();
-            case 'defender': return this.combateAtual.defender();
-            case 'esquivar': return this.combateAtual.esquivar();
-            case 'magia': 
-                mostrarToast('Sistema de magias em desenvolvimento', 'normal');
-                return false;
-            case 'fugir': return this.combateAtual.fugir();
-            default: return false;
-        }
     }
     
     adicionarLogCombate(mensagem, tipo = 'normal') {
@@ -2338,7 +2317,7 @@ async function inicializar() {
         console.log('📦 Sistemas carregados:', {
             CENAS: !!window.CENAS,
             INIMIGOS: !!window.INIMIGOS,
-            Combate: !!window.Combate,
+            CombateFirestore: !!window.CombateFirestore,
             testarPericia: !!window.testarPericia
         });
         
@@ -2369,23 +2348,6 @@ async function inicializar() {
     } finally {
         mostrarLoading(false);
     }
-}
-
-// ============================================
-// SOBRESCREVER MÉTODO _atualizarUI DO COMBATE
-// ============================================
-// Isso garante que quando o combate atualizar a UI, o PV seja atualizado
-if (typeof Combate !== 'undefined') {
-    const originalAtualizarUI = Combate.prototype._atualizarUI;
-    Combate.prototype._atualizarUI = function() {
-        // Chamar o método original
-        originalAtualizarUI.call(this);
-        
-        // Atualizar PV na UI
-        if (typeof atualizarPVNaUI === 'function') {
-            setTimeout(atualizarPVNaUI, 10);
-        }
-    };
 }
 
 // ============================================
@@ -2438,7 +2400,7 @@ window.fecharModal = fecharModal;
 window.processarEscolha = window.processarEscolha;
 window.selecionarPersonagem = window.selecionarPersonagem;
 window.atualizarUICombate = atualizarUICombate;
-window.atualizarPVNaUI = atualizarPVNaUI; // 🔥 EXPORTAR A FUNÇÃO
+window.atualizarPVNaUI = atualizarPVNaUI;
 window.atualizarValoresDefesa = atualizarValoresDefesa;
 </script>
 </body>
