@@ -1,6 +1,7 @@
 // ============================================
 // SISTEMA DE COMBATE AKALANATA - VERSÃO DEFINITIVA
-// ✅ Contador de turnos com fadiga (a cada 5 turnos COMPLETOS)
+// ✅ CORRIGIDO: Agora pega o valor REAL da perícia do personagem
+// ✅ Contador de turnos com fadiga (a cada 5 rodadas)
 // ✅ Crítico/Fulminante completo
 // ✅ Bônus de +10% ataque (defesa fulminante)
 // ✅ Penalidade -15% defesa (ataque fulminante)
@@ -103,7 +104,6 @@ function combateRolarDados(formula) {
     const match = formula.match(regex);
     
     if (!match) {
-        console.warn(`Fórmula de dano inválida: ${formula}`);
         return 1;
     }
     
@@ -131,7 +131,6 @@ function combateRolar2d10() {
         dado1, dado2,
         resultado: resultado,
         str: `[${dado1}][${dado2}] = ${resultado}`,
-        // ✅ Crítico: 1-6 | Falha Crítica: 95-100
         critico: resultado <= 6,
         falhaCritica: resultado >= 95
     };
@@ -179,7 +178,7 @@ function combateGetVIGORPercentual(personagem) {
     return 40 + (esferas * 3);
 }
 
-// ===== CALCULAR NH =====
+// ===== CALCULAR NH - CORRIGIDO: PEGA VALOR REAL DO PERSONAGEM =====
 function combateCalcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
@@ -223,7 +222,6 @@ function combateCalcularEsquiva(personagem, bonusPenalidade = 0) {
     let esquiva = Math.floor((combateGetDXPercentual(personagem) + combateGetVIGORPercentual(personagem)) / 2) + 5;
     if (personagem.vantagens?.includes('reflexosRapidos')) esquiva += 5;
     
-    // Aplicar penalidade de ataque fulminante (-15%)
     esquiva += bonusPenalidade;
     
     return Math.min(80, Math.max(5, esquiva));
@@ -239,7 +237,6 @@ function combateCalcularAparar(personagem, bonusPenalidade = 0) {
     if (personagem.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagem.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
-    // Aplicar penalidade de ataque fulminante (-15%)
     aparar += bonusPenalidade;
     
     return Math.min(80, Math.max(5, aparar));
@@ -257,7 +254,6 @@ function combateCalcularBloqueio(personagem, bonusPenalidade = 0) {
     
     if (personagem.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
     
-    // Aplicar penalidade de ataque fulminante (-15%)
     bloqueio += bonusPenalidade;
     
     return Math.min(85, Math.max(5, bloqueio));
@@ -320,23 +316,20 @@ class CombateFirestore {
         this.combateId = null;
         this.unsubscribe = null;
         
-        // Estado local
         this.inimigo = null;
         this.status = {
             turno: 'jogador',
             rodada: 1,
-            contadorTurnos: 0, // ✅ Contador para fadiga (a cada 5 rodadas COMPLETAS)
+            contadorTurnos: 0,
             fim: false,
             aguardandoDefesa: false,
-            // ✅ Bônus e penalidades para crítico/fulminante
-            bonusProximoAtaque: 0, // +10% da defesa fulminante
-            penalidadeDefesaInimigo: 0, // -15% do ataque fulminante
-            penalidadeDefesaJogador: 0 // -15% da falha crítica no ataque
+            bonusProximoAtaque: 0,
+            penalidadeDefesaInimigo: 0,
+            penalidadeDefesaJogador: 0
         };
         this.ultimoAtaque = null;
         this.log = [];
         
-        // Flag para evitar loop
         this._atualizandoDoSnapshot = false;
         this._ultimaMensagem = null;
         
@@ -345,8 +338,6 @@ class CombateFirestore {
     
     async iniciar() {
         try {
-            console.log('⚔️ Iniciando combate Firestore:', this.inimigoId);
-            
             const inimigoBase = INIMIGOS[this.inimigoId] || INIMIGOS.saqueador_faminto;
             
             if (!this.personagem.statusCombate) {
@@ -390,7 +381,6 @@ class CombateFirestore {
             this._notificarUI();
             
         } catch (error) {
-            console.error('❌ Erro ao iniciar combate:', error);
             if (this.callbacks.onErro) {
                 this.callbacks.onErro(error.message);
             }
@@ -399,7 +389,6 @@ class CombateFirestore {
     
     _notificarUI() {
         if (this.callbacks.onAtualizar) {
-            // Calcular defesas com penalidades atuais
             const esquivaAtual = combateCalcularEsquiva(this.personagem, this.status.penalidadeDefesaJogador);
             const apararAtual = combateCalcularAparar(this.personagem, this.status.penalidadeDefesaJogador);
             const bloqueioAtual = combateCalcularBloqueio(this.personagem, this.status.penalidadeDefesaJogador);
@@ -417,18 +406,15 @@ class CombateFirestore {
                 personagemMana: this.personagem.statusCombate.manaAtual || 0,
                 personagemFadiga: this.personagem.statusCombate.fadigaAtual || 0,
                 inimigo: this.inimigo,
-                // ✅ Enviar bônus/penalidade para UI
                 bonus: this._getBonusInfo()
             });
             
-            // Atualizar valores de defesa na UI global
             if (typeof window.atualizarValoresDefesa === 'function') {
                 window.atualizarValoresDefesa();
             }
         }
     }
     
-    // ✅ Retorna informações sobre bônus/penalidade ativos
     _getBonusInfo() {
         if (this.status.bonusProximoAtaque > 0) {
             return {
@@ -456,7 +442,6 @@ class CombateFirestore {
         }
         
         this._ultimaMensagem = chave;
-        console.log(`[COMBATE] ${mensagem}`);
         
         const entry = {
             mensagem: mensagem,
@@ -477,10 +462,7 @@ class CombateFirestore {
         }, 100);
     }
     
-    // ✅ VERIFICAR FADIGA (CORRIGIDO: Só aumenta no início da rodada)
     async _verificarFadiga() {
-        // Esta função agora é chamada apenas no início da rodada do jogador
-        // O contador já foi incrementado no final da rodada anterior
         if (this.status.contadorTurnos >= 5) {
             this.status.contadorTurnos = 0;
             
@@ -489,26 +471,20 @@ class CombateFirestore {
             
             this._log(`😮‍💨 Fadiga: -1 PF (${pfAntes} → ${this.personagem.statusCombate.fadigaAtual})`, 'normal', true);
             
-            // Atualizar no Firestore se tiver ID
             if (this.personagemId) {
                 try {
                     const db = firebase.firestore();
                     await db.collection('personagens').doc(this.personagemId).update({
                         'statusCombate.fadigaAtual': this.personagem.statusCombate.fadigaAtual
                     });
-                } catch (e) {
-                    console.log('⚠️ Erro ao atualizar fadiga no Firestore:', e);
-                }
+                } catch (e) {}
             }
             
-            // Atualizar UI global
             if (typeof window.atualizarInterfacePersonagem === 'function') {
                 window.atualizarInterfacePersonagem();
             }
         }
     }
-    
-    // ===== AÇÕES DO JOGADOR =====
     
     async atacar() {
         if (this.status.fim || this.status.turno !== 'jogador' || this.status.aguardandoDefesa) {
@@ -517,10 +493,8 @@ class CombateFirestore {
         
         this._log(`👉 ${this.personagem.nome || 'Herói'} ataca!`, 'normal', true);
         
-        // ✅ CORREÇÃO: Verificar fadiga no início do turno do jogador
         await this._verificarFadiga();
         
-        // CALCULAR ATAQUE
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
         let periciaAtaque = 'luta';
         if (arma) {
@@ -530,7 +504,6 @@ class CombateFirestore {
             else if (arma.nome?.toLowerCase().includes('adaga')) periciaAtaque = 'adaga';
         }
         
-        // ✅ Aplicar bônus de defesa fulminante se houver
         let nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
         if (this.status.bonusProximoAtaque > 0) {
             nhJogador += this.status.bonusProximoAtaque;
@@ -544,21 +517,16 @@ class CombateFirestore {
         let foiCritico = false;
         let foiFalhaCritica = false;
         
-        // ✅ SISTEMA DE CRÍTICO/FULMINANTE
         if (rolagemAtaque.critico) {
             acertou = true;
             foiCritico = true;
             this._log(`✨✨ ATAQUE FULMINANTE! (${rolagemAtaque.resultado})`, 'critico', true);
-            
-            // ✅ Ataque fulminante: inimigo tem -15% nas defesas neste turno
             this.status.penalidadeDefesaInimigo = -15;
             
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
             foiFalhaCritica = true;
             this._log(`💥💥 FALHA CRÍTICA NO ATAQUE! (${rolagemAtaque.resultado})`, 'falha', true);
-            
-            // ✅ Falha crítica no ataque: jogador tem -15% nas defesas no próximo turno
             this.status.penalidadeDefesaJogador = -15;
             
         } else {
@@ -568,7 +536,6 @@ class CombateFirestore {
         this._log(`🎲 Rolagem: ${rolagemAtaque.str} vs NH ${nhJogador}% → ${acertou ? 'ACERTOU' : 'ERROU'}`, 'normal', true);
         
         if (acertou) {
-            // DEFESA DO INIMIGO (com penalidade se ataque foi fulminante)
             let defesaInimigo = this.inimigo.derivados?.esquiva || 5;
             if (this.status.penalidadeDefesaInimigo < 0) {
                 defesaInimigo += this.status.penalidadeDefesaInimigo;
@@ -582,15 +549,9 @@ class CombateFirestore {
                 defendeu = true;
                 this._log(`✨ DEFESA FULMINANTE DO INIMIGO!`, 'critico', true);
                 
-                // ✅ Defesa fulminante do inimigo: ele ganha +10% no próximo ataque
-                // (Não afeta o jogador diretamente, mas podemos registrar)
-                
             } else if (rolagemDefesa.falhaCritica) {
                 defendeu = false;
                 this._log(`💥 FALHA CRÍTICA NA DEFESA DO INIMIGO!`, 'falha', true);
-                
-                // ✅ Falha crítica na defesa do inimigo: dano duplicado
-                // Será aplicado no multiplicador de dano
                 
             } else {
                 defendeu = rolagemDefesa.resultado <= defesaInimigo;
@@ -599,16 +560,13 @@ class CombateFirestore {
             this._log(`🛡️ Defesa: ${rolagemDefesa.str} vs ${defesaInimigo}% → ${defendeu ? 'DEFENDEU' : 'FALHOU'}`, 'normal', true);
             
             if (!defendeu) {
-                // CALCULAR DANO
                 let multiplicador = 1;
                 
-                // ✅ Ataque fulminante: dano duplicado
                 if (foiCritico) {
                     multiplicador = 2;
                     this._log(`⚡ Dano duplicado por ataque fulminante!`, 'critico', true);
                 }
                 
-                // ✅ Falha crítica na defesa do inimigo: dano duplicado (se não for crítico, senão seria 4x)
                 if (rolagemDefesa.falhaCritica && !foiCritico) {
                     multiplicador = 2;
                     this._log(`⚡ Dano duplicado por falha crítica na defesa!`, 'dano', true);
@@ -622,10 +580,8 @@ class CombateFirestore {
                 
                 this._log(`💥 DANO: ${danoFinal} (${dano} - ${rdInimigo} RD)`, 'dano', true);
                 
-                // ATUALIZAR
                 this.inimigo.vidaAtual = novaVida;
                 
-                // VERIFICAR MORTE
                 if (novaVida <= 0) {
                     this._log(`💀 ${this.inimigo.nome} foi DERROTADO!`, 'critico', true);
                     
@@ -645,12 +601,8 @@ class CombateFirestore {
             }
         }
         
-        // Limpar penalidade do inimigo após o turno
         this.status.penalidadeDefesaInimigo = 0;
-        
-        // PASSAR TURNO
         this.status.turno = 'inimigo';
-        // ✅ NÃO aumentar contador aqui - só no início da próxima rodada do jogador
         
         this._notificarUI();
         
@@ -664,8 +616,6 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
-        // ✅ REMOVIDO: Não verificar fadiga aqui - só no início do turno do jogador
-        
         const nhInimigo = combateCalcularNHInimigo(this.inimigo);
         const rolagemAtaque = combateRolar2d10();
         
@@ -678,15 +628,10 @@ class CombateFirestore {
             foiCritico = true;
             this._log(`✨✨ ATAQUE FULMINANTE DO INIMIGO! (${rolagemAtaque.resultado})`, 'critico', true);
             
-            // ✅ Ataque fulminante do inimigo: jogador terá -15% nas defesas
-            // Será aplicado na defesa
-            
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
             foiFalhaCritica = true;
             this._log(`💥💥 FALHA CRÍTICA DO INIMIGO! (${rolagemAtaque.resultado})`, 'falha', true);
-            
-            // ✅ Falha crítica do inimigo: ele terá -15% nas defesas no próximo turno
             this.status.penalidadeDefesaInimigo = -15;
             
         } else {
@@ -709,11 +654,7 @@ class CombateFirestore {
             this._log(`🛡️ ESCOLHA SUA DEFESA!`, 'normal', true);
             this._notificarUI();
         } else {
-            // Se inimigo errou, volta para jogador
             this.status.turno = 'jogador';
-            
-            // ✅ CORREÇÃO: Aumentar contador de turnos APENAS quando volta para o jogador
-            // Isso significa que 1 rodada completa (jogador+inimigo) conta como 1 turno
             this.status.contadorTurnos++;
             this.status.rodada = this.status.contadorTurnos + 1;
             
@@ -721,8 +662,6 @@ class CombateFirestore {
             this._notificarUI();
         }
     }
-    
-    // ===== DEFESAS =====
     
     async defenderComEsquiva() {
         await this._processarDefesa('Esquiva', combateCalcularEsquiva(this.personagem, this.status.penalidadeDefesaJogador));
@@ -750,17 +689,12 @@ class CombateFirestore {
             defendeu = true;
             foiCritico = true;
             this._log(`✨✨ DEFESA FULMINANTE! (${tipoDefesa})`, 'critico', true);
-            
-            // ✅ Defesa fulminante: +10% no próximo ataque
             this.status.bonusProximoAtaque = 10;
             
         } else if (rolagemDefesa.falhaCritica) {
             defendeu = false;
             foiFalhaCritica = true;
             this._log(`💥💥 FALHA CRÍTICA NA DEFESA! (${tipoDefesa})`, 'falha', true);
-            
-            // ✅ Falha crítica na defesa: dano duplicado
-            // Será aplicado no multiplicador
             
         } else {
             defendeu = rolagemDefesa.resultado <= defesaBase;
@@ -769,16 +703,13 @@ class CombateFirestore {
         this._log(`🛡️ ${tipoDefesa}: ${rolagemDefesa.str} vs ${defesaBase}% → ${defendeu ? 'DEFENDEU' : 'FALHOU'}`, 'normal', true);
         
         if (!defendeu) {
-            // TOMAR DANO
             let multiplicador = 1;
             
-            // ✅ Ataque fulminante do inimigo: dano duplicado
             if (ataque.foiCritico) {
                 multiplicador = 2;
                 this._log(`⚡ Dano duplicado por ataque fulminante!`, 'dano', true);
             }
             
-            // ✅ Falha crítica na defesa: dano duplicado
             if (foiFalhaCritica && !ataque.foiCritico) {
                 multiplicador = 2;
                 this._log(`⚡ Dano duplicado por falha crítica na defesa!`, 'dano', true);
@@ -793,24 +724,19 @@ class CombateFirestore {
             
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano', true);
             
-            // ATUALIZAR FIRESTORE
             if (this.personagemId) {
                 try {
                     const db = firebase.firestore();
                     await db.collection('personagens').doc(this.personagemId).update({
                         'statusCombate.vidaAtual': this.personagem.statusCombate.vidaAtual
                     });
-                } catch (e) {
-                    console.log('⚠️ Erro ao atualizar personagem:', e);
-                }
+                } catch (e) {}
             }
             
-            // ATUALIZAR UI GLOBAL
             if (typeof window.atualizarInterfacePersonagem === 'function') {
                 window.atualizarInterfacePersonagem();
             }
             
-            // VERIFICAR MORTE
             if (this.personagem.statusCombate.vidaAtual <= 0) {
                 this._log(`💀 ${this.personagem.nome || 'Herói'} foi DERROTADO!`, 'falha', true);
                 
@@ -827,21 +753,17 @@ class CombateFirestore {
             }
         }
         
-        // Limpar penalidade do jogador após a defesa
         this.status.penalidadeDefesaJogador = 0;
         this.status.aguardandoDefesa = false;
         this.status.turno = 'jogador';
         this.ultimoAtaque = null;
         
-        // ✅ Aumentar contador de turnos quando volta para o jogador
         this.status.contadorTurnos++;
         this.status.rodada = this.status.contadorTurnos + 1;
         
         this._log(`✨ SEU TURNO!`, 'critico', true);
         this._notificarUI();
     }
-    
-    // ===== OUTRAS AÇÕES =====
     
     async fugir() {
         if (this.status.fim || this.status.turno !== 'jogador') return false;
@@ -894,11 +816,6 @@ if (typeof window !== 'undefined') {
     window.combateCalcularBloqueio = combateCalcularBloqueio;
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
-    
-    console.log('✅ Sistema de Combate COMPLETO carregado!');
-    console.log('✅ Contador de turnos com fadiga a cada 5 rodadas!');
-    console.log('✅ Crítico (1-6) e Falha Crítica (95-100) implementados!');
-    console.log('✅ Bônus de +10% e penalidade de -15% ativos!');
 }
 
 if (typeof module !== 'undefined' && module.exports) {
