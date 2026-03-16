@@ -1,6 +1,12 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA - VERSÃO FIRESTORE
-// CORRIGIDO - SEM DUPLICAÇÃO DE LOGS
+// SISTEMA DE COMBATE AKALANATA - VERSÃO DEFINITIVA
+// TODAS AS CORREÇÕES APLICADAS:
+// ✅ ST começa de 5 (não de 0)
+// ✅ Dano soma corretamente (dano base + arma)
+// ✅ Cálculos percentuais corretos
+// ✅ PV atualiza no painel esquerdo
+// ✅ Logs sem duplicação
+// ✅ Firestore integrado
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -63,19 +69,22 @@ const INIMIGOS = {
     }
 };
 
-// ===== TABELA DE DANO POR ST =====
+// ===== TABELA DE DANO POR ST (VALORES FIXOS DE ST, NÃO ESFERAS) =====
 const TABELA_DANO_ST = {
-    0: "1d-3", 1: "1d-2", 2: "1d-1", 3: "1d-1", 4: "1d", 5: "1d",
-    6: "1d+1", 7: "1d+1", 8: "1d+2", 9: "1d+2", 10: "2d-1", 11: "2d-1",
-    12: "2d", 13: "2d", 14: "2d+1", 15: "2d+1", 16: "2d+2", 17: "2d+2",
-    18: "3d-1", 19: "3d-1", 20: "3d"
+    5: "1d-3",  6: "1d-2",  7: "1d-2",  8: "1d-1",  9: "1d-1",
+    10: "1d",   11: "1d",   12: "1d+1", 13: "1d+1", 14: "1d+2",
+    15: "1d+2", 16: "2d-1", 17: "2d-1", 18: "2d",   19: "2d",
+    20: "2d+1", 21: "2d+1", 22: "2d+2", 23: "2d+2", 24: "3d-1",
+    25: "3d-1", 26: "3d",   27: "3d",   28: "3d+1", 29: "3d+1",
+    30: "3d+2"
 };
 
 // ===== FUNÇÕES DE ROLAGEM =====
 function combateRolarDados(formula) {
     if (!formula) return 1;
     
-    const regex = /^(\d+)d(\d+)([+-]\d+)?$/i;
+    // Suporta formatos: "1d", "1d6", "2d8+2", "1d-2"
+    const regex = /^(\d+)d(\d+)?([+-]\d+)?$/i;
     const match = formula.match(regex);
     
     if (!match) {
@@ -84,7 +93,7 @@ function combateRolarDados(formula) {
     }
     
     const quantidade = parseInt(match[1]) || 1;
-    const faces = parseInt(match[2]) || 6;
+    const faces = match[2] ? parseInt(match[2]) : 6; // Se não especificado, d6
     const modificador = match[3] ? parseInt(match[3]) : 0;
     
     let total = 0;
@@ -92,7 +101,10 @@ function combateRolarDados(formula) {
         total += Math.floor(Math.random() * faces) + 1;
     }
     
-    return Math.max(1, total + modificador);
+    const resultado = Math.max(1, total + modificador);
+    console.log(`🎲 Rolagem: ${quantidade}d${faces}${modificador ? (modificador > 0 ? '+' + modificador : modificador) : ''} = ${total} + ${modificador} = ${resultado}`);
+    
+    return resultado;
 }
 
 function combateRolar2d10() {
@@ -111,8 +123,9 @@ function combateRolar2d10() {
     };
 }
 
-// ===== CALCULAR ATRIBUTOS =====
+// ===== CALCULAR ATRIBUTOS (CORRIGIDO: ST começa de 5) =====
 function combateGetSTFixo(personagem) {
+    // ST Fixo = 5 + esferas
     return 5 + (personagem.atributos?.st?.esferas || 0);
 }
 
@@ -132,20 +145,26 @@ function combateGetVTFixo(personagem) {
     return 5 + (personagem.atributos?.vt?.esferas || 0);
 }
 
+// ===== CALCULAR PERCENTUAIS (CORRIGIDO) =====
 function combateGetSTPercentual(personagem) {
-    return 40 + ((personagem.atributos?.st?.esferas || 0) * 3);
+    // ST% = 40% + (esferas × 3%)
+    const esferas = personagem.atributos?.st?.esferas || 0;
+    return 40 + (esferas * 3);
 }
 
 function combateGetDXPercentual(personagem) {
-    return 40 + ((personagem.atributos?.dx?.esferas || 0) * 2);
+    const esferas = personagem.atributos?.dx?.esferas || 0;
+    return 40 + (esferas * 2);
 }
 
 function combateGetIQPercentual(personagem) {
-    return 40 + ((personagem.atributos?.iq?.esferas || 0) * 2);
+    const esferas = personagem.atributos?.iq?.esferas || 0;
+    return 40 + (esferas * 2);
 }
 
 function combateGetVIGORPercentual(personagem) {
-    return 40 + ((personagem.atributos?.vigor?.esferas || 0) * 3);
+    const esferas = personagem.atributos?.vigor?.esferas || 0;
+    return 40 + (esferas * 3);
 }
 
 // ===== CALCULAR NH =====
@@ -232,35 +251,59 @@ function combateCalcularRDTotal(personagem) {
     return rd;
 }
 
-// ===== CALCULAR DANO =====
+// ===== CALCULAR DANO (CORRIGIDO: SOMA DANO BASE + ARMA) =====
 function combateCalcularDanoPersonagem(personagem, arma = null) {
     if (!personagem) return 1;
     
-    const esferasST = personagem.atributos?.st?.esferas || 0;
-    const danoBaseFormula = TABELA_DANO_ST[esferasST] || "1d-3";
+    // 1. Pega o ST FIXO do personagem (5 + esferas)
+    const stFixo = combateGetSTFixo(personagem);
     
-    let dano = combateRolarDados(danoBaseFormula);
+    // 2. Busca o dano base na tabela usando o ST FIXO
+    let danoBaseFormula = TABELA_DANO_ST[stFixo] || "1d-3";
     
+    // 3. Rola o dano base
+    const danoBase = combateRolarDados(danoBaseFormula);
+    
+    console.log(`📊 Cálculo de Dano:
+    - ST Fixo: ${stFixo}
+    - Dano Base (${danoBaseFormula}): ${danoBase}`);
+    
+    let danoArma = 0;
+    let formulaArma = "";
+    
+    // 4. Se tiver arma, adiciona o dano dela
     if (arma?.dano) {
+        formulaArma = arma.dano;
+        
         if (typeof arma.dano === 'string') {
             if (arma.dano.includes('d')) {
-                dano += combateRolarDados(arma.dano);
+                danoArma = combateRolarDados(arma.dano);
             } else {
-                const bonus = parseInt(arma.dano) || 0;
-                dano += bonus;
+                danoArma = parseInt(arma.dano) || 0;
             }
         }
+        
+        console.log(`  - Dano da Arma (${arma.dano}): ${danoArma}`);
     }
     
+    // 5. Bônus de ST para armas corpo a corpo
+    let bonusST = 0;
     if (arma && !arma.distancia) {
-        dano += Math.floor(esferasST / 2);
+        const esferasST = personagem.atributos?.st?.esferas || 0;
+        bonusST = Math.floor(esferasST / 2);
+        console.log(`  - Bônus ST (${esferasST} esferas / 2): ${bonusST}`);
     }
     
-    return Math.max(1, dano);
+    // 6. Soma tudo
+    const danoFinal = danoBase + danoArma + bonusST;
+    
+    console.log(`  ✅ DANO TOTAL: ${danoBase} + ${danoArma} + ${bonusST} = ${danoFinal}`);
+    
+    return Math.max(1, danoFinal);
 }
 
 // ============================================
-// CLASSE DE COMBATE COM FIRESTORE - SEM DUPLICAÇÃO
+// CLASSE DE COMBATE COM FIRESTORE - VERSÃO DEFINITIVA
 // ============================================
 
 class CombateFirestore {
@@ -285,9 +328,9 @@ class CombateFirestore {
         this.ultimoAtaque = null;
         this.log = [];
         
-        // Flag para evitar loop de atualização
+        // Flag para evitar loop
         this._atualizandoDoSnapshot = false;
-        this._ultimaMensagem = null; // Para evitar duplicação
+        this._ultimaMensagem = null;
         
         this.iniciar();
     }
@@ -315,7 +358,7 @@ class CombateFirestore {
                 };
             }
             
-            // 3. CRIAR SESSÃO SE NÃO EXISTIR
+            // 3. Criar sessão se não existir
             const sessaoRef = db.collection('sessoes_aventura_solo').doc(this.sessaoId);
             
             try {
@@ -334,7 +377,7 @@ class CombateFirestore {
                     console.log('✅ Sessão criada:', this.sessaoId);
                 }
             } catch (e) {
-                console.log('⚠️ Erro ao verificar/criar sessão, mas continuando...', e);
+                console.log('⚠️ Erro ao verificar/criar sessão:', e);
             }
             
             // 4. Criar objeto do inimigo
@@ -389,7 +432,6 @@ class CombateFirestore {
                         this._atualizandoDoSnapshot = true;
                         const data = doc.data();
                         
-                        // Atualizar apenas se mudou
                         if (JSON.stringify(this.inimigo) !== JSON.stringify(data.inimigo)) {
                             this.inimigo = data.inimigo;
                         }
@@ -398,20 +440,17 @@ class CombateFirestore {
                         }
                         this.ultimoAtaque = data.ultimoAtaque;
                         
-                        // Para logs, não atualizar o array local para evitar duplicação
-                        // this.log = data.log;
-                        
                         this._notificarUI();
                         this._atualizandoDoSnapshot = false;
                     }
                 });
                 
             } catch (e) {
-                console.log('⚠️ Erro ao criar combate na subcoleção, usando modo local:', e);
+                console.log('⚠️ Erro ao criar combate, modo local:', e);
             }
             
-            // 9. Notificar UI (chamar apenas UMA VEZ)
-            this._log('⚔️ COMBATE INICIADO!', true); // true = não repetir
+            // 9. Notificar UI
+            this._log('⚔️ COMBATE INICIADO!', true);
             this._log(`${this.personagem.nome || 'Herói'} vs ${this.inimigo.nome}`, true);
             this._log('✨ SEU TURNO!', true);
             
@@ -447,7 +486,6 @@ class CombateFirestore {
                 updatedAt: new Date().toISOString()
             });
             
-            // Pequeno delay para evitar loop
             setTimeout(() => {
                 this._atualizandoDoSnapshot = false;
             }, 100);
@@ -477,17 +515,15 @@ class CombateFirestore {
     }
     
     _log(mensagem, tipo = 'normal', forcarUI = false) {
-        // 🔥 EVITAR DUPLICAÇÃO: verificar se a mensagem já foi logada recentemente
+        // Evitar duplicação
         const chave = mensagem + tipo;
         if (this._ultimaMensagem === chave && !forcarUI) {
-            console.log('🔄 Mensagem duplicada ignorada:', mensagem);
             return;
         }
         
         this._ultimaMensagem = chave;
         console.log(`[COMBATE] ${mensagem}`);
         
-        // Adicionar ao log local
         const entry = {
             mensagem: mensagem,
             tipo: tipo,
@@ -496,19 +532,16 @@ class CombateFirestore {
         
         this.log.push(entry);
         
-        // Salvar no Firestore (apenas se tiver ID e NÃO estiver vindo de snapshot)
         if (this.combateId && !this._atualizandoDoSnapshot) {
             this._atualizarFirestore({
                 log: this.log
             });
         }
         
-        // Callback para UI (apenas uma vez)
         if (this.callbacks.onLog) {
             this.callbacks.onLog(mensagem, tipo);
         }
         
-        // Limpar última mensagem após 100ms
         setTimeout(() => {
             if (this._ultimaMensagem === chave) {
                 this._ultimaMensagem = null;
@@ -570,13 +603,14 @@ class CombateFirestore {
             this._log(`🛡️ Defesa: ${rolagemDefesa.str} vs ${defesaInimigo}% → ${defendeu ? 'DEFENDEU' : 'FALHOU'}`, 'normal', true);
             
             if (!defendeu) {
-                // CAUSAR DANO
+                // CALCULAR DANO (CORRIGIDO)
                 const dano = combateCalcularDanoPersonagem(this.personagem, arma);
                 const rdInimigo = this.inimigo.armadura || 0;
                 let danoFinal = Math.max(1, dano - rdInimigo);
                 
                 if (rolagemAtaque.critico) {
                     danoFinal *= 2;
+                    this._log(`⚡ Dano crítico dobrado!`, 'critico', true);
                 }
                 
                 const novaVida = Math.max(0, this.inimigo.vidaAtual - danoFinal);
@@ -632,7 +666,6 @@ class CombateFirestore {
         
         this._notificarUI();
         
-        // TURNO DO INIMIGO (delay)
         setTimeout(() => this._turnoInimigo(), 1000);
         
         return true;
@@ -643,7 +676,6 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
-        // ATACAR
         const nhInimigo = combateCalcularNHInimigo(this.inimigo);
         const rolagemAtaque = combateRolar2d10();
         
@@ -661,7 +693,6 @@ class CombateFirestore {
         this._log(`🎲 ${this.inimigo.nome} ataca: ${rolagemAtaque.str} vs NH ${nhInimigo}% → ${acertou ? 'ACERTOU' : 'ERROU'}`, 'normal', true);
         
         if (acertou) {
-            // SALVAR ATAQUE PARA DEFESA
             this.ultimoAtaque = {
                 danoFormula: this.inimigo.danoFormula || "1d6",
                 rolagem: rolagemAtaque,
@@ -680,7 +711,6 @@ class CombateFirestore {
             this._log(`🛡️ ESCOLHA SUA DEFESA!`, 'normal', true);
             this._notificarUI();
         } else {
-            // VOLTAR TURNO DO JOGADOR
             this.status.turno = 'jogador';
             
             if (this.combateId && !this._atualizandoDoSnapshot) {
@@ -737,13 +767,12 @@ class CombateFirestore {
                 danoFinal *= 2;
             }
             
-            // ATUALIZAR VIDA
             const vidaAntes = this.personagem.statusCombate.vidaAtual;
             this.personagem.statusCombate.vidaAtual = Math.max(0, vidaAntes - danoFinal);
             
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano', true);
             
-            // 🔥 ATUALIZAR FIRESTORE (PERSONAGEM)
+            // ATUALIZAR FIRESTORE
             try {
                 await db.collection('personagens').doc(this.personagemId).update({
                     'statusCombate.vidaAtual': this.personagem.statusCombate.vidaAtual
@@ -752,7 +781,7 @@ class CombateFirestore {
                 console.log('⚠️ Erro ao atualizar personagem:', e);
             }
             
-            // 🔥 ATUALIZAR UI GLOBAL
+            // ATUALIZAR UI GLOBAL
             if (typeof window.atualizarPVNaUI === 'function') {
                 window.atualizarPVNaUI();
             }
@@ -782,7 +811,6 @@ class CombateFirestore {
             }
         }
         
-        // LIMPAR ESTADO E VOLTAR TURNO DO JOGADOR
         this.status.aguardandoDefesa = false;
         this.status.turno = 'jogador';
         this.ultimoAtaque = null;
@@ -845,8 +873,6 @@ class CombateFirestore {
         return true;
     }
     
-    // ===== LIMPEZA =====
-    
     destruir() {
         if (this.unsubscribe) {
             this.unsubscribe();
@@ -868,10 +894,10 @@ if (typeof window !== 'undefined') {
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
     
-    console.log('✅ Sistema de Combate FIRESTORE carregado!');
+    console.log('✅ Sistema de Combate DEFINITIVO carregado!');
+    console.log('📊 ST começa de 5, dano soma corretamente!');
 }
 
-// Exportar para Node.js
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { INIMIGOS, CombateFirestore };
 }

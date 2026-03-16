@@ -1225,8 +1225,8 @@
 
 <script>
 // ============================================
-// SALA AVENTURA - VERSÃO FINAL FUNCIONAL
-// LOGS FUNCIONANDO E SEM DUPLICAÇÃO
+// SALA AVENTURA - VERSÃO FINAL CORRIGIDA
+// AGORA A HISTÓRIA CONTINUA APÓS DERROTAR O INIMIGO!
 // ============================================
 
 // ============================================
@@ -2175,12 +2175,8 @@ class AventuraSolo {
         const sessaoId = this.personagem.id + '_' + Date.now();
         
         this.combateAtual = new window.CombateFirestore(sessaoId, this.personagem, inimigoId, {
-            // 🔥 CALLBACK onLog - ESSENCIAL PARA MOSTRAR OS TEXTOS!
             onLog: (mensagem, tipo) => {
-                // Chama o método da classe para adicionar ao log
                 this.adicionarLogCombate(mensagem, tipo);
-                
-                // Também chama o callback externo se existir
                 if (this.callbacks.onCombateLog) {
                     this.callbacks.onCombateLog(mensagem, tipo);
                 }
@@ -2191,34 +2187,64 @@ class AventuraSolo {
                 if (this.callbacks.onCombateUpdate) this.callbacks.onCombateUpdate(estado);
                 setTimeout(atualizarPVNaUI, 50);
             },
+            
+            // 🔥 CORREÇÃO: onVitoria com finalizarCombateUI()
             onVitoria: (recompensa) => {
+                // Adicionar recompensa
                 this.inventarioTemp.ouro += recompensa.ouro;
+                
+                // Mostrar toast
                 mostrarToast(`Vitória! +${recompensa.xp} XP, +${recompensa.ouro} ouro`);
-                if (this.callbacks.onCombateVitoria) this.callbacks.onCombateVitoria(recompensa);
+                
+                // Chamar callback externo se existir
+                if (this.callbacks.onCombateVitoria) {
+                    this.callbacks.onCombateVitoria(recompensa);
+                }
+                
+                // 🔥 FINALIZAR COMBATE UI PRIMEIRO
+                if (typeof finalizarCombateUI === 'function') {
+                    finalizarCombateUI();
+                }
+                
+                // 🔥 DEPOIS IR PARA PRÓXIMA CENA
                 setTimeout(() => {
                     this.combateAtual = null;
                     this.irParaCena('pos_combate');
-                }, 2000);
+                }, 1500);
             },
+            
             onDerrota: () => {
                 mostrarToast('Você foi derrotado!', 'erro');
                 if (this.callbacks.onCombateDerrota) this.callbacks.onCombateDerrota();
+                
+                if (typeof finalizarCombateUI === 'function') {
+                    finalizarCombateUI();
+                }
+                
                 setTimeout(() => {
                     this.combateAtual = null;
                     this.irParaCena('fuga_covarde');
                 }, 2000);
             },
+            
             onFuga: () => {
                 mostrarToast('Fugiu do combate!');
                 if (this.callbacks.onCombateFuga) this.callbacks.onCombateFuga();
+                
+                if (typeof finalizarCombateUI === 'function') {
+                    finalizarCombateUI();
+                }
+                
                 this.combateAtual = null;
                 this.irParaCena('estrada_solitario');
             },
+            
             onIniciar: (estado) => {
                 if (this.callbacks.onCombateIniciar) {
                     this.callbacks.onCombateIniciar(this.combateAtual);
                 }
             },
+            
             onErro: (erro) => {
                 mostrarToast('Erro no combate: ' + erro, 'erro');
             }
