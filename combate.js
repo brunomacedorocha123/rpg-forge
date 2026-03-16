@@ -193,7 +193,7 @@ function combateCalcularNH(personagem, periciaId) {
     return Math.min(95, Math.max(5, nh));
 }
 
-// ===== CALCULAR NH DO INIMIGO (USANDO PERÍCIAS) =====
+// ===== CALCULAR NH DO INIMIGO =====
 function combateCalcularNHInimigo(inimigo) {
     let nh = 40; // base mínima
     
@@ -298,8 +298,10 @@ class Combate {
         this.fim = false;
         this._processando = false;
         this._timeout = null;
-        this.aguardandoDefesa = false; // Aguardando jogador escolher defesa
-        this.ultimoAtaqueInimigo = null; // Dados do último ataque para defesa
+        this.aguardandoDefesa = false;
+        this.ultimoAtaqueInimigo = null;
+        this.bonusDefesa = 0;
+        this.modoEsquiva = false;
         
         // Garantir status de combate do personagem
         if (!this.personagem.statusCombate) {
@@ -342,6 +344,8 @@ class Combate {
                 inimigoVidaMax: this.inimigo.vidaMax || 0,
                 personagemVida: this.personagem.statusCombate?.vidaAtual || 0,
                 personagemVidaMax: this._calcularVidaMax(),
+                personagemMana: this.personagem.statusCombate?.manaAtual || 0,
+                personagemFadiga: this.personagem.statusCombate?.fadigaAtual || 0,
                 isPlayerTurn: this.turno === 'jogador' && !this.fim && !this.aguardandoDefesa
             });
         }
@@ -380,7 +384,6 @@ class Combate {
     // ===== AÇÕES DO JOGADOR =====
     
     atacar() {
-        // Verificações
         if (this._processando || this.fim || this.turno !== 'jogador' || this.aguardandoDefesa) {
             return false;
         }
@@ -472,6 +475,7 @@ class Combate {
         
         // FINALIZAR TURNO DO JOGADOR
         this._processando = false;
+        this._atualizarUI();
         this._finalizarTurnoJogador();
         return true;
     }
@@ -484,10 +488,10 @@ class Combate {
         this._log(`🛡️ ${this.personagem.nome} defende!`);
         this._processando = true;
         
-        // Bônus de defesa para o próximo turno
         this.bonusDefesa = 10;
         
         this._processando = false;
+        this._atualizarUI();
         this._finalizarTurnoJogador();
         return true;
     }
@@ -500,10 +504,10 @@ class Combate {
         this._log(`🏃 ${this.personagem.nome} prepara esquiva!`);
         this._processando = true;
         
-        // Próxima defesa será com esquiva
         this.modoEsquiva = true;
         
         this._processando = false;
+        this._atualizarUI();
         this._finalizarTurnoJogador();
         return true;
     }
@@ -516,7 +520,7 @@ class Combate {
         this._processando = true;
         
         const dxEsferas = this.personagem.atributos?.dx?.esferas || 0;
-        const chanceFuga = 40 + (dxEsferas * 2) + 20; // DX% + 20%
+        const chanceFuga = 40 + (dxEsferas * 2) + 20;
         
         const rolagem = combateRolar2d10();
         
@@ -533,13 +537,14 @@ class Combate {
         } else {
             this._log(`❌ Falhou ao tentar fugir! Rolagem: ${rolagem.str} vs ${chanceFuga}%`, 'falha');
             this._processando = false;
+            this._atualizarUI();
             this._finalizarTurnoJogador();
         }
         
         return true;
     }
     
-    // ===== DEFESAS DO JOGADOR (quando inimigo ataca) =====
+    // ===== DEFESAS DO JOGADOR =====
     
     defenderComEsquiva() {
         if (!this.aguardandoDefesa || !this.ultimoAtaqueInimigo) return false;
@@ -604,12 +609,16 @@ class Combate {
                 danoFinal *= 2;
             }
             
+            // APLICAR O DANO
             this.personagem.statusCombate.vidaAtual -= danoFinal;
             if (this.personagem.statusCombate.vidaAtual < 0) {
                 this.personagem.statusCombate.vidaAtual = 0;
             }
             
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano');
+            
+            // ATUALIZAR UI IMEDIATAMENTE
+            this._atualizarUI();
             
             // VERIFICAR SE MORREU
             if (this.personagem.statusCombate.vidaAtual <= 0) {
@@ -647,7 +656,6 @@ class Combate {
         this._log(`--- Rodada ${this.rodada} ---`);
         this._log(`👹 Turno de ${this.inimigo.nome}`);
         
-        // 1. INIMIGO SEMPRE ATACA (não tem agressividade)
         this._inimigoAtacar();
     }
     
@@ -687,6 +695,7 @@ class Combate {
         }
         
         // SE ERROU, FINALIZA TURNO
+        this._atualizarUI();
         this._finalizarTurnoInimigo();
     }
     
