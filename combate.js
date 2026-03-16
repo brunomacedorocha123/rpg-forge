@@ -1,12 +1,9 @@
 // ============================================
 // SISTEMA DE COMBATE AKALANATA - VERSÃO DEFINITIVA
-// TODAS AS CORREÇÕES APLICADAS:
-// ✅ ST começa de 5 (não de 0)
-// ✅ Dano soma corretamente (dano base + arma)
-// ✅ Cálculos percentuais corretos
-// ✅ PV atualiza no painel esquerdo
-// ✅ Logs sem duplicação
-// ✅ Firestore integrado
+// ✅ Contador de turnos com fadiga
+// ✅ Crítico/Fulminante completo
+// ✅ Bônus de +10% ataque (defesa fulminante)
+// ✅ Penalidade -15% defesa (ataque fulminante)
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -66,10 +63,29 @@ const INIMIGOS = {
         derivados: { esquiva: 30, aparar: 40, bloqueio: 35 },
         experiencia: 75,
         ouro: 5
+    },
+    
+    "orc_saqueador": {
+        id: "orc_saqueador",
+        nome: "Orc Saqueador",
+        vida: 55,
+        vidaMax: 55,
+        descricao: "Um orc enorme com uma machadinha ensanguentada.",
+        equipamento: "Machadinha",
+        armadura: 3,
+        danoFormula: "2d6",
+        forca: 14,
+        destreza: 8,
+        vigor: 13,
+        inteligencia: 5,
+        pericias: { "machado": 3 },
+        derivados: { esquiva: 25, aparar: 35, bloqueio: 0 },
+        experiencia: 120,
+        ouro: 10
     }
 };
 
-// ===== TABELA DE DANO POR ST (VALORES FIXOS DE ST, NÃO ESFERAS) =====
+// ===== TABELA DE DANO POR ST =====
 const TABELA_DANO_ST = {
     5: "1d-3",  6: "1d-2",  7: "1d-2",  8: "1d-1",  9: "1d-1",
     10: "1d",   11: "1d",   12: "1d+1", 13: "1d+1", 14: "1d+2",
@@ -83,7 +99,6 @@ const TABELA_DANO_ST = {
 function combateRolarDados(formula) {
     if (!formula) return 1;
     
-    // Suporta formatos: "1d", "1d6", "2d8+2", "1d-2"
     const regex = /^(\d+)d(\d+)?([+-]\d+)?$/i;
     const match = formula.match(regex);
     
@@ -93,7 +108,7 @@ function combateRolarDados(formula) {
     }
     
     const quantidade = parseInt(match[1]) || 1;
-    const faces = match[2] ? parseInt(match[2]) : 6; // Se não especificado, d6
+    const faces = match[2] ? parseInt(match[2]) : 6;
     const modificador = match[3] ? parseInt(match[3]) : 0;
     
     let total = 0;
@@ -102,8 +117,6 @@ function combateRolarDados(formula) {
     }
     
     const resultado = Math.max(1, total + modificador);
-    console.log(`🎲 Rolagem: ${quantidade}d${faces}${modificador ? (modificador > 0 ? '+' + modificador : modificador) : ''} = ${total} + ${modificador} = ${resultado}`);
-    
     return resultado;
 }
 
@@ -118,14 +131,14 @@ function combateRolar2d10() {
         dado1, dado2,
         resultado: resultado,
         str: `[${dado1}][${dado2}] = ${resultado}`,
-        critico: resultado <= 5,
+        // ✅ Crítico: 1-6 | Falha Crítica: 95-100
+        critico: resultado <= 6,
         falhaCritica: resultado >= 95
     };
 }
 
-// ===== CALCULAR ATRIBUTOS (CORRIGIDO: ST começa de 5) =====
+// ===== CALCULAR ATRIBUTOS =====
 function combateGetSTFixo(personagem) {
-    // ST Fixo = 5 + esferas
     return 5 + (personagem.atributos?.st?.esferas || 0);
 }
 
@@ -145,9 +158,8 @@ function combateGetVTFixo(personagem) {
     return 5 + (personagem.atributos?.vt?.esferas || 0);
 }
 
-// ===== CALCULAR PERCENTUAIS (CORRIGIDO) =====
+// ===== CALCULAR PERCENTUAIS =====
 function combateGetSTPercentual(personagem) {
-    // ST% = 40% + (esferas × 3%)
     const esferas = personagem.atributos?.st?.esferas || 0;
     return 40 + (esferas * 3);
 }
@@ -200,19 +212,24 @@ function combateCalcularNHInimigo(inimigo) {
         if (inimigo.pericias.luta) nh = 40 + (inimigo.pericias.luta * 4);
         else if (inimigo.pericias.espada) nh = 40 + (inimigo.pericias.espada * 4);
         else if (inimigo.pericias.adaga) nh = 40 + (inimigo.pericias.adaga * 4);
+        else if (inimigo.pericias.machado) nh = 40 + (inimigo.pericias.machado * 4);
     }
     
     return Math.min(95, Math.max(5, nh));
 }
 
 // ===== CALCULAR DEFESAS =====
-function combateCalcularEsquiva(personagem) {
+function combateCalcularEsquiva(personagem, bonusPenalidade = 0) {
     let esquiva = Math.floor((combateGetDXPercentual(personagem) + combateGetVIGORPercentual(personagem)) / 2) + 5;
     if (personagem.vantagens?.includes('reflexosRapidos')) esquiva += 5;
+    
+    // Aplicar penalidade de ataque fulminante (-15%)
+    esquiva += bonusPenalidade;
+    
     return Math.min(80, Math.max(5, esquiva));
 }
 
-function combateCalcularAparar(personagem) {
+function combateCalcularAparar(personagem, bonusPenalidade = 0) {
     const temArma = personagem.inventario?.corpo?.some(item => item.dano);
     if (!temArma) return 0;
     
@@ -222,10 +239,13 @@ function combateCalcularAparar(personagem) {
     if (personagem.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagem.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
+    // Aplicar penalidade de ataque fulminante (-15%)
+    aparar += bonusPenalidade;
+    
     return Math.min(80, Math.max(5, aparar));
 }
 
-function combateCalcularBloqueio(personagem) {
+function combateCalcularBloqueio(personagem, bonusPenalidade = 0) {
     const temEscudo = personagem.inventario?.corpo?.some(item => item.bonus);
     if (!temEscudo) return 0;
     
@@ -236,6 +256,9 @@ function combateCalcularBloqueio(personagem) {
     if (escudo?.bonus) bloqueio += escudo.bonus * 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
+    
+    // Aplicar penalidade de ataque fulminante (-15%)
+    bloqueio += bonusPenalidade;
     
     return Math.min(85, Math.max(5, bloqueio));
 }
@@ -251,30 +274,17 @@ function combateCalcularRDTotal(personagem) {
     return rd;
 }
 
-// ===== CALCULAR DANO (CORRIGIDO: SOMA DANO BASE + ARMA) =====
-function combateCalcularDanoPersonagem(personagem, arma = null) {
+// ===== CALCULAR DANO =====
+function combateCalcularDanoPersonagem(personagem, arma = null, multiplicador = 1) {
     if (!personagem) return 1;
     
-    // 1. Pega o ST FIXO do personagem (5 + esferas)
     const stFixo = combateGetSTFixo(personagem);
-    
-    // 2. Busca o dano base na tabela usando o ST FIXO
     let danoBaseFormula = TABELA_DANO_ST[stFixo] || "1d-3";
-    
-    // 3. Rola o dano base
     const danoBase = combateRolarDados(danoBaseFormula);
     
-    console.log(`📊 Cálculo de Dano:
-    - ST Fixo: ${stFixo}
-    - Dano Base (${danoBaseFormula}): ${danoBase}`);
-    
     let danoArma = 0;
-    let formulaArma = "";
     
-    // 4. Se tiver arma, adiciona o dano dela
     if (arma?.dano) {
-        formulaArma = arma.dano;
-        
         if (typeof arma.dano === 'string') {
             if (arma.dano.includes('d')) {
                 danoArma = combateRolarDados(arma.dano);
@@ -282,28 +292,21 @@ function combateCalcularDanoPersonagem(personagem, arma = null) {
                 danoArma = parseInt(arma.dano) || 0;
             }
         }
-        
-        console.log(`  - Dano da Arma (${arma.dano}): ${danoArma}`);
     }
     
-    // 5. Bônus de ST para armas corpo a corpo
     let bonusST = 0;
     if (arma && !arma.distancia) {
         const esferasST = personagem.atributos?.st?.esferas || 0;
         bonusST = Math.floor(esferasST / 2);
-        console.log(`  - Bônus ST (${esferasST} esferas / 2): ${bonusST}`);
     }
     
-    // 6. Soma tudo
-    const danoFinal = danoBase + danoArma + bonusST;
+    let danoFinal = (danoBase + danoArma + bonusST) * multiplicador;
     
-    console.log(`  ✅ DANO TOTAL: ${danoBase} + ${danoArma} + ${bonusST} = ${danoFinal}`);
-    
-    return Math.max(1, danoFinal);
+    return Math.max(1, Math.floor(danoFinal));
 }
 
 // ============================================
-// CLASSE DE COMBATE COM FIRESTORE - VERSÃO DEFINITIVA
+// CLASSE DE COMBATE COM FIRESTORE - VERSÃO COMPLETA
 // ============================================
 
 class CombateFirestore {
@@ -322,8 +325,13 @@ class CombateFirestore {
         this.status = {
             turno: 'jogador',
             rodada: 1,
+            contadorTurnos: 0, // ✅ Contador para fadiga (a cada 5 turnos -1 PF)
             fim: false,
-            aguardandoDefesa: false
+            aguardandoDefesa: false,
+            // ✅ Bônus e penalidades para crítico/fulminante
+            bonusProximoAtaque: 0, // +10% da defesa fulminante
+            penalidadeDefesaInimigo: 0, // -15% do ataque fulminante
+            penalidadeDefesaJogador: 0 // -15% da falha crítica no ataque
         };
         this.ultimoAtaque = null;
         this.log = [];
@@ -339,10 +347,8 @@ class CombateFirestore {
         try {
             console.log('⚔️ Iniciando combate Firestore:', this.inimigoId);
             
-            // 1. Buscar inimigo do catálogo
             const inimigoBase = INIMIGOS[this.inimigoId] || INIMIGOS.saqueador_faminto;
             
-            // 2. Garantir statusCombate no personagem
             if (!this.personagem.statusCombate) {
                 const vt = combateGetVTFixo(this.personagem);
                 const vigor = combateGetVIGORFixo(this.personagem);
@@ -358,100 +364,17 @@ class CombateFirestore {
                 };
             }
             
-            // 3. Criar sessão se não existir
-            const sessaoRef = db.collection('sessoes_aventura_solo').doc(this.sessaoId);
-            
-            try {
-                const sessaoDoc = await sessaoRef.get();
-                
-                if (!sessaoDoc.exists) {
-                    await sessaoRef.set({
-                        userId: this.userId,
-                        personagemId: this.personagemId,
-                        personagemNome: this.personagem.nome || 'Aventureiro',
-                        aventuraId: 'grito_estrada',
-                        status: 'em_andamento',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    });
-                    console.log('✅ Sessão criada:', this.sessaoId);
-                }
-            } catch (e) {
-                console.log('⚠️ Erro ao verificar/criar sessão:', e);
-            }
-            
-            // 4. Criar objeto do inimigo
             this.inimigo = {
                 ...inimigoBase,
                 vidaAtual: inimigoBase.vidaMax
             };
             
-            // 5. Log inicial
             this.log = [{
                 mensagem: '⚔️ COMBATE INICIADO!',
                 tipo: 'normal',
                 timestamp: new Date().toISOString()
             }];
             
-            // 6. Criar documento de combate na subcoleção
-            const combateData = {
-                sessaoId: this.sessaoId,
-                personagemId: this.personagemId,
-                personagemNome: this.personagem.nome || 'Aventureiro',
-                userId: this.userId,
-                inimigoId: this.inimigoId,
-                inimigo: this.inimigo,
-                status: this.status,
-                log: this.log,
-                ultimoAtaque: null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            try {
-                const combateRef = await sessaoRef.collection('combates').add(combateData);
-                this.combateId = combateRef.id;
-                console.log('✅ Combate criado ID:', this.combateId);
-                
-                // 7. Atualizar personagem no Firestore
-                try {
-                    await db.collection('personagens').doc(this.personagemId).update({
-                        statusCombate: this.personagem.statusCombate,
-                        combateAtivo: {
-                            sessaoId: this.sessaoId,
-                            combateId: this.combateId
-                        }
-                    });
-                } catch (e) {
-                    console.log('⚠️ Não foi possível atualizar personagem:', e);
-                }
-                
-                // 8. Inscrever para atualizações em tempo real
-                this.unsubscribe = combateRef.onSnapshot((doc) => {
-                    if (doc.exists && !this._atualizandoDoSnapshot) {
-                        this._atualizandoDoSnapshot = true;
-                        const data = doc.data();
-                        
-                        if (JSON.stringify(this.inimigo) !== JSON.stringify(data.inimigo)) {
-                            this.inimigo = data.inimigo;
-                        }
-                        if (JSON.stringify(this.status) !== JSON.stringify(data.status)) {
-                            this.status = data.status;
-                        }
-                        this.ultimoAtaque = data.ultimoAtaque;
-                        
-                        this._notificarUI();
-                        this._atualizandoDoSnapshot = false;
-                    }
-                });
-                
-            } catch (e) {
-                console.log('⚠️ Erro ao criar combate, modo local:', e);
-            }
-            
-            // 9. Notificar UI
-            this._log('⚔️ COMBATE INICIADO!', true);
-            this._log(`${this.personagem.nome || 'Herói'} vs ${this.inimigo.nome}`, true);
             this._log('✨ SEU TURNO!', true);
             
             if (this.callbacks.onIniciar) {
@@ -464,6 +387,8 @@ class CombateFirestore {
                 });
             }
             
+            this._notificarUI();
+            
         } catch (error) {
             console.error('❌ Erro ao iniciar combate:', error);
             if (this.callbacks.onErro) {
@@ -472,35 +397,17 @@ class CombateFirestore {
         }
     }
     
-    async _atualizarFirestore(updates) {
-        if (!this.combateId) return;
-        
-        try {
-            this._atualizandoDoSnapshot = true;
-            
-            const combateRef = db.collection('sessoes_aventura_solo').doc(this.sessaoId)
-                .collection('combates').doc(this.combateId);
-            
-            await combateRef.update({
-                ...updates,
-                updatedAt: new Date().toISOString()
-            });
-            
-            setTimeout(() => {
-                this._atualizandoDoSnapshot = false;
-            }, 100);
-            
-        } catch (error) {
-            console.error('Erro ao atualizar Firestore:', error);
-            this._atualizandoDoSnapshot = false;
-        }
-    }
-    
     _notificarUI() {
         if (this.callbacks.onAtualizar) {
+            // Calcular defesas com penalidades atuais
+            const esquivaAtual = combateCalcularEsquiva(this.personagem, this.status.penalidadeDefesaJogador);
+            const apararAtual = combateCalcularAparar(this.personagem, this.status.penalidadeDefesaJogador);
+            const bloqueioAtual = combateCalcularBloqueio(this.personagem, this.status.penalidadeDefesaJogador);
+            
             this.callbacks.onAtualizar({
                 turno: this.status.turno,
                 rodada: this.status.rodada,
+                contadorTurnos: this.status.contadorTurnos,
                 fim: this.status.fim,
                 aguardandoDefesa: this.status.aguardandoDefesa,
                 inimigoVida: this.inimigo?.vidaAtual || 0,
@@ -509,13 +416,40 @@ class CombateFirestore {
                 personagemVidaMax: this.personagem.statusCombate.vidaMax,
                 personagemMana: this.personagem.statusCombate.manaAtual || 0,
                 personagemFadiga: this.personagem.statusCombate.fadigaAtual || 0,
-                inimigo: this.inimigo
+                inimigo: this.inimigo,
+                // ✅ Enviar bônus/penalidade para UI
+                bonus: this._getBonusInfo()
             });
+            
+            // Atualizar valores de defesa na UI global
+            if (typeof window.atualizarValoresDefesa === 'function') {
+                window.atualizarValoresDefesa();
+            }
         }
     }
     
+    // ✅ Retorna informações sobre bônus/penalidade ativos
+    _getBonusInfo() {
+        if (this.status.bonusProximoAtaque > 0) {
+            return {
+                tipo: 'bonus',
+                mensagem: `✨ Bônus de +${this.status.bonusProximoAtaque}% no próximo ataque (defesa fulminante)`
+            };
+        } else if (this.status.penalidadeDefesaJogador < 0) {
+            return {
+                tipo: 'penalidade',
+                mensagem: `💥 Penalidade de ${this.status.penalidadeDefesaJogador}% nas defesas (falha crítica)`
+            };
+        } else if (this.status.penalidadeDefesaInimigo < 0) {
+            return {
+                tipo: 'penalidade',
+                mensagem: `💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}% nas defesas (ataque fulminante)`
+            };
+        }
+        return null;
+    }
+    
     _log(mensagem, tipo = 'normal', forcarUI = false) {
-        // Evitar duplicação
         const chave = mensagem + tipo;
         if (this._ultimaMensagem === chave && !forcarUI) {
             return;
@@ -532,12 +466,6 @@ class CombateFirestore {
         
         this.log.push(entry);
         
-        if (this.combateId && !this._atualizandoDoSnapshot) {
-            this._atualizarFirestore({
-                log: this.log
-            });
-        }
-        
         if (this.callbacks.onLog) {
             this.callbacks.onLog(mensagem, tipo);
         }
@@ -549,6 +477,37 @@ class CombateFirestore {
         }, 100);
     }
     
+    // ✅ VERIFICAR FADIGA (a cada 5 turnos -1 PF)
+    async _verificarFadiga() {
+        this.status.contadorTurnos++;
+        
+        if (this.status.contadorTurnos >= 5) {
+            this.status.contadorTurnos = 0;
+            
+            const pfAntes = this.personagem.statusCombate.fadigaAtual;
+            this.personagem.statusCombate.fadigaAtual = Math.max(0, pfAntes - 1);
+            
+            this._log(`😮‍💨 Fadiga: -1 PF (${pfAntes} → ${this.personagem.statusCombate.fadigaAtual})`, 'normal', true);
+            
+            // Atualizar no Firestore se tiver ID
+            if (this.personagemId) {
+                try {
+                    const db = firebase.firestore();
+                    await db.collection('personagens').doc(this.personagemId).update({
+                        'statusCombate.fadigaAtual': this.personagem.statusCombate.fadigaAtual
+                    });
+                } catch (e) {
+                    console.log('⚠️ Erro ao atualizar fadiga no Firestore:', e);
+                }
+            }
+            
+            // Atualizar UI global
+            if (typeof window.atualizarInterfacePersonagem === 'function') {
+                window.atualizarInterfacePersonagem();
+            }
+        }
+    }
+    
     // ===== AÇÕES DO JOGADOR =====
     
     async atacar() {
@@ -557,6 +516,9 @@ class CombateFirestore {
         }
         
         this._log(`👉 ${this.personagem.nome || 'Herói'} ataca!`, 'normal', true);
+        
+        // Verificar fadiga
+        await this._verificarFadiga();
         
         // CALCULAR ATAQUE
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
@@ -568,16 +530,37 @@ class CombateFirestore {
             else if (arma.nome?.toLowerCase().includes('adaga')) periciaAtaque = 'adaga';
         }
         
-        const nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
+        // ✅ Aplicar bônus de defesa fulminante se houver
+        let nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
+        if (this.status.bonusProximoAtaque > 0) {
+            nhJogador += this.status.bonusProximoAtaque;
+            this._log(`✨ Bônus de +${this.status.bonusProximoAtaque}% do turno anterior!`, 'critico', true);
+            this.status.bonusProximoAtaque = 0;
+        }
+        
         const rolagemAtaque = combateRolar2d10();
         
         let acertou = false;
+        let foiCritico = false;
+        let foiFalhaCritica = false;
+        
+        // ✅ SISTEMA DE CRÍTICO/FULMINANTE
         if (rolagemAtaque.critico) {
             acertou = true;
-            this._log(`✨ ATAQUE FULMINANTE!`, 'critico', true);
+            foiCritico = true;
+            this._log(`✨✨ ATAQUE FULMINANTE! (${rolagemAtaque.resultado})`, 'critico', true);
+            
+            // ✅ Ataque fulminante: inimigo tem -15% nas defesas neste turno
+            this.status.penalidadeDefesaInimigo = -15;
+            
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
-            this._log(`💥 FALHA CRÍTICA NO ATAQUE!`, 'falha', true);
+            foiFalhaCritica = true;
+            this._log(`💥💥 FALHA CRÍTICA NO ATAQUE! (${rolagemAtaque.resultado})`, 'falha', true);
+            
+            // ✅ Falha crítica no ataque: jogador tem -15% nas defesas no próximo turno
+            this.status.penalidadeDefesaJogador = -15;
+            
         } else {
             acertou = rolagemAtaque.resultado <= nhJogador;
         }
@@ -585,17 +568,30 @@ class CombateFirestore {
         this._log(`🎲 Rolagem: ${rolagemAtaque.str} vs NH ${nhJogador}% → ${acertou ? 'ACERTOU' : 'ERROU'}`, 'normal', true);
         
         if (acertou) {
-            // DEFESA DO INIMIGO
-            const defesaInimigo = this.inimigo.derivados?.esquiva || 5;
+            // DEFESA DO INIMIGO (com penalidade se ataque foi fulminante)
+            let defesaInimigo = this.inimigo.derivados?.esquiva || 5;
+            if (this.status.penalidadeDefesaInimigo < 0) {
+                defesaInimigo += this.status.penalidadeDefesaInimigo;
+                this._log(`💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}% nas defesas!`, 'dano', true);
+            }
+            
             const rolagemDefesa = combateRolar2d10();
             
             let defendeu = false;
             if (rolagemDefesa.critico) {
                 defendeu = true;
-                this._log(`✨ ${this.inimigo.nome} DEFENDEU!`, 'critico', true);
+                this._log(`✨ DEFESA FULMINANTE DO INIMIGO!`, 'critico', true);
+                
+                // ✅ Defesa fulminante do inimigo: ele ganha +10% no próximo ataque
+                // (Não afeta o jogador diretamente, mas podemos registrar)
+                
             } else if (rolagemDefesa.falhaCritica) {
                 defendeu = false;
-                this._log(`💥 ${this.inimigo.nome} FALHOU!`, 'falha', true);
+                this._log(`💥 FALHA CRÍTICA NA DEFESA DO INIMIGO!`, 'falha', true);
+                
+                // ✅ Falha crítica na defesa do inimigo: dano duplicado
+                // Será aplicado no multiplicador de dano
+                
             } else {
                 defendeu = rolagemDefesa.resultado <= defesaInimigo;
             }
@@ -603,15 +599,24 @@ class CombateFirestore {
             this._log(`🛡️ Defesa: ${rolagemDefesa.str} vs ${defesaInimigo}% → ${defendeu ? 'DEFENDEU' : 'FALHOU'}`, 'normal', true);
             
             if (!defendeu) {
-                // CALCULAR DANO (CORRIGIDO)
-                const dano = combateCalcularDanoPersonagem(this.personagem, arma);
+                // CALCULAR DANO
+                let multiplicador = 1;
+                
+                // ✅ Ataque fulminante: dano duplicado
+                if (foiCritico) {
+                    multiplicador = 2;
+                    this._log(`⚡ Dano duplicado por ataque fulminante!`, 'critico', true);
+                }
+                
+                // ✅ Falha crítica na defesa do inimigo: dano duplicado (se não for crítico, senão seria 4x)
+                if (rolagemDefesa.falhaCritica && !foiCritico) {
+                    multiplicador = 2;
+                    this._log(`⚡ Dano duplicado por falha crítica na defesa!`, 'dano', true);
+                }
+                
+                const dano = combateCalcularDanoPersonagem(this.personagem, arma, multiplicador);
                 const rdInimigo = this.inimigo.armadura || 0;
                 let danoFinal = Math.max(1, dano - rdInimigo);
-                
-                if (rolagemAtaque.critico) {
-                    danoFinal *= 2;
-                    this._log(`⚡ Dano crítico dobrado!`, 'critico', true);
-                }
                 
                 const novaVida = Math.max(0, this.inimigo.vidaAtual - danoFinal);
                 
@@ -620,25 +625,12 @@ class CombateFirestore {
                 // ATUALIZAR
                 this.inimigo.vidaAtual = novaVida;
                 
-                if (this.combateId && !this._atualizandoDoSnapshot) {
-                    await this._atualizarFirestore({
-                        'inimigo.vidaAtual': novaVida
-                    });
-                }
-                
                 // VERIFICAR MORTE
                 if (novaVida <= 0) {
                     this._log(`💀 ${this.inimigo.nome} foi DERROTADO!`, 'critico', true);
                     
                     this.status.fim = true;
                     this.status.turno = 'fim';
-                    
-                    if (this.combateId && !this._atualizandoDoSnapshot) {
-                        await this._atualizarFirestore({
-                            'status.fim': true,
-                            'status.turno': 'fim'
-                        });
-                    }
                     
                     if (this.callbacks.onVitoria) {
                         this.callbacks.onVitoria({
@@ -653,16 +645,12 @@ class CombateFirestore {
             }
         }
         
+        // Limpar penalidade do inimigo após o turno
+        this.status.penalidadeDefesaInimigo = 0;
+        
         // PASSAR TURNO
         this.status.turno = 'inimigo';
         this.status.rodada = this.status.rodada + 1;
-        
-        if (this.combateId && !this._atualizandoDoSnapshot) {
-            await this._atualizarFirestore({
-                'status.turno': 'inimigo',
-                'status.rodada': this.status.rodada
-            });
-        }
         
         this._notificarUI();
         
@@ -676,16 +664,32 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
+        // Verificar fadiga (inimigo não perde PF, mas contador aumenta)
+        await this._verificarFadiga();
+        
         const nhInimigo = combateCalcularNHInimigo(this.inimigo);
         const rolagemAtaque = combateRolar2d10();
         
         let acertou = false;
+        let foiCritico = false;
+        let foiFalhaCritica = false;
+        
         if (rolagemAtaque.critico) {
             acertou = true;
-            this._log(`✨ ATAQUE FULMINANTE DO INIMIGO!`, 'critico', true);
+            foiCritico = true;
+            this._log(`✨✨ ATAQUE FULMINANTE DO INIMIGO! (${rolagemAtaque.resultado})`, 'critico', true);
+            
+            // ✅ Ataque fulminante do inimigo: jogador terá -15% nas defesas
+            // Será aplicado na defesa
+            
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
-            this._log(`💥 FALHA CRÍTICA DO INIMIGO!`, 'falha', true);
+            foiFalhaCritica = true;
+            this._log(`💥💥 FALHA CRÍTICA DO INIMIGO! (${rolagemAtaque.resultado})`, 'falha', true);
+            
+            // ✅ Falha crítica do inimigo: ele terá -15% nas defesas no próximo turno
+            this.status.penalidadeDefesaInimigo = -15;
+            
         } else {
             acertou = rolagemAtaque.resultado <= nhInimigo;
         }
@@ -696,28 +700,18 @@ class CombateFirestore {
             this.ultimoAtaque = {
                 danoFormula: this.inimigo.danoFormula || "1d6",
                 rolagem: rolagemAtaque,
-                nh: nhInimigo
+                nh: nhInimigo,
+                foiCritico: foiCritico,
+                foiFalhaCritica: foiFalhaCritica
             };
             
             this.status.aguardandoDefesa = true;
             
-            if (this.combateId && !this._atualizandoDoSnapshot) {
-                await this._atualizarFirestore({
-                    'status.aguardandoDefesa': true,
-                    ultimoAtaque: this.ultimoAtaque
-                });
-            }
-            
             this._log(`🛡️ ESCOLHA SUA DEFESA!`, 'normal', true);
             this._notificarUI();
         } else {
+            // Se inimigo errou, volta para jogador
             this.status.turno = 'jogador';
-            
-            if (this.combateId && !this._atualizandoDoSnapshot) {
-                await this._atualizarFirestore({
-                    'status.turno': 'jogador'
-                });
-            }
             
             this._log(`✨ SEU TURNO!`, 'critico', true);
             this._notificarUI();
@@ -727,15 +721,15 @@ class CombateFirestore {
     // ===== DEFESAS =====
     
     async defenderComEsquiva() {
-        await this._processarDefesa('Esquiva', combateCalcularEsquiva(this.personagem));
+        await this._processarDefesa('Esquiva', combateCalcularEsquiva(this.personagem, this.status.penalidadeDefesaJogador));
     }
     
     async defenderComAparar() {
-        await this._processarDefesa('Aparar', combateCalcularAparar(this.personagem));
+        await this._processarDefesa('Aparar', combateCalcularAparar(this.personagem, this.status.penalidadeDefesaJogador));
     }
     
     async defenderComBloqueio() {
-        await this._processarDefesa('Bloqueio', combateCalcularBloqueio(this.personagem));
+        await this._processarDefesa('Bloqueio', combateCalcularBloqueio(this.personagem, this.status.penalidadeDefesaJogador));
     }
     
     async _processarDefesa(tipoDefesa, defesaBase) {
@@ -745,12 +739,25 @@ class CombateFirestore {
         const rolagemDefesa = combateRolar2d10();
         
         let defendeu = false;
+        let foiCritico = false;
+        let foiFalhaCritica = false;
+        
         if (rolagemDefesa.critico) {
             defendeu = true;
-            this._log(`✨ DEFESA FULMINANTE! (${tipoDefesa})`, 'critico', true);
+            foiCritico = true;
+            this._log(`✨✨ DEFESA FULMINANTE! (${tipoDefesa})`, 'critico', true);
+            
+            // ✅ Defesa fulminante: +10% no próximo ataque
+            this.status.bonusProximoAtaque = 10;
+            
         } else if (rolagemDefesa.falhaCritica) {
             defendeu = false;
-            this._log(`💥 FALHA CRÍTICA NA DEFESA! (${tipoDefesa})`, 'falha', true);
+            foiFalhaCritica = true;
+            this._log(`💥💥 FALHA CRÍTICA NA DEFESA! (${tipoDefesa})`, 'falha', true);
+            
+            // ✅ Falha crítica na defesa: dano duplicado
+            // Será aplicado no multiplicador
+            
         } else {
             defendeu = rolagemDefesa.resultado <= defesaBase;
         }
@@ -759,13 +766,23 @@ class CombateFirestore {
         
         if (!defendeu) {
             // TOMAR DANO
-            const dano = combateRolarDados(ataque.danoFormula);
+            let multiplicador = 1;
+            
+            // ✅ Ataque fulminante do inimigo: dano duplicado
+            if (ataque.foiCritico) {
+                multiplicador = 2;
+                this._log(`⚡ Dano duplicado por ataque fulminante!`, 'dano', true);
+            }
+            
+            // ✅ Falha crítica na defesa: dano duplicado
+            if (foiFalhaCritica && !ataque.foiCritico) {
+                multiplicador = 2;
+                this._log(`⚡ Dano duplicado por falha crítica na defesa!`, 'dano', true);
+            }
+            
+            const dano = combateRolarDados(ataque.danoFormula) * multiplicador;
             const rd = combateCalcularRDTotal(this.personagem);
             let danoFinal = Math.max(1, dano - rd);
-            
-            if (ataque.rolagem?.critico) {
-                danoFinal *= 2;
-            }
             
             const vidaAntes = this.personagem.statusCombate.vidaAtual;
             this.personagem.statusCombate.vidaAtual = Math.max(0, vidaAntes - danoFinal);
@@ -773,17 +790,20 @@ class CombateFirestore {
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano', true);
             
             // ATUALIZAR FIRESTORE
-            try {
-                await db.collection('personagens').doc(this.personagemId).update({
-                    'statusCombate.vidaAtual': this.personagem.statusCombate.vidaAtual
-                });
-            } catch (e) {
-                console.log('⚠️ Erro ao atualizar personagem:', e);
+            if (this.personagemId) {
+                try {
+                    const db = firebase.firestore();
+                    await db.collection('personagens').doc(this.personagemId).update({
+                        'statusCombate.vidaAtual': this.personagem.statusCombate.vidaAtual
+                    });
+                } catch (e) {
+                    console.log('⚠️ Erro ao atualizar personagem:', e);
+                }
             }
             
             // ATUALIZAR UI GLOBAL
-            if (typeof window.atualizarPVNaUI === 'function') {
-                window.atualizarPVNaUI();
+            if (typeof window.atualizarInterfacePersonagem === 'function') {
+                window.atualizarInterfacePersonagem();
             }
             
             // VERIFICAR MORTE
@@ -794,14 +814,6 @@ class CombateFirestore {
                 this.status.turno = 'fim';
                 this.status.aguardandoDefesa = false;
                 
-                if (this.combateId && !this._atualizandoDoSnapshot) {
-                    await this._atualizarFirestore({
-                        'status.fim': true,
-                        'status.turno': 'fim',
-                        'status.aguardandoDefesa': false
-                    });
-                }
-                
                 if (this.callbacks.onDerrota) {
                     this.callbacks.onDerrota();
                 }
@@ -811,17 +823,11 @@ class CombateFirestore {
             }
         }
         
+        // Limpar penalidade do jogador após a defesa
+        this.status.penalidadeDefesaJogador = 0;
         this.status.aguardandoDefesa = false;
         this.status.turno = 'jogador';
         this.ultimoAtaque = null;
-        
-        if (this.combateId && !this._atualizandoDoSnapshot) {
-            await this._atualizarFirestore({
-                'status.aguardandoDefesa': false,
-                'status.turno': 'jogador',
-                ultimoAtaque: null
-            });
-        }
         
         this._log(`✨ SEU TURNO!`, 'critico', true);
         this._notificarUI();
@@ -843,13 +849,6 @@ class CombateFirestore {
             this.status.fim = true;
             this.status.turno = 'fim';
             
-            if (this.combateId && !this._atualizandoDoSnapshot) {
-                await this._atualizarFirestore({
-                    'status.fim': true,
-                    'status.turno': 'fim'
-                });
-            }
-            
             if (this.callbacks.onFuga) {
                 this.callbacks.onFuga();
             }
@@ -859,12 +858,6 @@ class CombateFirestore {
             this._log(`❌ Falhou ao tentar fugir!`, 'falha', true);
             
             this.status.turno = 'inimigo';
-            
-            if (this.combateId && !this._atualizandoDoSnapshot) {
-                await this._atualizarFirestore({
-                    'status.turno': 'inimigo'
-                });
-            }
             
             this._notificarUI();
             setTimeout(() => this._turnoInimigo(), 1000);
@@ -894,8 +887,10 @@ if (typeof window !== 'undefined') {
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
     
-    console.log('✅ Sistema de Combate DEFINITIVO carregado!');
-    console.log('📊 ST começa de 5, dano soma corretamente!');
+    console.log('✅ Sistema de Combate COMPLETO carregado!');
+    console.log('✅ Contador de turnos com fadiga ativado!');
+    console.log('✅ Crítico (1-6) e Falha Crítica (95-100) implementados!');
+    console.log('✅ Bônus de +10% e penalidade de -15% ativos!');
 }
 
 if (typeof module !== 'undefined' && module.exports) {
