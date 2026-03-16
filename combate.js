@@ -619,6 +619,11 @@ class Combate {
             if (typeof window !== 'undefined' && window.personagemAtual) {
                 window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
                 console.log(`🔄 PV sincronizado: ${window.personagemAtual.statusCombate.vidaAtual}`);
+                
+                // 🔥 FORÇAR ATUALIZAÇÃO DA INTERFACE
+                if (typeof window.atualizarPVNaUI === 'function') {
+                    window.atualizarPVNaUI();
+                }
             }
             
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano');
