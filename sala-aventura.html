@@ -1225,8 +1225,8 @@
 
 <script>
 // ============================================
-// SALA AVENTURA - VERSÃO FINAL CORRIGIDA
-// SEM DUPLICAÇÃO DE LOGS
+// SALA AVENTURA - VERSÃO FINAL FUNCIONAL
+// LOGS FUNCIONANDO E SEM DUPLICAÇÃO
 // ============================================
 
 // ============================================
@@ -2175,8 +2175,16 @@ class AventuraSolo {
         const sessaoId = this.personagem.id + '_' + Date.now();
         
         this.combateAtual = new window.CombateFirestore(sessaoId, this.personagem, inimigoId, {
-            // 🔥 IMPORTANTE: NÃO passar onLog aqui para evitar duplicação
-            // O log será adicionado pelo método adicionarLogCombate da própria classe
+            // 🔥 CALLBACK onLog - ESSENCIAL PARA MOSTRAR OS TEXTOS!
+            onLog: (mensagem, tipo) => {
+                // Chama o método da classe para adicionar ao log
+                this.adicionarLogCombate(mensagem, tipo);
+                
+                // Também chama o callback externo se existir
+                if (this.callbacks.onCombateLog) {
+                    this.callbacks.onCombateLog(mensagem, tipo);
+                }
+            },
             
             onAtualizar: (estado) => {
                 this.atualizarUICombate(estado);
@@ -2237,6 +2245,20 @@ class AventuraSolo {
                 this.irParaCena(opcao.falha);
             }
         }, 1500);
+    }
+    
+    adicionarLogCombate(mensagem, tipo) {
+        if (!elements.combatLog) return;
+        
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        if (tipo === 'critico') entry.classList.add('critico');
+        if (tipo === 'falha') entry.classList.add('falha-critica');
+        if (tipo === 'dano') entry.classList.add('dano');
+        if (tipo === 'cura') entry.classList.add('cura');
+        entry.textContent = mensagem;
+        elements.combatLog.appendChild(entry);
+        elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
     }
     
     atualizarUICombate(estado) {
