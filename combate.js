@@ -1,6 +1,6 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA SOLO - VERSÃO FINAL CORRIGIDA
-// Baseado no Manual do Jogador - Akalanata System
+// SISTEMA DE COMBATE AKALANATA SOLO - VERSÃO CORRIGIDA
+// AGORA O PV ATUALIZA CORRETAMENTE!
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -284,11 +284,15 @@ function combateCalcularDanoPersonagem(personagem, arma = null) {
     return Math.max(1, dano);
 }
 
-// ===== CLASSE DE COMBATE =====
+// ===== CLASSE DE COMBATE - CORRIGIDA =====
 class Combate {
     constructor(personagem, inimigoId, callbacks = {}) {
         console.log('⚔️ Criando combate:', inimigoId);
         
+        // 🔥 CORREÇÃO 1: Guardar referência ao objeto global, não criar cópia
+        this.personagemGlobal = window.personagemAtual; // Referência ao objeto global
+        
+        // Criar cópia local para uso interno (mas vamos sempre sincronizar com o global)
         this.personagem = JSON.parse(JSON.stringify(personagem));
         this.inimigo = JSON.parse(JSON.stringify(INIMIGOS[inimigoId] || INIMIGOS.saqueador_faminto));
         this.callbacks = callbacks;
@@ -314,6 +318,11 @@ class Combate {
                 manaAtual: vigor + iq + vt,
                 fadigaAtual: vigor + vt
             };
+        }
+        
+        // 🔥 CORREÇÃO 2: Sincronizar com global se existir
+        if (this.personagemGlobal && this.personagemGlobal.statusCombate) {
+            this.personagem.statusCombate = { ...this.personagemGlobal.statusCombate };
         }
         
         // Garantir vida do inimigo
@@ -609,55 +618,31 @@ class Combate {
                 danoFinal *= 2;
             }
             
-            // APLICAR O DANO NO PERSONAGEM DO COMBATE
+            // 🔥 CORREÇÃO 3: APLICAR DANO NO OBJETO LOCAL E NO GLOBAL
             this.personagem.statusCombate.vidaAtual -= danoFinal;
             if (this.personagem.statusCombate.vidaAtual < 0) {
                 this.personagem.statusCombate.vidaAtual = 0;
             }
             
-            // ===== CORREÇÃO CRÍTICA - SINCRONIZAR COM GLOBAL =====
-            if (typeof window !== 'undefined') {
-                // Garantir que o objeto global existe
-                if (!window.personagemAtual) {
-                    window.personagemAtual = this.personagem;
+            // 🔥 CORREÇÃO 4: SINCRONIZAR COM O OBJETO GLOBAL
+            if (this.personagemGlobal) {
+                if (!this.personagemGlobal.statusCombate) {
+                    this.personagemGlobal.statusCombate = {};
                 }
+                this.personagemGlobal.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
+                console.log(`🔄 PV sincronizado com global: ${this.personagemGlobal.statusCombate.vidaAtual}`);
+            }
+            
+            // 🔥 CORREÇÃO 5: ATUALIZAR window.personagemAtual
+            if (typeof window !== 'undefined' && window.personagemAtual) {
+                if (!window.personagemAtual.statusCombate) {
+                    window.personagemAtual.statusCombate = {};
+                }
+                window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
                 
-                if (window.personagemAtual) {
-                    // Garantir que statusCombate existe
-                    if (!window.personagemAtual.statusCombate) {
-                        window.personagemAtual.statusCombate = {};
-                    }
-                    
-                    window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
-                    console.log(`🔄 PV sincronizado: ${window.personagemAtual.statusCombate.vidaAtual}`);
-                    
-                    // 🔥 FORÇAR ATUALIZAÇÃO DA UI
-                    if (typeof window.atualizarPVNaUI === 'function') {
-                        window.atualizarPVNaUI();
-                    } else {
-                        console.warn('⚠️ função atualizarPVNaUI não encontrada - tentando fallback');
-                        // Fallback: tentar atualizar elementos diretamente
-                        try {
-                            const hpText = document.getElementById('hpText');
-                            const hpBar = document.getElementById('hpBar');
-                            const playerHpCombat = document.getElementById('playerHpCombat');
-                            
-                            const vidaMax = this._calcularVidaMax();
-                            
-                            if (hpText) {
-                                hpText.textContent = `${this.personagem.statusCombate.vidaAtual}/${vidaMax}`;
-                            }
-                            if (hpBar) {
-                                const percentual = (this.personagem.statusCombate.vidaAtual / vidaMax) * 100;
-                                hpBar.style.width = `${percentual}%`;
-                            }
-                            if (playerHpCombat) {
-                                playerHpCombat.textContent = this.personagem.statusCombate.vidaAtual;
-                            }
-                        } catch (e) {
-                            console.error('Erro no fallback:', e);
-                        }
-                    }
+                // 🔥 FORÇAR ATUALIZAÇÃO DA UI
+                if (typeof window.atualizarPVNaUI === 'function') {
+                    window.atualizarPVNaUI();
                 }
             }
             
@@ -665,21 +650,6 @@ class Combate {
             
             // ATUALIZAR UI DO COMBATE
             this._atualizarUI();
-            
-            // Disparar evento customizado (opcional, mas útil)
-            if (typeof window !== 'undefined') {
-                try {
-                    const evento = new CustomEvent('danoRecebido', { 
-                        detail: { 
-                            vidaAtual: this.personagem.statusCombate.vidaAtual,
-                            dano: danoFinal 
-                        } 
-                    });
-                    window.dispatchEvent(evento);
-                } catch (e) {
-                    // Ignora erro se não conseguir disparar evento
-                }
-            }
             
             // VERIFICAR SE MORREU
             if (this.personagem.statusCombate.vidaAtual <= 0) {
@@ -786,7 +756,7 @@ if (typeof window !== 'undefined') {
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
     
-    console.log('✅ Sistema de Combate carregado!');
+    console.log('✅ Sistema de Combate CORRIGIDO carregado!');
 }
 
 // Exportar para Node.js
