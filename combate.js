@@ -620,7 +620,7 @@ class Combate {
                 window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
                 console.log(`🔄 PV sincronizado: ${window.personagemAtual.statusCombate.vidaAtual}`);
                 
-                // 🔥 FORÇAR ATUALIZAÇÃO DA INTERFACE
+                // 🔥 ÚNICA LINHA ADICIONADA - Força atualização da interface
                 if (typeof window.atualizarPVNaUI === 'function') {
                     window.atualizarPVNaUI();
                 }
