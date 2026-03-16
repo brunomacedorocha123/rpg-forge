@@ -1,7 +1,8 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA - VERSÃO CORRIGIDA
-// ✅ Agora reconhece armasHaste (martelo, clava, maça)
-// ✅ Usa as perícias corretas do personagem
+// SISTEMA DE COMBATE AKALANATA - VERSÃO FINAL CORRIGIDA
+// ✅ Dano: SOMA de fórmulas (ex: 1d-2 + 1d+2 = 2d)
+// ✅ Perícias: armasHaste para martelos
+// ✅ Histórico mantém só até fim do combate
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -115,14 +116,19 @@ const TABELA_DANO_ST = {
 // ===== FUNÇÕES DE ROLAGEM =====
 function combateRolarDados(formula) {
     if (!formula) return 1;
+    if (typeof formula !== 'string') return parseInt(formula) || 1;
     
-    const regex = /^(\d+)d(\d+)?([+-]\d+)?$/i;
+    // Suporta formatos como "1d8", "2d6+2", "1d-1", "3d"
+    const regex = /^(\d+)d(\d+)([+-]\d+)?$/i;
     const match = formula.match(regex);
     
-    if (!match) return 1;
+    if (!match) {
+        // Se for apenas um número
+        return parseInt(formula) || 1;
+    }
     
     const quantidade = parseInt(match[1]) || 1;
-    const faces = match[2] ? parseInt(match[2]) : 6;
+    const faces = parseInt(match[2]) || 6;
     const modificador = match[3] ? parseInt(match[3]) : 0;
     
     let total = 0;
@@ -191,11 +197,11 @@ function combateGetVIGORPercentual(personagem) {
     return 40 + (esferas * 3);
 }
 
-// ===== CALCULAR NH DO JOGADOR - CORRIGIDO =====
+// ===== CALCULAR NH DO JOGADOR =====
 function combateCalcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
-    // Lista completa de perícias físicas
+    // Lista de perícias físicas
     const periciasFisicas = [
         'espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 
         'lanca', 'adaga', 'martelo', 'armasHaste', 'boxe', 'briga',
@@ -212,13 +218,11 @@ function combateCalcularNH(personagem, periciaId) {
         periciaId = 'armasHaste';
     }
     
-    // Buscar a perícia
     const pericia = personagem.pericias?.[periciaId];
     if (!pericia) return 5;
     
     const nivel = pericia.nivel || 0;
     
-    // Calcular atributo base (DX para perícias físicas)
     const dxEsferas = personagem.atributos?.dx?.esferas || 0;
     const atributoBase = 40 + (dxEsferas * 2);
     
@@ -238,7 +242,6 @@ function combateCalcularNHInimigo(inimigo) {
         else if (inimigo.pericias.arco) nh = 40 + (inimigo.pericias.arco * 4);
     }
     
-    // Bônus por destreza
     if (inimigo.destreza) {
         nh += (inimigo.destreza - 5) * 2;
     }
@@ -250,7 +253,6 @@ function combateCalcularNHInimigo(inimigo) {
 function combateCalcularDefesaInimigo(inimigo) {
     if (!inimigo) return 25;
     
-    // Usar derivados se existirem
     if (inimigo.derivados) {
         const defesas = [];
         if (inimigo.derivados.esquiva) defesas.push(inimigo.derivados.esquiva);
@@ -262,7 +264,6 @@ function combateCalcularDefesaInimigo(inimigo) {
         }
     }
     
-    // Calcular baseado em atributos
     if (inimigo.destreza) {
         const dxPercentual = 40 + ((inimigo.destreza - 5) * 2);
         const vigorPercentual = 40 + ((inimigo.vigor || 5) - 5) * 3;
@@ -288,7 +289,6 @@ function combateCalcularAparar(personagem, bonusPenalidade = 0) {
     const temArma = personagem.inventario?.corpo?.some(item => item.dano);
     if (!temArma) return 0;
     
-    // Usar a melhor perícia para aparar
     let melhorPericia = 0;
     if (personagem.pericias?.espada) melhorPericia = Math.max(melhorPericia, personagem.pericias.espada.nivel || 0);
     if (personagem.pericias?.armasHaste) melhorPericia = Math.max(melhorPericia, personagem.pericias.armasHaste.nivel || 0);
@@ -332,33 +332,72 @@ function combateCalcularRDTotal(personagem) {
     return rd;
 }
 
-// ===== CALCULAR DANO =====
+// ===== SOMA DE FÓRMULAS DE DANO =====
+function somarFormulasDano(formula1, formula2) {
+    // Se uma das fórmulas for inválida, retorna a outra
+    if (!formula1 || formula1 === "0") return formula2;
+    if (!formula2 || formula2 === "0") return formula1;
+    
+    // Extrair componentes da primeira fórmula
+    const match1 = formula1.match(/^(\d*)d(\d*)([+-]\d+)?$/i);
+    // Extrair componentes da segunda fórmula
+    const match2 = formula2.match(/^(\d*)d(\d*)([+-]\d+)?$/i);
+    
+    let dados1 = match1 ? parseInt(match1[1] || 1) : 0;
+    let faces1 = match1 ? parseInt(match1[2] || 6) : 0;
+    let mod1 = match1 && match1[3] ? parseInt(match1[3]) : 0;
+    
+    let dados2 = match2 ? parseInt(match2[1] || 1) : 0;
+    let faces2 = match2 ? parseInt(match2[2] || 6) : 0;
+    let mod2 = match2 && match2[3] ? parseInt(match2[3]) : 0;
+    
+    // Se não conseguiu extrair, retorna a primeira fórmula
+    if (dados1 === 0 && dados2 === 0) return formula1;
+    
+    // Usa a maior quantidade de faces (ou 6 como padrão)
+    const faces = Math.max(faces1, faces2, 6);
+    
+    // Soma dados e modificadores
+    const totalDados = dados1 + dados2;
+    const totalMod = mod1 + mod2;
+    
+    // Constrói a fórmula final
+    if (totalDados > 0) {
+        let resultado = totalDados + "d" + faces;
+        if (totalMod > 0) resultado += "+" + totalMod;
+        else if (totalMod < 0) resultado += totalMod;
+        return resultado;
+    } else {
+        // Se não tiver dados, retorna só o modificador
+        return (totalMod > 0 ? "+" : "") + totalMod;
+    }
+}
+
+// ===== CALCULAR DANO - CORRETO (SOMA DE FÓRMULAS) =====
 function combateCalcularDanoPersonagem(personagem, arma = null, multiplicador = 1) {
     if (!personagem) return 1;
     
+    // 1. Fórmula base da ST
     const stFixo = combateGetSTFixo(personagem);
-    let danoBaseFormula = TABELA_DANO_ST[stFixo] || "1d-3";
-    const danoBase = combateRolarDados(danoBaseFormula);
+    const formulaBase = TABELA_DANO_ST[stFixo] || "1d-3";
     
-    let danoArma = 0;
-    
+    // 2. Fórmula da arma
+    let formulaArma = "0";
     if (arma?.dano) {
-        if (typeof arma.dano === 'string') {
-            if (arma.dano.includes('d')) {
-                danoArma = combateRolarDados(arma.dano);
-            } else {
-                danoArma = parseInt(arma.dano) || 0;
-            }
-        }
+        formulaArma = arma.dano;
     }
     
-    let bonusST = 0;
-    if (arma && !arma.distancia) {
-        const esferasST = personagem.atributos?.st?.esferas || 0;
-        bonusST = Math.floor(esferasST / 2);
-    }
+    // 3. SOMA as fórmulas (ex: 1d-2 + 1d+2 = 2d)
+    const formulaTotal = somarFormulasDano(formulaBase, formulaArma);
     
-    let danoFinal = (danoBase + danoArma + bonusST) * multiplicador;
+    // 4. Rola o dano total
+    let danoBase = combateRolarDados(formulaTotal);
+    
+    // 5. Aplica multiplicador (crítico)
+    let danoFinal = danoBase * multiplicador;
+    
+    // Log para debug (opcional)
+    console.log(`🎲 Dano: ${formulaBase} + ${formulaArma} = ${formulaTotal} → rolou ${danoBase} × ${multiplicador} = ${danoFinal}`);
     
     return Math.max(1, Math.floor(danoFinal));
 }
@@ -577,13 +616,11 @@ class CombateFirestore {
             }
         }
         
-        // FALLBACK INTELIGENTE: Se a perícia não existir, tenta encontrar uma alternativa
+        // FALLBACK: Se a perícia não existir, tenta alternativas
         if (!this.personagem.pericias?.[periciaAtaque]) {
-            // Tenta armasHaste para qualquer arma de duas mãos
             if (this.personagem.pericias?.armasHaste) {
                 periciaAtaque = 'armasHaste';
             }
-            // Tenta luta como último recurso
             else if (this.personagem.pericias?.luta) {
                 periciaAtaque = 'luta';
             }
@@ -658,13 +695,14 @@ class CombateFirestore {
                     this._log(`⚡ Dano duplicado por falha crítica na defesa!`, 'dano', true);
                 }
                 
+                // Usa a nova função de dano com SOMA DE FÓRMULAS
                 const dano = combateCalcularDanoPersonagem(this.personagem, arma, multiplicador);
                 const rdInimigo = this.inimigo.armadura || 0;
                 let danoFinal = Math.max(1, dano - rdInimigo);
                 
                 const novaVida = Math.max(0, this.inimigo.vidaAtual - danoFinal);
                 
-                this._log(`💥 DANO: ${danoFinal} (${dano} - ${rdInimigo} RD)`, 'dano', true);
+                this._log(`💥 DANO: ${danoFinal} (${dano} rolado - ${rdInimigo} RD)`, 'dano', true);
                 
                 this.inimigo.vidaAtual = novaVida;
                 
@@ -896,12 +934,14 @@ if (typeof window !== 'undefined') {
     window.combateCalcularBloqueio = combateCalcularBloqueio;
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
+    window.somarFormulasDano = somarFormulasDano;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { 
         INIMIGOS, 
         CombateFirestore,
-        combateCalcularDefesaInimigo
+        combateCalcularDefesaInimigo,
+        somarFormulasDano
     };
 }
