@@ -1,6 +1,7 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA - VERSÃO CORRIGIDA
-// ✅ INIMIGO USA DEFESA REAL, NÃO 5% FIXO!
+// SISTEMA DE COMBATE AKALANATA - VERSÃO FINAL CORRIGIDA
+// ✅ ATAQUE DO JOGADOR FUNCIONA CORRETAMENTE
+// ✅ DEFESA DO INIMIGO USA VALORES REAIS
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -99,10 +100,7 @@ function combateRolarDados(formula) {
     const regex = /^(\d+)d(\d+)?([+-]\d+)?$/i;
     const match = formula.match(regex);
     
-    if (!match) {
-        console.warn(`Fórmula de dano inválida: ${formula}`);
-        return 1;
-    }
+    if (!match) return 1;
     
     const quantidade = parseInt(match[1]) || 1;
     const faces = match[2] ? parseInt(match[2]) : 6;
@@ -113,8 +111,7 @@ function combateRolarDados(formula) {
         total += Math.floor(Math.random() * faces) + 1;
     }
     
-    const resultado = Math.max(1, total + modificador);
-    return resultado;
+    return Math.max(1, total + modificador);
 }
 
 function combateRolar2d10() {
@@ -175,20 +172,61 @@ function combateGetVIGORPercentual(personagem) {
     return 40 + (esferas * 3);
 }
 
-// ===== CALCULAR NH DO JOGADOR =====
+// ===== CALCULAR NH DO JOGADOR - CORRIGIDO =====
 function combateCalcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
-    const pericia = personagem.pericias?.[periciaId];
+    // MAPEAMENTO DE ARMAS PARA PERÍCIAS
+    const mapaPericias = {
+        'espada': ['espada', 'espada longa', 'espada curta', 'montante', 'florete', 'sabre'],
+        'machado': ['machado', 'machadinha', 'martelo', 'marca', 'clava', 'porrete'],
+        'lanca': ['lança', 'lançador', 'pique', 'alabarda', 'bastao'],
+        'adaga': ['adaga', 'faca', 'punhal', 'estilete', 'canivete'],
+        'arco': ['arco', 'arco longo', 'arco curto'],
+        'besta': ['besta', 'balestra', 'besta de mao'],
+        'escudo': ['escudo', 'broquel', 'escudo grande', 'escudo medio'],
+        'luta': ['luta', 'desarmado', 'soco', 'chute', 'briga', 'maos nuas']
+    };
+    
+    // Determinar a perícia correta baseada no ID ou nome da arma
+    let periciaReal = periciaId;
+    
+    // Se for martelo, usa machado
+    if (periciaId === 'martelo' || (periciaId && periciaId.includes('martelo'))) {
+        periciaReal = 'machado';
+    }
+    
+    // Verificar se a perícia existe no personagem
+    let pericia = personagem.pericias?.[periciaReal];
+    
+    // Se não achou, tenta encontrar por mapeamento reverso
+    if (!pericia) {
+        for (const [periciaNome, armas] of Object.entries(mapaPericias)) {
+            if (armas.includes(periciaId) || armas.some(arma => periciaId.includes(arma))) {
+                periciaReal = periciaNome;
+                pericia = personagem.pericias?.[periciaNome];
+                break;
+            }
+        }
+    }
+    
+    // Se ainda não achou, tenta usar luta
+    if (!pericia) {
+        periciaReal = 'luta';
+        pericia = personagem.pericias?.luta;
+    }
+    
+    // Se mesmo luta não existir, retorna 5%
     if (!pericia) return 5;
     
     const nivel = pericia.nivel || 0;
     
-    const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga', 'martelo', 'maca'];
+    // Perícias físicas usam DX, mentais usam IQ
+    const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga', 'martelo'];
     
     let atributoBase = 40;
     
-    if (periciasFisicas.includes(periciaId)) {
+    if (periciasFisicas.includes(periciaReal)) {
         const dxEsferas = personagem.atributos?.dx?.esferas || 0;
         atributoBase = 40 + (dxEsferas * 2);
     } else {
@@ -201,41 +239,32 @@ function combateCalcularNH(personagem, periciaId) {
     return Math.min(95, Math.max(5, nh));
 }
 
-// ===== CALCULAR DEFESA DO INIMIGO - FUNÇÃO NOVA =====
+// ===== CALCULAR DEFESA DO INIMIGO =====
 function combateCalcularDefesaInimigo(inimigo) {
-    if (!inimigo) return 5;
+    if (!inimigo) return 25;
     
-    console.log('📊 Calculando defesa do inimigo:', inimigo.nome);
-    
-    // 1. PRIORIDADE MÁXIMA: Usar derivados se existirem
+    // Usar derivados se existirem
     if (inimigo.derivados) {
-        // Encontrar a MAIOR defesa disponível
         const defesas = [];
         if (inimigo.derivados.esquiva) defesas.push(inimigo.derivados.esquiva);
         if (inimigo.derivados.aparar) defesas.push(inimigo.derivados.aparar);
         if (inimigo.derivados.bloqueio) defesas.push(inimigo.derivados.bloqueio);
         
         if (defesas.length > 0) {
-            const maiorDefesa = Math.max(...defesas);
-            console.log('✅ Usando derivados:', defesas, '→', maiorDefesa);
-            return Math.min(95, Math.max(5, maiorDefesa));
+            return Math.min(95, Math.max(5, Math.max(...defesas)));
         }
     }
     
-    // 2. SEGUNDA OPÇÃO: Calcular baseado em atributos
+    // Calcular baseado em atributos
     if (inimigo.destreza) {
-        // Calcular esquiva base
         const dxPercentual = 40 + ((inimigo.destreza - 5) * 2);
         const vigorPercentual = 40 + ((inimigo.vigor || 5) - 5) * 3;
         const esquivaCalculada = Math.floor((dxPercentual + vigorPercentual) / 2) + 5;
         
-        console.log('✅ Defesa calculada por atributos:', esquivaCalculada, '%');
         return Math.min(80, Math.max(5, esquivaCalculada));
     }
     
-    // 3. Fallback - NUNCA 5%, pelo menos 25% pra não ser muito fácil
-    console.log('⚠️ Usando fallback de 25%');
-    return 25;
+    return 25; // Fallback
 }
 
 // ===== CALCULAR DEFESAS DO JOGADOR =====
@@ -410,10 +439,6 @@ class CombateFirestore {
     
     _notificarUI() {
         if (this.callbacks.onAtualizar) {
-            const esquivaAtual = combateCalcularEsquiva(this.personagem, this.status.penalidadeDefesaJogador);
-            const apararAtual = combateCalcularAparar(this.personagem, this.status.penalidadeDefesaJogador);
-            const bloqueioAtual = combateCalcularBloqueio(this.personagem, this.status.penalidadeDefesaJogador);
-            
             this.callbacks.onAtualizar({
                 turno: this.status.turno,
                 rodada: this.status.rodada,
@@ -429,10 +454,6 @@ class CombateFirestore {
                 inimigo: this.inimigo,
                 bonus: this._getBonusInfo()
             });
-            
-            if (typeof window.atualizarValoresDefesa === 'function') {
-                window.atualizarValoresDefesa();
-            }
         }
     }
     
@@ -440,17 +461,17 @@ class CombateFirestore {
         if (this.status.bonusProximoAtaque > 0) {
             return {
                 tipo: 'bonus',
-                mensagem: `✨ Bônus de +${this.status.bonusProximoAtaque}% no próximo ataque (defesa fulminante)`
+                mensagem: `✨ Bônus de +${this.status.bonusProximoAtaque}% no próximo ataque`
             };
         } else if (this.status.penalidadeDefesaJogador < 0) {
             return {
                 tipo: 'penalidade',
-                mensagem: `💥 Penalidade de ${this.status.penalidadeDefesaJogador}% nas defesas (falha crítica)`
+                mensagem: `💥 Penalidade de ${this.status.penalidadeDefesaJogador}% nas defesas`
             };
         } else if (this.status.penalidadeDefesaInimigo < 0) {
             return {
                 tipo: 'penalidade',
-                mensagem: `💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}% nas defesas (ataque fulminante)`
+                mensagem: `💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}% nas defesas`
             };
         }
         return null;
@@ -490,7 +511,7 @@ class CombateFirestore {
             const pfAntes = this.personagem.statusCombate.fadigaAtual;
             this.personagem.statusCombate.fadigaAtual = Math.max(0, pfAntes - 1);
             
-            this._log(`😮‍💨 Fadiga: -1 PF (${pfAntes} → ${this.personagem.statusCombate.fadigaAtual})`, 'normal', true);
+            this._log(`😮‍💨 Fadiga: -1 PF`, 'normal', true);
             
             if (this.personagemId) {
                 try {
@@ -499,10 +520,6 @@ class CombateFirestore {
                         'statusCombate.fadigaAtual': this.personagem.statusCombate.fadigaAtual
                     });
                 } catch (e) {}
-            }
-            
-            if (typeof window.atualizarInterfacePersonagem === 'function') {
-                window.atualizarInterfacePersonagem();
             }
         }
     }
@@ -527,15 +544,16 @@ class CombateFirestore {
             else if (nomeArma.includes('adaga')) periciaAtaque = 'adaga';
             else if (nomeArma.includes('arco')) periciaAtaque = 'arco';
             else if (nomeArma.includes('besta')) periciaAtaque = 'besta';
-            else if (nomeArma.includes('martelo')) periciaAtaque = 'machado'; // Trata martelo como machado
-            else if (nomeArma.includes('maca')) periciaAtaque = 'machado';
+            else if (nomeArma.includes('martelo')) periciaAtaque = 'machado';
+            else if (nomeArma.includes('clava')) periciaAtaque = 'machado';
+            else if (nomeArma.includes('porrete')) periciaAtaque = 'machado';
         }
         
         let nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
         
         if (this.status.bonusProximoAtaque > 0) {
             nhJogador += this.status.bonusProximoAtaque;
-            this._log(`✨ Bônus de +${this.status.bonusProximoAtaque}% do turno anterior!`, 'critico', true);
+            this._log(`✨ Bônus de +${this.status.bonusProximoAtaque}%`, 'critico', true);
             this.status.bonusProximoAtaque = 0;
         }
         
@@ -552,7 +570,7 @@ class CombateFirestore {
             
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
-            this._log(`💥💥 FALHA CRÍTICA NO ATAQUE! (${rolagemAtaque.resultado})`, 'falha', true);
+            this._log(`💥💥 FALHA CRÍTICA! (${rolagemAtaque.resultado})`, 'falha', true);
             this.status.penalidadeDefesaJogador = -15;
             
         } else {
@@ -562,13 +580,11 @@ class CombateFirestore {
         this._log(`🎲 Rolagem: ${rolagemAtaque.str} vs NH ${nhJogador}% → ${acertou ? 'ACERTOU' : 'ERROU'}`, 'normal', true);
         
         if (acertou) {
-            // ===== CORREÇÃO AQUI =====
-            // Usar a função que calcula a defesa REAL do inimigo
             let defesaInimigo = combateCalcularDefesaInimigo(this.inimigo);
             
             if (this.status.penalidadeDefesaInimigo < 0) {
                 defesaInimigo += this.status.penalidadeDefesaInimigo;
-                this._log(`💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}% nas defesas!`, 'dano', true);
+                this._log(`💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}%`, 'dano', true);
             }
             
             const rolagemDefesa = combateRolar2d10();
@@ -646,7 +662,6 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
-        // Calcular NH do inimigo
         let nhInimigo = 40;
         if (this.inimigo.pericias) {
             if (this.inimigo.pericias.luta) nhInimigo = 40 + (this.inimigo.pericias.luta * 4);
@@ -766,10 +781,6 @@ class CombateFirestore {
                 } catch (e) {}
             }
             
-            if (typeof window.atualizarInterfacePersonagem === 'function') {
-                window.atualizarInterfacePersonagem();
-            }
-            
             if (this.personagem.statusCombate.vidaAtual <= 0) {
                 this._log(`💀 ${this.personagem.nome || 'Herói'} foi DERROTADO!`, 'falha', true);
                 
@@ -849,8 +860,6 @@ if (typeof window !== 'undefined') {
     window.combateCalcularBloqueio = combateCalcularBloqueio;
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
-    
-    console.log('✅ Sistema de Combate CORRIGIDO carregado!');
 }
 
 if (typeof module !== 'undefined' && module.exports) {
