@@ -609,27 +609,77 @@ class Combate {
                 danoFinal *= 2;
             }
             
-            // APLICAR O DANO
+            // APLICAR O DANO NO PERSONAGEM DO COMBATE
             this.personagem.statusCombate.vidaAtual -= danoFinal;
             if (this.personagem.statusCombate.vidaAtual < 0) {
                 this.personagem.statusCombate.vidaAtual = 0;
             }
             
-            // ===== LINHA CRÍTICA - SINCRONIZAR COM GLOBAL =====
-            if (typeof window !== 'undefined' && window.personagemAtual) {
-                window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
-                console.log(`🔄 PV sincronizado: ${window.personagemAtual.statusCombate.vidaAtual}`);
+            // ===== CORREÇÃO CRÍTICA - SINCRONIZAR COM GLOBAL =====
+            if (typeof window !== 'undefined') {
+                // Garantir que o objeto global existe
+                if (!window.personagemAtual) {
+                    window.personagemAtual = this.personagem;
+                }
                 
-                // 🔥 ATUALIZAR INTERFACE (sem salvar no Firestore)
-                if (typeof window.atualizarPVNaUI === 'function') {
-                    window.atualizarPVNaUI();
+                if (window.personagemAtual) {
+                    // Garantir que statusCombate existe
+                    if (!window.personagemAtual.statusCombate) {
+                        window.personagemAtual.statusCombate = {};
+                    }
+                    
+                    window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
+                    console.log(`🔄 PV sincronizado: ${window.personagemAtual.statusCombate.vidaAtual}`);
+                    
+                    // 🔥 FORÇAR ATUALIZAÇÃO DA UI
+                    if (typeof window.atualizarPVNaUI === 'function') {
+                        window.atualizarPVNaUI();
+                    } else {
+                        console.warn('⚠️ função atualizarPVNaUI não encontrada - tentando fallback');
+                        // Fallback: tentar atualizar elementos diretamente
+                        try {
+                            const hpText = document.getElementById('hpText');
+                            const hpBar = document.getElementById('hpBar');
+                            const playerHpCombat = document.getElementById('playerHpCombat');
+                            
+                            const vidaMax = this._calcularVidaMax();
+                            
+                            if (hpText) {
+                                hpText.textContent = `${this.personagem.statusCombate.vidaAtual}/${vidaMax}`;
+                            }
+                            if (hpBar) {
+                                const percentual = (this.personagem.statusCombate.vidaAtual / vidaMax) * 100;
+                                hpBar.style.width = `${percentual}%`;
+                            }
+                            if (playerHpCombat) {
+                                playerHpCombat.textContent = this.personagem.statusCombate.vidaAtual;
+                            }
+                        } catch (e) {
+                            console.error('Erro no fallback:', e);
+                        }
+                    }
                 }
             }
             
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano');
             
-            // ATUALIZAR UI IMEDIATAMENTE
+            // ATUALIZAR UI DO COMBATE
             this._atualizarUI();
+            
+            // Disparar evento customizado (opcional, mas útil)
+            if (typeof window !== 'undefined') {
+                try {
+                    const evento = new CustomEvent('danoRecebido', { 
+                        detail: { 
+                            vidaAtual: this.personagem.statusCombate.vidaAtual,
+                            dano: danoFinal 
+                        } 
+                    });
+                    window.dispatchEvent(evento);
+                } catch (e) {
+                    // Ignora erro se não conseguir disparar evento
+                }
+            }
             
             // VERIFICAR SE MORREU
             if (this.personagem.statusCombate.vidaAtual <= 0) {
