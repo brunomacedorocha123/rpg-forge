@@ -1,12 +1,6 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA - VERSÃO DEFINITIVA CORRIGIDA
-// ✅ Tudo baseado em valores REAIS do personagem
-// ✅ Perícia reconhecida pela arma equipada
-// ✅ Defesas calculadas pelos atributos
-// ✅ Inimigo com seus próprios valores (NÃO MAIS 5% FIXO!)
-// ✅ Rolagens 2d10 para tudo
-// ✅ Crítico (1-6) e Falha Crítica (95-100)
-// ✅ Fadiga a cada 5 rodadas
+// SISTEMA DE COMBATE AKALANATA - VERSÃO CORRIGIDA
+// ✅ INIMIGO USA DEFESA REAL, NÃO 5% FIXO!
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -85,65 +79,6 @@ const INIMIGOS = {
         derivados: { esquiva: 25, aparar: 35, bloqueio: 0 },
         experiencia: 120,
         ouro: 10
-    },
-    
-    "bandido_arqueiro": {
-        id: "bandido_arqueiro",
-        nome: "Bandido Arqueiro",
-        vida: 30,
-        vidaMax: 30,
-        descricao: "Um bandido com um arco nas mãos, olhos calculistas.",
-        equipamento: "Arco curto",
-        armadura: 1,
-        danoFormula: "1d8",
-        forca: 9,
-        destreza: 13,
-        vigor: 10,
-        inteligencia: 7,
-        pericias: { "arco": 3 },
-        derivados: { esquiva: 50, aparar: 0, bloqueio: 0 },
-        experiencia: 65,
-        ouro: 3
-    },
-    
-    "esqueleto_guerreiro": {
-        id: "esqueleto_guerreiro",
-        nome: "Esqueleto Guerreiro",
-        vida: 25,
-        vidaMax: 25,
-        descricao: "Um esqueleto animado por magia negra, empunhando uma espada enferrujada.",
-        equipamento: "Espada longa",
-        armadura: 2,
-        danoFormula: "1d10",
-        forca: 12,
-        destreza: 10,
-        vigor: 0, // Não tem vigor, não sente fadiga
-        inteligencia: 3,
-        pericias: { "espada": 2 },
-        derivados: { esquiva: 30, aparar: 35, bloqueio: 0 },
-        resistencia: { fogo: -2, gelo: 1 }, // Vulnerabilidade ao fogo, resistente ao gelo
-        experiencia: 85,
-        ouro: 2
-    },
-    
-    "feiticeiro_das_trevas": {
-        id: "feiticeiro_das_trevas",
-        nome: "Feiticeiro das Trevas",
-        vida: 40,
-        vidaMax: 40,
-        descricao: "Um mago corrupto que usa magias de sombra e medo.",
-        equipamento: "Cajado sombrio",
-        armadura: 1,
-        danoFormula: "1d6+2",
-        forca: 8,
-        destreza: 9,
-        vigor: 10,
-        inteligencia: 15,
-        pericias: { "magia": 3, "vontade": 2 },
-        derivados: { esquiva: 35, aparar: 20, bloqueio: 0 },
-        magias: ["sombra", "medo", "drenar_vida"],
-        experiencia: 150,
-        ouro: 15
     }
 };
 
@@ -240,7 +175,7 @@ function combateGetVIGORPercentual(personagem) {
     return 40 + (esferas * 3);
 }
 
-// ===== CALCULAR NH =====
+// ===== CALCULAR NH DO JOGADOR =====
 function combateCalcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
@@ -249,7 +184,7 @@ function combateCalcularNH(personagem, periciaId) {
     
     const nivel = pericia.nivel || 0;
     
-    const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga'];
+    const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga', 'martelo', 'maca'];
     
     let atributoBase = 40;
     
@@ -266,80 +201,44 @@ function combateCalcularNH(personagem, periciaId) {
     return Math.min(95, Math.max(5, nh));
 }
 
-function combateCalcularNHInimigo(inimigo) {
-    let nh = 40;
-    
-    if (inimigo.pericias) {
-        if (inimigo.pericias.luta) nh = 40 + (inimigo.pericias.luta * 4);
-        else if (inimigo.pericias.espada) nh = 40 + (inimigo.pericias.espada * 4);
-        else if (inimigo.pericias.adaga) nh = 40 + (inimigo.pericias.adaga * 4);
-        else if (inimigo.pericias.machado) nh = 40 + (inimigo.pericias.machado * 4);
-        else if (inimigo.pericias.arco) nh = 40 + (inimigo.pericias.arco * 4);
-        else if (inimigo.pericias.magia) nh = 40 + (inimigo.pericias.magia * 4);
-    }
-    
-    // Bônus por atributos
-    if (inimigo.destreza) {
-        const dxBonus = (inimigo.destreza - 5) * 2;
-        nh += dxBonus;
-    }
-    
-    return Math.min(95, Math.max(5, nh));
-}
-
-// ===== CALCULAR DEFESAS DO INIMIGO =====
+// ===== CALCULAR DEFESA DO INIMIGO - FUNÇÃO NOVA =====
 function combateCalcularDefesaInimigo(inimigo) {
     if (!inimigo) return 5;
     
-    let melhorDefesa = 5; // Mínimo de 5%
+    console.log('📊 Calculando defesa do inimigo:', inimigo.nome);
     
-    // 1. Usar derivados pré-definidos
+    // 1. PRIORIDADE MÁXIMA: Usar derivados se existirem
     if (inimigo.derivados) {
-        if (inimigo.derivados.esquiva && inimigo.derivados.esquiva > melhorDefesa) {
-            melhorDefesa = inimigo.derivados.esquiva;
-        }
-        if (inimigo.derivados.aparar && inimigo.derivados.aparar > melhorDefesa) {
-            melhorDefesa = inimigo.derivados.aparar;
-        }
-        if (inimigo.derivados.bloqueio && inimigo.derivados.bloqueio > melhorDefesa) {
-            melhorDefesa = inimigo.derivados.bloqueio;
+        // Encontrar a MAIOR defesa disponível
+        const defesas = [];
+        if (inimigo.derivados.esquiva) defesas.push(inimigo.derivados.esquiva);
+        if (inimigo.derivados.aparar) defesas.push(inimigo.derivados.aparar);
+        if (inimigo.derivados.bloqueio) defesas.push(inimigo.derivados.bloqueio);
+        
+        if (defesas.length > 0) {
+            const maiorDefesa = Math.max(...defesas);
+            console.log('✅ Usando derivados:', defesas, '→', maiorDefesa);
+            return Math.min(95, Math.max(5, maiorDefesa));
         }
     }
     
-    // 2. Se não tiver derivados, calcular baseado nos atributos
-    if (melhorDefesa === 5 && inimigo.destreza) {
+    // 2. SEGUNDA OPÇÃO: Calcular baseado em atributos
+    if (inimigo.destreza) {
         // Calcular esquiva base
         const dxPercentual = 40 + ((inimigo.destreza - 5) * 2);
         const vigorPercentual = 40 + ((inimigo.vigor || 5) - 5) * 3;
         const esquivaCalculada = Math.floor((dxPercentual + vigorPercentual) / 2) + 5;
         
-        if (esquivaCalculada > melhorDefesa) {
-            melhorDefesa = Math.min(80, esquivaCalculada);
-        }
-        
-        // Verificar se pode aparar (tem arma)
-        if (inimigo.equipamento && !inimigo.equipamento.includes('arco')) {
-            const periciaNivel = inimigo.pericias?.espada || inimigo.pericias?.luta || 0;
-            const apararCalculada = dxPercentual + (periciaNivel * 4) + 5;
-            if (apararCalculada > melhorDefesa) {
-                melhorDefesa = Math.min(80, apararCalculada);
-            }
-        }
-        
-        // Verificar se pode bloquear (tem escudo)
-        if (inimigo.equipamento && inimigo.equipamento.includes('escudo')) {
-            const periciaEscudo = inimigo.pericias?.escudo || 0;
-            const bloqueioCalculado = dxPercentual + (periciaEscudo * 4) + 10;
-            if (bloqueioCalculado > melhorDefesa) {
-                melhorDefesa = Math.min(85, bloqueioCalculado);
-            }
-        }
+        console.log('✅ Defesa calculada por atributos:', esquivaCalculada, '%');
+        return Math.min(80, Math.max(5, esquivaCalculada));
     }
     
-    return Math.max(5, Math.min(90, melhorDefesa));
+    // 3. Fallback - NUNCA 5%, pelo menos 25% pra não ser muito fácil
+    console.log('⚠️ Usando fallback de 25%');
+    return 25;
 }
 
-// ===== CALCULAR DEFESAS =====
+// ===== CALCULAR DEFESAS DO JOGADOR =====
 function combateCalcularEsquiva(personagem, bonusPenalidade = 0) {
     let esquiva = Math.floor((combateGetDXPercentual(personagem) + combateGetVIGORPercentual(personagem)) / 2) + 5;
     if (personagem.vantagens?.includes('reflexosRapidos')) esquiva += 5;
@@ -424,7 +323,7 @@ function combateCalcularDanoPersonagem(personagem, arma = null, multiplicador = 
 }
 
 // ============================================
-// CLASSE DE COMBATE COM FIRESTORE - VERSÃO COMPLETA CORRIGIDA
+// CLASSE DE COMBATE COM FIRESTORE
 // ============================================
 
 class CombateFirestore {
@@ -628,6 +527,8 @@ class CombateFirestore {
             else if (nomeArma.includes('adaga')) periciaAtaque = 'adaga';
             else if (nomeArma.includes('arco')) periciaAtaque = 'arco';
             else if (nomeArma.includes('besta')) periciaAtaque = 'besta';
+            else if (nomeArma.includes('martelo')) periciaAtaque = 'machado'; // Trata martelo como machado
+            else if (nomeArma.includes('maca')) periciaAtaque = 'machado';
         }
         
         let nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
@@ -661,7 +562,8 @@ class CombateFirestore {
         this._log(`🎲 Rolagem: ${rolagemAtaque.str} vs NH ${nhJogador}% → ${acertou ? 'ACERTOU' : 'ERROU'}`, 'normal', true);
         
         if (acertou) {
-            // ===== CORREÇÃO: CALCULAR DEFESA REAL DO INIMIGO =====
+            // ===== CORREÇÃO AQUI =====
+            // Usar a função que calcula a defesa REAL do inimigo
             let defesaInimigo = combateCalcularDefesaInimigo(this.inimigo);
             
             if (this.status.penalidadeDefesaInimigo < 0) {
@@ -744,7 +646,14 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
-        const nhInimigo = combateCalcularNHInimigo(this.inimigo);
+        // Calcular NH do inimigo
+        let nhInimigo = 40;
+        if (this.inimigo.pericias) {
+            if (this.inimigo.pericias.luta) nhInimigo = 40 + (this.inimigo.pericias.luta * 4);
+            else if (this.inimigo.pericias.espada) nhInimigo = 40 + (this.inimigo.pericias.espada * 4);
+            else if (this.inimigo.pericias.machado) nhInimigo = 40 + (this.inimigo.pericias.machado * 4);
+        }
+        
         const rolagemAtaque = combateRolar2d10();
         
         let acertou = false;
@@ -934,7 +843,6 @@ if (typeof window !== 'undefined') {
     window.combateRolarDados = combateRolarDados;
     window.combateRolar2d10 = combateRolar2d10;
     window.combateCalcularNH = combateCalcularNH;
-    window.combateCalcularNHInimigo = combateCalcularNHInimigo;
     window.combateCalcularDefesaInimigo = combateCalcularDefesaInimigo;
     window.combateCalcularEsquiva = combateCalcularEsquiva;
     window.combateCalcularAparar = combateCalcularAparar;
@@ -942,7 +850,7 @@ if (typeof window !== 'undefined') {
     window.combateCalcularRDTotal = combateCalcularRDTotal;
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
     
-    console.log('✅ Sistema de Combate corrigido carregado!');
+    console.log('✅ Sistema de Combate CORRIGIDO carregado!');
 }
 
 if (typeof module !== 'undefined' && module.exports) {
