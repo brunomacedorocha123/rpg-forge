@@ -1260,13 +1260,16 @@
         </div>
     </div>
 
-   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
 // ============================================
-// SALA AVENTURA - VERSÃO CORRIGIDA 100%
+// SALA AVENTURA - VERSÃO COMPLETA
+// CÓDIGO ORIGINAL MANTIDO + MELHORIAS ADICIONADAS
 // ============================================
 
 // ============================================
@@ -1281,7 +1284,6 @@ const firebaseConfig = {
     appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
 };
 
-// Inicializar Firebase (APENAS UMA VEZ)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -1295,8 +1297,9 @@ let personagemAtual = null;
 let aventuraAtual = null;
 let combateAtual = null;
 let userId = null;
+let personagensLista = [];
 
-// Mapeamento de IDs de aventura para nomes
+// Mapeamento de IDs de aventura para nomes (MELHORIA)
 const AVENTURAS = {
     'grito_estrada': 'O Grito na Estrada',
     'masmorra_goblins': 'A Masmorra dos Goblins',
@@ -1307,7 +1310,7 @@ const AVENTURAS = {
     'tumba_farao': 'A Tumba do Faraó'
 };
 
-// Mapeamento de ID da aventura para cena inicial
+// Mapeamento de ID da aventura para cena inicial (MELHORIA)
 const CENA_INICIAL = {
     'grito_estrada': 'grito_estrada',
     'masmorra_goblins': 'grito_estrada',
@@ -1338,9 +1341,13 @@ const elements = {
     defesaEsquiva: document.getElementById('defesaEsquiva'),
     defesaAparar: document.getElementById('defesaAparar'),
     defesaBloqueio: document.getElementById('defesaBloqueio'),
+    
+    // NOVOS ELEMENTOS (MELHORIAS)
     dinheiroValor: document.getElementById('dinheiroValor'),
     xpTexto: document.getElementById('xpTexto'),
     xpBarra: document.getElementById('xpBarra'),
+    turnCounter: document.getElementById('turnCounter'),
+    bonusIndicator: document.getElementById('bonusIndicator'),
     
     cenarioImagem: document.getElementById('cenarioImagem'),
     cenarioTitulo: document.getElementById('cenarioTitulo'),
@@ -1355,8 +1362,6 @@ const elements = {
     combatPanel: document.getElementById('combatPanel'),
     narrativeArea: document.getElementById('narrativeArea'),
     turnIndicator: document.getElementById('turnIndicator'),
-    turnCounter: document.getElementById('turnCounter'),
-    bonusIndicator: document.getElementById('bonusIndicator'),
     enemyName: document.getElementById('enemyName'),
     enemyHpBar: document.getElementById('enemyHpBar'),
     enemyHpCurrent: document.getElementById('enemyHpCurrent'),
@@ -1387,6 +1392,10 @@ const elements = {
     
     btnSair: document.getElementById('btnSair'),
     mainGrid: document.getElementById('mainGrid'),
+    seletorContainer: document.getElementById('seletorContainer'),
+    seletorLista: document.getElementById('seletorLista'),
+    personagemLista: document.getElementById('personagemLista'),
+    modalSeletorPersonagem: document.getElementById('modalSeletorPersonagem'),
     aventuraNome: document.getElementById('aventuraNome'),
     aventuraTituloNav: document.getElementById('aventuraTituloNav')
 };
@@ -1396,19 +1405,18 @@ const elements = {
 // ============================================
 function mostrarLoading(mostrar) {
     if (elements.loadingOverlay) {
-        elements.loadingOverlay.style.display = mostrar ? 'flex' : 'none';
+        elements.loadingOverlay.classList.toggle('active', mostrar);
     }
 }
 
 function mostrarToast(mensagem, tipo = 'normal') {
     if (elements.toast && elements.toastMessage) {
         elements.toastMessage.textContent = mensagem;
-        elements.toast.style.display = 'flex';
         elements.toast.className = 'toast show';
         if (tipo === 'erro') elements.toast.classList.add('erro');
         
         setTimeout(() => {
-            elements.toast.style.display = 'none';
+            elements.toast.classList.remove('show');
         }, 3000);
     }
 }
@@ -1424,7 +1432,7 @@ function fecharModal(modalId) {
 }
 
 // ============================================
-// TABELA DE XP
+// TABELA DE XP (MELHORIA)
 // ============================================
 function getXpProximoNivel(nivelAtual) {
     const tabela = {
@@ -1437,86 +1445,131 @@ function getXpProximoNivel(nivelAtual) {
 // ============================================
 // FUNÇÕES DE CÁLCULO
 // ============================================
-function getSTFixo() { return 5 + (personagemAtual?.atributos?.st?.esferas || 0); }
-function getDXFixo() { return 5 + (personagemAtual?.atributos?.dx?.esferas || 0); }
-function getIQFixo() { return 5 + (personagemAtual?.atributos?.iq?.esferas || 0); }
-function getVIGORFixo() { return 5 + (personagemAtual?.atributos?.vigor?.esferas || 0); }
-function getVTFixo() { return 5 + (personagemAtual?.atributos?.vt?.esferas || 0); }
+function getSTFixo(personagem) {
+    return 5 + (personagem.atributos?.st?.esferas || 0);
+}
 
-function getSTPercentual() { return 40 + ((personagemAtual?.atributos?.st?.esferas || 0) * 3); }
-function getDXPercentual() { return 40 + ((personagemAtual?.atributos?.dx?.esferas || 0) * 2); }
-function getIQPercentual() { return 40 + ((personagemAtual?.atributos?.iq?.esferas || 0) * 2); }
-function getVIGORPercentual() { return 40 + ((personagemAtual?.atributos?.vigor?.esferas || 0) * 3); }
+function getDXFixo(personagem) {
+    return 5 + (personagem.atributos?.dx?.esferas || 0);
+}
 
-function calcularPV() {
-    const vt = getVTFixo();
+function getIQFixo(personagem) {
+    return 5 + (personagem.atributos?.iq?.esferas || 0);
+}
+
+function getVIGORFixo(personagem) {
+    return 5 + (personagem.atributos?.vigor?.esferas || 0);
+}
+
+function getVTFixo(personagem) {
+    return 5 + (personagem.atributos?.vt?.esferas || 0);
+}
+
+function getSTExibido(personagem) {
+    return personagem.atributos?.st?.esferas || 0;
+}
+
+function getDXExibido(personagem) {
+    return personagem.atributos?.dx?.esferas || 0;
+}
+
+function getIQExibido(personagem) {
+    return personagem.atributos?.iq?.esferas || 0;
+}
+
+function getVIGORExibido(personagem) {
+    return personagem.atributos?.vigor?.esferas || 0;
+}
+
+function getVTExibido(personagem) {
+    return personagem.atributos?.vt?.esferas || 0;
+}
+
+function getSTPercentual(personagem) {
+    return 40 + ((personagem.atributos?.st?.esferas || 0) * 3);
+}
+
+function getDXPercentual(personagem) {
+    return 40 + ((personagem.atributos?.dx?.esferas || 0) * 2);
+}
+
+function getIQPercentual(personagem) {
+    return 40 + ((personagem.atributos?.iq?.esferas || 0) * 2);
+}
+
+function getVIGORPercentual(personagem) {
+    return 40 + ((personagem.atributos?.vigor?.esferas || 0) * 3);
+}
+
+function calcularPV(personagem) {
+    const vt = getVTFixo(personagem);
     let pv = vt * 8;
-    if (personagemAtual?.vantagens?.includes('htExtra')) {
+    if (personagem.vantagens?.includes('htExtra')) {
         pv = Math.floor(pv * 1.10);
     }
     return pv;
 }
 
-function calcularPF() {
-    let pf = getVIGORFixo() + getVTFixo();
-    if (personagemAtual?.vantagens?.includes('fadigaExtra')) {
+function calcularPF(personagem) {
+    let pf = getVIGORFixo(personagem) + getVTFixo(personagem);
+    if (personagem.vantagens?.includes('fadigaExtra')) {
         pf += 5;
     }
     return pf;
 }
 
-function calcularPM() {
-    return getVIGORFixo() + getIQFixo() + getVTFixo();
+function calcularPM(personagem) {
+    return getVIGORFixo(personagem) + getIQFixo(personagem) + getVTFixo(personagem);
 }
 
-function calcularNivel() {
-    const totalEsferas = (personagemAtual?.atributos?.st?.esferas || 0) +
-                        (personagemAtual?.atributos?.dx?.esferas || 0) +
-                        (personagemAtual?.atributos?.iq?.esferas || 0) +
-                        (personagemAtual?.atributos?.vigor?.esferas || 0) +
-                        (personagemAtual?.atributos?.vt?.esferas || 0);
+function calcularNivel(personagem) {
+    const totalEsferas = (personagem.atributos?.st?.esferas || 0) +
+                        (personagem.atributos?.dx?.esferas || 0) +
+                        (personagem.atributos?.iq?.esferas || 0) +
+                        (personagem.atributos?.vigor?.esferas || 0) +
+                        (personagem.atributos?.vt?.esferas || 0);
     return totalEsferas + 1;
 }
 
-function calcularEsquiva() {
-    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) + 5;
-    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
+function calcularEsquiva(personagem) {
+    let esquiva = Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) + 5;
+    if (personagem.vantagens?.includes('reflexosRapidos')) esquiva += 5;
     return Math.min(80, Math.max(5, esquiva));
 }
 
-function calcularAparar() {
-    const temArma = personagemAtual?.inventario?.corpo?.some(item => item.dano);
+function calcularAparar(personagem) {
+    const temArma = personagem.inventario?.corpo?.some(item => item.dano);
     if (!temArma) return 0;
     
-    const periciaEspada = personagemAtual?.pericias?.espada?.nivel || 0;
-    let aparar = getDXPercentual() + (periciaEspada * 4) + 5;
+    const periciaEspada = personagem.pericias?.espada?.nivel || 0;
+    let aparar = getDXPercentual(personagem) + (periciaEspada * 4) + 5;
     
-    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
-    if (personagemAtual?.vantagens?.includes('ataquesMultiplos')) aparar += 5;
+    if (personagem.vantagens?.includes('reflexosRapidos')) aparar += 5;
+    if (personagem.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
     return Math.min(80, Math.max(5, aparar));
 }
 
-function calcularBloqueio() {
-    const temEscudo = personagemAtual?.inventario?.corpo?.some(item => item.bonus);
+function calcularBloqueio(personagem) {
+    const temEscudo = personagem.inventario?.corpo?.some(item => item.bonus);
     if (!temEscudo) return 0;
     
-    const periciaEscudo = personagemAtual?.pericias?.escudo?.nivel || 0;
-    let bloqueio = getDXPercentual() + (periciaEscudo * 4) + 5;
+    const periciaEscudo = personagem.pericias?.escudo?.nivel || 0;
+    let bloqueio = getDXPercentual(personagem) + (periciaEscudo * 4) + 5;
     
-    const escudo = personagemAtual?.inventario?.corpo?.find(item => item.bonus);
+    const escudo = personagem.inventario.corpo?.find(item => item.bonus);
     if (escudo?.bonus) bloqueio += escudo.bonus * 5;
     
-    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
+    if (personagem.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
     
     return Math.min(85, Math.max(5, bloqueio));
 }
 
-function calcularRDTotal() {
+function calcularRDTotal(personagem) {
     let rd = 0;
-    if (personagemAtual?.vantagens?.includes('corpoResistente')) rd += 2;
-    if (personagemAtual?.inventario?.corpo) {
-        personagemAtual.inventario.corpo.forEach(item => {
+    if (personagem.vantagens?.includes('corpoResistente')) rd += 2;
+    if (personagem.inventario?.corpo) {
+        personagem.inventario.corpo.forEach(item => {
             if (item.rd) rd += item.rd;
         });
     }
@@ -1524,98 +1577,70 @@ function calcularRDTotal() {
 }
 
 // ============================================
-// ATUALIZAR INTERFACE DO PERSONAGEM
+// ATUALIZAR PV NA UI
 // ============================================
-function atualizarInterfacePersonagem() {
-    if (!personagemAtual) return;
-
-    // Dados básicos
-    if (elements.characterName) elements.characterName.textContent = personagemAtual.nome || 'Aventureiro';
+function atualizarPVNaUI() {
+    console.log('🔄 Atualizando PV na interface...');
     
-    const classe = personagemAtual.classe || 'guerreiro';
-    const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
-    if (elements.characterClass) elements.characterClass.innerHTML = `<i class="fas fa-shield-alt"></i> <span>${classes[classe] || classe}</span>`;
-    
-    if (personagemAtual.fotoURL && elements.characterAvatar) {
-        elements.characterAvatar.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
+    if (!personagemAtual || !personagemAtual.statusCombate) {
+        console.log('⚠️ personagemAtual não disponível');
+        return;
     }
-
-    // Recursos
-    const vidaMax = calcularPV();
-    const manaMax = calcularPM();
-    const fadigaMax = calcularPF();
     
-    const vidaAtual = personagemAtual.statusCombate?.vidaAtual !== undefined ? 
-                      Math.min(personagemAtual.statusCombate.vidaAtual, vidaMax) : vidaMax;
-    const manaAtual = personagemAtual.statusCombate?.manaAtual !== undefined ? 
-                      Math.min(personagemAtual.statusCombate.manaAtual, manaMax) : manaMax;
-    const fadigaAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
-                        Math.min(personagemAtual.statusCombate.fadigaAtual, fadigaMax) : fadigaMax;
+    const vidaMax = calcularPV(personagemAtual);
+    const vidaAtual = personagemAtual.statusCombate.vidaAtual;
     
-    if (elements.hpText) elements.hpText.textContent = `${vidaAtual}/${vidaMax}`;
-    if (elements.hpBar) elements.hpBar.style.width = `${(vidaAtual / vidaMax) * 100}%`;
+    console.log(`❤️ PV: ${vidaAtual}/${vidaMax}`);
     
-    if (elements.pmText) elements.pmText.textContent = `${manaAtual}/${manaMax}`;
-    if (elements.pmBar) elements.pmBar.style.width = `${(manaAtual / manaMax) * 100}%`;
-    
-    if (elements.pfText) elements.pfText.textContent = `${fadigaAtual}/${fadigaMax}`;
-    if (elements.pfBar) elements.pfBar.style.width = `${(fadigaAtual / fadigaMax) * 100}%`;
-
-    // Nível
-    const nivel = calcularNivel();
-    if (elements.nivelValue) elements.nivelValue.textContent = nivel;
-
-    // XP
-    const xpAtual = personagemAtual.xpAtual || 0;
-    const xpNecessario = getXpProximoNivel(nivel);
-    const percentualXp = (xpAtual / xpNecessario) * 100;
-    
-    if (elements.xpTexto) elements.xpTexto.textContent = `${xpAtual} / ${xpNecessario}`;
-    if (elements.xpBarra) {
-        elements.xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
-        elements.xpBarra.textContent = Math.round(percentualXp) + '%';
+    if (elements.hpText) {
+        elements.hpText.textContent = `${vidaAtual}/${vidaMax}`;
     }
-
-    // Dinheiro
-    if (elements.dinheiroValor) elements.dinheiroValor.textContent = personagemAtual.dinheiro || 0;
-
-    // Atributos
-    if (elements.attributesGrid) {
-        elements.attributesGrid.innerHTML = `
-            <div class="attribute-item"><div class="attribute-label">ST</div><div class="attribute-value">${personagemAtual.atributos?.st?.esferas || 0}</div></div>
-            <div class="attribute-item"><div class="attribute-label">DX</div><div class="attribute-value">${personagemAtual.atributos?.dx?.esferas || 0}</div></div>
-            <div class="attribute-item"><div class="attribute-label">IQ</div><div class="attribute-value">${personagemAtual.atributos?.iq?.esferas || 0}</div></div>
-            <div class="attribute-item"><div class="attribute-label">Vigor</div><div class="attribute-value">${personagemAtual.atributos?.vigor?.esferas || 0}</div></div>
-            <div class="attribute-item"><div class="attribute-label">VT</div><div class="attribute-value">${personagemAtual.atributos?.vt?.esferas || 0}</div></div>
-            <div class="attribute-item"><div class="attribute-label">PV</div><div class="attribute-value">${vidaMax}</div></div>
-        `;
+    if (elements.hpBar) {
+        const percentual = (vidaAtual / vidaMax) * 100;
+        elements.hpBar.style.width = `${percentual}%`;
     }
-
-    // Defesas
-    const esquiva = calcularEsquiva();
-    const aparar = calcularAparar();
-    const bloqueio = calcularBloqueio();
-    const rd = calcularRDTotal();
-    
-    if (elements.defesaEsquiva) elements.defesaEsquiva.textContent = esquiva + '%';
-    if (elements.defesaAparar) elements.defesaAparar.textContent = aparar + '%';
-    if (elements.defesaBloqueio) elements.defesaBloqueio.textContent = bloqueio + '%';
-    
-    if (elements.defesaEsquivaValor) elements.defesaEsquivaValor.textContent = `(${esquiva}%)`;
-    if (elements.defesaApararValor) elements.defesaApararValor.textContent = `(${aparar}%)`;
-    if (elements.defesaBloqueioValor) elements.defesaBloqueioValor.textContent = `(${bloqueio}%)`;
-    
-    if (elements.playerHpCombat) elements.playerHpCombat.textContent = vidaAtual;
-    if (elements.playerPmCombat) elements.playerPmCombat.textContent = manaAtual;
-    if (elements.playerPfCombat) elements.playerPfCombat.textContent = fadigaAtual;
-    if (elements.playerRdCombat) elements.playerRdCombat.textContent = rd;
-    if (elements.playerEsquivaCombat) elements.playerEsquivaCombat.textContent = esquiva;
-    if (elements.playerApararCombat) elements.playerApararCombat.textContent = aparar;
-    if (elements.playerBloqueioCombat) elements.playerBloqueioCombat.textContent = bloqueio;
+    if (elements.playerHpCombat) {
+        elements.playerHpCombat.textContent = vidaAtual;
+    }
 }
 
 // ============================================
-// FUNÇÕES DE ALTERAÇÃO DE RECURSOS
+// ATUALIZAR VALORES DE DEFESA
+// ============================================
+function atualizarValoresDefesa() {
+    if (!personagemAtual) return;
+    
+    const esquiva = calcularEsquiva(personagemAtual);
+    const aparar = calcularAparar(personagemAtual);
+    const bloqueio = calcularBloqueio(personagemAtual);
+    const rd = calcularRDTotal(personagemAtual);
+    
+    if (elements.playerEsquivaCombat) {
+        elements.playerEsquivaCombat.textContent = esquiva;
+    }
+    if (elements.playerApararCombat) {
+        elements.playerApararCombat.textContent = aparar;
+    }
+    if (elements.playerBloqueioCombat) {
+        elements.playerBloqueioCombat.textContent = bloqueio;
+    }
+    if (elements.playerRdCombat) {
+        elements.playerRdCombat.textContent = rd;
+    }
+    
+    if (elements.defesaEsquivaValor) {
+        elements.defesaEsquivaValor.textContent = `(${esquiva}%)`;
+    }
+    if (elements.defesaApararValor) {
+        elements.defesaApararValor.textContent = `(${aparar}%)`;
+    }
+    if (elements.defesaBloqueioValor) {
+        elements.defesaBloqueioValor.textContent = `(${bloqueio}%)`;
+    }
+}
+
+// ============================================
+// FUNÇÕES DE ALTERAÇÃO DE RECURSOS (MELHORIAS)
 // ============================================
 window.alterarRecurso = async function(tipo, valor) {
     if (!personagemAtual || !userId) return;
@@ -1624,17 +1649,17 @@ window.alterarRecurso = async function(tipo, valor) {
     
     if (tipo === 'pv') {
         campo = 'statusCombate.vidaAtual';
-        valorMax = calcularPV();
+        valorMax = calcularPV(personagemAtual);
         valorAtual = personagemAtual.statusCombate?.vidaAtual !== undefined ? 
                     Math.min(personagemAtual.statusCombate.vidaAtual, valorMax) : valorMax;
     } else if (tipo === 'pm') {
         campo = 'statusCombate.manaAtual';
-        valorMax = calcularPM();
+        valorMax = calcularPM(personagemAtual);
         valorAtual = personagemAtual.statusCombate?.manaAtual !== undefined ? 
                     Math.min(personagemAtual.statusCombate.manaAtual, valorMax) : valorMax;
     } else if (tipo === 'pf') {
         campo = 'statusCombate.fadigaAtual';
-        valorMax = calcularPF();
+        valorMax = calcularPF(personagemAtual);
         valorAtual = personagemAtual.statusCombate?.fadigaAtual !== undefined ? 
                     Math.min(personagemAtual.statusCombate.fadigaAtual, valorMax) : valorMax;
     } else {
@@ -1680,6 +1705,228 @@ window.alterarDinheiro = async function(valor) {
 };
 
 // ============================================
+// CARREGAR PERSONAGENS
+// ============================================
+async function carregarPersonagens() {
+    try {
+        mostrarLoading(true);
+        
+        const user = auth.currentUser;
+        if (!user) {
+            mostrarToast('Usuário não autenticado!', 'erro');
+            return [];
+        }
+        
+        userId = user.uid;
+        
+        const q = await db.collection('personagens').where('userId', '==', userId).get();
+        
+        if (q.empty) {
+            mostrarToast('Nenhum personagem encontrado!', 'erro');
+            return [];
+        }
+        
+        const personagens = [];
+        q.forEach(doc => {
+            personagens.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        personagensLista = personagens;
+        return personagens;
+        
+    } catch (error) {
+        mostrarToast('Erro ao carregar personagens: ' + error.message, 'erro');
+        return [];
+    } finally {
+        mostrarLoading(false);
+    }
+}
+
+// ============================================
+// RENDERIZAR LISTA DE PERSONAGENS
+// ============================================
+function renderizarListaPersonagens(personagens) {
+    if (!elements.seletorLista) return;
+    
+    if (personagens.length === 0) {
+        elements.seletorLista.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--aged-paper); padding: 40px;">Nenhum personagem encontrado. Crie um personagem primeiro!</div>';
+        return;
+    }
+    
+    let html = '';
+    personagens.forEach(p => {
+        const classe = p.classe || 'guerreiro';
+        const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
+        const nomeClasse = classes[classe] || classe;
+        const nivel = calcularNivel(p);
+        const pv = calcularPV(p);
+        
+        html += `
+            <div class="personagem-card">
+                <h3>${p.nome || 'Sem nome'}</h3>
+                <p><i class="fas fa-shield-alt"></i> ${nomeClasse}</p>
+                <p><i class="fas fa-level-up-alt"></i> Nível <span class="nivel">${nivel}</span></p>
+                <p><i class="fas fa-heart" style="color: #ff6b6b;"></i> PV ${pv}</p>
+                <button class="btn-selecionar" onclick="selecionarPersonagem('${p.id}')">
+                    <i class="fas fa-play"></i> Jogar com este personagem
+                </button>
+            </div>
+        `;
+    });
+    
+    elements.seletorLista.innerHTML = html;
+    
+    if (elements.personagemLista) {
+        elements.personagemLista.innerHTML = html;
+    }
+}
+
+// ============================================
+// SELECIONAR PERSONAGEM (CORRIGIDO PARA CARREGAR DA URL)
+// ============================================
+window.selecionarPersonagem = async function(personagemId) {
+    try {
+        mostrarLoading(true);
+        
+        const docRef = db.collection('personagens').doc(personagemId);
+        const docSnap = await docRef.get();
+        
+        if (!docSnap.exists) {
+            mostrarToast('Personagem não encontrado!', 'erro');
+            return;
+        }
+        
+        const personagem = docSnap.data();
+        
+        if (!personagem.statusCombate) {
+            const pv = calcularPV(personagem);
+            const pf = calcularPF(personagem);
+            const pm = calcularPM(personagem);
+            
+            personagem.statusCombate = {
+                vidaAtual: pv,
+                vidaMax: pv,
+                manaAtual: pm,
+                manaMax: pm,
+                fadigaAtual: pf,
+                fadigaMax: pf
+            };
+            
+            await docRef.update({
+                statusCombate: personagem.statusCombate
+            });
+        }
+        
+        personagemAtual = personagem;
+        personagemAtual.id = personagemId;
+        
+        fecharModal('modalSeletorPersonagem');
+        if (elements.seletorContainer) elements.seletorContainer.style.display = 'none';
+        if (elements.mainGrid) elements.mainGrid.style.display = 'grid';
+        
+        atualizarInterfacePersonagem();
+        
+        if (!aventuraAtual) {
+            aventuraAtual = new AventuraSolo(personagemAtual, {
+                onCenaChange: atualizarCena,
+                onCombateIniciar: iniciarCombateUI,
+                onCombateUpdate: atualizarUICombate,
+                onCombateLog: adicionarLogCombate
+            });
+            
+            // Pegar aventura da URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const aventuraId = urlParams.get('aventura') || 'grito_estrada';
+            aventuraAtual.iniciar(CENA_INICIAL[aventuraId] || 'grito_estrada');
+        }
+        
+        mostrarToast(`Bem-vindo, ${personagem.nome}!`);
+        
+    } catch (error) {
+        mostrarToast('Erro ao selecionar: ' + error.message, 'erro');
+    } finally {
+        mostrarLoading(false);
+    }
+};
+
+// ============================================
+// ATUALIZAR INTERFACE DO PERSONAGEM (COM MELHORIAS)
+// ============================================
+function atualizarInterfacePersonagem() {
+    if (!personagemAtual) return;
+    
+    if (elements.characterAvatar && personagemAtual.fotoURL) {
+        elements.characterAvatar.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
+    }
+    
+    if (elements.characterName) {
+        elements.characterName.textContent = personagemAtual.nome || 'Aventureiro';
+    }
+    if (elements.characterClass) {
+        const classe = personagemAtual.classe || 'guerreiro';
+        const classes = { guerreiro: 'Guerreiro', mago: 'Mago', ladino: 'Ladino', clerigo: 'Clérigo', barbaro: 'Bárbaro' };
+        elements.characterClass.innerHTML = `<i class="fas fa-shield-alt"></i> <span>${classes[classe] || classe}</span>`;
+    }
+    
+    const vidaMax = calcularPV(personagemAtual);
+    const manaMax = calcularPM(personagemAtual);
+    const fadigaMax = calcularPF(personagemAtual);
+    
+    const vidaAtual = personagemAtual.statusCombate?.vidaAtual || vidaMax;
+    const manaAtual = personagemAtual.statusCombate?.manaAtual || manaMax;
+    const fadigaAtual = personagemAtual.statusCombate?.fadigaAtual || fadigaMax;
+    
+    if (elements.hpText) elements.hpText.textContent = `${vidaAtual}/${vidaMax}`;
+    if (elements.hpBar) elements.hpBar.style.width = `${(vidaAtual / vidaMax) * 100}%`;
+    
+    if (elements.pmText) elements.pmText.textContent = `${manaAtual}/${manaMax}`;
+    if (elements.pmBar) elements.pmBar.style.width = `${(manaAtual / manaMax) * 100}%`;
+    
+    if (elements.pfText) elements.pfText.textContent = `${fadigaAtual}/${fadigaMax}`;
+    if (elements.pfBar) elements.pfBar.style.width = `${(fadigaAtual / fadigaMax) * 100}%`;
+    
+    const nivel = calcularNivel(personagemAtual);
+    if (elements.nivelValue) elements.nivelValue.textContent = nivel;
+    
+    // NOVO: Atualizar XP (MELHORIA)
+    const xpAtual = personagemAtual.xpAtual || 0;
+    const xpNecessario = getXpProximoNivel(nivel);
+    const percentualXp = (xpAtual / xpNecessario) * 100;
+    
+    if (elements.xpTexto) elements.xpTexto.textContent = `${xpAtual} / ${xpNecessario}`;
+    if (elements.xpBarra) {
+        elements.xpBarra.style.width = Math.min(100, Math.max(0, percentualXp)) + '%';
+        elements.xpBarra.textContent = Math.round(percentualXp) + '%';
+    }
+    
+    // NOVO: Atualizar Dinheiro (MELHORIA)
+    if (elements.dinheiroValor) elements.dinheiroValor.textContent = personagemAtual.dinheiro || 0;
+    
+    if (elements.attributesGrid) {
+        elements.attributesGrid.innerHTML = `
+            <div class="attribute-item"><div class="attribute-label">ST</div><div class="attribute-value">${getSTExibido(personagemAtual)}</div></div>
+            <div class="attribute-item"><div class="attribute-label">DX</div><div class="attribute-value">${getDXExibido(personagemAtual)}</div></div>
+            <div class="attribute-item"><div class="attribute-label">IQ</div><div class="attribute-value">${getIQExibido(personagemAtual)}</div></div>
+            <div class="attribute-item"><div class="attribute-label">Vigor</div><div class="attribute-value">${getVIGORExibido(personagemAtual)}</div></div>
+            <div class="attribute-item"><div class="attribute-label">VT</div><div class="attribute-value">${getVTExibido(personagemAtual)}</div></div>
+            <div class="attribute-item"><div class="attribute-label">PV</div><div class="attribute-value">${vidaMax}</div></div>
+        `;
+    }
+    
+    if (elements.defesaEsquiva) elements.defesaEsquiva.textContent = calcularEsquiva(personagemAtual) + '%';
+    if (elements.defesaAparar) elements.defesaAparar.textContent = calcularAparar(personagemAtual) + '%';
+    if (elements.defesaBloqueio) elements.defesaBloqueio.textContent = calcularBloqueio(personagemAtual) + '%';
+    
+    atualizarModalPericias();
+    atualizarModalInventario();
+    atualizarModalStatus();
+    atualizarValoresDefesa();
+}
+
+// ============================================
 // ATUALIZAR MODAIS
 // ============================================
 function atualizarModalPericias() {
@@ -1694,10 +1941,13 @@ function atualizarModalPericias() {
     
     let html = '<div class="pericia-list">';
     for (const [id, dados] of Object.entries(personagemAtual.pericias)) {
-        let nome = id.charAt(0).toUpperCase() + id.slice(1);
+        const periciaInfo = window.CATALOGO_PERICIAS?.find(p => p.id === id);
+        const nome = periciaInfo?.nome || id;
+        const nh = window.calcularNH ? window.calcularNH(personagemAtual, id) : 0;
         html += `
             <div class="pericia-item">
                 <div class="pericia-nome">${nome} (Nível ${dados.nivel || 0})</div>
+                <div class="pericia-info">NH: ${nh}%</div>
             </div>
         `;
     }
@@ -1750,17 +2000,17 @@ function atualizarModalStatus() {
             </div>
             <div class="inventario-categoria">
                 <h4>Defesas</h4>
-                <div class="item-lista"><span>Esquiva</span><span>${calcularEsquiva()}%</span></div>
-                <div class="item-lista"><span>Aparar</span><span>${calcularAparar()}%</span></div>
-                <div class="item-lista"><span>Bloqueio</span><span>${calcularBloqueio()}%</span></div>
-                <div class="item-lista"><span>RD Total</span><span>${calcularRDTotal()}</span></div>
+                <div class="item-lista"><span>Esquiva</span><span>${calcularEsquiva(personagemAtual)}%</span></div>
+                <div class="item-lista"><span>Aparar</span><span>${calcularAparar(personagemAtual)}%</span></div>
+                <div class="item-lista"><span>Bloqueio</span><span>${calcularBloqueio(personagemAtual)}%</span></div>
+                <div class="item-lista"><span>RD Total</span><span>${calcularRDTotal(personagemAtual)}</span></div>
             </div>
         </div>
     `;
 }
 
 // ============================================
-// FUNÇÕES DE CENA
+// CARREGAR IMAGEM COM FALLBACK
 // ============================================
 function carregarImagemComFallback(elemento, caminho, fallback) {
     if (!elemento) return;
@@ -1776,6 +2026,9 @@ function carregarImagemComFallback(elemento, caminho, fallback) {
     img.src = caminho;
 }
 
+// ============================================
+// ATUALIZAR CENA
+// ============================================
 function atualizarCena(cena) {
     if (!cena) return;
     
@@ -1819,32 +2072,13 @@ function atualizarCena(cena) {
     }
 }
 
-function processarEscolha(cenaId, opcaoIndex) {
-    console.log('🎯 Escolha:', cenaId, opcaoIndex);
-    if (!aventuraAtual || !aventuraAtual.cenaAtual) return;
-    
-    const opcao = aventuraAtual.cenaAtual.opcoes[opcaoIndex];
-    if (!opcao) return;
-    
-    switch(opcao.acao) {
-        case 'ir_para_cena':
-            aventuraAtual.irParaCena(opcao.destino);
-            break;
-        case 'iniciar_combate':
-            aventuraAtual.iniciarCombate(opcao.inimigo);
-            break;
-        default:
-            console.warn(`Ação desconhecida: ${opcao.acao}`);
-    }
-}
-
 // ============================================
-// FUNÇÕES DE COMBATE
+// INICIAR COMBATE UI
 // ============================================
 function iniciarCombateUI(combate) {
     if (!combate) return;
     
-    console.log('🎯 Iniciando combate UI...');
+    console.log('🎯 Iniciando combate UI...', combate);
     combateAtual = combate;
     
     if (elements.narrativeArea) elements.narrativeArea.style.display = 'none';
@@ -1856,6 +2090,87 @@ function iniciarCombateUI(combate) {
     if (elements.combatLog) {
         elements.combatLog.innerHTML = '<div class="log-entry">⚔️ Combate iniciado!</div>';
     }
+    
+    // REMOVER LISTENERS ANTIGOS
+    const botoes = ['btnAtaque', 'btnDefender', 'btnEsquivar', 'btnMagia', 'btnFugir', 
+                    'btnDefesaEsquiva', 'btnDefesaAparar', 'btnDefesaBloqueio'];
+    
+    botoes.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            const novoBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(novoBtn, btn);
+            elements[id] = novoBtn;
+        }
+    });
+    
+    // ADICIONAR LISTENERS PARA AÇÕES NORMAIS
+    elements.btnAtaque.addEventListener('click', function() {
+        console.log('⚔️ Botão Atacar clicado');
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
+            combateAtual.atacar();
+        } else {
+            if (combateAtual?.status?.fim) mostrarToast('Combate já acabou!', 'normal');
+            else if (combateAtual?.status?.turno !== 'jogador') mostrarToast('Aguarde seu turno!', 'normal');
+            else if (combateAtual?.status?.aguardandoDefesa) mostrarToast('Você precisa defender!', 'normal');
+        }
+    });
+    
+    elements.btnDefender.addEventListener('click', function() {
+        console.log('🛡️ Botão Defender clicado');
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
+            combateAtual._log(`🛡️ ${combateAtual.personagem.nome} defende!`);
+            combateAtual.status.turno = 'inimigo';
+            combateAtual._notificarUI();
+            setTimeout(() => combateAtual._turnoInimigo(), 1000);
+        }
+    });
+    
+    elements.btnEsquivar.addEventListener('click', function() {
+        console.log('🏃 Botão Esquivar clicado');
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
+            combateAtual._log(`🏃 ${combateAtual.personagem.nome} prepara esquiva!`);
+            combateAtual.status.turno = 'inimigo';
+            combateAtual._notificarUI();
+            setTimeout(() => combateAtual._turnoInimigo(), 1000);
+        }
+    });
+    
+    elements.btnMagia.addEventListener('click', function() {
+        console.log('✨ Botão Magia clicado');
+        mostrarToast('Sistema de magias em desenvolvimento', 'normal');
+    });
+    
+    elements.btnFugir.addEventListener('click', function() {
+        console.log('🏃 Botão Fugir clicado');
+        if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
+            combateAtual.fugir();
+        }
+    });
+    
+    // ADICIONAR LISTENERS PARA DEFESAS
+    elements.btnDefesaEsquiva.addEventListener('click', function() {
+        console.log('🛡️ Defesa: Esquiva');
+        if (combateAtual && combateAtual.status?.aguardandoDefesa) {
+            combateAtual.defenderComEsquiva();
+        }
+    });
+    
+    elements.btnDefesaAparar.addEventListener('click', function() {
+        console.log('⚔️ Defesa: Aparar');
+        if (combateAtual && combateAtual.status?.aguardandoDefesa) {
+            combateAtual.defenderComAparar();
+        }
+    });
+    
+    elements.btnDefesaBloqueio.addEventListener('click', function() {
+        console.log('🛡️ Defesa: Bloqueio');
+        if (combateAtual && combateAtual.status?.aguardandoDefesa) {
+            combateAtual.defenderComBloqueio();
+        }
+    });
+    
+    atualizarValoresDefesa();
 }
 
 function finalizarCombateUI() {
@@ -1877,13 +2192,20 @@ function adicionarLogCombate(mensagem, tipo) {
     
     const entry = document.createElement('div');
     entry.className = 'log-entry';
+    if (tipo === 'critico') entry.classList.add('critico');
+    if (tipo === 'falha') entry.classList.add('falha-critica');
+    if (tipo === 'dano') entry.classList.add('dano');
+    if (tipo === 'cura') entry.classList.add('cura');
     entry.textContent = mensagem;
     elements.combatLog.appendChild(entry);
     elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
 }
 
+// ============================================
+// ATUALIZAR UI DE COMBATE (COM MELHORIAS)
+// ============================================
 function atualizarUICombate(estado) {
-    if (!estado) return;
+    if (!aventuraAtual) return;
     
     if (elements.enemyName) elements.enemyName.textContent = estado.inimigo?.nome || 'Inimigo';
     if (elements.enemyHpBar) {
@@ -1892,44 +2214,93 @@ function atualizarUICombate(estado) {
     }
     if (elements.enemyHpCurrent) elements.enemyHpCurrent.textContent = estado.inimigoVida || 0;
     if (elements.enemyHpMax) elements.enemyHpMax.textContent = estado.inimigoVidaMax || 0;
+    if (elements.enemyStatus) {
+        elements.enemyStatus.textContent = estado.inimigoVida > 0 ? 'Vivo' : 'Derrotado';
+    }
     
-    if (elements.playerHpCombat) elements.playerHpCombat.textContent = estado.personagemVida || 0;
+    if (elements.playerHpCombat) {
+        elements.playerHpCombat.textContent = estado.personagemVida || 0;
+    }
     if (elements.playerPmCombat) elements.playerPmCombat.textContent = estado.personagemMana || 0;
     if (elements.playerPfCombat) elements.playerPfCombat.textContent = estado.personagemFadiga || 0;
     
-    if (elements.turnIndicator) {
-        if (estado.fim) {
-            elements.turnIndicator.innerHTML = '<span>⚔️ Combate Encerrado</span>';
-        } else if (estado.aguardandoDefesa) {
-            elements.turnIndicator.innerHTML = '<span>🛡️ ESCOLHA SUA DEFESA!</span>';
-        } else if (estado.turno === 'jogador') {
-            elements.turnIndicator.innerHTML = '<span>⚔️ Seu Turno</span>';
-        } else {
-            elements.turnIndicator.innerHTML = '<span>👹 Turno do Inimigo</span>';
+    atualizarValoresDefesa();
+    
+    if (personagemAtual && personagemAtual.statusCombate) {
+        const vidaMax = calcularPV(personagemAtual);
+        const vidaAtual = personagemAtual.statusCombate.vidaAtual;
+        
+        if (elements.hpText) {
+            elements.hpText.textContent = `${vidaAtual}/${vidaMax}`;
+        }
+        if (elements.hpBar) {
+            elements.hpBar.style.width = `${(vidaAtual / vidaMax) * 100}%`;
         }
     }
     
+    if (elements.turnIndicator) {
+        if (estado.fim) {
+            elements.turnIndicator.textContent = '⚔️ Combate Encerrado';
+            elements.turnIndicator.className = 'turn-indicator';
+        } else if (estado.aguardandoDefesa) {
+            elements.turnIndicator.textContent = '🛡️ ESCOLHA SUA DEFESA!';
+            elements.turnIndicator.className = 'turn-indicator turn-defesa';
+        } else if (estado.turno === 'jogador') {
+            elements.turnIndicator.textContent = '⚔️ Seu Turno';
+            elements.turnIndicator.className = 'turn-indicator turn-player';
+        } else {
+            elements.turnIndicator.textContent = '👹 Turno do Inimigo';
+            elements.turnIndicator.className = 'turn-indicator turn-enemy';
+        }
+    }
+    
+    // NOVO: Atualizar contador de turnos (MELHORIA)
     if (elements.turnCounter && estado.rodada) {
         elements.turnCounter.textContent = `Turno ${estado.rodada}`;
     }
     
+    // NOVO: Atualizar indicador de bônus (MELHORIA)
+    if (elements.bonusIndicator && estado.bonus) {
+        if (estado.bonus.tipo === 'bonus') {
+            elements.bonusIndicator.className = 'bonus-indicator';
+            elements.bonusIndicator.textContent = estado.bonus.mensagem;
+            elements.bonusIndicator.style.display = 'block';
+        } else if (estado.bonus.tipo === 'penalidade') {
+            elements.bonusIndicator.className = 'penalty-indicator';
+            elements.bonusIndicator.textContent = estado.bonus.mensagem;
+            elements.bonusIndicator.style.display = 'block';
+        } else {
+            elements.bonusIndicator.style.display = 'none';
+        }
+    }
+    
     if (elements.defesaContainer) {
-        elements.defesaContainer.style.display = estado.aguardandoDefesa ? 'block' : 'none';
+        if (estado.aguardandoDefesa) {
+            elements.defesaContainer.style.display = 'block';
+        } else {
+            elements.defesaContainer.style.display = 'none';
+        }
+    }
+    
+    if (aventuraAtual) {
+        aventuraAtual.atualizarBotoesCombate(estado);
     }
 }
 
 // ============================================
-// CLASSE AVENTURA SOLO (SIMPLIFICADA)
+// CLASSE AVENTURA SOLO (COMPLETA - IGUAL AO ORIGINAL)
 // ============================================
 class AventuraSolo {
     constructor(personagem, callbacks = {}) {
         this.personagem = personagem;
         this.callbacks = callbacks;
         this.cenaAtual = null;
+        this.historico = [];
         this.combateAtual = null;
+        this.inventarioTemp = { ouro: 0, itens: [] };
     }
     
-    iniciar(cenaId) {
+    iniciar(cenaId = 'grito_estrada') {
         this.irParaCena(cenaId);
     }
     
@@ -1941,38 +2312,230 @@ class AventuraSolo {
         }
         
         this.cenaAtual = cena;
+        this.historico.push(cenaId);
+        
+        if (cena.recompensa) {
+            if (cena.recompensa.ouro) {
+                this.inventarioTemp.ouro += cena.recompensa.ouro;
+                mostrarToast(`+${cena.recompensa.ouro} ouro!`);
+            }
+            if (cena.recompensa.item) {
+                this.inventarioTemp.itens.push(cena.recompensa.item);
+                mostrarToast(`Item obtido: ${cena.recompensa.item}`);
+            }
+        }
         
         if (this.callbacks.onCenaChange) {
             this.callbacks.onCenaChange(cena);
         }
     }
     
-    iniciarCombate(inimigoId) {
-        console.log('⚔️ Iniciando combate contra:', inimigoId);
+    processarEscolha(opcao) {
+        if (!opcao) return;
         
-        // Simulação simples de combate
-        this.combateAtual = {
-            inimigo: { nome: 'Inimigo', vida: 20, vidaMax: 20 }
-        };
+        console.log('🎯 Processando escolha:', opcao);
         
-        if (this.callbacks.onCombateIniciar) {
-            this.callbacks.onCombateIniciar(this.combateAtual);
+        switch(opcao.acao) {
+            case 'ir_para_cena':
+                this.irParaCena(opcao.destino);
+                break;
+                
+            case 'iniciar_combate':
+                this.iniciarCombate(opcao.inimigo);
+                break;
+                
+            case 'teste_pericia':
+                this.realizarTestePericia(opcao);
+                break;
+                
+            default:
+                console.warn(`Ação desconhecida: ${opcao.acao}`);
         }
+    }
+    
+    iniciarCombate(inimigoId) {
+        if (!window.CombateFirestore) {
+            mostrarToast('Erro: Sistema de combate não carregado!', 'erro');
+            return;
+        }
+        
+        console.log('⚔️ Iniciando combate Firestore contra:', inimigoId);
+        
+        const sessaoId = this.personagem.id + '_' + Date.now();
+        
+        this.combateAtual = new window.CombateFirestore(sessaoId, this.personagem, inimigoId, {
+            onLog: (mensagem, tipo) => {
+                this.adicionarLogCombate(mensagem, tipo);
+                if (this.callbacks.onCombateLog) {
+                    this.callbacks.onCombateLog(mensagem, tipo);
+                }
+            },
+            
+            onAtualizar: (estado) => {
+                this.atualizarUICombate(estado);
+                if (this.callbacks.onCombateUpdate) this.callbacks.onCombateUpdate(estado);
+                setTimeout(atualizarPVNaUI, 50);
+            },
+            
+            onVitoria: (recompensa) => {
+                // Adicionar recompensa
+                this.inventarioTemp.ouro += recompensa.ouro;
+                
+                // NOVO: Ganhar XP (MELHORIA)
+                if (personagemAtual) {
+                    personagemAtual.xpAtual = (personagemAtual.xpAtual || 0) + recompensa.xp;
+                    // Salvar no Firestore
+                    db.collection('personagens').doc(personagemAtual.id).update({
+                        xpAtual: personagemAtual.xpAtual
+                    }).catch(console.error);
+                }
+                
+                mostrarToast(`Vitória! +${recompensa.xp} XP, +${recompensa.ouro} ouro`);
+                
+                if (this.callbacks.onCombateVitoria) {
+                    this.callbacks.onCombateVitoria(recompensa);
+                }
+                
+                if (typeof finalizarCombateUI === 'function') {
+                    finalizarCombateUI();
+                }
+                
+                setTimeout(() => {
+                    this.combateAtual = null;
+                    this.irParaCena('pos_combate');
+                }, 1500);
+            },
+            
+            onDerrota: () => {
+                mostrarToast('Você foi derrotado!', 'erro');
+                if (this.callbacks.onCombateDerrota) this.callbacks.onCombateDerrota();
+                
+                if (typeof finalizarCombateUI === 'function') {
+                    finalizarCombateUI();
+                }
+                
+                setTimeout(() => {
+                    this.combateAtual = null;
+                    this.irParaCena('fuga_covarde');
+                }, 2000);
+            },
+            
+            onFuga: () => {
+                mostrarToast('Fugiu do combate!');
+                if (this.callbacks.onCombateFuga) this.callbacks.onCombateFuga();
+                
+                if (typeof finalizarCombateUI === 'function') {
+                    finalizarCombateUI();
+                }
+                
+                this.combateAtual = null;
+                this.irParaCena('estrada_solitario');
+            },
+            
+            onIniciar: (estado) => {
+                if (this.callbacks.onCombateIniciar) {
+                    this.callbacks.onCombateIniciar(this.combateAtual);
+                }
+            },
+            
+            onErro: (erro) => {
+                mostrarToast('Erro no combate: ' + erro, 'erro');
+            }
+        });
+    }
+    
+    realizarTestePericia(opcao) {
+        if (!window.testarPericia) {
+            mostrarToast('Erro: Sistema de perícias não carregado!', 'erro');
+            return;
+        }
+        
+        const resultado = window.testarPericia(this.personagem, opcao.pericia, opcao.cd);
+        mostrarToast(resultado.mensagem, resultado.sucesso ? 'normal' : 'erro');
+        
+        if (this.callbacks.onTestePericia) {
+            this.callbacks.onTestePericia(resultado);
+        }
+        
+        setTimeout(() => {
+            if (resultado.sucesso) {
+                this.irParaCena(opcao.sucesso);
+            } else {
+                this.irParaCena(opcao.falha);
+            }
+        }, 1500);
+    }
+    
+    adicionarLogCombate(mensagem, tipo) {
+        if (!elements.combatLog) return;
+        
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        if (tipo === 'critico') entry.classList.add('critico');
+        if (tipo === 'falha') entry.classList.add('falha-critica');
+        if (tipo === 'dano') entry.classList.add('dano');
+        if (tipo === 'cura') entry.classList.add('cura');
+        entry.textContent = mensagem;
+        elements.combatLog.appendChild(entry);
+        elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
+    }
+    
+    atualizarUICombate(estado) {
+        if (!estado) return;
+        if (window.atualizarUICombate) {
+            window.atualizarUICombate(estado);
+        }
+    }
+    
+    atualizarBotoesCombate(estado) {
+        console.log('🎮 Atualizando botões - Turno:', estado.turno, 'Fim:', estado.fim, 'Aguardando defesa:', estado.aguardandoDefesa);
+        
+        const botoes = [
+            elements.btnAtaque,
+            elements.btnDefender,
+            elements.btnEsquivar,
+            elements.btnMagia,
+            elements.btnFugir
+        ];
+        
+        const deveHabilitar = (estado.turno === 'jogador' && !estado.fim && !estado.aguardandoDefesa);
+        
+        botoes.forEach(btn => {
+            if (btn) {
+                btn.disabled = !deveHabilitar;
+                if (deveHabilitar) {
+                    btn.classList.add('active-turn');
+                } else {
+                    btn.classList.remove('active-turn');
+                }
+            }
+        });
     }
 }
 
 // ============================================
-// CARREGAR PERSONAGEM DO FIRESTORE (CORRIGIDO)
+// PROCESSAR ESCOLHA
 // ============================================
-async function carregarPersonagem(personagemId) {
+window.processarEscolha = function(cenaId, opcaoIndex) {
+    console.log('🎯 Escolha:', cenaId, opcaoIndex);
+    if (!aventuraAtual || !aventuraAtual.cenaAtual) return;
+    
+    const opcao = aventuraAtual.cenaAtual.opcoes[opcaoIndex];
+    if (!opcao) return;
+    
+    aventuraAtual.processarEscolha(opcao);
+};
+
+// ============================================
+// CARREGAR PERSONAGEM DA URL (NOVA FUNÇÃO - MELHORIA)
+// ============================================
+async function carregarPersonagemDaUrl(personagemId) {
     try {
-        console.log('📥 Carregando personagem ID:', personagemId);
+        console.log('📥 Carregando personagem ID da URL:', personagemId);
         
-        // ✅ CORREÇÃO 1: Firebase 8 usa doc() como método da collection
         const docRef = db.collection('personagens').doc(personagemId);
         const docSnap = await docRef.get();
         
-        // ✅ CORREÇÃO 2: No Firebase 8, exists é MÉTODO, não propriedade
         if (!docSnap.exists) {
             console.error('❌ Personagem não existe no Firestore');
             mostrarToast('Personagem não encontrado!', 'erro');
@@ -1982,10 +2545,8 @@ async function carregarPersonagem(personagemId) {
         const data = docSnap.data();
         console.log('✅ Personagem carregado:', data.nome);
         
-        // ✅ CORREÇÃO 3: Garantir que o ID esteja no objeto
         data.id = docSnap.id;
         
-        // Garantir statusCombate
         if (!data.statusCombate) {
             const vt = 5 + (data.atributos?.vt?.esferas || 0);
             const vigor = 5 + (data.atributos?.vigor?.esferas || 0);
@@ -2001,7 +2562,6 @@ async function carregarPersonagem(personagemId) {
             };
         }
         
-        // Garantir inventário
         if (!data.inventario) {
             data.inventario = { corpo: [], mochila: [], deposito: [] };
         }
@@ -2016,26 +2576,12 @@ async function carregarPersonagem(personagemId) {
 }
 
 // ============================================
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO (MODIFICADA PARA USAR URL)
 // ============================================
 async function inicializar() {
     mostrarLoading(true);
     
     try {
-        // Pegar parâmetros da URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const aventuraId = urlParams.get('aventura');
-        const personagemId = urlParams.get('personagem');
-        
-        if (!aventuraId || !personagemId) {
-            mostrarToast('Parâmetros inválidos!', 'erro');
-            setTimeout(() => window.location.href = 'aventuras-solo.html', 2000);
-            return;
-        }
-        
-        console.log('🚀 Iniciando aventura:', aventuraId, 'com personagem:', personagemId);
-        
-        // Verificar autenticação
         const user = auth.currentUser;
         if (!user) {
             mostrarToast('Usuário não autenticado!', 'erro');
@@ -2044,46 +2590,86 @@ async function inicializar() {
         }
         
         userId = user.uid;
+        console.log('👤 Usuário:', userId);
         
-        // Carregar personagem
-        personagemAtual = await carregarPersonagem(personagemId);
+        // Verificar se veio da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const personagemId = urlParams.get('personagem');
+        const aventuraId = urlParams.get('aventura');
         
-        if (!personagemAtual) {
-            setTimeout(() => window.location.href = 'aventuras-solo.html', 2000);
-            return;
+        if (personagemId) {
+            // Carregar direto da URL
+            console.log('📌 Carregando personagem da URL:', personagemId);
+            personagemAtual = await carregarPersonagemDaUrl(personagemId);
+            
+            if (!personagemAtual) {
+                setTimeout(() => window.location.href = 'aventuras-solo.html', 2000);
+                return;
+            }
+            
+            // Verificar permissão
+            if (personagemAtual.userId !== userId && personagemAtual.user_id !== userId) {
+                mostrarToast('Você não tem permissão para usar este personagem!', 'erro');
+                setTimeout(() => window.location.href = 'aventuras-solo.html', 2000);
+                return;
+            }
+            
+            // Atualizar título da aventura
+            const nomeAventura = AVENTURAS[aventuraId] || 'Aventura Solo';
+            if (elements.aventuraNome) elements.aventuraNome.textContent = nomeAventura;
+            if (elements.aventuraTituloNav) elements.aventuraTituloNav.textContent = nomeAventura;
+            
+            if (elements.mainGrid) elements.mainGrid.style.display = 'grid';
+            
+            atualizarInterfacePersonagem();
+            
+            aventuraAtual = new AventuraSolo(personagemAtual, {
+                onCenaChange: atualizarCena,
+                onCombateIniciar: iniciarCombateUI,
+                onCombateUpdate: atualizarUICombate,
+                onCombateLog: adicionarLogCombate
+            });
+            
+            const cenaInicialId = CENA_INICIAL[aventuraId] || 'grito_estrada';
+            aventuraAtual.iniciar(cenaInicialId);
+            
+            mostrarToast(`Bem-vindo, ${personagemAtual.nome}!`);
+            
+        } else {
+            // Modo antigo - mostrar seletor
+            console.log('📦 Sistemas carregados:', {
+                CENAS: !!window.CENAS,
+                INIMIGOS: !!window.INIMIGOS,
+                CombateFirestore: !!window.CombateFirestore,
+                testarPericia: !!window.testarPericia
+            });
+            
+            const personagens = await carregarPersonagens();
+            
+            if (personagens.length === 0) {
+                mostrarToast('Crie um personagem primeiro!', 'erro');
+                if (elements.seletorContainer) {
+                    elements.seletorContainer.style.display = 'block';
+                    elements.seletorContainer.innerHTML = '<h2>Nenhum personagem encontrado</h2><p><a href="criar-personagem.html" style="color: var(--burnished-gold);">Clique aqui para criar</a></p>';
+                }
+                return;
+            }
+            
+            if (personagens.length === 1) {
+                await window.selecionarPersonagem(personagens[0].id);
+            } else {
+                if (elements.seletorContainer) {
+                    elements.seletorContainer.style.display = 'block';
+                    renderizarListaPersonagens(personagens);
+                }
+                abrirModal('modalSeletorPersonagem');
+            }
         }
-        
-        // ✅ CORREÇÃO 4: Verificar permissão (userId pode estar em campos diferentes)
-        if (personagemAtual.userId !== userId && personagemAtual.user_id !== userId) {
-            mostrarToast('Você não tem permissão para usar este personagem!', 'erro');
-            setTimeout(() => window.location.href = 'aventuras-solo.html', 2000);
-            return;
-        }
-        
-        // Atualizar título da aventura
-        const nomeAventura = AVENTURAS[aventuraId] || 'Aventura Solo';
-        if (elements.aventuraNome) elements.aventuraNome.textContent = nomeAventura;
-        if (elements.aventuraTituloNav) elements.aventuraTituloNav.textContent = nomeAventura;
-        
-        // Atualizar interface do personagem
-        atualizarInterfacePersonagem();
-        
-        // Iniciar a aventura
-        aventuraAtual = new AventuraSolo(personagemAtual, {
-            onCenaChange: atualizarCena,
-            onCombateIniciar: iniciarCombateUI,
-            onCombateUpdate: atualizarUICombate,
-            onCombateLog: adicionarLogCombate
-        });
-        
-        const cenaInicialId = CENA_INICIAL[aventuraId] || 'grito_estrada';
-        aventuraAtual.iniciar(cenaInicialId);
-        
-        mostrarLoading(false);
         
     } catch (error) {
         console.error('❌ Erro na inicialização:', error);
         mostrarToast('Erro ao inicializar: ' + error.message, 'erro');
+    } finally {
         mostrarLoading(false);
     }
 }
@@ -2112,8 +2698,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Erro ao sair:', error);
                 mostrarToast('Erro ao sair', 'erro');
+            } finally {
                 mostrarLoading(false);
             }
+        });
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('active');
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+            modal.classList.remove('active');
         });
     }
 });
@@ -2121,7 +2722,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // Exportar funções globais
 window.abrirModal = abrirModal;
 window.fecharModal = fecharModal;
-window.processarEscolha = processarEscolha;
+window.processarEscolha = window.processarEscolha;
+window.selecionarPersonagem = window.selecionarPersonagem;
+window.atualizarUICombate = atualizarUICombate;
+window.atualizarPVNaUI = atualizarPVNaUI;
+window.atualizarValoresDefesa = atualizarValoresDefesa;
+window.adicionarLogCombate = adicionarLogCombate;
 window.alterarRecurso = window.alterarRecurso;
 window.alterarDinheiro = window.alterarDinheiro;
 </script>
