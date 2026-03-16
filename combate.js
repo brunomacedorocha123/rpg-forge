@@ -615,6 +615,12 @@ class Combate {
                 this.personagem.statusCombate.vidaAtual = 0;
             }
             
+            // ===== LINHA CRÍTICA - SINCRONIZAR COM GLOBAL =====
+            if (typeof window !== 'undefined' && window.personagemAtual) {
+                window.personagemAtual.statusCombate.vidaAtual = this.personagem.statusCombate.vidaAtual;
+                console.log(`🔄 PV sincronizado: ${window.personagemAtual.statusCombate.vidaAtual}`);
+            }
+            
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano');
             
             // ATUALIZAR UI IMEDIATAMENTE
