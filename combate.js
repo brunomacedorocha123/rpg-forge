@@ -260,8 +260,7 @@ function combateCalcularDanoPersonagem(personagem, arma = null) {
 }
 
 // ============================================
-// CLASSE DE COMBATE COM FIRESTORE
-// USANDO AS COLEÇÕES DAS SUAS REGRAS
+// CLASSE DE COMBATE COM FIRESTORE - CORRIGIDA
 // ============================================
 
 class CombateFirestore {
@@ -269,7 +268,10 @@ class CombateFirestore {
         this.sessaoId = sessaoId;
         this.personagem = personagem;
         this.personagemId = personagem.id;
-        this.userId = personagem.userId;
+        
+        // 🔥 CORREÇÃO: Pegar userId do personagem (campo correto)
+        this.userId = personagem.userId || personagem.user_id || null;
+        
         this.inimigoId = inimigoId;
         this.callbacks = callbacks;
         this.combateId = null;
@@ -286,12 +288,16 @@ class CombateFirestore {
         this.ultimoAtaque = null;
         this.log = [];
         
+        // Iniciar
         this.iniciar();
     }
     
     async iniciar() {
         try {
             console.log('⚔️ Iniciando combate Firestore:', this.inimigoId);
+            console.log('📌 Sessão ID:', this.sessaoId);
+            console.log('📌 Personagem ID:', this.personagemId);
+            console.log('📌 User ID:', this.userId);
             
             // 1. Buscar inimigo do catálogo
             const inimigoBase = INIMIGOS[this.inimigoId] || INIMIGOS.saqueador_faminto;
@@ -314,19 +320,25 @@ class CombateFirestore {
             
             // 3. CRIAR SESSÃO SE NÃO EXISTIR
             const sessaoRef = db.collection('sessoes_aventura_solo').doc(this.sessaoId);
-            const sessaoDoc = await sessaoRef.get();
             
-            if (!sessaoDoc.exists) {
-                await sessaoRef.set({
-                    userId: this.userId,
-                    personagemId: this.personagemId,
-                    personagemNome: this.personagem.nome,
-                    aventuraId: 'grito_estrada',
-                    status: 'em_andamento',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                });
-                console.log('✅ Sessão criada:', this.sessaoId);
+            try {
+                const sessaoDoc = await sessaoRef.get();
+                
+                if (!sessaoDoc.exists) {
+                    await sessaoRef.set({
+                        userId: this.userId,
+                        personagemId: this.personagemId,
+                        personagemNome: this.personagem.nome || 'Aventureiro',
+                        aventuraId: 'grito_estrada',
+                        status: 'em_andamento',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                    console.log('✅ Sessão criada:', this.sessaoId);
+                }
+            } catch (e) {
+                console.log('⚠️ Erro ao verificar/criar sessão, mas continuando...', e);
+                // Se não conseguir criar a sessão, tenta criar o combate direto
             }
             
             // 4. Criar objeto do inimigo
@@ -346,7 +358,7 @@ class CombateFirestore {
             const combateData = {
                 sessaoId: this.sessaoId,
                 personagemId: this.personagemId,
-                personagemNome: this.personagem.nome,
+                personagemNome: this.personagem.nome || 'Aventureiro',
                 userId: this.userId,
                 inimigoId: this.inimigoId,
                 inimigo: this.inimigo,
@@ -357,35 +369,45 @@ class CombateFirestore {
                 updatedAt: new Date().toISOString()
             };
             
-            const combateRef = await sessaoRef.collection('combates').add(combateData);
-            this.combateId = combateRef.id;
-            
-            console.log('✅ Combate criado ID:', this.combateId);
-            
-            // 7. Atualizar personagem no Firestore
-            await db.collection('personagens').doc(this.personagemId).update({
-                statusCombate: this.personagem.statusCombate,
-                combateAtivo: {
-                    sessaoId: this.sessaoId,
-                    combateId: this.combateId
+            // Tentar salvar na subcoleção
+            try {
+                const combateRef = await sessaoRef.collection('combates').add(combateData);
+                this.combateId = combateRef.id;
+                console.log('✅ Combate criado ID:', this.combateId);
+                
+                // 7. Atualizar personagem no Firestore
+                try {
+                    await db.collection('personagens').doc(this.personagemId).update({
+                        statusCombate: this.personagem.statusCombate,
+                        combateAtivo: {
+                            sessaoId: this.sessaoId,
+                            combateId: this.combateId
+                        }
+                    });
+                } catch (e) {
+                    console.log('⚠️ Não foi possível atualizar personagem:', e);
                 }
-            });
-            
-            // 8. Inscrever para atualizações em tempo real
-            this.unsubscribe = combateRef.onSnapshot((doc) => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    this.inimigo = data.inimigo;
-                    this.status = data.status;
-                    this.ultimoAtaque = data.ultimoAtaque;
-                    this.log = data.log;
-                    this._notificarUI();
-                }
-            });
+                
+                // 8. Inscrever para atualizações em tempo real
+                this.unsubscribe = combateRef.onSnapshot((doc) => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        this.inimigo = data.inimigo;
+                        this.status = data.status;
+                        this.ultimoAtaque = data.ultimoAtaque;
+                        this.log = data.log;
+                        this._notificarUI();
+                    }
+                });
+                
+            } catch (e) {
+                console.log('⚠️ Erro ao criar combate na subcoleção, usando modo local:', e);
+                // Se falhar, continua em modo local
+            }
             
             // 9. Notificar UI
             this._log('⚔️ COMBATE INICIADO!');
-            this._log(`${this.personagem.nome} vs ${this.inimigo.nome}`);
+            this._log(`${this.personagem.nome || 'Herói'} vs ${this.inimigo.nome}`);
             this._log('✨ SEU TURNO!');
             
             if (this.callbacks.onIniciar) {
@@ -452,10 +474,12 @@ class CombateFirestore {
         
         this.log.push(entry);
         
-        // Salvar no Firestore
-        this._atualizarFirestore({
-            log: this.log
-        });
+        // Salvar no Firestore (se tiver ID)
+        if (this.combateId) {
+            this._atualizarFirestore({
+                log: this.log
+            });
+        }
         
         // Callback para UI
         if (this.callbacks.onLog) {
@@ -470,7 +494,7 @@ class CombateFirestore {
             return false;
         }
         
-        this._log(`👉 ${this.personagem.nome} ataca!`);
+        this._log(`👉 ${this.personagem.nome || 'Herói'} ataca!`);
         
         // CALCULAR ATAQUE
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
@@ -530,19 +554,28 @@ class CombateFirestore {
                 
                 this._log(`💥 DANO: ${danoFinal} (${dano} - ${rdInimigo} RD)`, 'dano');
                 
-                // ATUALIZAR FIRESTORE
-                await this._atualizarFirestore({
-                    'inimigo.vidaAtual': novaVida
-                });
+                // ATUALIZAR
+                this.inimigo.vidaAtual = novaVida;
+                
+                if (this.combateId) {
+                    await this._atualizarFirestore({
+                        'inimigo.vidaAtual': novaVida
+                    });
+                }
                 
                 // VERIFICAR MORTE
                 if (novaVida <= 0) {
                     this._log(`💀 ${this.inimigo.nome} foi DERROTADO!`, 'critico');
                     
-                    await this._atualizarFirestore({
-                        'status.fim': true,
-                        'status.turno': 'fim'
-                    });
+                    this.status.fim = true;
+                    this.status.turno = 'fim';
+                    
+                    if (this.combateId) {
+                        await this._atualizarFirestore({
+                            'status.fim': true,
+                            'status.turno': 'fim'
+                        });
+                    }
                     
                     if (this.callbacks.onVitoria) {
                         this.callbacks.onVitoria({
@@ -556,10 +589,17 @@ class CombateFirestore {
         }
         
         // PASSAR TURNO
-        await this._atualizarFirestore({
-            'status.turno': 'inimigo',
-            'status.rodada': this.status.rodada + 1
-        });
+        this.status.turno = 'inimigo';
+        this.status.rodada = this.status.rodada + 1;
+        
+        if (this.combateId) {
+            await this._atualizarFirestore({
+                'status.turno': 'inimigo',
+                'status.rodada': this.status.rodada
+            });
+        }
+        
+        this._notificarUI();
         
         // TURNO DO INIMIGO (delay)
         setTimeout(() => this._turnoInimigo(), 1000);
@@ -597,18 +637,29 @@ class CombateFirestore {
                 nh: nhInimigo
             };
             
-            await this._atualizarFirestore({
-                'status.aguardandoDefesa': true,
-                ultimoAtaque: this.ultimoAtaque
-            });
+            this.status.aguardandoDefesa = true;
+            
+            if (this.combateId) {
+                await this._atualizarFirestore({
+                    'status.aguardandoDefesa': true,
+                    ultimoAtaque: this.ultimoAtaque
+                });
+            }
             
             this._log(`🛡️ ESCOLHA SUA DEFESA!`);
+            this._notificarUI();
         } else {
             // VOLTAR TURNO DO JOGADOR
-            await this._atualizarFirestore({
-                'status.turno': 'jogador'
-            });
+            this.status.turno = 'jogador';
+            
+            if (this.combateId) {
+                await this._atualizarFirestore({
+                    'status.turno': 'jogador'
+                });
+            }
+            
             this._log(`✨ SEU TURNO!`, 'critico');
+            this._notificarUI();
         }
     }
     
@@ -662,9 +713,13 @@ class CombateFirestore {
             this._log(`💥 DANO RECEBIDO: ${danoFinal} (${dano} - ${rd} RD)`, 'dano');
             
             // 🔥 ATUALIZAR FIRESTORE (PERSONAGEM)
-            await db.collection('personagens').doc(this.personagemId).update({
-                'statusCombate.vidaAtual': this.personagem.statusCombate.vidaAtual
-            });
+            try {
+                await db.collection('personagens').doc(this.personagemId).update({
+                    'statusCombate.vidaAtual': this.personagem.statusCombate.vidaAtual
+                });
+            } catch (e) {
+                console.log('⚠️ Erro ao atualizar personagem:', e);
+            }
             
             // 🔥 ATUALIZAR UI GLOBAL
             if (typeof window.atualizarPVNaUI === 'function') {
@@ -673,13 +728,19 @@ class CombateFirestore {
             
             // VERIFICAR MORTE
             if (this.personagem.statusCombate.vidaAtual <= 0) {
-                this._log(`💀 ${this.personagem.nome} foi DERROTADO!`, 'falha');
+                this._log(`💀 ${this.personagem.nome || 'Herói'} foi DERROTADO!`, 'falha');
                 
-                await this._atualizarFirestore({
-                    'status.fim': true,
-                    'status.turno': 'fim',
-                    'status.aguardandoDefesa': false
-                });
+                this.status.fim = true;
+                this.status.turno = 'fim';
+                this.status.aguardandoDefesa = false;
+                
+                if (this.combateId) {
+                    await this._atualizarFirestore({
+                        'status.fim': true,
+                        'status.turno': 'fim',
+                        'status.aguardandoDefesa': false
+                    });
+                }
                 
                 if (this.callbacks.onDerrota) {
                     this.callbacks.onDerrota();
@@ -689,13 +750,20 @@ class CombateFirestore {
         }
         
         // LIMPAR ESTADO E VOLTAR TURNO DO JOGADOR
-        await this._atualizarFirestore({
-            'status.aguardandoDefesa': false,
-            'status.turno': 'jogador',
-            ultimoAtaque: null
-        });
+        this.status.aguardandoDefesa = false;
+        this.status.turno = 'jogador';
+        this.ultimoAtaque = null;
+        
+        if (this.combateId) {
+            await this._atualizarFirestore({
+                'status.aguardandoDefesa': false,
+                'status.turno': 'jogador',
+                ultimoAtaque: null
+            });
+        }
         
         this._log(`✨ SEU TURNO!`, 'critico');
+        this._notificarUI();
     }
     
     // ===== OUTRAS AÇÕES =====
@@ -711,10 +779,15 @@ class CombateFirestore {
         if (rolagem.resultado <= chanceFuga || rolagem.critico) {
             this._log(`🏃 FUGA BEM-SUCEDIDA!`, 'cura');
             
-            await this._atualizarFirestore({
-                'status.fim': true,
-                'status.turno': 'fim'
-            });
+            this.status.fim = true;
+            this.status.turno = 'fim';
+            
+            if (this.combateId) {
+                await this._atualizarFirestore({
+                    'status.fim': true,
+                    'status.turno': 'fim'
+                });
+            }
             
             if (this.callbacks.onFuga) {
                 this.callbacks.onFuga();
@@ -722,10 +795,15 @@ class CombateFirestore {
         } else {
             this._log(`❌ Falhou ao tentar fugir!`, 'falha');
             
-            await this._atualizarFirestore({
-                'status.turno': 'inimigo'
-            });
+            this.status.turno = 'inimigo';
             
+            if (this.combateId) {
+                await this._atualizarFirestore({
+                    'status.turno': 'inimigo'
+                });
+            }
+            
+            this._notificarUI();
             setTimeout(() => this._turnoInimigo(), 1000);
         }
         
