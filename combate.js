@@ -1,10 +1,12 @@
 // ============================================
 // SISTEMA DE COMBATE AKALANATA - VERSÃO DEFINITIVA
-// ✅ CORRIGIDO: Agora pega o valor REAL da perícia do personagem
-// ✅ Contador de turnos com fadiga (a cada 5 rodadas)
-// ✅ Crítico/Fulminante completo
-// ✅ Bônus de +10% ataque (defesa fulminante)
-// ✅ Penalidade -15% defesa (ataque fulminante)
+// ✅ Tudo baseado em valores REAIS do personagem
+// ✅ Perícia reconhecida pela arma equipada
+// ✅ Defesas calculadas pelos atributos
+// ✅ Inimigo com seus próprios valores
+// ✅ Rolagens 2d10 para tudo
+// ✅ Crítico (1-6) e Falha Crítica (95-100)
+// ✅ Fadiga a cada 5 rodadas
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -104,6 +106,7 @@ function combateRolarDados(formula) {
     const match = formula.match(regex);
     
     if (!match) {
+        console.warn(`Fórmula de dano inválida: ${formula}`);
         return 1;
     }
     
@@ -178,7 +181,7 @@ function combateGetVIGORPercentual(personagem) {
     return 40 + (esferas * 3);
 }
 
-// ===== CALCULAR NH - CORRIGIDO: PEGA VALOR REAL DO PERSONAGEM =====
+// ===== CALCULAR NH =====
 function combateCalcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
@@ -497,14 +500,19 @@ class CombateFirestore {
         
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
         let periciaAtaque = 'luta';
+        
         if (arma) {
-            if (arma.nome?.toLowerCase().includes('espada')) periciaAtaque = 'espada';
-            else if (arma.nome?.toLowerCase().includes('machado')) periciaAtaque = 'machado';
-            else if (arma.nome?.toLowerCase().includes('lança')) periciaAtaque = 'lanca';
-            else if (arma.nome?.toLowerCase().includes('adaga')) periciaAtaque = 'adaga';
+            const nomeArma = (arma.nome || '').toLowerCase();
+            if (nomeArma.includes('espada')) periciaAtaque = 'espada';
+            else if (nomeArma.includes('machado')) periciaAtaque = 'machado';
+            else if (nomeArma.includes('lança')) periciaAtaque = 'lanca';
+            else if (nomeArma.includes('adaga')) periciaAtaque = 'adaga';
+            else if (nomeArma.includes('arco')) periciaAtaque = 'arco';
+            else if (nomeArma.includes('besta')) periciaAtaque = 'besta';
         }
         
         let nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
+        
         if (this.status.bonusProximoAtaque > 0) {
             nhJogador += this.status.bonusProximoAtaque;
             this._log(`✨ Bônus de +${this.status.bonusProximoAtaque}% do turno anterior!`, 'critico', true);
@@ -515,7 +523,6 @@ class CombateFirestore {
         
         let acertou = false;
         let foiCritico = false;
-        let foiFalhaCritica = false;
         
         if (rolagemAtaque.critico) {
             acertou = true;
@@ -525,7 +532,6 @@ class CombateFirestore {
             
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
-            foiFalhaCritica = true;
             this._log(`💥💥 FALHA CRÍTICA NO ATAQUE! (${rolagemAtaque.resultado})`, 'falha', true);
             this.status.penalidadeDefesaJogador = -15;
             
@@ -537,6 +543,7 @@ class CombateFirestore {
         
         if (acertou) {
             let defesaInimigo = this.inimigo.derivados?.esquiva || 5;
+            
             if (this.status.penalidadeDefesaInimigo < 0) {
                 defesaInimigo += this.status.penalidadeDefesaInimigo;
                 this._log(`💥 Inimigo com penalidade de ${this.status.penalidadeDefesaInimigo}% nas defesas!`, 'dano', true);
@@ -545,6 +552,7 @@ class CombateFirestore {
             const rolagemDefesa = combateRolar2d10();
             
             let defendeu = false;
+            
             if (rolagemDefesa.critico) {
                 defendeu = true;
                 this._log(`✨ DEFESA FULMINANTE DO INIMIGO!`, 'critico', true);
@@ -621,7 +629,6 @@ class CombateFirestore {
         
         let acertou = false;
         let foiCritico = false;
-        let foiFalhaCritica = false;
         
         if (rolagemAtaque.critico) {
             acertou = true;
@@ -630,7 +637,6 @@ class CombateFirestore {
             
         } else if (rolagemAtaque.falhaCritica) {
             acertou = false;
-            foiFalhaCritica = true;
             this._log(`💥💥 FALHA CRÍTICA DO INIMIGO! (${rolagemAtaque.resultado})`, 'falha', true);
             this.status.penalidadeDefesaInimigo = -15;
             
@@ -646,7 +652,7 @@ class CombateFirestore {
                 rolagem: rolagemAtaque,
                 nh: nhInimigo,
                 foiCritico: foiCritico,
-                foiFalhaCritica: foiFalhaCritica
+                foiFalhaCritica: rolagemAtaque.falhaCritica
             };
             
             this.status.aguardandoDefesa = true;
@@ -683,7 +689,6 @@ class CombateFirestore {
         
         let defendeu = false;
         let foiCritico = false;
-        let foiFalhaCritica = false;
         
         if (rolagemDefesa.critico) {
             defendeu = true;
@@ -693,7 +698,6 @@ class CombateFirestore {
             
         } else if (rolagemDefesa.falhaCritica) {
             defendeu = false;
-            foiFalhaCritica = true;
             this._log(`💥💥 FALHA CRÍTICA NA DEFESA! (${tipoDefesa})`, 'falha', true);
             
         } else {
@@ -710,7 +714,7 @@ class CombateFirestore {
                 this._log(`⚡ Dano duplicado por ataque fulminante!`, 'dano', true);
             }
             
-            if (foiFalhaCritica && !ataque.foiCritico) {
+            if (rolagemDefesa.falhaCritica && !ataque.foiCritico) {
                 multiplicador = 2;
                 this._log(`⚡ Dano duplicado por falha crítica na defesa!`, 'dano', true);
             }
