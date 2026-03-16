@@ -1225,8 +1225,8 @@
 
 <script>
 // ============================================
-// SALA AVENTURA - VERSÃO FIRESTORE
-// PV ATUALIZA NO PAINEL ESQUERDO!
+// SALA AVENTURA - VERSÃO FINAL CORRIGIDA
+// SEM DUPLICAÇÃO DE LOGS
 // ============================================
 
 // ============================================
@@ -1951,10 +1951,8 @@ function iniciarCombateUI(combate) {
         console.log('🛡️ Botão Defender clicado');
         if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
             combateAtual._log(`🛡️ ${combateAtual.personagem.nome} defende!`);
-            combateAtual._atualizarFirestore({
-                'status.turno': 'inimigo',
-                'bonusDefesa': 10
-            });
+            combateAtual.status.turno = 'inimigo';
+            combateAtual._notificarUI();
             setTimeout(() => combateAtual._turnoInimigo(), 1000);
         }
     });
@@ -1963,10 +1961,8 @@ function iniciarCombateUI(combate) {
         console.log('🏃 Botão Esquivar clicado');
         if (combateAtual && !combateAtual.status?.fim && combateAtual.status?.turno === 'jogador' && !combateAtual.status?.aguardandoDefesa) {
             combateAtual._log(`🏃 ${combateAtual.personagem.nome} prepara esquiva!`);
-            combateAtual._atualizarFirestore({
-                'status.turno': 'inimigo',
-                'modoEsquiva': true
-            });
+            combateAtual.status.turno = 'inimigo';
+            combateAtual._notificarUI();
             setTimeout(() => combateAtual._turnoInimigo(), 1000);
         }
     });
@@ -2023,8 +2019,17 @@ function finalizarCombateUI() {
 }
 
 function adicionarLogCombate(mensagem, tipo) {
-    if (!aventuraAtual) return;
-    aventuraAtual.adicionarLogCombate(mensagem, tipo);
+    if (!elements.combatLog) return;
+    
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    if (tipo === 'critico') entry.classList.add('critico');
+    if (tipo === 'falha') entry.classList.add('falha-critica');
+    if (tipo === 'dano') entry.classList.add('dano');
+    if (tipo === 'cura') entry.classList.add('cura');
+    entry.textContent = mensagem;
+    elements.combatLog.appendChild(entry);
+    elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
 }
 
 // ============================================
@@ -2170,10 +2175,9 @@ class AventuraSolo {
         const sessaoId = this.personagem.id + '_' + Date.now();
         
         this.combateAtual = new window.CombateFirestore(sessaoId, this.personagem, inimigoId, {
-            onLog: (msg, tipo) => {
-                this.adicionarLogCombate(msg, tipo);
-                if (this.callbacks.onCombateLog) this.callbacks.onCombateLog(msg, tipo);
-            },
+            // 🔥 IMPORTANTE: NÃO passar onLog aqui para evitar duplicação
+            // O log será adicionado pelo método adicionarLogCombate da própria classe
+            
             onAtualizar: (estado) => {
                 this.atualizarUICombate(estado);
                 if (this.callbacks.onCombateUpdate) this.callbacks.onCombateUpdate(estado);
@@ -2233,20 +2237,6 @@ class AventuraSolo {
                 this.irParaCena(opcao.falha);
             }
         }, 1500);
-    }
-    
-    adicionarLogCombate(mensagem, tipo = 'normal') {
-        if (!elements.combatLog) return;
-        
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        if (tipo === 'critico') entry.classList.add('critico');
-        if (tipo === 'falha') entry.classList.add('falha-critica');
-        if (tipo === 'dano') entry.classList.add('dano');
-        if (tipo === 'cura') entry.classList.add('cura');
-        entry.textContent = mensagem;
-        elements.combatLog.appendChild(entry);
-        elements.combatLog.scrollTop = elements.combatLog.scrollHeight;
     }
     
     atualizarUICombate(estado) {
@@ -2402,6 +2392,7 @@ window.selecionarPersonagem = window.selecionarPersonagem;
 window.atualizarUICombate = atualizarUICombate;
 window.atualizarPVNaUI = atualizarPVNaUI;
 window.atualizarValoresDefesa = atualizarValoresDefesa;
+window.adicionarLogCombate = adicionarLogCombate;
 </script>
 </body>
 </html>
