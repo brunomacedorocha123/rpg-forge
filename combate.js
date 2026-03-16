@@ -1,7 +1,7 @@
 // ============================================
-// SISTEMA DE COMBATE AKALANATA - VERSÃO FINAL CORRIGIDA
-// ✅ ATAQUE DO JOGADOR FUNCIONA CORRETAMENTE
-// ✅ DEFESA DO INIMIGO USA VALORES REAIS
+// SISTEMA DE COMBATE AKALANATA - VERSÃO CORRIGIDA
+// ✅ Agora reconhece armasHaste (martelo, clava, maça)
+// ✅ Usa as perícias corretas do personagem
 // ============================================
 
 // ===== CONSTANTES - INIMIGOS =====
@@ -80,6 +80,25 @@ const INIMIGOS = {
         derivados: { esquiva: 25, aparar: 35, bloqueio: 0 },
         experiencia: 120,
         ouro: 10
+    },
+    
+    "bandido_arqueiro": {
+        id: "bandido_arqueiro",
+        nome: "Bandido Arqueiro",
+        vida: 30,
+        vidaMax: 30,
+        descricao: "Um bandido com um arco nas mãos, olhos calculistas.",
+        equipamento: "Arco curto",
+        armadura: 1,
+        danoFormula: "1d8",
+        forca: 9,
+        destreza: 13,
+        vigor: 10,
+        inteligencia: 7,
+        pericias: { "arco": 3 },
+        derivados: { esquiva: 50, aparar: 0, bloqueio: 0 },
+        experiencia: 65,
+        ouro: 3
     }
 };
 
@@ -176,65 +195,53 @@ function combateGetVIGORPercentual(personagem) {
 function combateCalcularNH(personagem, periciaId) {
     if (!personagem || !periciaId) return 5;
     
-    // MAPEAMENTO DE ARMAS PARA PERÍCIAS
-    const mapaPericias = {
-        'espada': ['espada', 'espada longa', 'espada curta', 'montante', 'florete', 'sabre'],
-        'machado': ['machado', 'machadinha', 'martelo', 'marca', 'clava', 'porrete'],
-        'lanca': ['lança', 'lançador', 'pique', 'alabarda', 'bastao'],
-        'adaga': ['adaga', 'faca', 'punhal', 'estilete', 'canivete'],
-        'arco': ['arco', 'arco longo', 'arco curto'],
-        'besta': ['besta', 'balestra', 'besta de mao'],
-        'escudo': ['escudo', 'broquel', 'escudo grande', 'escudo medio'],
-        'luta': ['luta', 'desarmado', 'soco', 'chute', 'briga', 'maos nuas']
-    };
+    // Lista completa de perícias físicas
+    const periciasFisicas = [
+        'espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 
+        'lanca', 'adaga', 'martelo', 'armasHaste', 'boxe', 'briga',
+        'cavalgar', 'natacao', 'acrobacia', 'furtividade'
+    ];
     
-    // Determinar a perícia correta baseada no ID ou nome da arma
-    let periciaReal = periciaId;
-    
-    // Se for martelo, usa machado
-    if (periciaId === 'martelo' || (periciaId && periciaId.includes('martelo'))) {
-        periciaReal = 'machado';
+    // Se pediu machado mas tem armasHaste, usa armasHaste
+    if (periciaId === 'machado' && personagem.pericias?.armasHaste) {
+        periciaId = 'armasHaste';
     }
     
-    // Verificar se a perícia existe no personagem
-    let pericia = personagem.pericias?.[periciaReal];
-    
-    // Se não achou, tenta encontrar por mapeamento reverso
-    if (!pericia) {
-        for (const [periciaNome, armas] of Object.entries(mapaPericias)) {
-            if (armas.includes(periciaId) || armas.some(arma => periciaId.includes(arma))) {
-                periciaReal = periciaNome;
-                pericia = personagem.pericias?.[periciaNome];
-                break;
-            }
-        }
+    // Se pediu lanca mas tem armasHaste
+    if (periciaId === 'lanca' && personagem.pericias?.armasHaste) {
+        periciaId = 'armasHaste';
     }
     
-    // Se ainda não achou, tenta usar luta
-    if (!pericia) {
-        periciaReal = 'luta';
-        pericia = personagem.pericias?.luta;
-    }
-    
-    // Se mesmo luta não existir, retorna 5%
+    // Buscar a perícia
+    const pericia = personagem.pericias?.[periciaId];
     if (!pericia) return 5;
     
     const nivel = pericia.nivel || 0;
     
-    // Perícias físicas usam DX, mentais usam IQ
-    const periciasFisicas = ['espada', 'arco', 'besta', 'escudo', 'luta', 'machado', 'lanca', 'adaga', 'martelo'];
-    
-    let atributoBase = 40;
-    
-    if (periciasFisicas.includes(periciaReal)) {
-        const dxEsferas = personagem.atributos?.dx?.esferas || 0;
-        atributoBase = 40 + (dxEsferas * 2);
-    } else {
-        const iqEsferas = personagem.atributos?.iq?.esferas || 0;
-        atributoBase = 40 + (iqEsferas * 2);
-    }
+    // Calcular atributo base (DX para perícias físicas)
+    const dxEsferas = personagem.atributos?.dx?.esferas || 0;
+    const atributoBase = 40 + (dxEsferas * 2);
     
     const nh = atributoBase + (nivel * 4);
+    
+    return Math.min(95, Math.max(5, nh));
+}
+
+// ===== CALCULAR NH DO INIMIGO =====
+function combateCalcularNHInimigo(inimigo) {
+    let nh = 40;
+    
+    if (inimigo.pericias) {
+        if (inimigo.pericias.luta) nh = 40 + (inimigo.pericias.luta * 4);
+        else if (inimigo.pericias.espada) nh = 40 + (inimigo.pericias.espada * 4);
+        else if (inimigo.pericias.machado) nh = 40 + (inimigo.pericias.machado * 4);
+        else if (inimigo.pericias.arco) nh = 40 + (inimigo.pericias.arco * 4);
+    }
+    
+    // Bônus por destreza
+    if (inimigo.destreza) {
+        nh += (inimigo.destreza - 5) * 2;
+    }
     
     return Math.min(95, Math.max(5, nh));
 }
@@ -264,7 +271,7 @@ function combateCalcularDefesaInimigo(inimigo) {
         return Math.min(80, Math.max(5, esquivaCalculada));
     }
     
-    return 25; // Fallback
+    return 25;
 }
 
 // ===== CALCULAR DEFESAS DO JOGADOR =====
@@ -281,11 +288,16 @@ function combateCalcularAparar(personagem, bonusPenalidade = 0) {
     const temArma = personagem.inventario?.corpo?.some(item => item.dano);
     if (!temArma) return 0;
     
-    const periciaEspada = personagem.pericias?.espada?.nivel || 0;
-    let aparar = combateGetDXPercentual(personagem) + (periciaEspada * 4) + 5;
+    // Usar a melhor perícia para aparar
+    let melhorPericia = 0;
+    if (personagem.pericias?.espada) melhorPericia = Math.max(melhorPericia, personagem.pericias.espada.nivel || 0);
+    if (personagem.pericias?.armasHaste) melhorPericia = Math.max(melhorPericia, personagem.pericias.armasHaste.nivel || 0);
+    if (personagem.pericias?.machado) melhorPericia = Math.max(melhorPericia, personagem.pericias.machado.nivel || 0);
+    if (personagem.pericias?.lanca) melhorPericia = Math.max(melhorPericia, personagem.pericias.lanca.nivel || 0);
+    
+    let aparar = combateGetDXPercentual(personagem) + (melhorPericia * 4) + 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) aparar += 5;
-    if (personagem.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
     aparar += bonusPenalidade;
     
@@ -293,13 +305,13 @@ function combateCalcularAparar(personagem, bonusPenalidade = 0) {
 }
 
 function combateCalcularBloqueio(personagem, bonusPenalidade = 0) {
-    const temEscudo = personagem.inventario?.corpo?.some(item => item.bonus);
+    const temEscudo = personagem.inventario?.corpo?.some(item => item.nome?.toLowerCase().includes('escudo'));
     if (!temEscudo) return 0;
     
     const periciaEscudo = personagem.pericias?.escudo?.nivel || 0;
     let bloqueio = combateGetDXPercentual(personagem) + (periciaEscudo * 4) + 5;
     
-    const escudo = personagem.inventario.corpo?.find(item => item.bonus);
+    const escudo = personagem.inventario.corpo?.find(item => item.nome?.toLowerCase().includes('escudo'));
     if (escudo?.bonus) bloqueio += escudo.bonus * 5;
     
     if (personagem.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
@@ -363,8 +375,6 @@ class CombateFirestore {
         this.userId = personagem.userId || personagem.user_id || null;
         this.inimigoId = inimigoId;
         this.callbacks = callbacks;
-        this.combateId = null;
-        this.unsubscribe = null;
         
         this.inimigo = null;
         this.status = {
@@ -380,7 +390,6 @@ class CombateFirestore {
         this.ultimoAtaque = null;
         this.log = [];
         
-        this._atualizandoDoSnapshot = false;
         this._ultimaMensagem = null;
         
         this.iniciar();
@@ -536,17 +545,48 @@ class CombateFirestore {
         const arma = this.personagem.inventario?.corpo?.find(item => item.dano);
         let periciaAtaque = 'luta';
         
+        // MAPEAMENTO CORRETO DE ARMAS PARA PERÍCIAS
         if (arma) {
             const nomeArma = (arma.nome || '').toLowerCase();
-            if (nomeArma.includes('espada')) periciaAtaque = 'espada';
-            else if (nomeArma.includes('machado')) periciaAtaque = 'machado';
-            else if (nomeArma.includes('lança')) periciaAtaque = 'lanca';
-            else if (nomeArma.includes('adaga')) periciaAtaque = 'adaga';
-            else if (nomeArma.includes('arco')) periciaAtaque = 'arco';
-            else if (nomeArma.includes('besta')) periciaAtaque = 'besta';
-            else if (nomeArma.includes('martelo')) periciaAtaque = 'machado';
-            else if (nomeArma.includes('clava')) periciaAtaque = 'machado';
-            else if (nomeArma.includes('porrete')) periciaAtaque = 'machado';
+            
+            if (nomeArma.includes('espada')) {
+                periciaAtaque = 'espada';
+            }
+            else if (nomeArma.includes('machado')) {
+                periciaAtaque = 'machado';
+            }
+            else if (nomeArma.includes('lança') || nomeArma.includes('lanca')) {
+                periciaAtaque = 'lanca';
+            }
+            else if (nomeArma.includes('adaga') || nomeArma.includes('faca')) {
+                periciaAtaque = 'adaga';
+            }
+            else if (nomeArma.includes('arco')) {
+                periciaAtaque = 'arco';
+            }
+            else if (nomeArma.includes('besta')) {
+                periciaAtaque = 'besta';
+            }
+            // ARMAS DE HASTE (martelo, clava, maça, porrete)
+            else if (nomeArma.includes('martelo') || 
+                     nomeArma.includes('clava') || 
+                     nomeArma.includes('maça') || 
+                     nomeArma.includes('maca') || 
+                     nomeArma.includes('porrete')) {
+                periciaAtaque = 'armasHaste';
+            }
+        }
+        
+        // FALLBACK INTELIGENTE: Se a perícia não existir, tenta encontrar uma alternativa
+        if (!this.personagem.pericias?.[periciaAtaque]) {
+            // Tenta armasHaste para qualquer arma de duas mãos
+            if (this.personagem.pericias?.armasHaste) {
+                periciaAtaque = 'armasHaste';
+            }
+            // Tenta luta como último recurso
+            else if (this.personagem.pericias?.luta) {
+                periciaAtaque = 'luta';
+            }
         }
         
         let nhJogador = combateCalcularNH(this.personagem, periciaAtaque);
@@ -662,12 +702,7 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
-        let nhInimigo = 40;
-        if (this.inimigo.pericias) {
-            if (this.inimigo.pericias.luta) nhInimigo = 40 + (this.inimigo.pericias.luta * 4);
-            else if (this.inimigo.pericias.espada) nhInimigo = 40 + (this.inimigo.pericias.espada * 4);
-            else if (this.inimigo.pericias.machado) nhInimigo = 40 + (this.inimigo.pericias.machado * 4);
-        }
+        let nhInimigo = combateCalcularNHInimigo(this.inimigo);
         
         const rolagemAtaque = combateRolar2d10();
         
@@ -854,6 +889,7 @@ if (typeof window !== 'undefined') {
     window.combateRolarDados = combateRolarDados;
     window.combateRolar2d10 = combateRolar2d10;
     window.combateCalcularNH = combateCalcularNH;
+    window.combateCalcularNHInimigo = combateCalcularNHInimigo;
     window.combateCalcularDefesaInimigo = combateCalcularDefesaInimigo;
     window.combateCalcularEsquiva = combateCalcularEsquiva;
     window.combateCalcularAparar = combateCalcularAparar;
