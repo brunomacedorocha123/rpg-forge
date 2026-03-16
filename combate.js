@@ -1,6 +1,6 @@
 // ============================================
 // SISTEMA DE COMBATE AKALANATA - VERSÃO DEFINITIVA
-// ✅ Contador de turnos com fadiga
+// ✅ Contador de turnos com fadiga (a cada 5 turnos COMPLETOS)
 // ✅ Crítico/Fulminante completo
 // ✅ Bônus de +10% ataque (defesa fulminante)
 // ✅ Penalidade -15% defesa (ataque fulminante)
@@ -325,7 +325,7 @@ class CombateFirestore {
         this.status = {
             turno: 'jogador',
             rodada: 1,
-            contadorTurnos: 0, // ✅ Contador para fadiga (a cada 5 turnos -1 PF)
+            contadorTurnos: 0, // ✅ Contador para fadiga (a cada 5 rodadas COMPLETAS)
             fim: false,
             aguardandoDefesa: false,
             // ✅ Bônus e penalidades para crítico/fulminante
@@ -477,10 +477,10 @@ class CombateFirestore {
         }, 100);
     }
     
-    // ✅ VERIFICAR FADIGA (a cada 5 turnos -1 PF)
+    // ✅ VERIFICAR FADIGA (CORRIGIDO: Só aumenta no início da rodada)
     async _verificarFadiga() {
-        this.status.contadorTurnos++;
-        
+        // Esta função agora é chamada apenas no início da rodada do jogador
+        // O contador já foi incrementado no final da rodada anterior
         if (this.status.contadorTurnos >= 5) {
             this.status.contadorTurnos = 0;
             
@@ -517,7 +517,7 @@ class CombateFirestore {
         
         this._log(`👉 ${this.personagem.nome || 'Herói'} ataca!`, 'normal', true);
         
-        // Verificar fadiga
+        // ✅ CORREÇÃO: Verificar fadiga no início do turno do jogador
         await this._verificarFadiga();
         
         // CALCULAR ATAQUE
@@ -650,7 +650,7 @@ class CombateFirestore {
         
         // PASSAR TURNO
         this.status.turno = 'inimigo';
-        this.status.rodada = this.status.rodada + 1;
+        // ✅ NÃO aumentar contador aqui - só no início da próxima rodada do jogador
         
         this._notificarUI();
         
@@ -664,8 +664,7 @@ class CombateFirestore {
         
         this._log(`👹 Turno de ${this.inimigo.nome}`, 'normal', true);
         
-        // Verificar fadiga (inimigo não perde PF, mas contador aumenta)
-        await this._verificarFadiga();
+        // ✅ REMOVIDO: Não verificar fadiga aqui - só no início do turno do jogador
         
         const nhInimigo = combateCalcularNHInimigo(this.inimigo);
         const rolagemAtaque = combateRolar2d10();
@@ -712,6 +711,11 @@ class CombateFirestore {
         } else {
             // Se inimigo errou, volta para jogador
             this.status.turno = 'jogador';
+            
+            // ✅ CORREÇÃO: Aumentar contador de turnos APENAS quando volta para o jogador
+            // Isso significa que 1 rodada completa (jogador+inimigo) conta como 1 turno
+            this.status.contadorTurnos++;
+            this.status.rodada = this.status.contadorTurnos + 1;
             
             this._log(`✨ SEU TURNO!`, 'critico', true);
             this._notificarUI();
@@ -829,6 +833,10 @@ class CombateFirestore {
         this.status.turno = 'jogador';
         this.ultimoAtaque = null;
         
+        // ✅ Aumentar contador de turnos quando volta para o jogador
+        this.status.contadorTurnos++;
+        this.status.rodada = this.status.contadorTurnos + 1;
+        
         this._log(`✨ SEU TURNO!`, 'critico', true);
         this._notificarUI();
     }
@@ -888,7 +896,7 @@ if (typeof window !== 'undefined') {
     window.combateCalcularDanoPersonagem = combateCalcularDanoPersonagem;
     
     console.log('✅ Sistema de Combate COMPLETO carregado!');
-    console.log('✅ Contador de turnos com fadiga ativado!');
+    console.log('✅ Contador de turnos com fadiga a cada 5 rodadas!');
     console.log('✅ Crítico (1-6) e Falha Crítica (95-100) implementados!');
     console.log('✅ Bônus de +10% e penalidade de -15% ativos!');
 }
