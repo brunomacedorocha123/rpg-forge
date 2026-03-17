@@ -892,6 +892,10 @@ body::before {
                     <button class="btn-combate" id="btnEncerrarCombate" disabled>
                         <i class="fas fa-stop"></i> Encerrar
                     </button>
+                    <!-- NOVO BOTÃO DE MARCADOR -->
+                    <button class="btn-combate" id="btnMarcador" style="border-color: #8B4513; color: #8B4513;">
+                        <i class="fas fa-map-marker-alt"></i> Marcador
+                    </button>
                 </div>
             </div>
 
@@ -1110,6 +1114,10 @@ let unsubscribePosicoes = null;
 let unsubscribeCombate = null;
 let estaProcessandoMovimento = false;
 
+// ===== NOVAS VARIÁVEIS PARA MARCADORES =====
+let modoMarcador = false;
+let marcadores = {}; // { "x_y": { x, y } }
+
 // CORES PARA NPCs
 const coresNPCs = [
     '#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#3498db',
@@ -1232,6 +1240,7 @@ function desenharMapa() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
+    // Desenhar hexágonos
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const pixel = hexToPixel(x, y);
@@ -1247,6 +1256,33 @@ function desenharMapa() {
         }
     }
     
+    // ===== NOVO: Desenhar marcadores (obstáculos/coberturas) =====
+    Object.values(marcadores).forEach(m => {
+        const pixel = hexToPixel(m.x, m.y);
+        
+        // Círculo semi-transparente
+        ctx.beginPath();
+        ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(139, 69, 19, 0.4)'; // Marrom transparente
+        ctx.fill();
+        ctx.strokeStyle = '#8B4513';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Símbolo de obstáculo
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⬛', pixel.x, pixel.y);
+        
+        // Pequeno texto "OBST" opcional
+        ctx.font = 'bold 8px "Inter", sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('OBST', pixel.x, pixel.y + 22);
+    });
+    
+    // Desenhar tokens dos personagens
     Object.values(posicoes).forEach(pos => {
         if (pos.hexX !== null && pos.hexY !== null && pos.hexX !== undefined && pos.hexY !== undefined) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
@@ -1660,6 +1696,9 @@ async function encerrarCombate() {
             posicoes[id].hexY = undefined;
         });
         
+        // ===== LIMPAR MARCADORES AO ENCERRAR COMBATE =====
+        marcadores = {};
+        
         atualizarUI();
         desenharMapa();
         atualizarListaPersonagens();
@@ -1771,6 +1810,8 @@ function atualizarUI() {
         modoAtual.innerHTML = '⚔️ Modo: Posicionamento';
     } else if (modoCombate === 'movimento') {
         modoAtual.innerHTML = '⚔️ Modo: Movimento';
+    } else if (modoMarcador) {
+        modoAtual.innerHTML = '📍 Modo: Marcador de obstáculo';
     }
     
     if (ehGM) {
@@ -2199,6 +2240,22 @@ function handleCanvasClick(clientX, clientY) {
     const hex = pixelToHex(mouseX, mouseY);
     
     if (hex.x >= 0 && hex.y >= 0) {
+        // ===== MODO MARCADOR (só GM) =====
+        if (ehGM && modoMarcador) {
+            const key = `${hex.x}_${hex.y}`;
+            
+            if (marcadores[key]) {
+                delete marcadores[key];
+                showToast('Marcador removido');
+            } else {
+                marcadores[key] = { x: hex.x, y: hex.y };
+                showToast('⚠️ Obstáculo marcado');
+            }
+            
+            desenharMapa();
+            return;
+        }
+        
         hexSelecionado = hex;
         
         const personagemNoHex = Object.entries(posicoes).find(([id, pos]) => 
@@ -2209,6 +2266,16 @@ function handleCanvasClick(clientX, clientY) {
             personagemSelecionado = personagemNoHex[0];
             npcSelecionadoParaPosicionar = null;
             instrucaoPosicionamento.style.display = 'none';
+            // Sair do modo marcador se estiver ativo
+            if (modoMarcador) {
+                modoMarcador = false;
+                const btnMarcador = document.getElementById('btnMarcador');
+                if (btnMarcador) {
+                    btnMarcador.style.background = 'transparent';
+                    btnMarcador.style.color = '#8B4513';
+                }
+                atualizarUI();
+            }
             atualizarFicha(personagemSelecionado);
         } 
         else if (ehGM && npcSelecionadoParaPosicionar) {
@@ -2248,10 +2315,46 @@ btnFinalizarTurno.addEventListener('click', finalizarTurnoJogadores);
 btnProximoTurno.addEventListener('click', avancarTurno);
 btnEncerrarCombate.addEventListener('click', encerrarCombate);
 
+// ===== NOVO: Evento do botão de marcador =====
+const btnMarcador = document.getElementById('btnMarcador');
+if (btnMarcador) {
+    btnMarcador.addEventListener('click', () => {
+        if (!ehGM) {
+            showToast('Apenas o GM pode colocar marcadores', true);
+            return;
+        }
+        
+        modoMarcador = !modoMarcador;
+        
+        if (modoMarcador) {
+            btnMarcador.style.background = '#8B4513';
+            btnMarcador.style.color = '#fff';
+            modoAtual.innerHTML = '📍 Modo: Marcador de obstáculo';
+            instrucaoPosicionamento.style.display = 'inline-block';
+            instrucaoPosicionamento.innerHTML = '👇 Clique para adicionar/remover obstáculo';
+        } else {
+            btnMarcador.style.background = 'transparent';
+            btnMarcador.style.color = '#8B4513';
+            modoAtual.innerHTML = combateAtivo ? '⚔️ Modo: Combate' : '⚔️ Modo: Posicionamento';
+            instrucaoPosicionamento.style.display = 'none';
+        }
+    });
+}
+
 window.selecionarPersonagem = function(id) {
     personagemSelecionado = id;
     npcSelecionadoParaPosicionar = null;
     instrucaoPosicionamento.style.display = 'none';
+    // Sair do modo marcador se estiver ativo
+    if (modoMarcador) {
+        modoMarcador = false;
+        const btnMarcador = document.getElementById('btnMarcador');
+        if (btnMarcador) {
+            btnMarcador.style.background = 'transparent';
+            btnMarcador.style.color = '#8B4513';
+        }
+        atualizarUI();
+    }
     atualizarFicha(id);
     desenharMapa();
 };
@@ -2273,6 +2376,16 @@ window.selecionarNPCparaPosicionar = function(npcId) {
     npcSelecionadoParaPosicionar = npcId;
     modoCombate = 'posicionamento';
     personagemSelecionado = null;
+    
+    // Sair do modo marcador se estiver ativo
+    if (modoMarcador) {
+        modoMarcador = false;
+        const btnMarcador = document.getElementById('btnMarcador');
+        if (btnMarcador) {
+            btnMarcador.style.background = 'transparent';
+            btnMarcador.style.color = '#8B4513';
+        }
+    }
     
     instrucaoPosicionamento.style.display = 'inline-block';
     instrucaoPosicionamento.innerHTML = `👇 Posicionando: ${npc.nome}`;
