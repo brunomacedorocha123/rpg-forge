@@ -892,10 +892,6 @@ body::before {
                     <button class="btn-combate" id="btnEncerrarCombate" disabled>
                         <i class="fas fa-stop"></i> Encerrar
                     </button>
-                    <!-- NOVO BOTÃO DE MARCADOR -->
-                    <button class="btn-combate" id="btnMarcador" style="border-color: #8B4513; color: #8B4513;">
-                        <i class="fas fa-map-marker-alt"></i> Marcador
-                    </button>
                 </div>
             </div>
 
@@ -997,7 +993,7 @@ body::before {
         </div>
     </div>
 
-  <script type="module">
+   <script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1055,7 +1051,6 @@ const btnIniciarCombate = document.getElementById('btnIniciarCombate');
 const btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
 const btnProximoTurno = document.getElementById('btnProximoTurno');
 const btnEncerrarCombate = document.getElementById('btnEncerrarCombate');
-const btnMarcador = document.getElementById('btnMarcador');
 const controlesGM = document.getElementById('controlesGM');
 const modoAtual = document.getElementById('modoAtual');
 const instrucaoPosicionamento = document.getElementById('instrucaoPosicionamento');
@@ -1102,7 +1097,6 @@ let ehGM = false;
 let personagemAtual = null;
 let vinculoAtual = null;
 let posicoes = {};
-let marcadores = {}; // { "x_y": { id, x, y } }
 let personagemSelecionado = null;
 let npcSelecionadoParaPosicionar = null;
 let modoCombate = 'posicionamento';
@@ -1112,10 +1106,8 @@ let combateAtivo = false;
 let hexSelecionado = { x: -1, y: -1 };
 let highlightHex = [];
 let combateId = null;
-let modoMarcador = false;
 let unsubscribePosicoes = null;
 let unsubscribeCombate = null;
-let unsubscribeMarcadores = null;
 let estaProcessandoMovimento = false;
 
 // CORES PARA NPCs
@@ -1144,6 +1136,7 @@ function getSessaoIdFromUrl() {
 // ============================================
 // FUNÇÕES DO MAPA HEXAGONAL
 // ============================================
+
 function hexToPixel(hexX, hexY) {
     const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
     const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
@@ -1234,26 +1227,6 @@ function desenharToken(ctx, x, y, personagem) {
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
 }
 
-function desenharMarcadores() {
-    Object.values(marcadores).forEach(m => {
-        const pixel = hexToPixel(m.x, m.y);
-        
-        ctx.beginPath();
-        ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(139, 69, 19, 0.4)';
-        ctx.fill();
-        ctx.strokeStyle = '#8B4513';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px "Inter", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('⬛', pixel.x, pixel.y);
-    });
-}
-
 function desenharMapa() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
@@ -1274,8 +1247,6 @@ function desenharMapa() {
         }
     }
     
-    desenharMarcadores();
-    
     Object.values(posicoes).forEach(pos => {
         if (pos.hexX !== null && pos.hexY !== null && pos.hexX !== undefined && pos.hexY !== undefined) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
@@ -1285,43 +1256,13 @@ function desenharMapa() {
 }
 
 // ============================================
-// FUNÇÕES DE MARCADORES
-// ============================================
-async function toggleMarcador(hexX, hexY) {
-    if (!ehGM) {
-        showToast('Apenas o GM pode colocar marcadores', true);
-        return;
-    }
-    
-    if (!sessaoAtual) return;
-    
-    const key = `${hexX}_${hexY}`;
-    const marcadorId = `marcador_${hexX}_${hexY}`;
-    const marcadorRef = doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId);
-    
-    try {
-        if (marcadores[key]) {
-            await deleteDoc(marcadorRef);
-        } else {
-            await setDoc(marcadorRef, {
-                x: hexX,
-                y: hexY,
-                criado_por: currentUser.uid,
-                criado_em: serverTimestamp()
-            });
-        }
-    } catch (error) {
-        showToast('Erro ao atualizar marcador', true);
-    }
-}
-
-// ============================================
-// FUNÇÕES DE COMBATE
+// FUNÇÃO NOVA: Garantir participação na sessao_participantes
 // ============================================
 async function garantirParticipacaoNaSessao() {
     if (!sessaoAtual || !currentUser || ehGM) return true;
     
     try {
+        // Primeiro, buscar o vínculo do jogador na campanha
         const vinculosQuery = query(
             collection(db, "campanha_personagens"),
             where("campanha_id", "==", sessaoAtual.campanha_id_custom),
@@ -1333,6 +1274,7 @@ async function garantirParticipacaoNaSessao() {
         const vinculosSnap = await getDocs(vinculosQuery);
         
         if (vinculosSnap.empty) {
+            console.log('❌ Nenhum vínculo ativo encontrado para o jogador');
             return false;
         }
         
@@ -1340,10 +1282,17 @@ async function garantirParticipacaoNaSessao() {
         const personagemId = vinculo.personagem_id;
         const participanteId = `${currentUser.uid}_${sessaoAtual.id}`;
         
+        console.log('📝 Verificando participação:', participanteId);
+        console.log('📌 Personagem vinculado:', personagemId);
+        
+        // Verificar se o documento já existe em sessao_participantes
         const participanteRef = doc(db, "sessao_participantes", participanteId);
         const participanteSnap = await getDoc(participanteRef);
         
         if (!participanteSnap.exists()) {
+            console.log('🆕 Criando documento em sessao_participantes...');
+            
+            // Criar o documento de participação
             await setDoc(participanteRef, {
                 jogador_uid: currentUser.uid,
                 sessao_id: sessaoAtual.id,
@@ -1351,13 +1300,26 @@ async function garantirParticipacaoNaSessao() {
                 personagem_nome: vinculo.personagem_nome,
                 criado_em: serverTimestamp()
             });
+            
+            console.log('✅ Participação criada com sucesso!');
+            
+            // Aguardar 1 segundo para garantir que o documento foi criado
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            return true;
+        } else {
+            console.log('✅ Participação já existe');
+            return true;
         }
-        
-        return true;
     } catch (error) {
+        console.error('❌ Erro ao criar participação:', error);
         return false;
     }
 }
+
+// ============================================
+// FUNÇÕES DE COMBATE - CORRIGIDAS
+// ============================================
 
 async function garantirPosicaoPC(personagemId) {
     if (!sessaoAtual) return false;
@@ -1368,8 +1330,14 @@ async function garantirPosicaoPC(personagemId) {
         
         if (!posSnap.exists()) {
             const pos = posicoes[personagemId];
-            if (!pos) return false;
+            if (!pos) {
+                console.error('Personagem não encontrado:', personagemId);
+                return false;
+            }
             
+            console.log('🔥 Criando posição para PC:', pos.nome);
+            
+            // 🔥 VERIFICAÇÃO: Vínculo ativo existe?
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("personagem_id", "==", personagemId),
@@ -1381,16 +1349,33 @@ async function garantirPosicaoPC(personagemId) {
             const vinculosSnap = await getDocs(vinculosQuery);
             
             if (vinculosSnap.empty) {
+                console.error('❌ Jogador não tem vínculo ativo com este personagem');
                 showToast('Você não tem permissão para usar este personagem', true);
                 return false;
             }
             
+            const vinculo = vinculosSnap.docs[0].data();
+            console.log('✅ Vínculo verificado:', vinculo);
+            
+            // Buscar o personagem para garantir que temos todos os dados
+            const personagemRef = doc(db, "personagens", personagemId);
+            const personagemSnap = await getDoc(personagemRef);
+            
+            if (!personagemSnap.exists()) {
+                console.error('❌ Personagem não encontrado no Firestore');
+                return false;
+            }
+            
+            const personagemData = personagemSnap.data();
+            
+            // Criar documento de posição
             await setDoc(posRef, {
                 personagemId: personagemId,
                 nome: pos.nome,
                 tipo: 'pc',
                 cor: pos.cor || '#1E90FF',
                 jogadorUid: currentUser.uid,
+                vinculoId: vinculosSnap.docs[0].id,
                 pv: pos.pv,
                 pvMax: pos.pvMax,
                 pm: pos.pm,
@@ -1406,11 +1391,25 @@ async function garantirPosicaoPC(personagemId) {
                 atualizadoEm: serverTimestamp()
             });
             
+            console.log('✅ Posição PC criada com sucesso via vínculo');
             return true;
         }
         
+        // Se já existe, verificar se o jogadorUid está correto
+        const posData = posSnap.data();
+        if (posData.jogadorUid !== currentUser.uid) {
+            console.log('🔄 Corrigindo jogadorUid da posição existente');
+            await updateDoc(posRef, {
+                jogadorUid: currentUser.uid,
+                atualizadoEm: serverTimestamp()
+            });
+        }
+        
         return true;
+        
     } catch (error) {
+        console.error('❌ Erro ao criar posição PC:', error);
+        showToast('Erro ao criar posição: ' + error.message, true);
         return false;
     }
 }
@@ -1440,6 +1439,7 @@ async function iniciarCombate() {
             gm_uid: currentUser.uid
         });
         
+        // Criar documentos na subcoleção "posicoes" para TODOS os personagens
         const batch = writeBatch(db);
         
         Object.entries(posicoes).forEach(([id, pos]) => {
@@ -1474,19 +1474,31 @@ async function iniciarCombate() {
         showToast('Combate iniciado! Posicionem seus personagens.');
         
     } catch (error) {
-        showToast('Erro ao iniciar combate', true);
+        console.error('Erro ao iniciar combate:', error);
+        showToast('Erro ao iniciar combate: ' + error.message, true);
     } finally {
         hideLoading();
     }
 }
 
 async function moverPersonagem(personagemId, hexX, hexY) {
-    if (!combateAtivo && !ehGM) return;
-    if (estaProcessandoMovimento) return;
+    if (!combateAtivo && !ehGM) {
+        console.log('Combate não ativo');
+        return;
+    }
+    
+    if (estaProcessandoMovimento) {
+        console.log('Já processando um movimento...');
+        return;
+    }
     
     const pos = posicoes[personagemId];
-    if (!pos) return;
+    if (!pos) {
+        console.log('Personagem não encontrado:', personagemId);
+        return;
+    }
     
+    // Verificar se hexágono está ocupado
     const ocupado = Object.values(posicoes).some(p => 
         p.hexX === hexX && p.hexY === hexY && p.id !== personagemId
     );
@@ -1496,6 +1508,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
         return;
     }
     
+    // Verificar permissões
     const ehPosicionamento = (pos.hexX === undefined || pos.hexX === null);
     
     if (!ehPosicionamento) {
@@ -1504,18 +1517,53 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             return;
         }
         
-        if (vezAtual === 'jogadores' && pos.tipo === 'npc' && !ehGM) return;
-        if (vezAtual === 'npcs' && pos.tipo === 'pc' && !ehGM) return;
+        if (vezAtual === 'jogadores' && pos.tipo === 'npc' && !ehGM) {
+            showToast('Agora é a vez dos jogadores', true);
+            return;
+        }
+        if (vezAtual === 'npcs' && pos.tipo === 'pc' && !ehGM) {
+            showToast('Agora é a vez dos NPCs', true);
+            return;
+        }
     } else {
-        if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) return;
+        if (pos.tipo === 'pc' && pos.jogadorUid !== currentUser.uid && !ehGM) {
+            showToast('Você só pode posicionar seu próprio personagem', true);
+            return;
+        }
     }
     
     estaProcessandoMovimento = true;
     
     try {
-        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-        await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
+        console.log('🎮 Movendo:', personagemId, '->', hexX, hexY);
         
+        // 🔥 CORREÇÃO CRÍTICA: Para PCs, verificar vínculo primeiro
+        if (pos.tipo === 'pc' && !ehGM) {
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("personagem_id", "==", personagemId),
+                where("jogador_uid", "==", currentUser.uid),
+                where("status", "==", "ativo"),
+                limit(1)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            
+            if (vinculosSnap.empty) {
+                throw new Error('Você não tem vínculo ativo com este personagem');
+            }
+        }
+        
+        // Atualizar a posição
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+        
+        await setDoc(posRef, {
+            hexX: hexX,
+            hexY: hexY,
+            atualizadoEm: serverTimestamp()
+        }, { merge: true });
+        
+        // Atualizar localmente
         posicoes[personagemId].hexX = hexX;
         posicoes[personagemId].hexY = hexY;
         
@@ -1531,13 +1579,18 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             atualizarFicha(personagemSelecionado);
         }
         
+        console.log('✅ Movimento OK:', pos.nome, '->', hexX, hexY);
+        
     } catch (error) {
+        console.error('❌ Erro ao mover:', error);
+        showToast('Erro: ' + error.message, true);
+        
+        // Reverter se era posicionamento
         if (ehPosicionamento) {
             posicoes[personagemId].hexX = undefined;
             posicoes[personagemId].hexY = undefined;
             desenharMapa();
         }
-        showToast('Erro ao mover', true);
     } finally {
         estaProcessandoMovimento = false;
     }
@@ -1578,33 +1631,29 @@ async function encerrarCombate() {
     try {
         if (combateId) {
             const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateId);
-            await updateDoc(combateRef, { ativo: false, encerrado_em: serverTimestamp() });
+            await updateDoc(combateRef, { 
+                ativo: false,
+                encerrado_em: serverTimestamp()
+            });
         }
         
         const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
         const posicoesSnap = await getDocs(posicoesRef);
         
         const batch = writeBatch(db);
-        posicoesSnap.docs.forEach(docSnap => batch.delete(docSnap.ref));
+        posicoesSnap.docs.forEach(docSnap => {
+            batch.delete(docSnap.ref);
+        });
         await batch.commit();
-        
-        const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-        const marcadoresSnap = await getDocs(marcadoresRef);
-        
-        const batchMarcadores = writeBatch(db);
-        marcadoresSnap.docs.forEach(docSnap => batchMarcadores.delete(docSnap.ref));
-        await batchMarcadores.commit();
         
         if (unsubscribePosicoes) unsubscribePosicoes();
         if (unsubscribeCombate) unsubscribeCombate();
-        if (unsubscribeMarcadores) unsubscribeMarcadores();
         
         combateAtivo = false;
         combateId = null;
         modoCombate = 'posicionamento';
         personagemSelecionado = null;
         npcSelecionadoParaPosicionar = null;
-        marcadores = {};
         
         Object.keys(posicoes).forEach(id => {
             posicoes[id].hexX = undefined;
@@ -1617,6 +1666,7 @@ async function encerrarCombate() {
         showToast('Combate encerrado');
         
     } catch (error) {
+        console.error('Erro ao encerrar:', error);
         showToast('Erro ao encerrar combate', true);
     } finally {
         hideLoading();
@@ -1626,13 +1676,14 @@ async function encerrarCombate() {
 // ============================================
 // LISTENERS EM TEMPO REAL
 // ============================================
+
 function iniciarListenersCombate() {
     if (!sessaoAtual) return;
     
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
-    if (unsubscribeMarcadores) unsubscribeMarcadores();
     
+    // Listener do combate
     const combatesQuery = query(
         collection(db, "sessoes", sessaoAtual.id, "combates"),
         where("ativo", "==", true),
@@ -1651,11 +1702,16 @@ function iniciarListenersCombate() {
             combateId = null;
         }
         atualizarUI();
+    }, (error) => {
+        console.error('Erro listener combate:', error);
     });
     
+    // Listener das posições
     const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
     
     unsubscribePosicoes = onSnapshot(posicoesRef, (snapshot) => {
+        console.log('🔄 Sincronização:', snapshot.docChanges().length, 'mudanças');
+        
         snapshot.docChanges().forEach((change) => {
             const id = change.doc.id;
             const data = change.doc.data();
@@ -1669,6 +1725,10 @@ function iniciarListenersCombate() {
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+                
+                console.log('📍', change.type + ':', data.nome, '->', 
+                          data.hexX !== null ? `(${data.hexX}, ${data.hexY})` : 'não posicionado');
+                
             } else if (change.type === "removed") {
                 if (posicoes[id]) {
                     posicoes[id].hexX = undefined;
@@ -1683,31 +1743,17 @@ function iniciarListenersCombate() {
         if (personagemSelecionado && posicoes[personagemSelecionado]) {
             atualizarFicha(personagemSelecionado);
         }
-    });
-    
-    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-    
-    unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            const id = change.doc.id;
-            const data = change.doc.data();
-            
-            if (change.type === "added" || change.type === "modified") {
-                const key = `${data.x}_${data.y}`;
-                marcadores[key] = { id, x: data.x, y: data.y };
-            } else if (change.type === "removed") {
-                const key = `${data.x}_${data.y}`;
-                delete marcadores[key];
-            }
-        });
         
-        desenharMapa();
+    }, (error) => {
+        console.error('Erro listener posições:', error);
+        showToast('Erro de sincronização', true);
     });
 }
 
 // ============================================
 // FUNÇÕES DE UI
 // ============================================
+
 function atualizarUI() {
     turnoDisplay.textContent = `TURNO ${turnoAtual}`;
     
@@ -1721,8 +1767,6 @@ function atualizarUI() {
     
     if (!combateAtivo) {
         modoAtual.innerHTML = '⚔️ Modo: Aguardando início';
-    } else if (modoMarcador) {
-        modoAtual.innerHTML = '📍 Modo: Marcador de obstáculo';
     } else if (modoCombate === 'posicionamento') {
         modoAtual.innerHTML = '⚔️ Modo: Posicionamento';
     } else if (modoCombate === 'movimento') {
@@ -1747,6 +1791,7 @@ function atualizarUI() {
 function atualizarListaPersonagens() {
     let html = '';
     
+    // ===== SEÇÃO 1: NPCs NÃO POSICIONADOS (SÓ GM VÊ) =====
     if (ehGM) {
         const npcsNaoPosicionados = Object.values(posicoes).filter(p => 
             p.tipo === 'npc' && (p.hexX === undefined || p.hexX === null)
@@ -1772,6 +1817,7 @@ function atualizarListaPersonagens() {
         }
     }
     
+    // ===== SEÇÃO 2: PCs POSICIONADOS (TODOS VÊM) =====
     const pcsPosicionados = Object.values(posicoes).filter(p => 
         p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null
     );
@@ -1796,6 +1842,7 @@ function atualizarListaPersonagens() {
         html += `</div>`;
     }
     
+    // ===== SEÇÃO 3: NPCs POSICIONADOS (SÓ GM VÊ) =====
     if (ehGM) {
         const npcsPosicionados = Object.values(posicoes).filter(p => 
             p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null
@@ -1821,6 +1868,7 @@ function atualizarListaPersonagens() {
         }
     }
     
+    // ===== SEÇÃO 4: MEU PC NÃO POSICIONADO =====
     if (!ehGM && personagemAtual) {
         const meuPC = posicoes[personagemAtual.id];
         if (meuPC && (meuPC.hexX === undefined || meuPC.hexX === null)) {
@@ -1857,6 +1905,7 @@ function atualizarFicha(personagemId) {
     fichaNome.textContent = pos.nome;
     fichaTipo.textContent = pos.tipo === 'pc' ? 'Jogador' : 'NPC';
     fichaAvatar.innerHTML = pos.tipo === 'pc' ? '🧙' : '🧌';
+    
     fichaPV.textContent = `${pos.pv || '?'}/${pos.pvMax || '?'}`;
     
     if (podeVerCompleto) {
@@ -1923,8 +1972,9 @@ function atualizarFicha(personagemId) {
 }
 
 // ============================================
-// CARREGAMENTO INICIAL
+// CARREGAMENTO INICIAL - VERSÃO CORRIGIDA
 // ============================================
+
 async function carregarSessao() {
     const sessaoId = getSessaoIdFromUrl();
     if (!sessaoId) {
@@ -1954,11 +2004,16 @@ async function carregarSessao() {
         
         await carregarNPCs();
         
+        // 🔥 PRIMEIRO: Garantir participação na sessao_participantes
         if (!ehGM) {
-            await garantirParticipacaoNaSessao();
+            const participacaoOk = await garantirParticipacaoNaSessao();
+            console.log('📋 Participação:', participacaoOk ? 'OK' : 'Falhou');
+            
+            // DEPOIS: Carregar personagem do jogador
             await carregarPersonagemJogador(sessaoAtual.campanha_id_custom);
         }
         
+        // Verificar se há combate ativo
         const combatesQuery = query(
             collection(db, "sessoes", sessaoAtual.id, "combates"),
             where("ativo", "==", true),
@@ -1990,15 +2045,6 @@ async function carregarSessao() {
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
             });
             
-            const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-            const marcadoresSnap = await getDocs(marcadoresRef);
-            
-            marcadoresSnap.forEach(doc => {
-                const data = doc.data();
-                const key = `${data.x}_${data.y}`;
-                marcadores[key] = { id: doc.id, x: data.x, y: data.y };
-            });
-            
             iniciarListenersCombate();
         }
         
@@ -2013,6 +2059,8 @@ async function carregarSessao() {
         hideLoading();
         
     } catch (error) {
+        console.error('Erro ao carregar sessão:', error);
+        showToast('Erro ao carregar sessão: ' + error.message, true);
         hideLoading();
     }
 }
@@ -2021,6 +2069,9 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
     if (!campanhaIdCustom || !currentUser) return;
     
     try {
+        console.log('🔍 Buscando vínculo para:', currentUser.uid, 'na campanha:', campanhaIdCustom);
+        
+        // Buscar o vínculo ativo
         const vinculosQuery = query(
             collection(db, "campanha_personagens"),
             where("campanha_id", "==", campanhaIdCustom),
@@ -2030,13 +2081,19 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
         
         const vinculosSnap = await getDocs(vinculosQuery);
         
-        if (vinculosSnap.empty) return;
+        if (vinculosSnap.empty) {
+            console.log('❌ Nenhum vínculo ativo encontrado');
+            return;
+        }
         
         vinculoAtual = {
             id: vinculosSnap.docs[0].id,
             ...vinculosSnap.docs[0].data()
         };
         
+        console.log('✅ Vínculo encontrado:', vinculoAtual);
+        
+        // Buscar o personagem
         const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
         const personagemSnap = await getDoc(personagemRef);
         
@@ -2046,6 +2103,9 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
                 ...personagemSnap.data()
             };
             
+            console.log('✅ Personagem carregado:', personagemAtual.nome);
+            
+            // Calcular stats
             const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
             const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
                           (personagemAtual.atributos?.iq?.esferas || 0) + 
@@ -2056,6 +2116,7 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
             const vigorPercent = 30 + (personagemAtual.atributos?.vigor?.esferas || 0) * 3;
             const esquiva = Math.floor((dxPercent + iqPercent + vigorPercent) / 3) + 10;
             
+            // Criar posição na memória
             posicoes[personagemAtual.id] = {
                 id: personagemAtual.id,
                 nome: personagemAtual.nome,
@@ -2076,8 +2137,12 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
                 hexX: undefined,
                 hexY: undefined
             };
+            
+            console.log('✅ Posição em memória criada para:', personagemAtual.nome);
         }
-    } catch (error) {}
+    } catch (error) {
+        console.error('Erro ao carregar personagem:', error);
+    }
 }
 
 async function carregarNPCs() {
@@ -2114,12 +2179,15 @@ async function carregarNPCs() {
                 indiceCor++;
             }
         });
-    } catch (error) {}
+    } catch (error) {
+        console.error('Erro ao carregar NPCs:', error);
+    }
 }
 
 // ============================================
 // EVENT LISTENERS
 // ============================================
+
 function handleCanvasClick(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -2131,11 +2199,6 @@ function handleCanvasClick(clientX, clientY) {
     const hex = pixelToHex(mouseX, mouseY);
     
     if (hex.x >= 0 && hex.y >= 0) {
-        if (ehGM && modoMarcador) {
-            toggleMarcador(hex.x, hex.y);
-            return;
-        }
-        
         hexSelecionado = hex;
         
         const personagemNoHex = Object.entries(posicoes).find(([id, pos]) => 
@@ -2146,14 +2209,6 @@ function handleCanvasClick(clientX, clientY) {
             personagemSelecionado = personagemNoHex[0];
             npcSelecionadoParaPosicionar = null;
             instrucaoPosicionamento.style.display = 'none';
-            if (modoMarcador) {
-                modoMarcador = false;
-                if (btnMarcador) {
-                    btnMarcador.style.background = 'transparent';
-                    btnMarcador.style.color = '#8B4513';
-                }
-                atualizarUI();
-            }
             atualizarFicha(personagemSelecionado);
         } 
         else if (ehGM && npcSelecionadoParaPosicionar) {
@@ -2161,6 +2216,7 @@ function handleCanvasClick(clientX, clientY) {
         }
         else if (!ehGM && personagemAtual && posicoes[personagemAtual.id] && 
                  (posicoes[personagemAtual.id].hexX === undefined || posicoes[personagemAtual.id].hexX === null)) {
+            // 🔥 CHAMADA CORRIGIDA: Garantir posição antes de mover
             garantirPosicaoPC(personagemAtual.id).then(() => {
                 moverPersonagem(personagemAtual.id, hex.x, hex.y);
             });
@@ -2192,42 +2248,10 @@ btnFinalizarTurno.addEventListener('click', finalizarTurnoJogadores);
 btnProximoTurno.addEventListener('click', avancarTurno);
 btnEncerrarCombate.addEventListener('click', encerrarCombate);
 
-if (btnMarcador) {
-    btnMarcador.addEventListener('click', () => {
-        if (!ehGM) {
-            showToast('Apenas o GM pode colocar marcadores', true);
-            return;
-        }
-        
-        modoMarcador = !modoMarcador;
-        
-        if (modoMarcador) {
-            btnMarcador.style.background = '#8B4513';
-            btnMarcador.style.color = '#fff';
-            modoAtual.innerHTML = '📍 Modo: Marcador de obstáculo';
-            instrucaoPosicionamento.style.display = 'inline-block';
-            instrucaoPosicionamento.innerHTML = '👇 Clique para adicionar/remover obstáculo';
-        } else {
-            btnMarcador.style.background = 'transparent';
-            btnMarcador.style.color = '#8B4513';
-            modoAtual.innerHTML = combateAtivo ? '⚔️ Modo: Combate' : '⚔️ Modo: Posicionamento';
-            instrucaoPosicionamento.style.display = 'none';
-        }
-    });
-}
-
 window.selecionarPersonagem = function(id) {
     personagemSelecionado = id;
     npcSelecionadoParaPosicionar = null;
     instrucaoPosicionamento.style.display = 'none';
-    if (modoMarcador) {
-        modoMarcador = false;
-        if (btnMarcador) {
-            btnMarcador.style.background = 'transparent';
-            btnMarcador.style.color = '#8B4513';
-        }
-        atualizarUI();
-    }
     atualizarFicha(id);
     desenharMapa();
 };
@@ -2249,14 +2273,6 @@ window.selecionarNPCparaPosicionar = function(npcId) {
     npcSelecionadoParaPosicionar = npcId;
     modoCombate = 'posicionamento';
     personagemSelecionado = null;
-    
-    if (modoMarcador) {
-        modoMarcador = false;
-        if (btnMarcador) {
-            btnMarcador.style.background = 'transparent';
-            btnMarcador.style.color = '#8B4513';
-        }
-    }
     
     instrucaoPosicionamento.style.display = 'inline-block';
     instrucaoPosicionamento.innerHTML = `👇 Posicionando: ${npc.nome}`;
@@ -2310,11 +2326,14 @@ window.iniciarMovimento = function(id) {
 // ============================================
 // INICIALIZAÇÃO
 // ============================================
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
+        console.log('✅ Usuário autenticado:', user.uid);
         await carregarSessao();
     } else {
+        console.log('❌ Usuário não autenticado');
         window.location.href = 'index.html';
     }
 });
@@ -2322,7 +2341,6 @@ onAuthStateChanged(auth, async (user) => {
 window.addEventListener('beforeunload', () => {
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
-    if (unsubscribeMarcadores) unsubscribeMarcadores();
 });
 </script>
 </body>
