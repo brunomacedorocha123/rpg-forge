@@ -1072,636 +1072,639 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, getDoc, getDocs, collection, query, where } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, getDoc, getDocs, collection, query, where } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+        authDomain: "rpgforce-e3227.firebaseapp.com",
+        projectId: "rpgforce-e3227",
+        storageBucket: "rpgforce-e3227.firebasestorage.app",
+        messagingSenderId: "984517342332",
+        appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        // Elementos DOM
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const personagemNome = document.getElementById('personagemNome');
-        const personagemClasse = document.getElementById('personagemClasse');
-        const personagemFoto = document.getElementById('personagemFoto');
-        const jogadorNome = document.getElementById('jogadorNome');
-        const nivelPersonagem = document.getElementById('nivelPersonagem');
-        const dinheiro = document.getElementById('dinheiro');
-        const xpAtual = document.getElementById('xpAtual');
+    // Elementos DOM
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const personagemNome = document.getElementById('personagemNome');
+    const personagemClasse = document.getElementById('personagemClasse');
+    const personagemFoto = document.getElementById('personagemFoto');
+    const jogadorNome = document.getElementById('jogadorNome');
+    const nivelPersonagem = document.getElementById('nivelPersonagem');
+    const dinheiro = document.getElementById('dinheiro');
+    const xpAtual = document.getElementById('xpAtual');
+    
+    const pvValor = document.getElementById('pvValor');
+    const pmValor = document.getElementById('pmValor');
+    const pfValor = document.getElementById('pfValor');
+    const pvBarra = document.getElementById('pvBarra');
+    const pmBarra = document.getElementById('pmBarra');
+    const pfBarra = document.getElementById('pfBarra');
+    
+    const danoBase = document.getElementById('danoBase');
+    const modST = document.getElementById('modST');
+    
+    const atributosContainer = document.getElementById('atributosContainer');
+    const defesasContainer = document.getElementById('defesasContainer');
+    const deslocamento = document.getElementById('deslocamento');
+    const rdTotal = document.getElementById('rdTotal');
+    const periciasContainer = document.getElementById('periciasContainer');
+    const vantagensContainer = document.getElementById('vantagensContainer');
+    const desvantagensContainer = document.getElementById('desvantagensContainer');
+    const inventarioContainer = document.getElementById('inventarioContainer');
+    
+    const magiasContainerAgua = document.getElementById('magiasContainerAgua');
+    const magiasContainerAr = document.getElementById('magiasContainerAr');
+    const magiasContainerGelo = document.getElementById('magiasContainerGelo');
+    const magiasContainerFogo = document.getElementById('magiasContainerFogo');
+    const magiasContainerTerra = document.getElementById('magiasContainerTerra');
+    const magiasContainerCorpo = document.getElementById('magiasContainerCorpo');
+    
+    const timestamp = document.getElementById('timestamp');
+
+    let escolaAtual = 'agua';
+    let personagemAtual = null;
+
+    function showLoading() { loadingOverlay.classList.add('active'); }
+    function hideLoading() { loadingOverlay.classList.remove('active'); }
+
+    function getPersonagemIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('personagemId');
+    }
+
+    // Dados das magias
+    const dadosPorEscola = {
+        agua: {
+            purificarAgua: { nome: "Purificar Água", custoPM: 2, tempoConjuracao: "1 minuto" },
+            criarAgua: { nome: "Criar Água", custoPM: 2, tempoConjuracao: "2 turnos" },
+            dissiparAgua: { nome: "Dissipar Água", custoPM: 4, tempoConjuracao: "2 turnos" },
+            flechaLiquida: { nome: "Flecha Líquida", custoPM: 3, tempoConjuracao: "Instantânea" },
+            respirarNaAgua: { nome: "Respirar na Água", custoPM: 4, tempoConjuracao: "2 turnos" },
+            moldarAgua: { nome: "Moldar Água", custoPM: 2, tempoConjuracao: "1 turno" },
+            nevoeiro: { nome: "Nevoeiro", custoPM: 4, tempoConjuracao: "2 turnos" },
+            jatoDagua: { nome: "Jato d'água", custoPM: 4, tempoConjuracao: "Instantânea" },
+            ondaExpulsora: { nome: "Onda Expulsora", custoPM: 5, tempoConjuracao: "2 turnos" },
+            golemDeAgua: { nome: "Golem de Água", custoPM: 6, tempoConjuracao: "3 turnos" },
+            cortinaDagua: { nome: "Cortina d'Água", custoPM: 3, tempoConjuracao: "Instantânea" }
+        },
+        ar: {
+            criarAr: { nome: "Criar Ar", custoPM: 1, tempoConjuracao: "1 turno" },
+            controlarVento: { nome: "Controlar Vento", custoPM: 2, tempoConjuracao: "1 turno" },
+            rajadaVento: { nome: "Rajada de Vento", custoPM: 2, tempoConjuracao: "Instantânea" },
+            laminasAr: { nome: "Lâminas de Ar", custoPM: 2, tempoConjuracao: "Instantânea" },
+            respirarNaAguaAr: { nome: "Respirar na Água", custoPM: 2, tempoConjuracao: "1 turno" },
+            andarNoAr: { nome: "Andar no Ar", custoPM: 3, tempoConjuracao: "1 turno" },
+            corpoDeAr: { nome: "Corpo de Ar", custoPM: 4, tempoConjuracao: "2 turnos" },
+            relampago: { nome: "Relâmpago", custoPM: 3, tempoConjuracao: "Instantânea" },
+            tempestade: { nome: "Tempestade", custoPM: 4, tempoConjuracao: "2 turnos" },
+            furacao: { nome: "Furacão", custoPM: 6, tempoConjuracao: "3 turnos" },
+            cupulaDeAr: { nome: "Cúpula de Ar", custoPM: 4, tempoConjuracao: "1 turno" }
+        },
+        gelo: {
+            criarFrio: { nome: "Criar Frio", custoPM: 1, tempoConjuracao: "1 turno" },
+            criarGelo: { nome: "Criar Gelo", custoPM: 2, tempoConjuracao: "1 turno" },
+            camadaNeve: { nome: "Camada de Neve", custoPM: 2, tempoConjuracao: "1 turno" },
+            soproCongelante: { nome: "Sopro Congelante", custoPM: 3, tempoConjuracao: "Instantânea" },
+            adagaGelo: { nome: "Adaga de Gelo", custoPM: 2, tempoConjuracao: "Instantânea" },
+            armaduraGelo: { nome: "Armadura de Gelo", custoPM: 3, tempoConjuracao: "1 turno" },
+            pisoGelo: { nome: "Piso de Gelo", custoPM: 2, tempoConjuracao: "1 turno" },
+            tempestadeGranizo: { nome: "Tempestade de Granizo", custoPM: 5, tempoConjuracao: "2 turnos" },
+            barreiraGelo: { nome: "Barreira de Gelo", custoPM: 4, tempoConjuracao: "1 turno" },
+            golemGelo: { nome: "Golem de Gelo", custoPM: 6, tempoConjuracao: "1 turno" }
+        },
+        fogo: {
+            criarFogo: { nome: "Criar Fogo", custoPM: 1, tempoConjuracao: "1 turno" },
+            moldarFogo: { nome: "Moldar Fogo", custoPM: 2, tempoConjuracao: "1 turno" },
+            apagarFogo: { nome: "Apagar Fogo", custoPM: 1, tempoConjuracao: "1 turno" },
+            calor: { nome: "Calor", custoPM: 2, tempoConjuracao: "2 turnos" },
+            bolaDeFogo: { nome: "Bola de Fogo", custoPM: 3, tempoConjuracao: "Instantânea" },
+            armaFlamejante: { nome: "Arma Flamejante", custoPM: 3, tempoConjuracao: "1 turno" },
+            protecaoAoFogo: { nome: "Proteção ao Fogo", custoPM: 3, tempoConjuracao: "Instantânea" },
+            anelDeFogo: { nome: "Anel de Fogo", custoPM: 4, tempoConjuracao: "2 turnos" },
+            toqueArdente: { nome: "Toque Ardente", custoPM: 2, tempoConjuracao: "Instantânea" },
+            soproDeFogo: { nome: "Sopro de Fogo", custoPM: 4, tempoConjuracao: "2 turnos" },
+            chamasCadentes: { nome: "Chamas Cadentes", custoPM: 5, tempoConjuracao: "3 turnos" },
+            detectarCalor: { nome: "Detectar Calor", custoPM: 1, tempoConjuracao: "1 turno" },
+            chamaVagante: { nome: "Chama Vagante", custoPM: 4, tempoConjuracao: "1 turno" }
+        },
+        terra: {
+            criarTerra: { nome: "Criar Terra", custoPM: 1, tempoConjuracao: "1 turno" },
+            moldarTerra: { nome: "Moldar Terra", custoPM: 2, tempoConjuracao: "1 turno" },
+            jatoDeAreia: { nome: "Jato de Areia", custoPM: 2, tempoConjuracao: "Instantânea" },
+            pocoDeAreia: { nome: "Poço de Areia", custoPM: 3, tempoConjuracao: "2 turnos" },
+            projetilDePedra: { nome: "Projétil de Pedra", custoPM: 2, tempoConjuracao: "Instantânea" },
+            terremoto: { nome: "Terremoto", custoPM: 6, tempoConjuracao: "3 turnos" },
+            corpoDePedra: { nome: "Corpo de Pedra", custoPM: 4, tempoConjuracao: "2 turnos" },
+            moldarTerreno: { nome: "Moldar Terreno", custoPM: 3, tempoConjuracao: "1 turno" },
+            golemDePedra: { nome: "Golem de Pedra", custoPM: 7, tempoConjuracao: "1 turno" },
+            lancasDePedra: { nome: "Lanças de Pedra", custoPM: 4, tempoConjuracao: "2 turnos" }
+        },
+        corpo: {
+            espasmo: { nome: "Espasmo", custoPM: 2, tempoConjuracao: "Instantânea" },
+            atordoamento: { nome: "Atordoamento", custoPM: 2, tempoConjuracao: "Instantânea" },
+            manipularST: { nome: "Manipular ST", custoPM: 2, tempoConjuracao: "1 turno" },
+            manipularDX: { nome: "Manipular DX", custoPM: 2, tempoConjuracao: "1 turno" },
+            resistencia: { nome: "Resistência", custoPM: 2, tempoConjuracao: "1 turno" },
+            toqueDrenante: { nome: "Toque Drenante", custoPM: 2, tempoConjuracao: "Instantânea" },
+            sentirDor: { nome: "Sentir Dor", custoPM: 2, tempoConjuracao: "Instantânea" },
+            imunidadeDor: { nome: "Imunidade à Dor", custoPM: 2, tempoConjuracao: "1 turno" },
+            enraizar: { nome: "Enraizar", custoPM: 2, tempoConjuracao: "1 turno" },
+            silencio: { nome: "Silêncio", custoPM: 2, tempoConjuracao: "Instantânea" },
+            paralisiaParcial: { nome: "Paralisia Parcial", custoPM: 2, tempoConjuracao: "1 turno" },
+            cegueira: { nome: "Cegueira", custoPM: 2, tempoConjuracao: "Instantânea" },
+            surdez: { nome: "Surdez", custoPM: 2, tempoConjuracao: "Instantânea" },
+            regenerar: { nome: "Regenerar", custoPM: 2, tempoConjuracao: "1 turno" },
+            paralisiaTotal: { nome: "Paralisia Total", custoPM: 2, tempoConjuracao: "2 turnos" }
+        }
+    };
+
+    // Funções de cálculo
+    function getSTFixo(personagem) { return 5 + (personagem?.atributos?.st?.esferas || 0); }
+    function getDXFixo(personagem) { return 5 + (personagem?.atributos?.dx?.esferas || 0); }
+    function getIQFixo(personagem) { return 5 + (personagem?.atributos?.iq?.esferas || 0); }
+    function getVIGORFixo(personagem) { return 5 + (personagem?.atributos?.vigor?.esferas || 0); }
+    function getVTFixo(personagem) { return 5 + (personagem?.atributos?.vt?.esferas || 0); }
+
+    function getSTPercentual(personagem) { return 40 + ((personagem?.atributos?.st?.esferas || 0) * 3); }
+    function getDXPercentual(personagem) { return 40 + ((personagem?.atributos?.dx?.esferas || 0) * 2); }
+    function getIQPercentual(personagem) { return 40 + ((personagem?.atributos?.iq?.esferas || 0) * 2); }
+    function getVIGORPercentual(personagem) { return 40 + ((personagem?.atributos?.vigor?.esferas || 0) * 3); }
+
+    function calcularPV(personagem) { 
+        let vtBase = getVTFixo(personagem);
+        let pvBase = vtBase * 8;
+        if (personagem?.vantagens?.includes('htExtra')) {
+            pvBase = Math.floor(pvBase * 1.10);
+        }
+        return pvBase;
+    }
+
+    function calcularPF(personagem) { 
+        let pfBase = getVIGORFixo(personagem) + getVTFixo(personagem);
+        if (personagem?.vantagens?.includes('fadigaExtra')) {
+            pfBase += 5;
+        }
+        return pfBase;
+    }
+
+    function calcularPM(personagem) { 
+        return getVIGORFixo(personagem) + getIQFixo(personagem) + getVTFixo(personagem);
+    }
+
+    function calcularEsquiva(personagem) {
+        return Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) + 5;
+    }
+
+    function calcularDeslocamento(personagem) {
+        const soma = getDXFixo(personagem) + getVIGORFixo(personagem);
+        const andarBruto = soma * 0.1;
+        const correrBruto = soma * 0.3;
         
-        const pvValor = document.getElementById('pvValor');
-        const pmValor = document.getElementById('pmValor');
-        const pfValor = document.getElementById('pfValor');
-        const pvBarra = document.getElementById('pvBarra');
-        const pmBarra = document.getElementById('pmBarra');
-        const pfBarra = document.getElementById('pfBarra');
+        function arredondarDeslocamento(valor) {
+            const parteInteira = Math.floor(valor);
+            const parteDecimal = valor - parteInteira;
+            return parteDecimal < 0.5 ? parteInteira : parteInteira + 1;
+        }
         
-        const danoBase = document.getElementById('danoBase');
-        const modST = document.getElementById('modST');
-        
-        const atributosContainer = document.getElementById('atributosContainer');
-        const defesasContainer = document.getElementById('defesasContainer');
-        const deslocamento = document.getElementById('deslocamento');
-        const rdTotal = document.getElementById('rdTotal');
-        const periciasContainer = document.getElementById('periciasContainer');
-        const vantagensContainer = document.getElementById('vantagensContainer');
-        const desvantagensContainer = document.getElementById('desvantagensContainer');
-        const inventarioContainer = document.getElementById('inventarioContainer');
-        
-        const magiasContainerAgua = document.getElementById('magiasContainerAgua');
-        const magiasContainerAr = document.getElementById('magiasContainerAr');
-        const magiasContainerGelo = document.getElementById('magiasContainerGelo');
-        const magiasContainerFogo = document.getElementById('magiasContainerFogo');
-        const magiasContainerTerra = document.getElementById('magiasContainerTerra');
-        const magiasContainerCorpo = document.getElementById('magiasContainerCorpo');
-        
-        const timestamp = document.getElementById('timestamp');
+        const andar = arredondarDeslocamento(andarBruto);
+        const correr = arredondarDeslocamento(correrBruto);
+        return { andar, correr };
+    }
 
-        let escolaAtual = 'agua';
-        let personagemAtual = null;
-
-        function showLoading() { loadingOverlay.classList.add('active'); }
-        function hideLoading() { loadingOverlay.classList.remove('active'); }
-
-        function getPersonagemIdFromUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('personagemId');
-        }
-
-        // Dados das magias
-        const dadosPorEscola = {
-            agua: {
-                purificarAgua: { nome: "Purificar Água", custoPM: 2, tempoConjuracao: "1 minuto" },
-                criarAgua: { nome: "Criar Água", custoPM: 2, tempoConjuracao: "2 turnos" },
-                dissiparAgua: { nome: "Dissipar Água", custoPM: 4, tempoConjuracao: "2 turnos" },
-                flechaLiquida: { nome: "Flecha Líquida", custoPM: 3, tempoConjuracao: "Instantânea" },
-                respirarNaAgua: { nome: "Respirar na Água", custoPM: 4, tempoConjuracao: "2 turnos" },
-                moldarAgua: { nome: "Moldar Água", custoPM: 2, tempoConjuracao: "1 turno" },
-                nevoeiro: { nome: "Nevoeiro", custoPM: 4, tempoConjuracao: "2 turnos" },
-                jatoDagua: { nome: "Jato d'água", custoPM: 4, tempoConjuracao: "Instantânea" },
-                ondaExpulsora: { nome: "Onda Expulsora", custoPM: 5, tempoConjuracao: "2 turnos" },
-                golemDeAgua: { nome: "Golem de Água", custoPM: 6, tempoConjuracao: "3 turnos" },
-                cortinaDagua: { nome: "Cortina d'Água", custoPM: 3, tempoConjuracao: "Instantânea" }
-            },
-            ar: {
-                criarAr: { nome: "Criar Ar", custoPM: 1, tempoConjuracao: "1 turno" },
-                controlarVento: { nome: "Controlar Vento", custoPM: 2, tempoConjuracao: "1 turno" },
-                rajadaVento: { nome: "Rajada de Vento", custoPM: 2, tempoConjuracao: "Instantânea" },
-                laminasAr: { nome: "Lâminas de Ar", custoPM: 2, tempoConjuracao: "Instantânea" },
-                respirarNaAguaAr: { nome: "Respirar na Água", custoPM: 2, tempoConjuracao: "1 turno" },
-                andarNoAr: { nome: "Andar no Ar", custoPM: 3, tempoConjuracao: "1 turno" },
-                corpoDeAr: { nome: "Corpo de Ar", custoPM: 4, tempoConjuracao: "2 turnos" },
-                relampago: { nome: "Relâmpago", custoPM: 3, tempoConjuracao: "Instantânea" },
-                tempestade: { nome: "Tempestade", custoPM: 4, tempoConjuracao: "2 turnos" },
-                furacao: { nome: "Furacão", custoPM: 6, tempoConjuracao: "3 turnos" },
-                cupulaDeAr: { nome: "Cúpula de Ar", custoPM: 4, tempoConjuracao: "1 turno" }
-            },
-            gelo: {
-                criarFrio: { nome: "Criar Frio", custoPM: 1, tempoConjuracao: "1 turno" },
-                criarGelo: { nome: "Criar Gelo", custoPM: 2, tempoConjuracao: "1 turno" },
-                camadaNeve: { nome: "Camada de Neve", custoPM: 2, tempoConjuracao: "1 turno" },
-                soproCongelante: { nome: "Sopro Congelante", custoPM: 3, tempoConjuracao: "Instantânea" },
-                adagaGelo: { nome: "Adaga de Gelo", custoPM: 2, tempoConjuracao: "Instantânea" },
-                armaduraGelo: { nome: "Armadura de Gelo", custoPM: 3, tempoConjuracao: "1 turno" },
-                pisoGelo: { nome: "Piso de Gelo", custoPM: 2, tempoConjuracao: "1 turno" },
-                tempestadeGranizo: { nome: "Tempestade de Granizo", custoPM: 5, tempoConjuracao: "2 turnos" },
-                barreiraGelo: { nome: "Barreira de Gelo", custoPM: 4, tempoConjuracao: "1 turno" },
-                golemGelo: { nome: "Golem de Gelo", custoPM: 6, tempoConjuracao: "1 turno" }
-            },
-            fogo: {
-                criarFogo: { nome: "Criar Fogo", custoPM: 1, tempoConjuracao: "1 turno" },
-                moldarFogo: { nome: "Moldar Fogo", custoPM: 2, tempoConjuracao: "1 turno" },
-                apagarFogo: { nome: "Apagar Fogo", custoPM: 1, tempoConjuracao: "1 turno" },
-                calor: { nome: "Calor", custoPM: 2, tempoConjuracao: "2 turnos" },
-                bolaDeFogo: { nome: "Bola de Fogo", custoPM: 3, tempoConjuracao: "Instantânea" },
-                armaFlamejante: { nome: "Arma Flamejante", custoPM: 3, tempoConjuracao: "1 turno" },
-                protecaoAoFogo: { nome: "Proteção ao Fogo", custoPM: 3, tempoConjuracao: "Instantânea" },
-                anelDeFogo: { nome: "Anel de Fogo", custoPM: 4, tempoConjuracao: "2 turnos" },
-                toqueArdente: { nome: "Toque Ardente", custoPM: 2, tempoConjuracao: "Instantânea" },
-                soproDeFogo: { nome: "Sopro de Fogo", custoPM: 4, tempoConjuracao: "2 turnos" },
-                chamasCadentes: { nome: "Chamas Cadentes", custoPM: 5, tempoConjuracao: "3 turnos" },
-                detectarCalor: { nome: "Detectar Calor", custoPM: 1, tempoConjuracao: "1 turno" },
-                chamaVagante: { nome: "Chama Vagante", custoPM: 4, tempoConjuracao: "1 turno" }
-            },
-            terra: {
-                criarTerra: { nome: "Criar Terra", custoPM: 1, tempoConjuracao: "1 turno" },
-                moldarTerra: { nome: "Moldar Terra", custoPM: 2, tempoConjuracao: "1 turno" },
-                jatoDeAreia: { nome: "Jato de Areia", custoPM: 2, tempoConjuracao: "Instantânea" },
-                pocoDeAreia: { nome: "Poço de Areia", custoPM: 3, tempoConjuracao: "2 turnos" },
-                projetilDePedra: { nome: "Projétil de Pedra", custoPM: 2, tempoConjuracao: "Instantânea" },
-                terremoto: { nome: "Terremoto", custoPM: 6, tempoConjuracao: "3 turnos" },
-                corpoDePedra: { nome: "Corpo de Pedra", custoPM: 4, tempoConjuracao: "2 turnos" },
-                moldarTerreno: { nome: "Moldar Terreno", custoPM: 3, tempoConjuracao: "1 turno" },
-                golemDePedra: { nome: "Golem de Pedra", custoPM: 7, tempoConjuracao: "1 turno" },
-                lancasDePedra: { nome: "Lanças de Pedra", custoPM: 4, tempoConjuracao: "2 turnos" }
-            },
-            corpo: {
-                espasmo: { nome: "Espasmo", custoPM: 2, tempoConjuracao: "Instantânea" },
-                atordoamento: { nome: "Atordoamento", custoPM: 2, tempoConjuracao: "Instantânea" },
-                manipularST: { nome: "Manipular ST", custoPM: 2, tempoConjuracao: "1 turno" },
-                manipularDX: { nome: "Manipular DX", custoPM: 2, tempoConjuracao: "1 turno" },
-                resistencia: { nome: "Resistência", custoPM: 2, tempoConjuracao: "1 turno" },
-                toqueDrenante: { nome: "Toque Drenante", custoPM: 2, tempoConjuracao: "Instantânea" },
-                sentirDor: { nome: "Sentir Dor", custoPM: 2, tempoConjuracao: "Instantânea" },
-                imunidadeDor: { nome: "Imunidade à Dor", custoPM: 2, tempoConjuracao: "1 turno" },
-                enraizar: { nome: "Enraizar", custoPM: 2, tempoConjuracao: "1 turno" },
-                silencio: { nome: "Silêncio", custoPM: 2, tempoConjuracao: "Instantânea" },
-                paralisiaParcial: { nome: "Paralisia Parcial", custoPM: 2, tempoConjuracao: "1 turno" },
-                cegueira: { nome: "Cegueira", custoPM: 2, tempoConjuracao: "Instantânea" },
-                surdez: { nome: "Surdez", custoPM: 2, tempoConjuracao: "Instantânea" },
-                regenerar: { nome: "Regenerar", custoPM: 2, tempoConjuracao: "1 turno" },
-                paralisiaTotal: { nome: "Paralisia Total", custoPM: 2, tempoConjuracao: "2 turnos" }
-            }
-        };
-
-        // Funções de cálculo (ATUALIZADAS para 40% base)
-        function getSTFixo(personagem) { return 5 + (personagem?.atributos?.st?.esferas || 0); }
-        function getDXFixo(personagem) { return 5 + (personagem?.atributos?.dx?.esferas || 0); }
-        function getIQFixo(personagem) { return 5 + (personagem?.atributos?.iq?.esferas || 0); }
-        function getVIGORFixo(personagem) { return 5 + (personagem?.atributos?.vigor?.esferas || 0); }
-        function getVTFixo(personagem) { return 5 + (personagem?.atributos?.vt?.esferas || 0); }
-
-        // NOVOS PERCENTUAIS - 40% BASE + bônus por esfera
-        function getSTPercentual(personagem) { return 40 + ((personagem?.atributos?.st?.esferas || 0) * 3); }
-        function getDXPercentual(personagem) { return 40 + ((personagem?.atributos?.dx?.esferas || 0) * 2); }
-        function getIQPercentual(personagem) { return 40 + ((personagem?.atributos?.iq?.esferas || 0) * 2); }
-        function getVIGORPercentual(personagem) { return 40 + ((personagem?.atributos?.vigor?.esferas || 0) * 3); }
-
-        function calcularPV(personagem) { 
-            let vtBase = getVTFixo(personagem);
-            let pvBase = vtBase * 8;
-            if (personagem?.vantagens?.includes('htExtra')) {
-                pvBase = Math.floor(pvBase * 1.10);
-            }
-            return pvBase;
-        }
-
-        function calcularPF(personagem) { 
-            let pfBase = getVIGORFixo(personagem) + getVTFixo(personagem);
-            if (personagem?.vantagens?.includes('fadigaExtra')) {
-                pfBase += 5;
-            }
-            return pfBase;
-        }
-
-        function calcularPM(personagem) { 
-            return getVIGORFixo(personagem) + getIQFixo(personagem) + getVTFixo(personagem);
-        }
-
-        function calcularEsquiva(personagem) {
-            return Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) + 5;
-        }
-
-        function calcularDeslocamento(personagem) {
-            const soma = getDXFixo(personagem) + getVIGORFixo(personagem);
-            const andarBruto = soma * 0.1;
-            const correrBruto = soma * 0.3;
-            
-            function arredondarDeslocamento(valor) {
-                const parteInteira = Math.floor(valor);
-                const parteDecimal = valor - parteInteira;
-                return parteDecimal < 0.5 ? parteInteira : parteInteira + 1;
-            }
-            
-            const andar = arredondarDeslocamento(andarBruto);
-            const correr = arredondarDeslocamento(correrBruto);
-            return { andar, correr };
-        }
-
-        function calcularRD(personagem) {
-            let rd = 0;
-            if (personagem?.inventario?.corpo) {
-                personagem.inventario.corpo.forEach(item => {
-                    if (item.rd) rd += item.rd;
-                });
-            }
-            return rd;
-        }
-
-        // NOVA FUNÇÃO: Calcular NH da Perícia (baseado no atributo)
-        function getAtributoBasePericia(periciaId) {
-            // Mapeamento de perícias para atributos base
-            const mapa = {
-                'boxe': 'dx',
-                'cavalgar': 'dx',
-                'espada': 'dx',
-                'furtividade': 'dx',
-                'labia': 'iq',
-                'primeirosSocorros': 'iq',
-                'sobrevivencia': 'iq',
-                'atletismo': 'st',
-                'intimidacao': 'st',
-                'percepcao': 'iq',
-                'vontade': 'vt'
-            };
-            return mapa[periciaId] || 'dx'; // padrão DX
-        }
-
-        function calcularNHPericia(personagem, periciaId, nivel) {
-            const atributoBase = getAtributoBasePericia(periciaId);
-            let percentualBase = 40; // Base padrão
-            
-            switch(atributoBase) {
-                case 'st': percentualBase = getSTPercentual(personagem); break;
-                case 'dx': percentualBase = getDXPercentual(personagem); break;
-                case 'iq': percentualBase = getIQPercentual(personagem); break;
-                case 'vigor': percentualBase = getVIGORPercentual(personagem); break;
-                default: percentualBase = getDXPercentual(personagem);
-            }
-            
-            return percentualBase + (nivel * 4);
-        }
-
-        function calcularNHMagia(personagem, escola, nivel) {
-            return getIQPercentual(personagem) + 10 + (nivel || 0);
-        }
-
-        function renderizarMagiasPorEscola(escola, container, personagem) {
-            if (!personagem?.escolas?.[escola]?.magias) {
-                container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhuma magia desta escola</p>';
-                return;
-            }
-
-            const dadosMagias = dadosPorEscola[escola] || {};
-            let magiasHTML = '';
-            
-            Object.entries(personagem.escolas[escola].magias).forEach(([id, magia]) => {
-                if (magia.desbloqueada) {
-                    const dadosMagia = dadosMagias[id] || { nome: id, custoPM: '?', tempoConjuracao: '?' };
-                    const nomeExibicao = dadosMagia.nome || id;
-                    const nh = calcularNHMagia(personagem, escola, magia.nivel || 1);
-                    
-                    magiasHTML += `
-                        <div class="magia-card">
-                            <div class="magia-nome">
-                                <i class="fas fa-magic"></i>
-                                ${nomeExibicao}
-                            </div>
-                            <div class="magia-detalhes">
-                                <span class="magia-custo">
-                                    <i class="fas fa-bolt"></i> ${dadosMagia.custoPM} PM
-                                </span>
-                                <span class="magia-tempo">
-                                    <i class="fas fa-clock"></i> ${dadosMagia.tempoConjuracao}
-                                </span>
-                            </div>
-                            <div class="magia-nivel">
-                                <span>Nível ${magia.nivel || 1}</span>
-                                <span class="magia-nh">NH ${nh}%</span>
-                            </div>
-                        </div>
-                    `;
-                }
+    function calcularRD(personagem) {
+        let rd = 0;
+        if (personagem?.inventario?.corpo) {
+            personagem.inventario.corpo.forEach(item => {
+                if (item.rd) rd += item.rd;
             });
+        }
+        return rd;
+    }
 
-            container.innerHTML = magiasHTML || '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhuma magia desbloqueada</p>';
+    function getAtributoBasePericia(periciaId) {
+        const mapa = {
+            'boxe': 'dx',
+            'cavalgar': 'dx',
+            'espada': 'dx',
+            'furtividade': 'dx',
+            'labia': 'iq',
+            'primeirosSocorros': 'iq',
+            'sobrevivencia': 'iq',
+            'atletismo': 'st',
+            'intimidacao': 'st',
+            'percepcao': 'iq',
+            'vontade': 'vt'
+        };
+        return mapa[periciaId] || 'dx';
+    }
+
+    function calcularNHPericia(personagem, periciaId, nivel) {
+        const atributoBase = getAtributoBasePericia(periciaId);
+        let percentualBase = 40;
+        
+        switch(atributoBase) {
+            case 'st': percentualBase = getSTPercentual(personagem); break;
+            case 'dx': percentualBase = getDXPercentual(personagem); break;
+            case 'iq': percentualBase = getIQPercentual(personagem); break;
+            case 'vigor': percentualBase = getVIGORPercentual(personagem); break;
+            default: percentualBase = getDXPercentual(personagem);
+        }
+        
+        return percentualBase + (nivel * 4);
+    }
+
+    function calcularNHMagia(personagem, escola, nivel) {
+        return getIQPercentual(personagem) + 10 + (nivel || 0);
+    }
+
+    function renderizarMagiasPorEscola(escola, container, personagem) {
+        if (!personagem?.escolas?.[escola]?.magias) {
+            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhuma magia desta escola</p>';
+            return;
         }
 
-        function renderizarInventario(tab, personagem) {
-            let inventarioHTML = '';
-            
-            if (personagem?.inventario?.[tab]) {
-                if (personagem.inventario[tab].length === 0) {
-                    inventarioHTML = '<p style="color: var(--text-secondary); text-align: center;">Nenhum item</p>';
-                } else {
-                    personagem.inventario[tab].forEach(item => {
-                        inventarioHTML += `
-                            <div class="item-card">
-                                <div class="item-info">
-                                    <div class="item-nome">${item.nome || 'Item sem nome'}</div>
-                                    <div class="item-detalhes">
-                                        ${item.peso ? `<span class="item-peso"><i class="fas fa-weight-hanging"></i> ${item.peso} kg</span>` : ''}
-                                        ${item.rd ? `<span class="item-rd"><i class="fas fa-shield"></i> RD ${item.rd}</span>` : ''}
-                                        ${item.dano ? `<span class="item-dano"><i class="fas fa-fist-raised"></i> ${item.dano}</span>` : ''}
-                                    </div>
-                                </div>
-                                <div class="item-icone">
-                                    <i class="fas fa-${item.tipo === 'arma' ? 'sword' : (item.tipo === 'armadura' ? 'shield' : 'box')}"></i>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-            } else {
-                inventarioHTML = '<p style="color: var(--text-secondary); text-align: center;">Inventário vazio</p>';
-            }
-            
-            inventarioContainer.innerHTML = inventarioHTML;
-        }
-
-        function renderizarPersonagem(personagem) {
-            if (!personagem) return;
-
-            personagemAtual = personagem;
-
-            personagemNome.textContent = personagem.nome || 'Sem nome';
-            personagemClasse.textContent = personagem.classe || '-';
-            if (personagem.fotoURL) {
-                personagemFoto.style.backgroundImage = `url('${personagem.fotoURL}')`;
-            }
-
-            const totalEsferas = (personagem.atributos?.st?.esferas || 0) +
-                                (personagem.atributos?.dx?.esferas || 0) +
-                                (personagem.atributos?.iq?.esferas || 0) +
-                                (personagem.atributos?.vigor?.esferas || 0) +
-                                (personagem.atributos?.vt?.esferas || 0);
-            const nivel = totalEsferas + 1;
-            
-            nivelPersonagem.textContent = nivel;
-            dinheiro.textContent = personagem.dinheiro || 0;
-            xpAtual.textContent = personagem.xpAtual || 0;
-
-            // Recursos
-            const pvMax = calcularPV(personagem);
-            const pmMax = calcularPM(personagem);
-            const pfMax = calcularPF(personagem);
-            
-            const pvAtual = personagem.statusCombate?.vidaAtual ?? pvMax;
-            const pmAtual = personagem.statusCombate?.manaAtual ?? pmMax;
-            const pfAtual = personagem.statusCombate?.fadigaAtual ?? pfMax;
-
-            pvValor.textContent = `${pvAtual}/${pvMax}`;
-            pmValor.textContent = `${pmAtual}/${pmMax}`;
-            pfValor.textContent = `${pfAtual}/${pfMax}`;
-            
-            pvBarra.style.width = (pvAtual / pvMax) * 100 + '%';
-            pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
-            pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
-
-            // Dano Básico
-            danoBase.textContent = personagem.derivados?.danoBase || '1d-2';
-            const stFixo = getSTFixo(personagem);
-            const stPercentual = getSTPercentual(personagem);
-            modST.textContent = `+${Math.floor((stPercentual - 40) / 10)} (ST ${stFixo})`;
-
-            // Atributos
-            atributosContainer.innerHTML = `
-                <div class="atributo-item">
-                    <div>
-                        <span class="atributo-nome">ST</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.st?.esferas || 0))}</div>
-                    </div>
-                    <span class="atributo-valor">${getSTFixo(personagem)}</span>
-                </div>
-                <div class="atributo-item">
-                    <div>
-                        <span class="atributo-nome">DX</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.dx?.esferas || 0))}</div>
-                    </div>
-                    <span class="atributo-valor">${getDXFixo(personagem)}</span>
-                </div>
-                <div class="atributo-item">
-                    <div>
-                        <span class="atributo-nome">IQ</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.iq?.esferas || 0))}</div>
-                    </div>
-                    <span class="atributo-valor">${getIQFixo(personagem)}</span>
-                </div>
-                <div class="atributo-item">
-                    <div>
-                        <span class="atributo-nome">VIGOR</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.vigor?.esferas || 0))}</div>
-                    </div>
-                    <span class="atributo-valor">${getVIGORFixo(personagem)}</span>
-                </div>
-                <div class="atributo-item">
-                    <div>
-                        <span class="atributo-nome">VT</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.vt?.esferas || 0))}</div>
-                    </div>
-                    <span class="atributo-valor">${getVTFixo(personagem)}</span>
-                </div>
-            `;
-
-            // Defesas
-            const esquiva = calcularEsquiva(personagem);
-            const desloc = calcularDeslocamento(personagem);
-            
-            defesasContainer.innerHTML = `
-                <div class="defesa-card">
-                    <div>Esquiva</div>
-                    <div class="defesa-valor">${esquiva}%</div>
-                </div>
-                <div class="defesa-card">
-                    <div>Aparar</div>
-                    <div class="defesa-valor">${personagem.derivados?.aparar || 0}%</div>
-                </div>
-                <div class="defesa-card">
-                    <div>Bloqueio</div>
-                    <div class="defesa-valor">${personagem.derivados?.bloqueio || 0}%</div>
-                </div>
-            `;
-            
-            deslocamento.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
-            rdTotal.textContent = calcularRD(personagem) + (personagem.derivados?.rdExtra || 0);
-
-            // Perícias (COM NOVO CÁLCULO 40% BASE)
-            if (personagem.pericias) {
-                let periciasHTML = '';
-                Object.entries(personagem.pericias).forEach(([id, dados]) => {
-                    const nh = calcularNHPericia(personagem, id, dados.nivel || 0);
-                    const atributoBase = getAtributoBasePericia(id).toUpperCase();
-                    
-                    periciasHTML += `
-                        <div class="pericia-item">
-                            <div>
-                                <span class="pericia-nome">${id}</span>
-                                <span class="pericia-atributo">${atributoBase}</span>
-                                <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
-                            </div>
-                            <span class="pericia-nh">${nh}%</span>
+        const dadosMagias = dadosPorEscola[escola] || {};
+        let magiasHTML = '';
+        
+        Object.entries(personagem.escolas[escola].magias).forEach(([id, magia]) => {
+            if (magia.desbloqueada) {
+                const dadosMagia = dadosMagias[id] || { nome: id, custoPM: '?', tempoConjuracao: '?' };
+                const nomeExibicao = dadosMagia.nome || id;
+                const nh = calcularNHMagia(personagem, escola, magia.nivel || 1);
+                
+                magiasHTML += `
+                    <div class="magia-card">
+                        <div class="magia-nome">
+                            <i class="fas fa-magic"></i>
+                            ${nomeExibicao}
                         </div>
-                    `;
-                });
-                periciasContainer.innerHTML = periciasHTML || '<p style="color: var(--text-secondary);">Nenhuma perícia</p>';
-            }
-
-            // Vantagens
-            if (vantagensContainer) {
-                const vantagensMap = new Map();
-                (personagem.vantagens || []).forEach(v => vantagensMap.set(v, true));
-                const vantagensUnicas = Array.from(vantagensMap.keys());
-                const vantagensHTML = vantagensUnicas.map(v => {
-                    const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
-                    return `<span class="tag vantagem"><i class="fas fa-crown"></i> ${nomeV}</span>`;
-                }).join('');
-                vantagensContainer.innerHTML = vantagensHTML || '<span style="color: var(--text-secondary);">Nenhuma vantagem</span>';
-            }
-
-            // Desvantagens
-            if (desvantagensContainer) {
-                const desvantagensMap = new Map();
-                (personagem.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
-                if (personagem.fobia) {
-                    desvantagensMap.set(`fobia:${personagem.fobia}`, true);
-                }
-                const desvantagensUnicas = Array.from(desvantagensMap.keys());
-                const desvantagensHTML = desvantagensUnicas.map(d => {
-                    let nomeD = d;
-                    if (d.startsWith('fobia:')) {
-                        nomeD = 'Fobia: ' + d.replace('fobia:', '');
-                    } else {
-                        nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
-                    }
-                    return `<span class="tag desvantagem"><i class="fas fa-skull"></i> ${nomeD}</span>`;
-                }).join('');
-                desvantagensContainer.innerHTML = desvantagensHTML || '<span style="color: var(--text-secondary);">Nenhuma desvantagem</span>';
-            }
-
-            // Inventário - Inicia com aba "corpo"
-            renderizarInventario('corpo', personagem);
-
-            // Magias
-            renderizarMagiasPorEscola('agua', magiasContainerAgua, personagem);
-            renderizarMagiasPorEscola('ar', magiasContainerAr, personagem);
-            renderizarMagiasPorEscola('gelo', magiasContainerGelo, personagem);
-            renderizarMagiasPorEscola('fogo', magiasContainerFogo, personagem);
-            renderizarMagiasPorEscola('terra', magiasContainerTerra, personagem);
-            renderizarMagiasPorEscola('corpo', magiasContainerCorpo, personagem);
-
-            if (personagem.updatedAt) {
-                const data = personagem.updatedAt?.toDate ? 
-                            personagem.updatedAt.toDate() : 
-                            new Date(personagem.updatedAt);
-                timestamp.textContent = `📜 Última atualização: ${data.toLocaleString()}`;
-            }
-        }
-
-        async function carregarDados(personagemId, userId) {
-            showLoading();
-            
-            try {
-                const personagemRef = doc(db, "personagens", personagemId);
-                const personagemSnap = await getDoc(personagemRef);
-                
-                if (!personagemSnap.exists()) {
-                    throw new Error('Personagem não encontrado');
-                }
-                
-                // Verificar se é o dono ou GM
-                if (personagemSnap.data().userId === userId) {
-                    const personagemData = personagemSnap.data();
-                    
-                    // Buscar nome do jogador
-                    const userRef = doc(db, "usuarios", personagemData.userId);
-                    const userSnap = await getDoc(userRef);
-                    if (userSnap.exists()) {
-                        jogadorNome.textContent = userSnap.data().nickname || 'Jogador';
-                    }
-                    
-                    renderizarPersonagem(personagemData);
-                    hideLoading();
-                    
-                    onSnapshot(personagemRef, (doc) => {
-                        if (doc.exists()) {
-                            renderizarPersonagem(doc.data());
-                        }
-                    });
-                    return;
-                }
-                
-                // Verificar se é GM da campanha
-                const vinculosQuery = query(
-                    collection(db, "campanha_personagens"),
-                    where("personagem_id", "==", personagemId)
-                );
-                const vinculosSnap = await getDocs(vinculosQuery);
-                
-                let isGm = false;
-                
-                for (const doc of vinculosSnap.docs) {
-                    const vinculo = doc.data();
-                    
-                    const campanhaRef = doc(db, "campanhas", vinculo.campanha_id);
-                    const campanhaSnap = await getDoc(campanhaRef);
-                    
-                    if (campanhaSnap.exists()) {
-                        const campanha = campanhaSnap.data();
-                        if (campanha.gm_uid === userId) {
-                            isGm = true;
-                            jogadorNome.textContent = vinculo.jogador_nick || 'Jogador';
-                            break;
-                        }
-                    }
-                }
-                
-                if (isGm) {
-                    renderizarPersonagem(personagemSnap.data());
-                    hideLoading();
-                    
-                    onSnapshot(personagemRef, (doc) => {
-                        if (doc.exists()) {
-                            renderizarPersonagem(doc.data());
-                        }
-                    });
-                } else {
-                    throw new Error('Você não tem permissão para ver este personagem');
-                }
-                
-            } catch (error) {
-                console.error('Erro:', error);
-                document.querySelector('.container').innerHTML = `
-                    <div style="text-align: center; padding: 50px; background: var(--bg-card); border: 2px solid var(--border-gold); border-radius: 30px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--gold); margin-bottom: 20px;"></i>
-                        <h2 style="color: var(--gold);">Erro de Permissão</h2>
-                        <p style="margin: 20px 0; color: var(--text-secondary);">${error.message}</p>
-                        <button onclick="history.back()" class="btn-voltar" style="margin-top: 20px;">
-                            <i class="fas fa-arrow-left"></i> Voltar
-                        </button>
+                        <div class="magia-detalhes">
+                            <span class="magia-custo">
+                                <i class="fas fa-bolt"></i> ${dadosMagia.custoPM} PM
+                            </span>
+                            <span class="magia-tempo">
+                                <i class="fas fa-clock"></i> ${dadosMagia.tempoConjuracao}
+                            </span>
+                        </div>
+                        <div class="magia-nivel">
+                            <span>Nível ${magia.nivel || 1}</span>
+                            <span class="magia-nh">NH ${nh}%</span>
+                        </div>
                     </div>
                 `;
-                hideLoading();
             }
+        });
+
+        container.innerHTML = magiasHTML || '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhuma magia desbloqueada</p>';
+    }
+
+    function renderizarInventario(tab, personagem) {
+        if (!personagem) return;
+        
+        let inventarioHTML = '';
+        
+        if (personagem?.inventario?.[tab]) {
+            if (personagem.inventario[tab].length === 0) {
+                inventarioHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum item</p>';
+            } else {
+                personagem.inventario[tab].forEach(item => {
+                    inventarioHTML += `
+                        <div class="item-card">
+                            <div class="item-info">
+                                <div class="item-nome">${item.nome || 'Item sem nome'}</div>
+                                <div class="item-detalhes">
+                                    ${item.peso ? `<span class="item-peso"><i class="fas fa-weight-hanging"></i> ${item.peso} kg</span>` : ''}
+                                    ${item.rd ? `<span class="item-rd"><i class="fas fa-shield"></i> RD ${item.rd}</span>` : ''}
+                                    ${item.dano ? `<span class="item-dano"><i class="fas fa-fist-raised"></i> ${item.dano}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="item-icone">
+                                <i class="fas fa-${item.tipo === 'arma' ? 'sword' : (item.tipo === 'armadura' ? 'shield' : 'box')}"></i>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        } else {
+            inventarioHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Inventário vazio</p>';
+        }
+        
+        inventarioContainer.innerHTML = inventarioHTML;
+    }
+
+    function renderizarPersonagem(personagem) {
+        if (!personagem) return;
+
+        personagemAtual = personagem;
+
+        personagemNome.textContent = personagem.nome || 'Sem nome';
+        personagemClasse.textContent = personagem.classe || '-';
+        if (personagem.fotoURL) {
+            personagemFoto.style.backgroundImage = `url('${personagem.fotoURL}')`;
         }
 
-        // Event listeners
-        document.querySelectorAll('.escolas-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
-                tab.classList.add('ativa');
-                
-                escolaAtual = tab.dataset.escola;
-                
-                document.querySelectorAll('.conteudo-escola').forEach(div => div.classList.remove('ativa'));
-                document.getElementById(`conteudo${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`).classList.add('ativa');
-            });
-        });
+        const totalEsferas = (personagem.atributos?.st?.esferas || 0) +
+                            (personagem.atributos?.dx?.esferas || 0) +
+                            (personagem.atributos?.iq?.esferas || 0) +
+                            (personagem.atributos?.vigor?.esferas || 0) +
+                            (personagem.atributos?.vt?.esferas || 0);
+        const nivel = totalEsferas + 1;
+        
+        nivelPersonagem.textContent = nivel;
+        dinheiro.textContent = personagem.dinheiro || 0;
+        xpAtual.textContent = personagem.xpAtual || 0;
 
-        document.querySelectorAll('.inventario-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
-                tab.classList.add('ativa');
-                
-                const tabName = tab.dataset.tab;
-                renderizarInventario(tabName, personagemAtual);
-            });
-        });
+        // Recursos
+        const pvMax = calcularPV(personagem);
+        const pmMax = calcularPM(personagem);
+        const pfMax = calcularPF(personagem);
+        
+        const pvAtual = personagem.statusCombate?.vidaAtual ?? pvMax;
+        const pmAtual = personagem.statusCombate?.manaAtual ?? pmMax;
+        const pfAtual = personagem.statusCombate?.fadigaAtual ?? pfMax;
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = 'index.html';
+        pvValor.textContent = `${pvAtual}/${pvMax}`;
+        pmValor.textContent = `${pmAtual}/${pmMax}`;
+        pfValor.textContent = `${pfAtual}/${pfMax}`;
+        
+        pvBarra.style.width = (pvAtual / pvMax) * 100 + '%';
+        pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
+        pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
+
+        // Dano Básico
+        danoBase.textContent = personagem.derivados?.danoBase || '1d-2';
+        const stFixo = getSTFixo(personagem);
+        const stPercentual = getSTPercentual(personagem);
+        modST.textContent = `+${Math.floor((stPercentual - 40) / 10)} (ST ${stFixo})`;
+
+        // Atributos
+        atributosContainer.innerHTML = `
+            <div class="atributo-item">
+                <div>
+                    <span class="atributo-nome">ST</span>
+                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.st?.esferas || 0))}</div>
+                </div>
+                <span class="atributo-valor">${getSTFixo(personagem)}</span>
+            </div>
+            <div class="atributo-item">
+                <div>
+                    <span class="atributo-nome">DX</span>
+                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.dx?.esferas || 0))}</div>
+                </div>
+                <span class="atributo-valor">${getDXFixo(personagem)}</span>
+            </div>
+            <div class="atributo-item">
+                <div>
+                    <span class="atributo-nome">IQ</span>
+                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.iq?.esferas || 0))}</div>
+                </div>
+                <span class="atributo-valor">${getIQFixo(personagem)}</span>
+            </div>
+            <div class="atributo-item">
+                <div>
+                    <span class="atributo-nome">VIGOR</span>
+                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.vigor?.esferas || 0))}</div>
+                </div>
+                <span class="atributo-valor">${getVIGORFixo(personagem)}</span>
+            </div>
+            <div class="atributo-item">
+                <div>
+                    <span class="atributo-nome">VT</span>
+                    <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.vt?.esferas || 0))}</div>
+                </div>
+                <span class="atributo-valor">${getVTFixo(personagem)}</span>
+            </div>
+        `;
+
+        // Defesas
+        const esquiva = calcularEsquiva(personagem);
+        const desloc = calcularDeslocamento(personagem);
+        
+        defesasContainer.innerHTML = `
+            <div class="defesa-card">
+                <div>Esquiva</div>
+                <div class="defesa-valor">${esquiva}%</div>
+            </div>
+            <div class="defesa-card">
+                <div>Aparar</div>
+                <div class="defesa-valor">${personagem.derivados?.aparar || 0}%</div>
+            </div>
+            <div class="defesa-card">
+                <div>Bloqueio</div>
+                <div class="defesa-valor">${personagem.derivados?.bloqueio || 0}%</div>
+            </div>
+        `;
+        
+        deslocamento.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
+        rdTotal.textContent = calcularRD(personagem) + (personagem.derivados?.rdExtra || 0);
+
+        // Perícias
+        if (personagem.pericias) {
+            let periciasHTML = '';
+            Object.entries(personagem.pericias).forEach(([id, dados]) => {
+                const nh = calcularNHPericia(personagem, id, dados.nivel || 0);
+                const atributoBase = getAtributoBasePericia(id).toUpperCase();
+                
+                periciasHTML += `
+                    <div class="pericia-item">
+                        <div>
+                            <span class="pericia-nome">${id}</span>
+                            <span class="pericia-atributo">${atributoBase}</span>
+                            <span class="pericia-nivel">Nv ${dados.nivel || 0}</span>
+                        </div>
+                        <span class="pericia-nh">${nh}%</span>
+                    </div>
+                `;
+            });
+            periciasContainer.innerHTML = periciasHTML || '<p style="color: var(--text-secondary);">Nenhuma perícia</p>';
+        }
+
+        // Vantagens
+        if (vantagensContainer) {
+            const vantagensMap = new Map();
+            (personagem.vantagens || []).forEach(v => vantagensMap.set(v, true));
+            const vantagensUnicas = Array.from(vantagensMap.keys());
+            const vantagensHTML = vantagensUnicas.map(v => {
+                const nomeV = v.charAt(0).toUpperCase() + v.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                return `<span class="tag vantagem"><i class="fas fa-crown"></i> ${nomeV}</span>`;
+            }).join('');
+            vantagensContainer.innerHTML = vantagensHTML || '<span style="color: var(--text-secondary);">Nenhuma vantagem</span>';
+        }
+
+        // Desvantagens
+        if (desvantagensContainer) {
+            const desvantagensMap = new Map();
+            (personagem.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
+            if (personagem.fobia) {
+                desvantagensMap.set(`fobia:${personagem.fobia}`, true);
+            }
+            const desvantagensUnicas = Array.from(desvantagensMap.keys());
+            const desvantagensHTML = desvantagensUnicas.map(d => {
+                let nomeD = d;
+                if (d.startsWith('fobia:')) {
+                    nomeD = 'Fobia: ' + d.replace('fobia:', '');
+                } else {
+                    nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                }
+                return `<span class="tag desvantagem"><i class="fas fa-skull"></i> ${nomeD}</span>`;
+            }).join('');
+            desvantagensContainer.innerHTML = desvantagensHTML || '<span style="color: var(--text-secondary);">Nenhuma desvantagem</span>';
+        }
+
+        // Inventário - Inicia com aba "corpo"
+        renderizarInventario('corpo', personagem);
+
+        // Magias
+        renderizarMagiasPorEscola('agua', magiasContainerAgua, personagem);
+        renderizarMagiasPorEscola('ar', magiasContainerAr, personagem);
+        renderizarMagiasPorEscola('gelo', magiasContainerGelo, personagem);
+        renderizarMagiasPorEscola('fogo', magiasContainerFogo, personagem);
+        renderizarMagiasPorEscola('terra', magiasContainerTerra, personagem);
+        renderizarMagiasPorEscola('corpo', magiasContainerCorpo, personagem);
+
+        if (personagem.updatedAt) {
+            const data = personagem.updatedAt?.toDate ? 
+                        personagem.updatedAt.toDate() : 
+                        new Date(personagem.updatedAt);
+            timestamp.innerHTML = `<i class="fas fa-clock"></i> Última atualização: ${data.toLocaleString()}`;
+        }
+    }
+
+    // ===== FUNÇÃO CORRIGIDA =====
+    async function carregarDados(personagemId, userId) {
+        showLoading();
+        
+        try {
+            const personagemRef = doc(db, "personagens", personagemId);
+            const personagemSnap = await getDoc(personagemRef);
+            
+            if (!personagemSnap.exists()) {
+                throw new Error('Personagem não encontrado');
+            }
+            
+            const personagemData = personagemSnap.data();
+            
+            // Verificar se é o dono do personagem
+            if (personagemData.userId === userId) {
+                // Buscar nome do jogador
+                const userRef = doc(db, "usuarios", personagemData.userId);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    jogadorNome.textContent = userSnap.data().nickname || 'Jogador';
+                }
+                
+                renderizarPersonagem(personagemData);
+                hideLoading();
+                
+                // Listener em tempo real
+                onSnapshot(personagemRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        renderizarPersonagem(snapshot.data());
+                    }
+                });
                 return;
             }
-
-            const personagemId = getPersonagemIdFromUrl();
-            if (!personagemId) {
-                alert('ID do personagem não encontrado!');
-                window.location.href = 'gerenciar-campanha.html';
-                return;
+            
+            // Verificar se é GM da campanha
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("personagem_id", "==", personagemId)
+            );
+            const vinculosSnap = await getDocs(vinculosQuery);
+            
+            let isGm = false;
+            
+            // CORREÇÃO: Usei 'vinculoDoc' em vez de 'doc' para não conflitar
+            for (const vinculoDoc of vinculosSnap.docs) {
+                const vinculo = vinculoDoc.data();
+                
+                // Buscar campanha
+                const campanhaRef = doc(db, "campanhas", vinculo.campanha_id);
+                const campanhaSnap = await getDoc(campanhaRef);
+                
+                if (campanhaSnap.exists()) {
+                    const campanha = campanhaSnap.data();
+                    if (campanha.gm_uid === userId) {
+                        isGm = true;
+                        jogadorNome.textContent = vinculo.jogador_nick || 'Jogador';
+                        break;
+                    }
+                }
             }
+            
+            if (isGm) {
+                renderizarPersonagem(personagemData);
+                hideLoading();
+                
+                onSnapshot(personagemRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        renderizarPersonagem(snapshot.data());
+                    }
+                });
+            } else {
+                throw new Error('Você não tem permissão para ver este personagem');
+            }
+            
+        } catch (error) {
+            console.error('Erro:', error);
+            document.querySelector('.container').innerHTML = `
+                <div style="text-align: center; padding: 50px; background: var(--bg-card); border: 2px solid var(--border-gold); border-radius: 30px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--gold); margin-bottom: 20px;"></i>
+                    <h2 style="color: var(--gold);">Erro de Permissão</h2>
+                    <p style="margin: 20px 0; color: var(--text-secondary);">${error.message}</p>
+                    <button onclick="history.back()" class="btn-voltar" style="margin-top: 20px;">
+                        <i class="fas fa-arrow-left"></i> Voltar
+                    </button>
+                </div>
+            `;
+            hideLoading();
+        }
+    }
 
-            await carregarDados(personagemId, user.uid);
+    // Event listeners
+    document.querySelectorAll('.escolas-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
+            tab.classList.add('ativa');
+            
+            escolaAtual = tab.dataset.escola;
+            
+            document.querySelectorAll('.conteudo-escola').forEach(div => div.classList.remove('ativa'));
+            document.getElementById(`conteudo${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`).classList.add('ativa');
         });
-    </script>
+    });
+
+    document.querySelectorAll('.inventario-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
+            tab.classList.add('ativa');
+            
+            const tabName = tab.dataset.tab;
+            renderizarInventario(tabName, personagemAtual);
+        });
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            window.location.href = 'index.html';
+            return;
+        }
+
+        const personagemId = getPersonagemIdFromUrl();
+        if (!personagemId) {
+            alert('ID do personagem não encontrado!');
+            window.location.href = 'gerenciar-campanha.html';
+            return;
+        }
+
+        await carregarDados(personagemId, user.uid);
+    });
+</script>
 </body>
 </html>
