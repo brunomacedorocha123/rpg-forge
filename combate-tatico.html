@@ -997,7 +997,7 @@ body::before {
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1235,12 +1235,11 @@ function desenharToken(ctx, x, y, personagem) {
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
 }
 
-// ===== FUNÇÃO MELHORADA: Desenhar marcadores de obstáculo =====
+// ===== FUNÇÃO: Desenhar marcadores de obstáculo =====
 function desenharMarcadores() {
     Object.values(marcadores).forEach(m => {
         const pixel = hexToPixel(m.x, m.y);
         
-        // Desenha o hexágono inteiro com fundo semi-transparente
         const pontos = [];
         for (let i = 0; i < 6; i++) {
             const angulo = Math.PI / 6 + (i * Math.PI / 3);
@@ -1255,36 +1254,25 @@ function desenharMarcadores() {
         for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
         ctx.closePath();
         
-        // Fundo marrom escuro semi-transparente
         ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
         ctx.fill();
-        
-        // Borda grossa marrom
         ctx.strokeStyle = '#8B4513';
         ctx.lineWidth = 3;
         ctx.stroke();
         
-        // Ícone de obstáculo central
         ctx.fillStyle = '#FFFFFF';
         ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('⬛', pixel.x, pixel.y);
-        
-        // Texto "OBSTÁCULO" pequeno para indicar
-        ctx.font = `bold ${HEX_RADIUS * 0.35}px "Inter", sans-serif`;
-        ctx.fillStyle = '#FFD700';
-        ctx.fillText('OBST', pixel.x, pixel.y + HEX_RADIUS * 0.8);
     });
 }
 
-// ===== FUNÇÃO DESENHAR MAPA CORRIGIDA =====
 function desenharMapa() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Desenha todos os hexágonos
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const pixel = hexToPixel(x, y);
@@ -1300,10 +1288,8 @@ function desenharMapa() {
         }
     }
     
-    // SEMPRE desenha os marcadores, independente do estado
     desenharMarcadores();
     
-    // Desenha os personagens
     Object.values(posicoes).forEach(pos => {
         if (pos.hexX !== null && pos.hexX !== undefined && pos.hexY !== null && pos.hexY !== undefined) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
@@ -1328,7 +1314,7 @@ async function toggleMarcador(hexX, hexY) {
     try {
         if (marcadores[key]) {
             await deleteDoc(marcadorRef);
-            showToast(`Obstáculo removido do hexágono (${hexX}, ${hexY})`);
+            showToast(`Obstáculo removido`);
         } else {
             await setDoc(marcadorRef, {
                 x: hexX,
@@ -1336,7 +1322,7 @@ async function toggleMarcador(hexX, hexY) {
                 criado_por: currentUser.uid,
                 criado_em: serverTimestamp()
             });
-            showToast(`Obstáculo adicionado em (${hexX}, ${hexY})`);
+            showToast(`Obstáculo adicionado`);
         }
     } catch (error) {
         showToast('Erro ao atualizar marcador', true);
@@ -1344,36 +1330,66 @@ async function toggleMarcador(hexX, hexY) {
 }
 
 // ============================================
-// LISTENER DE MARCADORES - SEMPRE ATIVO
+// FUNÇÃO: Buscar dados REAIS do personagem no Firestore
 // ============================================
-function iniciarListenerMarcadores() {
-    if (!sessaoAtual) return;
+function extrairDadosPersonagem(personagemData) {
+    const status = personagemData.statusCombate || {};
+    const derivados = personagemData.derivados || {};
+    const atributos = personagemData.atributos || {};
     
-    if (unsubscribeMarcadores) unsubscribeMarcadores();
+    // Busca a arma equipada no inventário
+    let armaEquipada = null;
+    let danoArma = "1d4";
+    let nomeArma = "Ataque Desarmado";
     
-    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
+    if (personagemData.inventario?.corpo && Array.isArray(personagemData.inventario.corpo)) {
+        const arma = personagemData.inventario.corpo.find(item => item.tipo === "arma");
+        if (arma) {
+            armaEquipada = arma;
+            nomeArma = arma.nome;
+            if (arma.dano) danoArma = arma.dano;
+        }
+    }
     
-    unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            const data = change.doc.data();
-            const key = `${data.x}_${data.y}`;
-            
-            if (change.type === "added") {
-                marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
-                showToast(`Obstáculo apareceu em (${data.x}, ${data.y})`);
-            } else if (change.type === "modified") {
-                marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
-            } else if (change.type === "removed") {
-                delete marcadores[key];
-                showToast(`Obstáculo removido de (${data.x}, ${data.y})`);
-            }
-        });
-        
-        // Redesenha o mapa sempre que marcadores mudam
-        desenharMapa();
-    }, (error) => {
-        console.error("Erro no listener de marcadores:", error);
-    });
+    // Calcula bônus de dano baseado no atributo ST
+    const stEsferas = atributos.st?.esferas || 0;
+    const bonusDano = Math.floor(stEsferas / 2);
+    
+    // Dano base do personagem
+    const danoBase = derivados.danoBase || "1d-2";
+    
+    // Calcula deslocamento
+    let andar = 6, correr = 12;
+    if (derivados.deslocamento) {
+        const partes = derivados.deslocamento.split('/');
+        if (partes.length >= 2) {
+            andar = parseInt(partes[0]) || 6;
+            correr = parseInt(partes[1]) || 12;
+        }
+    }
+    
+    return {
+        nome: personagemData.nome,
+        classe: personagemData.classe || "Aventureiro",
+        pvAtual: status.vidaAtual || 0,
+        pvMax: status.vidaMax || 0,
+        pmAtual: status.manaAtual || 0,
+        pmMax: status.manaMax || 0,
+        pfAtual: status.fadigaAtual || 0,
+        pfMax: status.fadigaMax || 0,
+        esquiva: derivados.esquiva || 0,
+        aparar: derivados.aparar || 0,
+        bloqueio: derivados.bloqueio || 0,
+        rd: derivados.rdExtra || 0,
+        andar: andar,
+        correr: correr,
+        armaEquipada: {
+            nome: nomeArma,
+            dano: danoArma,
+            bonus: bonusDano
+        },
+        danoBase: danoBase
+    };
 }
 
 // ============================================
@@ -1421,9 +1437,114 @@ async function garantirParticipacaoNaSessao() {
 }
 
 // ============================================
-// FUNÇÕES DE COMBATE
+// FUNÇÃO: Carregar personagem jogador com dados REAIS
 // ============================================
+async function carregarPersonagemJogador(campanhaIdCustom) {
+    if (!campanhaIdCustom || !currentUser) return;
+    
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaIdCustom),
+            where("jogador_uid", "==", currentUser.uid),
+            where("status", "==", "ativo")
+        );
+        
+        const vinculosSnap = await getDocs(vinculosQuery);
+        
+        if (vinculosSnap.empty) return;
+        
+        vinculoAtual = {
+            id: vinculosSnap.docs[0].id,
+            ...vinculosSnap.docs[0].data()
+        };
+        
+        const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
+        const personagemSnap = await getDoc(personagemRef);
+        
+        if (personagemSnap.exists()) {
+            const personagemData = personagemSnap.data();
+            const dadosExtraidos = extrairDadosPersonagem(personagemData);
+            
+            personagemAtual = {
+                id: personagemSnap.id,
+                ...dadosExtraidos,
+                dadosBrutos: personagemData
+            };
+            
+            posicoes[personagemAtual.id] = {
+                id: personagemAtual.id,
+                nome: personagemAtual.nome,
+                tipo: 'pc',
+                cor: '#1E90FF',
+                jogadorUid: currentUser.uid,
+                personagemId: personagemAtual.id,
+                pv: personagemAtual.pvAtual,
+                pvMax: personagemAtual.pvMax,
+                pm: personagemAtual.pmAtual,
+                pmMax: personagemAtual.pmMax,
+                pf: personagemAtual.pfAtual,
+                pfMax: personagemAtual.pfMax,
+                esquiva: personagemAtual.esquiva,
+                aparar: personagemAtual.aparar,
+                bloqueio: personagemAtual.bloqueio,
+                andar: personagemAtual.andar,
+                correr: personagemAtual.correr,
+                rd: personagemAtual.rd,
+                arma: personagemAtual.armaEquipada,
+                danoBase: personagemAtual.danoBase,
+                hexX: undefined,
+                hexY: undefined
+            };
+        }
+    } catch (error) {
+        console.error("Erro ao carregar personagem:", error);
+    }
+}
 
+// ============================================
+// FUNÇÃO: Carregar NPCs
+// ============================================
+async function carregarNPCs() {
+    if (!sessaoAtual) return;
+    
+    try {
+        const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
+        const npcsSnap = await getDocs(npcsQuery);
+        let indiceCor = 0;
+        
+        npcsSnap.forEach(doc => {
+            const npc = doc.data();
+            const npcId = doc.id;
+            
+            if (!posicoes[npcId]) {
+                posicoes[npcId] = {
+                    id: npcId,
+                    nome: npc.nome,
+                    tipo: 'npc',
+                    cor: coresNPCs[indiceCor % coresNPCs.length],
+                    pv: npc.recursos?.pv_atual || 20,
+                    pvMax: npc.recursos?.pv_max || 20,
+                    pm: npc.recursos?.pm_atual || 5,
+                    pmMax: npc.recursos?.pm_max || 5,
+                    esquiva: npc.defesas?.esquiva || 30,
+                    aparar: npc.defesas?.aparar || 0,
+                    bloqueio: npc.defesas?.bloqueio || 0,
+                    andar: 4,
+                    correr: 8,
+                    rd: npc.defesas?.rd || 0,
+                    hexX: undefined,
+                    hexY: undefined
+                };
+                indiceCor++;
+            }
+        });
+    } catch (error) {}
+}
+
+// ============================================
+// FUNÇÃO: Garantir posição do PC
+// ============================================
 async function garantirPosicaoPC(personagemId) {
     if (!sessaoAtual) return false;
     
@@ -1433,31 +1554,7 @@ async function garantirPosicaoPC(personagemId) {
         
         if (!posSnap.exists()) {
             const pos = posicoes[personagemId];
-            if (!pos) {
-                return false;
-            }
-            
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("personagem_id", "==", personagemId),
-                where("jogador_uid", "==", currentUser.uid),
-                where("status", "==", "ativo"),
-                limit(1)
-            );
-            
-            const vinculosSnap = await getDocs(vinculosQuery);
-            
-            if (vinculosSnap.empty) {
-                showToast('Você não tem permissão para usar este personagem', true);
-                return false;
-            }
-            
-            const personagemRef = doc(db, "personagens", personagemId);
-            const personagemSnap = await getDoc(personagemRef);
-            
-            if (!personagemSnap.exists()) {
-                return false;
-            }
+            if (!pos) return false;
             
             await setDoc(posRef, {
                 personagemId: personagemId,
@@ -1465,40 +1562,35 @@ async function garantirPosicaoPC(personagemId) {
                 tipo: 'pc',
                 cor: pos.cor || '#1E90FF',
                 jogadorUid: currentUser.uid,
-                vinculoId: vinculosSnap.docs[0].id,
                 pv: pos.pv,
                 pvMax: pos.pvMax,
                 pm: pos.pm,
                 pmMax: pos.pmMax,
-                esquiva: pos.esquiva || 0,
-                aparar: pos.aparar || 0,
-                bloqueio: pos.bloqueio || 0,
-                andar: pos.andar || 6,
-                correr: pos.correr || 12,
-                rd: pos.rd || 0,
+                pf: pos.pf,
+                pfMax: pos.pfMax,
+                esquiva: pos.esquiva,
+                aparar: pos.aparar,
+                bloqueio: pos.bloqueio,
+                andar: pos.andar,
+                correr: pos.correr,
+                rd: pos.rd,
+                arma: pos.arma,
+                danoBase: pos.danoBase,
                 hexX: null,
                 hexY: null,
                 atualizadoEm: serverTimestamp()
             });
-            
             return true;
         }
-        
-        const posData = posSnap.data();
-        if (posData.jogadorUid !== currentUser.uid) {
-            await updateDoc(posRef, {
-                jogadorUid: currentUser.uid,
-                atualizadoEm: serverTimestamp()
-            });
-        }
-        
         return true;
-        
     } catch (error) {
-        showToast('Erro ao criar posição: ' + error.message, true);
         return false;
     }
 }
+
+// ============================================
+// FUNÇÕES DE COMBATE
+// ============================================
 
 async function iniciarCombate() {
     if (!ehGM) {
@@ -1539,12 +1631,16 @@ async function iniciarCombate() {
                 pvMax: pos.pvMax,
                 pm: pos.pm,
                 pmMax: pos.pmMax,
+                pf: pos.pf,
+                pfMax: pos.pfMax,
                 esquiva: pos.esquiva || 0,
                 aparar: pos.aparar || 0,
                 bloqueio: pos.bloqueio || 0,
                 andar: pos.andar || 6,
                 correr: pos.correr || 12,
                 rd: pos.rd || 0,
+                arma: pos.arma,
+                danoBase: pos.danoBase,
                 hexX: pos.hexX !== undefined ? pos.hexX : null,
                 hexY: pos.hexY !== undefined ? pos.hexY : null,
                 atualizadoEm: serverTimestamp()
@@ -1572,10 +1668,9 @@ async function moverPersonagem(personagemId, hexX, hexY) {
     const pos = posicoes[personagemId];
     if (!pos) return;
     
-    // Verifica se há obstáculo no hexágono
     const temObstaculo = marcadores[`${hexX}_${hexY}`];
     if (temObstaculo) {
-        showToast('Este hexágono contém um obstáculo! Não é possível posicionar aqui.', true);
+        showToast('Este hexágono contém um obstáculo!', true);
         return;
     }
     
@@ -1605,22 +1700,6 @@ async function moverPersonagem(personagemId, hexX, hexY) {
     estaProcessandoMovimento = true;
     
     try {
-        if (pos.tipo === 'pc' && !ehGM) {
-            const vinculosQuery = query(
-                collection(db, "campanha_personagens"),
-                where("personagem_id", "==", personagemId),
-                where("jogador_uid", "==", currentUser.uid),
-                where("status", "==", "ativo"),
-                limit(1)
-            );
-            
-            const vinculosSnap = await getDocs(vinculosQuery);
-            
-            if (vinculosSnap.empty) {
-                throw new Error('Você não tem vínculo ativo com este personagem');
-            }
-        }
-        
         const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
         
         await setDoc(posRef, {
@@ -1736,6 +1815,31 @@ async function encerrarCombate() {
 // LISTENERS EM TEMPO REAL
 // ============================================
 
+function iniciarListenerMarcadores() {
+    if (!sessaoAtual) return;
+    
+    if (unsubscribeMarcadores) unsubscribeMarcadores();
+    
+    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
+    
+    unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            const data = change.doc.data();
+            const key = `${data.x}_${data.y}`;
+            
+            if (change.type === "added") {
+                marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
+            } else if (change.type === "modified") {
+                marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
+            } else if (change.type === "removed") {
+                delete marcadores[key];
+            }
+        });
+        
+        desenharMapa();
+    });
+}
+
 function iniciarListenersCombate() {
     if (!sessaoAtual) return;
     
@@ -1825,8 +1929,6 @@ function atualizarUI() {
         btnFinalizarTurno.disabled = !combateAtivo;
         btnProximoTurno.disabled = !combateAtivo;
         btnEncerrarCombate.disabled = !combateAtivo;
-    } else {
-        if (controlesGM) controlesGM.style.display = 'none';
     }
     
     const pcs = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null).length;
@@ -1858,7 +1960,6 @@ function atualizarListaPersonagens() {
                     </div>
                 `;
             });
-            
             html += `</div>`;
         }
     }
@@ -1883,7 +1984,6 @@ function atualizarListaPersonagens() {
                 </div>
             `;
         });
-        
         html += `</div>`;
     }
     
@@ -1907,7 +2007,6 @@ function atualizarListaPersonagens() {
                     </div>
                 `;
             });
-            
             html += `</div>`;
         }
     }
@@ -1951,7 +2050,24 @@ function atualizarFicha(personagemId) {
     fichaPV.textContent = `${pos.pv || '?'}/${pos.pvMax || '?'}`;
     
     if (podeVerCompleto) {
-        fichaPM.textContent = `${pos.pm || '?'}/${pos.pmMax || '?'}`;
+        // Mostra PM e PF se existirem
+        if (pos.pm !== undefined) {
+            fichaPM.textContent = `${pos.pm || '?'}/${pos.pmMax || '?'}`;
+        } else {
+            fichaPM.textContent = '?/?';
+        }
+        
+        // Adiciona PF na interface se existir
+        const pfElement = document.getElementById('fichaPF');
+        if (pos.pf !== undefined) {
+            if (!pfElement) {
+                const pfHtml = `<div class="stat-item"><div class="stat-label">PF</div><div class="stat-value" id="fichaPF">${pos.pf}/${pos.pfMax}</div></div>`;
+                document.querySelector('.ficha-stats').insertAdjacentHTML('beforeend', pfHtml);
+            } else {
+                pfElement.textContent = `${pos.pf}/${pos.pfMax}`;
+            }
+        }
+        
         fichaEsquiva.textContent = (pos.esquiva || 0) + '%';
         fichaAparar.textContent = (pos.aparar || 0) + '%';
         fichaBloqueio.textContent = (pos.bloqueio || 0) + '%';
@@ -1991,10 +2107,33 @@ function atualizarFicha(personagemId) {
     const ehVezCorreta = vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs');
     const estaPosicionado = pos.hexX !== undefined && pos.hexX !== null;
     
-    acoesContainer.innerHTML = `
+    // Gera as ações baseadas nos dados do personagem
+    let acoesHtml = `
         <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.9rem;">
             <i class="fas fa-fist-raised"></i> Ações
         </h4>
+    `;
+    
+    if (pos.arma) {
+        const danoTotal = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
+        acoesHtml += `
+            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
+                    ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+                <span><i class="fas fa-fist-raised"></i> ${pos.arma.nome}</span>
+                <span class="dano">${danoTotal}</span>
+            </button>
+        `;
+    } else {
+        acoesHtml += `
+            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
+                    ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+                <span><i class="fas fa-fist-raised"></i> Ataque Básico</span>
+                <span class="dano">${pos.danoBase || '1d4'}</span>
+            </button>
+        `;
+    }
+    
+    acoesHtml += `
         <button class="btn-acao" onclick="window.iniciarMovimento('${personagemId}')" 
                 ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
             <span><i class="fas fa-shoe-prints"></i> Mover</span>
@@ -2002,16 +2141,30 @@ function atualizarFicha(personagemId) {
         </button>
         <button class="btn-acao" 
                 ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
-            <span><i class="fas fa-fist-raised"></i> Ataque Básico</span>
-            <span class="dano">1d10</span>
-        </button>
-        <button class="btn-acao" 
-                ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
             <span><i class="fas fa-shield"></i> Defender</span>
             <span class="dano">+10%</span>
         </button>
     `;
+    
+    acoesContainer.innerHTML = acoesHtml;
 }
+
+// ============================================
+// FUNÇÃO DE ATAQUE (simulada)
+// ============================================
+window.realizarAtaque = function(personagemId) {
+    const pos = posicoes[personagemId];
+    if (!pos) return;
+    
+    let danoTexto = "";
+    if (pos.arma) {
+        danoTexto = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
+    } else {
+        danoTexto = pos.danoBase || "1d4";
+    }
+    
+    showToast(`🎲 Ataque com ${pos.arma?.nome || 'Ataque Básico'}! Dano: ${danoTexto}`);
+};
 
 // ============================================
 // CARREGAMENTO INICIAL
@@ -2044,7 +2197,6 @@ async function carregarSessao() {
 
         ehGM = (sessaoAtual.gm_uid === currentUser.uid);
         
-        // INICIA LISTENER DE MARCADORES IMEDIATAMENTE
         iniciarListenerMarcadores();
         
         await carregarNPCs();
@@ -2104,106 +2256,6 @@ async function carregarSessao() {
     }
 }
 
-async function carregarPersonagemJogador(campanhaIdCustom) {
-    if (!campanhaIdCustom || !currentUser) return;
-    
-    try {
-        const vinculosQuery = query(
-            collection(db, "campanha_personagens"),
-            where("campanha_id", "==", campanhaIdCustom),
-            where("jogador_uid", "==", currentUser.uid),
-            where("status", "==", "ativo")
-        );
-        
-        const vinculosSnap = await getDocs(vinculosQuery);
-        
-        if (vinculosSnap.empty) return;
-        
-        vinculoAtual = {
-            id: vinculosSnap.docs[0].id,
-            ...vinculosSnap.docs[0].data()
-        };
-        
-        const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
-        const personagemSnap = await getDoc(personagemRef);
-        
-        if (personagemSnap.exists()) {
-            personagemAtual = {
-                id: personagemSnap.id,
-                ...personagemSnap.data()
-            };
-            
-            const pvMax = 5 + (personagemAtual.atributos?.vt?.esferas || 0) * 8;
-            const pmMax = (personagemAtual.atributos?.vigor?.esferas || 0) + 
-                          (personagemAtual.atributos?.iq?.esferas || 0) + 
-                          (personagemAtual.atributos?.vt?.esferas || 0) + 15;
-            
-            const dxPercent = 30 + (personagemAtual.atributos?.dx?.esferas || 0) * 2;
-            const iqPercent = 30 + (personagemAtual.atributos?.iq?.esferas || 0) * 2;
-            const vigorPercent = 30 + (personagemAtual.atributos?.vigor?.esferas || 0) * 3;
-            const esquiva = Math.floor((dxPercent + iqPercent + vigorPercent) / 3) + 10;
-            
-            posicoes[personagemAtual.id] = {
-                id: personagemAtual.id,
-                nome: personagemAtual.nome,
-                tipo: 'pc',
-                cor: '#1E90FF',
-                jogadorUid: currentUser.uid,
-                personagemId: personagemAtual.id,
-                pv: personagemAtual.statusCombate?.vidaAtual || pvMax,
-                pvMax: pvMax,
-                pm: personagemAtual.statusCombate?.manaAtual || pmMax,
-                pmMax: pmMax,
-                esquiva: esquiva,
-                aparar: 0,
-                bloqueio: 0,
-                andar: 6,
-                correr: 12,
-                rd: 0,
-                hexX: undefined,
-                hexY: undefined
-            };
-        }
-    } catch (error) {}
-}
-
-async function carregarNPCs() {
-    if (!sessaoAtual) return;
-    
-    try {
-        const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
-        const npcsSnap = await getDocs(npcsQuery);
-        let indiceCor = 0;
-        
-        npcsSnap.forEach(doc => {
-            const npc = doc.data();
-            const npcId = doc.id;
-            
-            if (!posicoes[npcId]) {
-                posicoes[npcId] = {
-                    id: npcId,
-                    nome: npc.nome,
-                    tipo: 'npc',
-                    cor: coresNPCs[indiceCor % coresNPCs.length],
-                    pv: npc.recursos?.pv_atual || 20,
-                    pvMax: npc.recursos?.pv_max || 20,
-                    pm: npc.recursos?.pm_atual || 5,
-                    pmMax: npc.recursos?.pm_max || 5,
-                    esquiva: npc.defesas?.esquiva || 30,
-                    aparar: npc.defesas?.aparar || 0,
-                    bloqueio: npc.defesas?.bloqueio || 0,
-                    andar: 4,
-                    correr: 8,
-                    rd: npc.defesas?.rd || 0,
-                    hexX: undefined,
-                    hexY: undefined
-                };
-                indiceCor++;
-            }
-        });
-    } catch (error) {}
-}
-
 // ============================================
 // EVENT LISTENERS
 // ============================================
@@ -2219,7 +2271,6 @@ function handleCanvasClick(clientX, clientY) {
     const hex = pixelToHex(mouseX, mouseY);
     
     if (hex.x >= 0 && hex.y >= 0) {
-        // Modo marcador tem prioridade
         if (ehGM && modoMarcador) {
             toggleMarcador(hex.x, hex.y);
             return;
@@ -2382,7 +2433,6 @@ window.iniciarMovimento = function(id) {
                 const newX = pos.hexX + dx;
                 const newY = pos.hexY + dy;
                 if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
-                    // Verifica se tem obstáculo no hexágono de destino
                     const temObstaculo = marcadores[`${newX}_${newY}`];
                     const ocupado = Object.values(posicoes).some(p => 
                         p.hexX === newX && p.hexY === newY && p.id !== id
