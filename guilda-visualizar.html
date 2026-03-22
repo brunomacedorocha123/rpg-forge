@@ -637,7 +637,7 @@
         </div>
     </div>
 
-    <script type="module">
+   <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -752,7 +752,6 @@
                     ...guildaSnap.data()
                 };
                 
-                // Verificar se o jogador é membro
                 if (!guildaAtual.membros || !guildaAtual.membros.includes(currentUser.uid)) {
                     showToast('Você não é membro desta guilda!', true);
                     setTimeout(() => window.location.href = 'guildas-pc.html', 2000);
@@ -787,12 +786,29 @@
             
             membrosCount.textContent = guildaAtual.total_membros || guildaAtual.membros?.length || 1;
             
+            // DATA - SIMPLES E SEGURA
             if (guildaAtual.data_criacao) {
-                const data = new Date(guildaAtual.data_criacao.seconds * 1000);
-                dataCriacao.textContent = `${data.getDate().toString().padStart(2,'0')}/${(data.getMonth()+1).toString().padStart(2,'0')}/${data.getFullYear()}`;
+                try {
+                    let data;
+                    if (guildaAtual.data_criacao.toDate) {
+                        data = guildaAtual.data_criacao.toDate();
+                    } else if (guildaAtual.data_criacao.seconds) {
+                        data = new Date(guildaAtual.data_criacao.seconds * 1000);
+                    } else {
+                        data = new Date(guildaAtual.data_criacao);
+                    }
+                    if (!isNaN(data.getTime())) {
+                        dataCriacao.textContent = `${data.getDate().toString().padStart(2,'0')}/${(data.getMonth()+1).toString().padStart(2,'0')}/${data.getFullYear()}`;
+                    } else {
+                        dataCriacao.textContent = 'Data não disponível';
+                    }
+                } catch(e) {
+                    dataCriacao.textContent = 'Data não disponível';
+                }
+            } else {
+                dataCriacao.textContent = 'Data não disponível';
             }
             
-            // CAPA DA GUILDA - QUADRADA
             if (guildaAtual.imagemURL) {
                 guildaCapa.style.backgroundImage = `url('${guildaAtual.imagemURL}')`;
                 guildaCapa.style.backgroundSize = 'cover';
