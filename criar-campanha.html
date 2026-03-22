@@ -1309,431 +1309,392 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signOut,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc,
-            getDoc,
-            collection,
-            query,
-            where,
-            getDocs,
-            addDoc,
-            serverTimestamp
-        } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { 
+    getAuth, 
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    doc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    addDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
-            authDomain: "rpgforce-e3227.firebaseapp.com",
-            projectId: "rpgforce-e3227",
-            storageBucket: "rpgforce-e3227.firebasestorage.app",
-            messagingSenderId: "984517342332",
-            appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+const firebaseConfig = {
+    apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
+    authDomain: "rpgforce-e3227.firebaseapp.com",
+    projectId: "rpgforce-e3227",
+    storageBucket: "rpgforce-e3227.firebasestorage.app",
+    messagingSenderId: "984517342332",
+    appId: "1:984517342332:web:87d33aa4c84ff2a07685f9"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ========== ELEMENTOS DO DOM ==========
+const displayIdGm = document.getElementById('displayIdGm');
+const displayNickname = document.getElementById('displayNickname');
+const btnSair = document.getElementById('btnSair');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const toastNotification = document.getElementById('toastNotification');
+const toastMessage = document.getElementById('toastMessage');
+
+const campanhaId = document.getElementById('campanhaId');
+const form = document.getElementById('formCriarCampanha');
+const campanhaNome = document.getElementById('campanhaNome');
+const campanhaDescricao = document.getElementById('campanhaDescricao');
+const campanhaResumo = document.getElementById('campanhaResumo');
+const nivelMin = document.getElementById('nivelMin');
+const nivelMax = document.getElementById('nivelMax');
+const vagas = document.getElementById('vagas');
+const diasHorarios = document.getElementById('diasHorarios');
+const guildaSelect = document.getElementById('guildaSelect');
+const visibilidade = document.getElementById('visibilidade');
+const statusInicial = document.getElementById('statusInicial');
+const regrasCasa = document.getElementById('regrasCasa');
+const btnCancelar = document.getElementById('btnCancelar');
+
+const imageUpload = document.getElementById('imageUpload');
+const fileInput = document.getElementById('fileInput');
+const imagePreview = document.getElementById('imagePreview');
+const previewImg = document.getElementById('previewImg');
+const btnRemoveImage = document.getElementById('btnRemoveImage');
+
+const bannerIcon = document.getElementById('bannerIcon');
+const bannerImage = document.getElementById('bannerImage');
+
+const alertSuccess = document.getElementById('alertSuccess');
+const alertError = document.getElementById('alertError');
+const successMessage = document.getElementById('successMessage');
+const errorMessage = document.getElementById('errorMessage');
+
+const campanhaNomeDisplay = document.getElementById('campanhaNomeDisplay');
+const campanhaDescricaoDisplay = document.getElementById('campanhaDescricaoDisplay');
+const campanhaTipoBadge = document.getElementById('campanhaTipoBadge');
+const vagasDisplay = document.getElementById('vagasDisplay');
+
+// ========== VARIÁVEIS ==========
+let currentUser = null;
+let userData = null;
+let selectedImageFile = null;
+let selectedImageBase64 = null;
+let guildasDoGM = [];
+
+function showLoading() { loadingOverlay.classList.add('active'); }
+function hideLoading() { loadingOverlay.classList.remove('active'); }
+
+function showToast(message, isError = false) {
+    toastMessage.textContent = message;
+    toastNotification.style.background = isError 
+        ? 'linear-gradient(135deg, #c62828, #b71c1c)' 
+        : 'linear-gradient(135deg, #D4AF37, #B8860B)';
+    toastNotification.classList.add('show');
+    setTimeout(() => {
+        toastNotification.classList.remove('show');
+    }, 3000);
+}
+
+function showAlert(type, message) {
+    if (type === 'success') {
+        successMessage.textContent = message;
+        alertSuccess.classList.add('show');
+        alertError.classList.remove('show');
+        setTimeout(() => {
+            alertSuccess.classList.remove('show');
+        }, 3000);
+    } else {
+        errorMessage.textContent = message;
+        alertError.classList.add('show');
+        alertSuccess.classList.remove('show');
+    }
+}
+
+function atualizarBannerComImagem(imageUrl) {
+    if (imageUrl) {
+        bannerIcon.style.display = 'none';
+        bannerImage.style.display = 'block';
+        bannerImage.src = imageUrl;
+    } else {
+        bannerIcon.style.display = 'block';
+        bannerImage.style.display = 'none';
+        bannerImage.src = '';
+    }
+}
+
+function gerarIdCampanha() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let parte1 = '', parte2 = '';
+    for (let i = 0; i < 4; i++) {
+        parte1 += chars.charAt(Math.floor(Math.random() * chars.length));
+        parte2 += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `CAMP-${parte1}-${parte2}`;
+}
+
+function atualizarId() {
+    if (campanhaId) {
+        campanhaId.textContent = gerarIdCampanha();
+    }
+}
+
+async function carregarGuildas() {
+    if (!currentUser) return;
+    try {
+        const q = query(collection(db, "guildas"), 
+            where("membros", "array-contains", currentUser.uid));
+        const querySnapshot = await getDocs(q);
+        guildasDoGM = [];
+        querySnapshot.forEach((doc) => {
+            guildasDoGM.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        if (guildaSelect) {
+            guildaSelect.innerHTML = '<option value="">Nenhuma guilda associada</option>';
+            guildasDoGM.forEach(guilda => {
+                const option = document.createElement('option');
+                option.value = guilda.id;
+                option.textContent = guilda.nome;
+                guildaSelect.appendChild(option);
+            });
+        }
+    } catch (error) {}
+}
+
+function atualizarPreview() {
+    if (campanhaNomeDisplay && campanhaNome.value) {
+        campanhaNomeDisplay.textContent = campanhaNome.value;
+    }
+    if (campanhaDescricaoDisplay && campanhaDescricao.value) {
+        campanhaDescricaoDisplay.textContent = campanhaDescricao.value;
+    }
+    if (vagasDisplay && vagas.value) {
+        vagasDisplay.textContent = vagas.value;
+    }
+    if (campanhaTipoBadge && visibilidade) {
+        const tipo = visibilidade.value;
+        const icon = tipo === 'publico' ? 'fa-globe' : tipo === 'guilda' ? 'fa-users' : 'fa-lock';
+        const text = tipo === 'publico' ? 'Pública' : tipo === 'guilda' ? 'Apenas guilda' : 'Privada';
+        campanhaTipoBadge.innerHTML = `<i class="fas ${icon}"></i> ${text}`;
+        campanhaTipoBadge.classList.remove('publica', 'privada');
+        if (tipo === 'publico') {
+            campanhaTipoBadge.classList.add('publica');
+        } else if (tipo === 'privado') {
+            campanhaTipoBadge.classList.add('privada');
+        }
+    }
+}
+
+async function salvarCampanha(event) {
+    event.preventDefault();
+    
+    if (!currentUser || !userData) {
+        showAlert('error', 'Usuário não autenticado');
+        return;
+    }
+
+    if (!campanhaNome.value.trim()) {
+        showAlert('error', 'Nome da campanha é obrigatório');
+        campanhaNome.focus();
+        return;
+    }
+
+    if (!campanhaDescricao.value.trim()) {
+        showAlert('error', 'Descrição curta é obrigatória');
+        campanhaDescricao.focus();
+        return;
+    }
+
+    if (!campanhaResumo.value.trim()) {
+        showAlert('error', 'Resumo do mundo é obrigatório');
+        campanhaResumo.focus();
+        return;
+    }
+
+    if (parseInt(nivelMin.value) > parseInt(nivelMax.value)) {
+        showAlert('error', 'Nível mínimo não pode ser maior que o máximo');
+        nivelMin.focus();
+        return;
+    }
+
+    showLoading();
+
+    try {
+        const novoId = campanhaId.textContent;
+        let imagemURL = null;
+        
+        if (selectedImageFile) {
+            try {
+                imagemURL = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(selectedImageFile);
+                });
+            } catch (err) {
+                showAlert('error', 'Erro ao processar imagem. A campanha será criada sem imagem.');
+            }
+        }
+
+        const campanhaData = {
+            id: novoId,
+            nome: campanhaNome.value.trim(),
+            gm_uid: currentUser.uid,
+            gm_nick: userData.nickname || userData.nome_completo || 'Mestre',
+            gm_id: userData.id_gm || '',
+            descricao_curta: campanhaDescricao.value.trim(),
+            resumo_mundo: campanhaResumo.value.trim(),
+            imagem_capa: imagemURL,
+            nivel_min: parseInt(nivelMin.value),
+            nivel_max: parseInt(nivelMax.value),
+            vagas_max: parseInt(vagas.value),
+            vagas_ocupadas: 0,
+            dias_horarios: diasHorarios.value.trim() || '',
+            id_guilda: guildaSelect.value || '',
+            nome_guilda: guildaSelect.selectedOptions[0]?.text || '',
+            status: statusInicial.value,
+            visibilidade: visibilidade.value,
+            regras_casa: regrasCasa.value.trim() || '',
+            data_criacao: serverTimestamp(),
+            jogadores: [],
+            total_sessoes: 0
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        await addDoc(collection(db, "campanhas"), campanhaData);
+        
+        showAlert('success', 'Campanha criada com sucesso!');
+        
+        setTimeout(() => {
+            window.location.href = `gerenciar-campanha.html?id=${novoId}`;
+        }, 2000);
+        
+    } catch (error) {
+        showAlert('error', 'Erro ao criar campanha: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
 
-        const IMGUR_CLIENT_ID = 'SEU_CLIENT_ID_AQUI';
+// ========== EVENTOS ==========
+atualizarId();
 
-        const displayIdGm = document.getElementById('displayIdGm');
-        const displayNickname = document.getElementById('displayNickname');
-        const btnSair = document.getElementById('btnSair');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const toastNotification = document.getElementById('toastNotification');
-        const toastMessage = document.getElementById('toastMessage');
+if (imageUpload) {
+    imageUpload.addEventListener('click', () => {
+        fileInput.click();
+    });
+}
 
-        const campanhaId = document.getElementById('campanhaId');
-        const form = document.getElementById('formCriarCampanha');
-        const campanhaNome = document.getElementById('campanhaNome');
-        const campanhaDescricao = document.getElementById('campanhaDescricao');
-        const campanhaResumo = document.getElementById('campanhaResumo');
-        const nivelMin = document.getElementById('nivelMin');
-        const nivelMax = document.getElementById('nivelMax');
-        const vagas = document.getElementById('vagas');
-        const diasHorarios = document.getElementById('diasHorarios');
-        const guildaSelect = document.getElementById('guildaSelect');
-        const visibilidade = document.getElementById('visibilidade');
-        const statusInicial = document.getElementById('statusInicial');
-        const regrasCasa = document.getElementById('regrasCasa');
-        const btnCancelar = document.getElementById('btnCancelar');
-
-        const imageUpload = document.getElementById('imageUpload');
-        const fileInput = document.getElementById('fileInput');
-        const imagePreview = document.getElementById('imagePreview');
-        const previewImg = document.getElementById('previewImg');
-        const btnRemoveImage = document.getElementById('btnRemoveImage');
-
-        const bannerIcon = document.getElementById('bannerIcon');
-        const bannerImage = document.getElementById('bannerImage');
-
-        const alertSuccess = document.getElementById('alertSuccess');
-        const alertError = document.getElementById('alertError');
-        const successMessage = document.getElementById('successMessage');
-        const errorMessage = document.getElementById('errorMessage');
-
-        const campanhaNomeDisplay = document.getElementById('campanhaNomeDisplay');
-        const campanhaDescricaoDisplay = document.getElementById('campanhaDescricaoDisplay');
-        const campanhaTipoBadge = document.getElementById('campanhaTipoBadge');
-        const vagasDisplay = document.getElementById('vagasDisplay');
-
-        let currentUser = null;
-        let userData = null;
-        let selectedImageFile = null;
-        let guildasDoGM = [];
-
-        function showLoading() {
-            loadingOverlay.classList.add('active');
-        }
-
-        function hideLoading() {
-            loadingOverlay.classList.remove('active');
-        }
-
-        function showToast(message, isError = false) {
-            toastMessage.textContent = message;
-            toastNotification.style.background = isError 
-                ? 'linear-gradient(135deg, #c62828, #b71c1c)' 
-                : 'linear-gradient(135deg, #D4AF37, #B8860B)';
-            toastNotification.classList.add('show');
-            setTimeout(() => {
-                toastNotification.classList.remove('show');
-            }, 3000);
-        }
-
-        function showAlert(type, message) {
-            if (type === 'success') {
-                successMessage.textContent = message;
-                alertSuccess.classList.add('show');
-                alertError.classList.remove('show');
-                setTimeout(() => {
-                    alertSuccess.classList.remove('show');
-                }, 3000);
-            } else {
-                errorMessage.textContent = message;
-                alertError.classList.add('show');
-                alertSuccess.classList.remove('show');
-            }
-        }
-
-        function atualizarBannerComImagem(imageUrl) {
-            if (imageUrl) {
-                bannerIcon.style.display = 'none';
-                bannerImage.style.display = 'block';
-                bannerImage.src = imageUrl;
-            } else {
-                bannerIcon.style.display = 'block';
-                bannerImage.style.display = 'none';
-                bannerImage.src = '';
-            }
-        }
-
-        function gerarIdCampanha() {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-            let parte1 = '';
-            let parte2 = '';
-            for (let i = 0; i < 4; i++) {
-                parte1 += chars.charAt(Math.floor(Math.random() * chars.length));
-                parte2 += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return `CAMP-${parte1}-${parte2}`;
-        }
-
-        function atualizarId() {
-            if (campanhaId) {
-                campanhaId.textContent = gerarIdCampanha();
-            }
-        }
-
-        async function carregarGuildas() {
-            if (!currentUser) return;
-            try {
-                const q = query(collection(db, "guildas"), 
-                    where("membros", "array-contains", currentUser.uid));
-                const querySnapshot = await getDocs(q);
-                guildasDoGM = [];
-                querySnapshot.forEach((doc) => {
-                    guildasDoGM.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
-                });
-                if (guildaSelect) {
-                    guildaSelect.innerHTML = '<option value="">Nenhuma guilda associada</option>';
-                    guildasDoGM.forEach(guilda => {
-                        const option = document.createElement('option');
-                        option.value = guilda.id;
-                        option.textContent = guilda.nome;
-                        guildaSelect.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                // Erro silencioso
-            }
-        }
-
-        async function uploadParaImgur(file) {
-            const formData = new FormData();
-            formData.append('image', file);
-            const response = await fetch('https://api.imgur.com/3/image', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Client-ID ${IMGUR_CLIENT_ID}`
-                },
-                body: formData
-            });
-            const data = await response.json();
-            if (data.success) {
-                return data.data.link;
-            } else {
-                throw new Error(data.data.error || 'Erro no upload');
-            }
-        }
-
-        function atualizarPreview() {
-            if (campanhaNomeDisplay && campanhaNome.value) {
-                campanhaNomeDisplay.textContent = campanhaNome.value;
-            }
-            if (campanhaDescricaoDisplay && campanhaDescricao.value) {
-                campanhaDescricaoDisplay.textContent = campanhaDescricao.value;
-            }
-            if (vagasDisplay && vagas.value) {
-                vagasDisplay.textContent = vagas.value;
-            }
-            if (campanhaTipoBadge && visibilidade) {
-                const tipo = visibilidade.value;
-                const icon = tipo === 'publico' ? 'fa-globe' : tipo === 'guilda' ? 'fa-users' : 'fa-lock';
-                const text = tipo === 'publico' ? 'Pública' : tipo === 'guilda' ? 'Apenas guilda' : 'Privada';
-                campanhaTipoBadge.innerHTML = `<i class="fas ${icon}"></i> ${text}`;
-                campanhaTipoBadge.classList.remove('publica', 'privada');
-                if (tipo === 'publico') {
-                    campanhaTipoBadge.classList.add('publica');
-                } else if (tipo === 'privado') {
-                    campanhaTipoBadge.classList.add('privada');
-                }
-            }
-        }
-
-        async function salvarCampanha(event) {
-            event.preventDefault();
-            
-            if (!currentUser || !userData) {
-                showAlert('error', 'Usuário não autenticado');
+if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                showAlert('error', 'Imagem muito grande. Máximo 10MB');
                 return;
             }
-
-            if (!campanhaNome.value.trim()) {
-                showAlert('error', 'Nome da campanha é obrigatório');
-                campanhaNome.focus();
+            if (!file.type.match('image.*')) {
+                showAlert('error', 'Arquivo deve ser uma imagem');
                 return;
             }
+            selectedImageFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageUrl = e.target.result;
+                previewImg.src = imageUrl;
+                imagePreview.classList.add('active');
+                imageUpload.style.display = 'none';
+                atualizarBannerComImagem(imageUrl);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
 
-            if (!campanhaDescricao.value.trim()) {
-                showAlert('error', 'Descrição curta é obrigatória');
-                campanhaDescricao.focus();
-                return;
-            }
+if (btnRemoveImage) {
+    btnRemoveImage.addEventListener('click', () => {
+        selectedImageFile = null;
+        fileInput.value = '';
+        imagePreview.classList.remove('active');
+        imageUpload.style.display = 'block';
+        atualizarBannerComImagem(null);
+    });
+}
 
-            if (!campanhaResumo.value.trim()) {
-                showAlert('error', 'Resumo do mundo é obrigatório');
-                campanhaResumo.focus();
-                return;
-            }
+if (campanhaNome) campanhaNome.addEventListener('input', atualizarPreview);
+if (campanhaDescricao) campanhaDescricao.addEventListener('input', atualizarPreview);
+if (vagas) vagas.addEventListener('input', atualizarPreview);
+if (visibilidade) visibilidade.addEventListener('change', atualizarPreview);
 
-            if (parseInt(nivelMin.value) > parseInt(nivelMax.value)) {
-                showAlert('error', 'Nível mínimo não pode ser maior que o máximo');
-                nivelMin.focus();
-                return;
-            }
+if (form) form.addEventListener('submit', salvarCampanha);
 
+if (btnCancelar) {
+    btnCancelar.addEventListener('click', () => {
+        window.location.href = 'campanhas.html';
+    });
+}
+
+if (btnSair) {
+    btnSair.addEventListener('click', async () => {
+        try {
             showLoading();
+            await signOut(auth);
+            window.location.href = 'index.html';
+        } catch (error) {
+            hideLoading();
+        }
+    });
+}
 
-            try {
-                const novoId = campanhaId.textContent;
-                let imagemURL = null;
-                
-                if (selectedImageFile) {
-                    try {
-                        imagemURL = await uploadParaImgur(selectedImageFile);
-                        atualizarBannerComImagem(imagemURL);
-                    } catch (imgurError) {
-                        showAlert('error', 'Erro ao fazer upload da imagem. A campanha será criada sem imagem.');
-                    }
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        try {
+            const docRef = doc(db, "usuarios", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                userData = docSnap.data();
+                if (!userData.id_gm) {
+                    showAlert('error', 'Você não tem permissão de Mestre');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard-pc.html';
+                    }, 2000);
+                    return;
                 }
-
-                const campanhaData = {
-                    id: novoId,
-                    nome: campanhaNome.value.trim(),
-                    gm_uid: currentUser.uid,
-                    gm_nick: userData.nickname || userData.nome_completo || 'Mestre',
-                    gm_id: userData.id_gm || '',
-                    descricao_curta: campanhaDescricao.value.trim(),
-                    resumo_mundo: campanhaResumo.value.trim(),
-                    imagem_capa: imagemURL,
-                    nivel_min: parseInt(nivelMin.value),
-                    nivel_max: parseInt(nivelMax.value),
-                    vagas_max: parseInt(vagas.value),
-                    vagas_ocupadas: 0,
-                    dias_horarios: diasHorarios.value.trim() || '',
-                    id_guilda: guildaSelect.value || '',
-                    nome_guilda: guildaSelect.selectedOptions[0]?.text || '',
-                    status: statusInicial.value,
-                    visibilidade: visibilidade.value,
-                    regras_casa: regrasCasa.value.trim() || '',
-                    data_criacao: serverTimestamp(),
-                    jogadores: [],
-                    total_sessoes: 0
-                };
-
-                await addDoc(collection(db, "campanhas"), campanhaData);
-                
-                showAlert('success', 'Campanha criada com sucesso!');
-                
-                setTimeout(() => {
-                    window.location.href = `gerenciar-campanha.html?id=${novoId}`;
-                }, 2000);
-                
-            } catch (error) {
-                showAlert('error', 'Erro ao criar campanha: ' + error.message);
-            } finally {
-                hideLoading();
+                if (displayIdGm) displayIdGm.textContent = userData.id_gm || '--------';
+                if (displayNickname) displayNickname.textContent = userData.nickname || userData.nome_completo || 'Mestre';
+                await carregarGuildas();
             }
-        }
+        } catch (error) {}
+    } else {
+        window.location.href = 'index.html';
+    }
+});
 
-        atualizarId();
+if (nivelMin) {
+    nivelMin.addEventListener('change', () => {
+        if (parseInt(nivelMin.value) > parseInt(nivelMax.value)) {
+            nivelMax.value = nivelMin.value;
+        }
+    });
+}
 
-        if (imageUpload) {
-            imageUpload.addEventListener('click', () => {
-                fileInput.click();
-            });
+if (nivelMax) {
+    nivelMax.addEventListener('change', () => {
+        if (parseInt(nivelMax.value) < parseInt(nivelMin.value)) {
+            nivelMin.value = nivelMax.value;
         }
-
-        if (fileInput) {
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    if (file.size > 10 * 1024 * 1024) {
-                        showAlert('error', 'Imagem muito grande. Máximo 10MB');
-                        return;
-                    }
-                    if (!file.type.match('image.*')) {
-                        showAlert('error', 'Arquivo deve ser uma imagem');
-                        return;
-                    }
-                    selectedImageFile = file;
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const imageUrl = e.target.result;
-                        previewImg.src = imageUrl;
-                        imagePreview.classList.add('active');
-                        imageUpload.style.display = 'none';
-                        atualizarBannerComImagem(imageUrl);
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        if (btnRemoveImage) {
-            btnRemoveImage.addEventListener('click', () => {
-                selectedImageFile = null;
-                fileInput.value = '';
-                imagePreview.classList.remove('active');
-                imageUpload.style.display = 'block';
-                atualizarBannerComImagem(null);
-            });
-        }
-
-        if (campanhaNome) {
-            campanhaNome.addEventListener('input', atualizarPreview);
-        }
-        
-        if (campanhaDescricao) {
-            campanhaDescricao.addEventListener('input', atualizarPreview);
-        }
-        
-        if (vagas) {
-            vagas.addEventListener('input', atualizarPreview);
-        }
-        
-        if (visibilidade) {
-            visibilidade.addEventListener('change', atualizarPreview);
-        }
-
-        if (form) {
-            form.addEventListener('submit', salvarCampanha);
-        }
-
-        if (btnCancelar) {
-            btnCancelar.addEventListener('click', () => {
-                window.location.href = 'campanhas.html';
-            });
-        }
-
-        if (btnSair) {
-            btnSair.addEventListener('click', async () => {
-                try {
-                    showLoading();
-                    await signOut(auth);
-                    window.location.href = 'index.html';
-                } catch (error) {
-                    hideLoading();
-                }
-            });
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                try {
-                    const docRef = doc(db, "usuarios", user.uid);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        userData = docSnap.data();
-                        if (!userData.id_gm) {
-                            showAlert('error', 'Você não tem permissão de Mestre');
-                            setTimeout(() => {
-                                window.location.href = 'dashboard-pc.html';
-                            }, 2000);
-                            return;
-                        }
-                        if (displayIdGm) {
-                            displayIdGm.textContent = userData.id_gm || '--------';
-                        }
-                        if (displayNickname) {
-                            displayNickname.textContent = userData.nickname || userData.nome_completo || 'Mestre';
-                        }
-                        await carregarGuildas();
-                    }
-                } catch (error) {
-                    // Erro silencioso
-                }
-            } else {
-                window.location.href = 'index.html';
-            }
-        });
-
-        if (nivelMin) {
-            nivelMin.addEventListener('change', () => {
-                if (parseInt(nivelMin.value) > parseInt(nivelMax.value)) {
-                    nivelMax.value = nivelMin.value;
-                }
-            });
-        }
-
-        if (nivelMax) {
-            nivelMax.addEventListener('change', () => {
-                if (parseInt(nivelMax.value) < parseInt(nivelMin.value)) {
-                    nivelMin.value = nivelMax.value;
-                }
-            });
-        }
-    </script>
+    });
+}
+</script>
 </body>
 </html>
