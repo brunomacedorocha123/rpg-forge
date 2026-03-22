@@ -1102,7 +1102,7 @@ let ehGM = false;
 let personagemAtual = null;
 let vinculoAtual = null;
 let posicoes = {};
-let marcadores = {}; // NOVO: Guarda os marcadores de obstáculo
+let marcadores = {};
 let personagemSelecionado = null;
 let npcSelecionadoParaPosicionar = null;
 let modoCombate = 'posicionamento';
@@ -1112,10 +1112,10 @@ let combateAtivo = false;
 let hexSelecionado = { x: -1, y: -1 };
 let highlightHex = [];
 let combateId = null;
-let modoMarcador = false; // NOVO: Controla se está no modo de colocar marcadores
+let modoMarcador = false;
 let unsubscribePosicoes = null;
 let unsubscribeCombate = null;
-let unsubscribeMarcadores = null; // NOVO: Listener dos marcadores
+let unsubscribeMarcadores = null;
 let estaProcessandoMovimento = false;
 
 // CORES PARA NPCs
@@ -1235,34 +1235,56 @@ function desenharToken(ctx, x, y, personagem) {
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
 }
 
-// ===== NOVA FUNÇÃO: Desenhar marcadores de obstáculo =====
+// ===== FUNÇÃO MELHORADA: Desenhar marcadores de obstáculo =====
 function desenharMarcadores() {
     Object.values(marcadores).forEach(m => {
         const pixel = hexToPixel(m.x, m.y);
         
-        // Círculo marrom transparente
+        // Desenha o hexágono inteiro com fundo semi-transparente
+        const pontos = [];
+        for (let i = 0; i < 6; i++) {
+            const angulo = Math.PI / 6 + (i * Math.PI / 3);
+            pontos.push({
+                x: pixel.x + HEX_RADIUS * Math.cos(angulo),
+                y: pixel.y + HEX_RADIUS * Math.sin(angulo)
+            });
+        }
+        
         ctx.beginPath();
-        ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(139, 69, 19, 0.4)';
+        ctx.moveTo(pontos[0].x, pontos[0].y);
+        for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
+        ctx.closePath();
+        
+        // Fundo marrom escuro semi-transparente
+        ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
         ctx.fill();
+        
+        // Borda grossa marrom
         ctx.strokeStyle = '#8B4513';
         ctx.lineWidth = 3;
         ctx.stroke();
         
-        // Símbolo de obstáculo
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px "Inter", sans-serif';
+        // Ícone de obstáculo central
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('⬛', pixel.x, pixel.y);
+        
+        // Texto "OBSTÁCULO" pequeno para indicar
+        ctx.font = `bold ${HEX_RADIUS * 0.35}px "Inter", sans-serif`;
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText('OBST', pixel.x, pixel.y + HEX_RADIUS * 0.8);
     });
 }
 
+// ===== FUNÇÃO DESENHAR MAPA CORRIGIDA =====
 function desenharMapa() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
+    // Desenha todos os hexágonos
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const pixel = hexToPixel(x, y);
@@ -1278,18 +1300,19 @@ function desenharMapa() {
         }
     }
     
-    // Desenhar marcadores (visíveis para todos)
+    // SEMPRE desenha os marcadores, independente do estado
     desenharMarcadores();
     
+    // Desenha os personagens
     Object.values(posicoes).forEach(pos => {
-        if (pos.hexX !== null && pos.hexY !== null && pos.hexX !== undefined && pos.hexY !== undefined) {
+        if (pos.hexX !== null && pos.hexX !== undefined && pos.hexY !== null && pos.hexY !== undefined) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
             desenharToken(ctx, pixel.x, pixel.y, pos);
         }
     });
 }
 
-// ===== NOVA FUNÇÃO: Alternar marcador no Firestore =====
+// ===== FUNÇÃO: Alternar marcador no Firestore =====
 async function toggleMarcador(hexX, hexY) {
     if (!ehGM) {
         showToast('Apenas o GM pode colocar marcadores', true);
@@ -1305,6 +1328,7 @@ async function toggleMarcador(hexX, hexY) {
     try {
         if (marcadores[key]) {
             await deleteDoc(marcadorRef);
+            showToast(`Obstáculo removido do hexágono (${hexX}, ${hexY})`);
         } else {
             await setDoc(marcadorRef, {
                 x: hexX,
@@ -1312,6 +1336,7 @@ async function toggleMarcador(hexX, hexY) {
                 criado_por: currentUser.uid,
                 criado_em: serverTimestamp()
             });
+            showToast(`Obstáculo adicionado em (${hexX}, ${hexY})`);
         }
     } catch (error) {
         showToast('Erro ao atualizar marcador', true);
@@ -1319,7 +1344,40 @@ async function toggleMarcador(hexX, hexY) {
 }
 
 // ============================================
-// FUNÇÃO NOVA: Garantir participação na sessao_participantes
+// LISTENER DE MARCADORES - SEMPRE ATIVO
+// ============================================
+function iniciarListenerMarcadores() {
+    if (!sessaoAtual) return;
+    
+    if (unsubscribeMarcadores) unsubscribeMarcadores();
+    
+    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
+    
+    unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            const data = change.doc.data();
+            const key = `${data.x}_${data.y}`;
+            
+            if (change.type === "added") {
+                marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
+                showToast(`Obstáculo apareceu em (${data.x}, ${data.y})`);
+            } else if (change.type === "modified") {
+                marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
+            } else if (change.type === "removed") {
+                delete marcadores[key];
+                showToast(`Obstáculo removido de (${data.x}, ${data.y})`);
+            }
+        });
+        
+        // Redesenha o mapa sempre que marcadores mudam
+        desenharMapa();
+    }, (error) => {
+        console.error("Erro no listener de marcadores:", error);
+    });
+}
+
+// ============================================
+// FUNÇÃO: Garantir participação na sessao_participantes
 // ============================================
 async function garantirParticipacaoNaSessao() {
     if (!sessaoAtual || !currentUser || ehGM) return true;
@@ -1363,7 +1421,7 @@ async function garantirParticipacaoNaSessao() {
 }
 
 // ============================================
-// FUNÇÕES DE COMBATE - CORRIGIDAS
+// FUNÇÕES DE COMBATE
 // ============================================
 
 async function garantirPosicaoPC(personagemId) {
@@ -1393,8 +1451,6 @@ async function garantirPosicaoPC(personagemId) {
                 showToast('Você não tem permissão para usar este personagem', true);
                 return false;
             }
-            
-            const vinculo = vinculosSnap.docs[0].data();
             
             const personagemRef = doc(db, "personagens", personagemId);
             const personagemSnap = await getDoc(personagemRef);
@@ -1515,6 +1571,13 @@ async function moverPersonagem(personagemId, hexX, hexY) {
     
     const pos = posicoes[personagemId];
     if (!pos) return;
+    
+    // Verifica se há obstáculo no hexágono
+    const temObstaculo = marcadores[`${hexX}_${hexY}`];
+    if (temObstaculo) {
+        showToast('Este hexágono contém um obstáculo! Não é possível posicionar aqui.', true);
+        return;
+    }
     
     const ocupado = Object.values(posicoes).some(p => 
         p.hexX === hexX && p.hexY === hexY && p.id !== personagemId
@@ -1643,25 +1706,14 @@ async function encerrarCombate() {
         });
         await batch.commit();
         
-        const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-        const marcadoresSnap = await getDocs(marcadoresRef);
-        
-        const batchMarcadores = writeBatch(db);
-        marcadoresSnap.docs.forEach(docSnap => {
-            batchMarcadores.delete(docSnap.ref);
-        });
-        await batchMarcadores.commit();
-        
         if (unsubscribePosicoes) unsubscribePosicoes();
         if (unsubscribeCombate) unsubscribeCombate();
-        if (unsubscribeMarcadores) unsubscribeMarcadores();
         
         combateAtivo = false;
         combateId = null;
         modoCombate = 'posicionamento';
         personagemSelecionado = null;
         npcSelecionadoParaPosicionar = null;
-        marcadores = {};
         
         Object.keys(posicoes).forEach(id => {
             posicoes[id].hexX = undefined;
@@ -1689,7 +1741,6 @@ function iniciarListenersCombate() {
     
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
-    if (unsubscribeMarcadores) unsubscribeMarcadores();
     
     const combatesQuery = query(
         collection(db, "sessoes", sessaoAtual.id, "combates"),
@@ -1741,26 +1792,6 @@ function iniciarListenersCombate() {
         if (personagemSelecionado && posicoes[personagemSelecionado]) {
             atualizarFicha(personagemSelecionado);
         }
-    });
-    
-    // ===== NOVO: Listener dos marcadores =====
-    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-    
-    unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            const id = change.doc.id;
-            const data = change.doc.data();
-            
-            if (change.type === "added" || change.type === "modified") {
-                const key = `${data.x}_${data.y}`;
-                marcadores[key] = { id, x: data.x, y: data.y };
-            } else if (change.type === "removed") {
-                const key = `${data.x}_${data.y}`;
-                delete marcadores[key];
-            }
-        });
-        
-        desenharMapa();
     });
 }
 
@@ -2013,6 +2044,9 @@ async function carregarSessao() {
 
         ehGM = (sessaoAtual.gm_uid === currentUser.uid);
         
+        // INICIA LISTENER DE MARCADORES IMEDIATAMENTE
+        iniciarListenerMarcadores();
+        
         await carregarNPCs();
         
         if (!ehGM) {
@@ -2051,15 +2085,6 @@ async function carregarSessao() {
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
             });
             
-            const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-            const marcadoresSnap = await getDocs(marcadoresRef);
-            
-            marcadoresSnap.forEach(doc => {
-                const data = doc.data();
-                const key = `${data.x}_${data.y}`;
-                marcadores[key] = { id: doc.id, x: data.x, y: data.y };
-            });
-            
             iniciarListenersCombate();
         }
         
@@ -2074,6 +2099,7 @@ async function carregarSessao() {
         hideLoading();
         
     } catch (error) {
+        console.error("Erro ao carregar sessão:", error);
         hideLoading();
     }
 }
@@ -2193,6 +2219,7 @@ function handleCanvasClick(clientX, clientY) {
     const hex = pixelToHex(mouseX, mouseY);
     
     if (hex.x >= 0 && hex.y >= 0) {
+        // Modo marcador tem prioridade
         if (ehGM && modoMarcador) {
             toggleMarcador(hex.x, hex.y);
             return;
@@ -2355,10 +2382,12 @@ window.iniciarMovimento = function(id) {
                 const newX = pos.hexX + dx;
                 const newY = pos.hexY + dy;
                 if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                    // Verifica se tem obstáculo no hexágono de destino
+                    const temObstaculo = marcadores[`${newX}_${newY}`];
                     const ocupado = Object.values(posicoes).some(p => 
                         p.hexX === newX && p.hexY === newY && p.id !== id
                     );
-                    if (!ocupado) {
+                    if (!ocupado && !temObstaculo) {
                         highlightHex.push({ x: newX, y: newY });
                     }
                 }
