@@ -1129,8 +1129,10 @@
 
         <!-- Card de Criação da Campanha -->
         <div class="campanha-card">
+            <!-- Banner da campanha - CORRIGIDO PARA MOSTRAR IMAGEM -->
             <div class="campanha-banner" id="campanhaBanner">
-                <i class="fas fa-scroll"></i>
+                <i class="fas fa-scroll" id="bannerIcon"></i>
+                <img id="bannerImage" style="display: none; width: 100%; height: 100%; object-fit: cover;">
             </div>
 
             <div class="campanha-header-info">
@@ -1182,7 +1184,7 @@
                             <textarea id="campanhaResumo" placeholder="Resumo do Mundo / História *" required></textarea>
                         </div>
 
-                        <!-- Níveis - AGORA COM LABELS -->
+                        <!-- Níveis -->
                         <div class="form-row">
                             <div class="form-input-group">
                                 <label style="color: var(--text-secondary); margin-bottom: 8px; display: block; font-family: 'Cinzel', serif;">
@@ -1341,7 +1343,7 @@
         const db = getFirestore(app);
 
         // ========== CONFIGURAÇÃO IMGUR ==========
-        // ⚠️ COLOQUE SEU CLIENT-ID AQUI!
+        // ⚠️ SUBSTITUA PELO SEU CLIENT-ID DO IMGUR
         const IMGUR_CLIENT_ID = 'SEU_CLIENT_ID_AQUI';
 
         // ========== ELEMENTOS DO DOM ==========
@@ -1376,6 +1378,10 @@
         const imagePreview = document.getElementById('imagePreview');
         const previewImg = document.getElementById('previewImg');
         const btnRemoveImage = document.getElementById('btnRemoveImage');
+
+        // Banner elements
+        const bannerIcon = document.getElementById('bannerIcon');
+        const bannerImage = document.getElementById('bannerImage');
 
         // Alerts
         const alertSuccess = document.getElementById('alertSuccess');
@@ -1428,6 +1434,19 @@
                 errorMessage.textContent = message;
                 alertError.classList.add('show');
                 alertSuccess.classList.remove('show');
+            }
+        }
+
+        // ===== FUNÇÃO PARA ATUALIZAR O BANNER COM A IMAGEM =====
+        function atualizarBannerComImagem(imageUrl) {
+            if (imageUrl) {
+                bannerIcon.style.display = 'none';
+                bannerImage.style.display = 'block';
+                bannerImage.src = imageUrl;
+            } else {
+                bannerIcon.style.display = 'block';
+                bannerImage.style.display = 'none';
+                bannerImage.src = '';
             }
         }
 
@@ -1592,6 +1611,10 @@
                     try {
                         imagemURL = await uploadParaImgur(selectedImageFile);
                         console.log('✅ Imagem enviada com sucesso:', imagemURL);
+                        
+                        // ATUALIZA O BANNER COM A URL FINAL
+                        atualizarBannerComImagem(imagemURL);
+                        
                     } catch (imgurError) {
                         console.error('❌ Erro no Imgur:', imgurError);
                         showAlert('error', 'Erro ao fazer upload da imagem. A campanha será criada sem imagem.');
@@ -1675,9 +1698,13 @@
                     
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        previewImg.src = e.target.result;
+                        const imageUrl = e.target.result;
+                        previewImg.src = imageUrl;
                         imagePreview.classList.add('active');
                         imageUpload.style.display = 'none';
+                        
+                        // ATUALIZA O BANNER COM A IMAGEM DE PREVIEW
+                        atualizarBannerComImagem(imageUrl);
                     };
                     reader.readAsDataURL(file);
                 }
@@ -1690,6 +1717,9 @@
                 fileInput.value = '';
                 imagePreview.classList.remove('active');
                 imageUpload.style.display = 'block';
+                
+                // REMOVE A IMAGEM DO BANNER
+                atualizarBannerComImagem(null);
             });
         }
 
