@@ -2145,6 +2145,40 @@ body {
         </div>
     </div>
 
+    <!-- Modal de Código de Honra -->
+<div class="modal" id="modalCodigoHonra">
+    <div class="modal-content">
+        <h3><i class="fas fa-shield-alt"></i> Escolha seu Código de Honra</h3>
+        
+        <div class="fobia-item" data-codigo="cavaleiro">
+            <h4>Código do Cavaleiro</h4>
+            <p>Honra acima de tudo. Proteger os fracos, nunca atacar pelas costas, manter sua palavra.</p>
+        </div>
+        
+        <div class="fobia-item" data-codigo="ladrao">
+            <h4>Código do Ladrão</h4>
+            <p>Nunca roubar de outros ladrões, compartilhar o butim, proteger a guilda.</p>
+        </div>
+        
+        <div class="fobia-item" data-codigo="mercenario">
+            <h4>Código do Mercenário</h4>
+            <p>Cumprir contratos a qualquer custo, nunca trair o contratante, profissionalismo acima de tudo.</p>
+        </div>
+        
+        <div class="fobia-item" data-codigo="samurai">
+            <h4>Código do Samurai </h4>
+            <p>Lealdade absoluta ao senhor, morte antes da desonra, nunca recusar um duelo justo.</p>
+        </div>
+        
+        <div class="fobia-item" data-codigo="justiceiro">
+            <h4>Código do Justiceiro</h4>
+            <p>Nunca matar inocentes, sempre punir os culpados, nunca aceitar suborno ou corrupção.</p>
+        </div>
+        
+        <button class="modal-close" id="fecharModalCodigoHonra"><i class="fas fa-times"></i> Fechar</button>
+    </div>
+</div>
+
     <!-- Modal de perícia -->
     <div class="modal" id="modalPericia">
         <div class="modal-content">
@@ -2815,11 +2849,12 @@ body {
                 <div class="resumo">Teste para não pegar itens valiosos</div>
             </div>
             
-            <div class="desvantagem-card" data-desvantagem="codigoHonra">
-                <h3>Código de Honra <span class="check"><i class="fas fa-check-circle"></i></span></h3>
-                <p>Segue regras rígidas de conduta</p>
-                <div class="resumo">Não pode quebrar seu código</div>
-            </div>
+           <div class="desvantagem-card" id="cardCodigoHonra" data-desvantagem="codigoHonra">
+    <h3>Código de Honra <i class="fas fa-chevron-right"></i> <span class="check"><i class="fas fa-check-circle"></i></span></h3>
+    <p>Clique para escolher seu código</p>
+    <span class="badge-fobia" id="codigoHonraEscolhido" style="display: none;"></span>
+    <div class="resumo">Segue um código rigoroso de conduta</div>
+</div>
             
             <div class="desvantagem-card" data-desvantagem="covardia">
                 <h3>Covardia <span class="check"><i class="fas fa-check-circle"></i></span></h3>
@@ -2907,6 +2942,18 @@ body {
             </div>
             
            
+<div class="desvantagem-card" data-desvantagem="caolho">
+    <h3>Caolho <span class="check"><i class="fas fa-check-circle"></i></span></h3>
+    <p>Perdeu um olho, afetando sua visão e pontaria</p>
+    <div class="resumo">-5% Percepção visual, -5% armas de longo alcance</div>
+</div>
+
+
+<div class="desvantagem-card" data-desvantagem="mudez">
+    <h3>Mudez <span class="check"><i class="fas fa-check-circle"></i></span></h3>
+    <p>Incapaz de falar, comunica-se apenas por gestos</p>
+    <div class="resumo">-10% Persuasão/Intimidação, não lança magias verbais</div>
+</div>
             
             <div class="desvantagem-card" data-desvantagem="magro">
                 <h3>Magro <span class="check"><i class="fas fa-check-circle"></i></span></h3>
@@ -3352,6 +3399,7 @@ let escolaAtual = 'agua';
 let esferasIniciais = 6;
 let esferasRestantes = 6;
 let fobiaSelecionada = null;
+let codigoHonraSelecionado = null;  
 let personagemTemp = null;
 let personagemId = null;
 let modoEdicao = false;
@@ -5991,7 +6039,13 @@ const elements = {
     esferasGridNatureza: document.getElementById('esferasGridNatureza'),
     esferasGridTrevas: document.getElementById('esferasGridTrevas'),
     esferasGridLuz: document.getElementById('esferasGridLuz'),
-    esferasGridAnimais: document.getElementById('esferasGridAnimais')
+    esferasGridAnimais: document.getElementById('esferasGridAnimais'),
+    
+   
+    modalCodigoHonra: document.getElementById('modalCodigoHonra'),
+    fecharModalCodigoHonra: document.getElementById('fecharModalCodigoHonra'),
+    cardCodigoHonra: document.getElementById('cardCodigoHonra'),
+    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido')
 };
 
 // ============================================
@@ -6108,6 +6162,15 @@ function getBonusPericia(periciaId) {
         if (periciaId === 'furtar') bonus += 5;
         if (periciaId === 'arrombamento') bonus += 5;
     }
+    
+    // ===== PENALIDADE DO CAOLHO =====
+    if (desvantagensSelecionadas.has('caolho')) {
+        if (periciaId === 'rastreamento' || periciaId === 'sobrevivencia' || periciaId === 'detectarMentira') {
+            bonus -= 5;
+        }
+    }
+    
+    // MUDEZ: apenas descritiva, sem penalidade mecânica
     
     return bonus;
 }
@@ -7481,6 +7544,26 @@ function selecionarVantagem(card) {
 function selecionarDesvantagem(card) {
     const desvantagemId = card.dataset.desvantagem;
     
+    // ===== NOVA LÓGICA: GORDO x MAGRO (mutuamente exclusivos) =====
+    if (desvantagemId === 'gordo' && desvantagensSelecionadas.has('magro')) {
+        alert('❌ Incompatível: Você já selecionou a desvantagem "Magro". Personagem não pode ser Gordo e Magro ao mesmo tempo!');
+        return;
+    }
+    
+    if (desvantagemId === 'magro' && desvantagensSelecionadas.has('gordo')) {
+        alert('❌ Incompatível: Você já selecionou a desvantagem "Gordo". Personagem não pode ser Magro e Gordo ao mesmo tempo!');
+        return;
+    }
+    
+    // ===== CÓDIGO DE HONRA: abre modal especial =====
+    if (desvantagemId === 'codigoHonra') {
+        if (elements.modalCodigoHonra) {
+            elements.modalCodigoHonra.classList.add('active');
+        }
+        return; // Sai da função, não seleciona ainda
+    }
+    
+    // ===== LÓGICA NORMAL DAS OUTRAS DESVANTAGENS =====
     if (desvantagensSelecionadas.has(desvantagemId)) {
         desvantagensSelecionadas.delete(desvantagemId);
         card.classList.remove('selecionada');
@@ -7527,6 +7610,53 @@ function atualizarLimitesCards() {
     });
 }
 
+function selecionarCodigoHonra(codigoId) {
+    const codigos = {
+        cavaleiro: { nome: 'Código do Cavaleiro', desc: 'Honra, proteger fracos, nunca atacar pelas costas' },
+        ladrao: { nome: 'Código do Ladrão', desc: 'Não roubar outros ladrões, compartilhar butim' },
+        mercenario: { nome: 'Código do Mercenário', desc: 'Cumprir contratos, nunca trair' },
+        samurai: { nome: 'Código do Samurai', desc: 'Lealdade absoluta, morte antes da desonra' },
+        justiceiro: { nome: 'Código do Justiceiro', desc: 'Punir culpados, não matar inocentes' }
+    };
+    
+    const codigo = codigos[codigoId];
+    if (!codigo) return;
+    
+    // Se já tem um código selecionado, remove primeiro
+    if (codigoHonraSelecionado) {
+        const desvantagemAntiga = `codigoHonra:${codigoHonraSelecionado}`;
+        if (desvantagensSelecionadas.has(desvantagemAntiga)) {
+            desvantagensSelecionadas.delete(desvantagemAntiga);
+        }
+    }
+    
+    // Seleciona o novo código
+    codigoHonraSelecionado = codigoId;
+    const novaDesvantagem = `codigoHonra:${codigoId}`;
+    
+    if (!desvantagensSelecionadas.has(novaDesvantagem) && desvantagensSelecionadas.size < maxDesvantagens) {
+        desvantagensSelecionadas.add(novaDesvantagem);
+        
+        // Atualiza a exibição no card
+        if (elements.codigoHonraEscolhido) {
+            elements.codigoHonraEscolhido.style.display = 'inline-block';
+            elements.codigoHonraEscolhido.textContent = codigo.nome;
+        }
+        if (elements.cardCodigoHonra) {
+            elements.cardCodigoHonra.classList.add('selecionada');
+        }
+        
+        atualizarContadoresAbas();
+        atualizarLimitesCards();
+        triggerAutoSave();
+    }
+    
+    // Fecha o modal
+    if (elements.modalCodigoHonra) {
+        elements.modalCodigoHonra.classList.remove('active');
+    }
+}
+
 function resetarInventarioPorRiqueza() {
     if (inventario.corpo.length > 0 || inventario.mochila.length > 0 || inventario.deposito.length > 0) {
         if (confirm('Mudar o nível de riqueza irá remover todos os itens comprados. Deseja continuar?')) {
@@ -7548,6 +7678,34 @@ function resetarInventarioPorRiqueza() {
         atualizarAparenciaRiquezaDisplay();
         triggerAutoSave();
     }
+}
+
+// ============================================
+// FUNÇÕES DE EFEITO DAS DESVANTAGENS
+// ============================================
+
+// CAOLHO: penalidade em percepção visual
+function getPenalidadeCaolho() {
+    if (desvantagensSelecionadas.has('caolho')) {
+        return -5;
+    }
+    return 0;
+}
+
+// CAOLHO: penalidade para armas de arremesso e longo alcance
+function getPenalidadeArcoPorCaolho() {
+    if (desvantagensSelecionadas.has('caolho')) {
+        return -5;
+    }
+    return 0;
+}
+
+// MUDEZ: verifica se pode lançar magias com componente verbal
+function podeLancarMagiaVerbal() {
+    if (desvantagensSelecionadas.has('mudez')) {
+        return false;
+    }
+    return true;
 }
 
 // ============================================
@@ -8717,10 +8875,11 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => selecionarVantagem(card));
     });
     
-    document.querySelectorAll('.desvantagem-card:not(#cardFobia)').forEach(card => {
+    document.querySelectorAll('.desvantagem-card:not(#cardFobia):not(#cardCodigoHonra)').forEach(card => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
     
+    // ===== MODAL DE FOBIAS =====
     if (elements.cardFobia && elements.modalFobias) {
         elements.cardFobia.addEventListener('click', () => {
             elements.modalFobias.classList.add('active');
@@ -8758,6 +8917,27 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (elements.modalFobias) elements.modalFobias.classList.remove('active');
             triggerAutoSave();
+        });
+    });
+    
+    // ===== MODAL DO CÓDIGO DE HONRA (NOVO) =====
+    if (elements.cardCodigoHonra && elements.modalCodigoHonra) {
+        elements.cardCodigoHonra.addEventListener('click', () => {
+            elements.modalCodigoHonra.classList.add('active');
+        });
+    }
+    
+    if (elements.fecharModalCodigoHonra && elements.modalCodigoHonra) {
+        elements.fecharModalCodigoHonra.addEventListener('click', () => {
+            elements.modalCodigoHonra.classList.remove('active');
+        });
+    }
+    
+    // Eventos para as opções do código de honra
+    document.querySelectorAll('.fobia-item[data-codigo]').forEach(item => {
+        item.addEventListener('click', () => {
+            const codigoId = item.dataset.codigo;
+            selecionarCodigoHonra(codigoId);
         });
     });
     
