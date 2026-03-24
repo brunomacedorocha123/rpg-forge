@@ -6452,6 +6452,44 @@ function atualizarBolinhas(atributoId) {
 }
 
 // ============================================
+// FUNÇÃO AUXILIAR PARA ADICIONAR ITENS COM QUANTIDADE
+// ============================================
+function adicionarItemAoInventario(item, local = 'deposito') {
+    if (!inventario[local]) inventario[local] = [];
+    
+    // Identificador único do item (ex: 'tocha', 'racao')
+    const itemIdBase = item.id;
+    
+    // Procura se já existe esse item no inventário
+    const itemExistente = inventario[local].find(i => i.idBase === itemIdBase);
+    
+    if (itemExistente) {
+        // Se já existe, aumenta a quantidade
+        itemExistente.quantidade++;
+        // Atualiza peso e preço total
+        itemExistente.peso = itemExistente.pesoUnitario * itemExistente.quantidade;
+        itemExistente.preco = itemExistente.precoUnitario * itemExistente.quantidade;
+    } else {
+        // Se não existe, cria um novo item com estrutura de quantidade
+        const novoItem = {
+            ...item,
+            id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            idBase: item.id, // ID original para agrupar itens iguais
+            quantidade: 1,
+            pesoUnitario: item.peso,
+            precoUnitario: item.preco,
+            peso: item.peso, // peso total
+            preco: item.preco  // preço total
+        };
+        inventario[local].push(novoItem);
+    }
+    
+    renderizarInventario();
+    atualizarInterface();
+    triggerAutoSave();
+}
+
+// ============================================
 // FUNÇÕES DAS TABELAS DE ITENS
 // ============================================
 function renderizarTabelas(tab = 'armas_ca') {
@@ -6640,16 +6678,8 @@ function comprarItem(item) {
     dinheiro -= preco;
     atualizarDinheiroDisplay();
     
-    const novoItem = {
-        ...item,
-        id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        quantidade: 1
-    };
-    
-    if (!inventario.deposito) inventario.deposito = [];
-    inventario.deposito.push(novoItem);
-    
-    renderizarInventario();
+    // Usa a nova função auxiliar para adicionar com quantidade
+    adicionarItemAoInventario(item, 'deposito');
 }
 
 // ============================================
@@ -6670,7 +6700,7 @@ function renderizarInventario() {
                     ${item.quantidade > 1 ? ` (x${item.quantidade})` : ''}
                 </div>
                 <div class="item-detalhes">
-                    <span class="item-peso">${(item.peso * (item.quantidade || 1)).toFixed(1)} kg</span>
+                    <span class="item-peso">${(item.peso).toFixed(1)} kg</span>
                     <span class="item-preco">${item.preco} $</span>
                 </div>
                 <div class="item-acoes">
@@ -6803,14 +6833,22 @@ function venderItem(itemId, local) {
     const index = inventario[local].findIndex(i => i.id === itemId);
     if (index !== -1) {
         const item = inventario[local][index];
-        const valorVenda = Math.floor(item.preco * 0.5 * (item.quantidade || 1));
+        
+        // Vende APENAS 1 unidade por vez (50% do valor unitário)
+        const valorVenda = Math.floor(item.precoUnitario * 0.5);
         dinheiro += valorVenda;
         atualizarDinheiroDisplay();
         
-        if (item.quantidade > 1) {
-            item.quantidade--;
-        } else {
+        // Diminui a quantidade
+        item.quantidade--;
+        
+        if (item.quantidade === 0) {
+            // Remove o item se acabou
             inventario[local].splice(index, 1);
+        } else {
+            // Atualiza peso e preço total
+            item.peso = item.pesoUnitario * item.quantidade;
+            item.preco = item.precoUnitario * item.quantidade;
         }
         
         renderizarInventario();
@@ -6824,11 +6862,19 @@ function descartarItem(itemId, local) {
     const index = inventario[local].findIndex(i => i.id === itemId);
     if (index !== -1) {
         const item = inventario[local][index];
-        if (item.quantidade > 1) {
-            item.quantidade--;
-        } else {
+        
+        // Descarta APENAS 1 unidade por vez
+        item.quantidade--;
+        
+        if (item.quantidade === 0) {
+            // Remove o item se acabou
             inventario[local].splice(index, 1);
+        } else {
+            // Atualiza peso e preço total
+            item.peso = item.pesoUnitario * item.quantidade;
+            item.preco = item.precoUnitario * item.quantidade;
         }
+        
         renderizarInventario();
         atualizarInterface();
         triggerAutoSave();
@@ -6836,18 +6882,62 @@ function descartarItem(itemId, local) {
 }
 
 // ============================================
+// CÁLCULO DE CARGA (VERSÃO CORRIGIDA PARA QUANTIDADES)
+// ============================================
+function calcularCarga() {
+    let pesoTotal = 0;
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            pesoTotal += item.peso;
+        });
+    }
+    if (inventario.mochila && inventario.mochila.length > 0) {
+        inventario.mochila.forEach(item => {
+            pesoTotal += item.peso;
+        });
+    }
+    const st = getSTFixo();
+    const limites = {
+        leve: st * 2,
+        medio: st * 4,
+        pesado: st * 8,
+        limite: st * 12
+    };
+    let nivel = 'leve';
+    let penalidadeEsquiva = 0;
+    let reducaoDeslocamento = 0;
+    if (pesoTotal > limites.pesado) {
+        nivel = 'limite';
+        penalidadeEsquiva = 15;
+        reducaoDeslocamento = 3;
+    } else if (pesoTotal > limites.medio) {
+        nivel = 'pesado';
+        penalidadeEsquiva = 10;
+        reducaoDeslocamento = 2;
+    } else if (pesoTotal > limites.leve) {
+        nivel = 'medio';
+        penalidadeEsquiva = 5;
+        reducaoDeslocamento = 1;
+    }
+    return {
+        pesoTotal,
+        nivel,
+        penalidadeEsquiva,
+        reducaoDeslocamento,
+        limites
+    };
+}
+// ============================================
 // ATUALIZAR INTERFACE
 // ============================================
 function atualizarArmaEquipada() {
     if (!elements.armaNome || !elements.armaDano) return;
-    
     let arma = null;
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
             if (item.dano) arma = item;
         });
     }
-    
     if (arma) {
         elements.armaNome.textContent = arma.nome;
         elements.armaDano.textContent = arma.dano;
@@ -6856,7 +6946,6 @@ function atualizarArmaEquipada() {
         elements.armaDano.textContent = '-';
     }
 }
-
 function calcularRD() {
     let rd = getRDExtra();
     if (inventario.corpo && inventario.corpo.length > 0) {
@@ -6867,51 +6956,39 @@ function calcularRD() {
     if (elements.rdTotal) elements.rdTotal.textContent = rd;
     return rd;
 }
-
 function atualizarInterface() {
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
     if (elements.stFixo) elements.stFixo.textContent = getSTFixo();
     if (elements.stPercentual) elements.stPercentual.textContent = getSTPercentual() + '%';
-    
     if (elements.dxValor) elements.dxValor.textContent = getDXFixo();
     if (elements.dxFixo) elements.dxFixo.textContent = getDXFixo();
     if (elements.dxPercentual) elements.dxPercentual.textContent = getDXPercentual() + '%';
-    
     if (elements.iqValor) elements.iqValor.textContent = getIQFixo();
     if (elements.iqFixo) elements.iqFixo.textContent = getIQFixo();
     if (elements.iqPercentual) elements.iqPercentual.textContent = getIQPercentual() + '%';
-    
     if (elements.vigorValor) elements.vigorValor.textContent = getVIGORFixo();
     if (elements.vigorFixo) elements.vigorFixo.textContent = getVIGORFixo();
     if (elements.vigorPercentual) elements.vigorPercentual.textContent = getVIGORPercentual() + '%';
-    
     if (elements.vtValor) elements.vtValor.textContent = getVTFixo();
-    
     if (elements.esferasRestantesSpan) {
         elements.esferasRestantesSpan.textContent = esferasRestantes;
     }
-    
     if (elements.nivelPersonagemSpan) {
         elements.nivelPersonagemSpan.textContent = calcularNivel();
     }
-    
     const danoBase = calcularDanoBase();
     if (elements.stDano) elements.stDano.textContent = danoBase;
     if (elements.statusDano) elements.statusDano.textContent = danoBase;
-    
     const pv = calcularPV();
     const pf = calcularPF();
     const pm = calcularPM();
-    
     if (elements.statusPV) elements.statusPV.textContent = pv;
     if (elements.statusPF) elements.statusPF.textContent = pf;
     if (elements.statusPM) elements.statusPM.textContent = pm;
     if (elements.combatePV) elements.combatePV.textContent = pv;
     if (elements.combatePF) elements.combatePF.textContent = pf;
     if (elements.combatePM) elements.combatePM.textContent = pm;
-    
     if (elements.vtVida) elements.vtVida.textContent = `PV ${pv}`;
-    
     if (elements.defesaEsquiva) {
         elements.defesaEsquiva.textContent = calcularEsquiva() + '%';
     }
@@ -6921,19 +6998,16 @@ function atualizarInterface() {
     if (elements.defesaBloqueio) {
         elements.defesaBloqueio.textContent = calcularBloqueio() + '%';
     }
-    
     const desloc = calcularDeslocamento();
     const carga = calcularCarga();
     const andarFinal = Math.max(1, desloc.andar - carga.reducaoDeslocamento);
     const correrFinal = Math.max(3, desloc.correr - (carga.reducaoDeslocamento * 3));
-    
     if (elements.deslocamentoAndar) {
         elements.deslocamentoAndar.textContent = andarFinal.toFixed(1);
     }
     if (elements.deslocamentoCorrer) {
         elements.deslocamentoCorrer.textContent = correrFinal.toFixed(1);
     }
-    
     if (elements.cargaAtual) {
         elements.cargaAtual.textContent = carga.pesoTotal.toFixed(1);
     }
@@ -6948,12 +7022,9 @@ function atualizarInterface() {
         elements.cargaNivel.textContent = carga.nivel.charAt(0).toUpperCase() + carga.nivel.slice(1);
         elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
     }
-    
     atualizarArmaEquipada();
     calcularRD();
     atualizarContadoresAbas();
-    
-    // NOVAS FUNÇÕES
     atualizarReacaoSocial();
     atualizarSaldoDisplay();
     atualizarAparenciaRiquezaDisplay();
@@ -8049,9 +8120,9 @@ async function exportarPDF() {
                         local: 'Equipado',
                         quantidade: item.quantidade || 1
                     });
-                    totalItens++;
-                    valorTotal += (item.preco || 0) * (item.quantidade || 1);
-                    pesoTotal += (item.peso || 0) * (item.quantidade || 1);
+                    totalItens += item.quantidade || 1;
+                    valorTotal += item.preco || 0;
+                    pesoTotal += item.peso || 0;
                 });
             }
             if (inventario.mochila && inventario.mochila.length > 0) {
@@ -8061,9 +8132,9 @@ async function exportarPDF() {
                         local: 'Mochila',
                         quantidade: item.quantidade || 1
                     });
-                    totalItens++;
-                    valorTotal += (item.preco || 0) * (item.quantidade || 1);
-                    pesoTotal += (item.peso || 0) * (item.quantidade || 1);
+                    totalItens += item.quantidade || 1;
+                    valorTotal += item.preco || 0;
+                    pesoTotal += item.peso || 0;
                 });
             }
             if (inventario.deposito && inventario.deposito.length > 0) {
@@ -8073,9 +8144,9 @@ async function exportarPDF() {
                         local: 'Depósito',
                         quantidade: item.quantidade || 1
                     });
-                    totalItens++;
-                    valorTotal += (item.preco || 0) * (item.quantidade || 1);
-                    pesoTotal += (item.peso || 0) * (item.quantidade || 1);
+                    totalItens += item.quantidade || 1;
+                    valorTotal += item.preco || 0;
+                    pesoTotal += item.peso || 0;
                 });
             }
         }
@@ -8148,7 +8219,7 @@ async function exportarPDF() {
                     }
                     
                     yPos += 4;
-                    pdf.text(`   Peso: ${(item.peso * item.quantidade).toFixed(1)} kg | Valor: $${(item.preco * item.quantidade)}`, marginLeft + 5, yPos);
+                    pdf.text(`   Peso: ${item.peso.toFixed(1)} kg | Valor: $${item.preco}`, marginLeft + 5, yPos);
                     
                     yPos += 6;
                 });
