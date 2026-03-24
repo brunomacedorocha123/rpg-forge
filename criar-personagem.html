@@ -2321,7 +2321,6 @@ body {
 
         <div class="abas-container">
             <button class="aba ativa" data-aba="basicos"><i class="fas fa-user"></i> Dados Básicos</button>
-            <button class="aba" data-aba="combate"><i class="fas fa-shield-alt"></i> Combate</button>
             <button class="aba" data-aba="vantagens"><i class="fas fa-star"></i> Vantagens <span class="contador" id="contadorVantagensAba">0/3</span></button>
             <button class="aba" data-aba="desvantagens"><i class="fas fa-skull"></i> Desvantagens <span class="contador" id="contadorDesvantagensAba">0/4</span></button>
             <button class="aba" data-aba="pericias"><i class="fas fa-brain"></i> Especialidade <span class="contador" id="contadorPericiasAba">0 PP</span></button>
@@ -6129,6 +6128,42 @@ function getRDExtra() {
 }
 
 // ============================================
+// REAÇÃO SOCIAL E SALDO (NOVAS FUNÇÕES)
+// ============================================
+function atualizarReacaoSocial() {
+    let reacao = 0;
+    
+    // Aparência
+    const aparencia = document.getElementById('aparencia')?.value;
+    if (aparencia === 'atraente') reacao += 10;
+    else if (aparencia === 'feio') reacao -= 5;
+    
+    // Carisma (vantagem)
+    if (vantagensSelecionadas.has('carisma')) reacao += 5;
+    
+    // Riqueza
+    const riqueza = document.getElementById('riqueza')?.value;
+    if (riqueza === 'rico') reacao += 5;
+    else if (riqueza === 'pobre') reacao -= 10;
+    
+    // Atualizar display
+    const display = document.getElementById('reacaoSocialDisplay');
+    if (display) {
+        const sinal = reacao >= 0 ? '+' : '';
+        display.textContent = `${sinal}${reacao}%`;
+    }
+    
+    return reacao;
+}
+
+function atualizarSaldoDisplay() {
+    const saldoDisplay = document.getElementById('dinheiroSaldoDisplay');
+    if (saldoDisplay) {
+        saldoDisplay.textContent = dinheiro + ' $';
+    }
+}
+
+// ============================================
 // TABELA DE DANO
 // ============================================
 const tabelaDano = {
@@ -6848,6 +6883,10 @@ function atualizarInterface() {
     atualizarArmaEquipada();
     calcularRD();
     atualizarContadoresAbas();
+    
+    // NOVAS FUNÇÕES ADICIONADAS
+    atualizarReacaoSocial();
+    atualizarSaldoDisplay();
 }
 
 function atualizarArmaEquipada() {
@@ -7135,8 +7174,8 @@ function mudarEscola(escolaId) {
     if (elements.conteudoCorpo) elements.conteudoCorpo.style.display = escolaId === 'corpo' ? 'block' : 'none';
     if (elements.conteudoNatureza) elements.conteudoNatureza.style.display = escolaId === 'natureza' ? 'block' : 'none';
     if (elements.conteudoTrevas) elements.conteudoTrevas.style.display = escolaId === 'trevas' ? 'block' : 'none';
-    if (elements.conteudoLuz) elements.conteudoLuz.style.display = escolaId === 'luz' ? 'block' : 'none';  // NOVO
-    if (elements.conteudoAnimais) elements.conteudoAnimais.style.display = escolaId === 'animais' ? 'block' : 'none';  // NOVO
+    if (elements.conteudoLuz) elements.conteudoLuz.style.display = escolaId === 'luz' ? 'block' : 'none';
+    if (elements.conteudoAnimais) elements.conteudoAnimais.style.display = escolaId === 'animais' ? 'block' : 'none';
 
     renderizarEsferas(escolaId);
 }
@@ -7205,26 +7244,19 @@ function renderizarEsferas(escolaId = escolaAtual) {
         `;
     });
     
-    // Limpar o grid e adicionar novo HTML
     gridElement.innerHTML = html;
     
-  
-    
-    // Remover listeners antigos se existirem (usando uma flag)
     if (gridElement._hasListeners) {
         gridElement.removeEventListener('click', handleEsferaClick);
     }
     
-    // Adicionar um único listener de delegação para todo o grid
     gridElement.addEventListener('click', handleEsferaClick);
     gridElement._hasListeners = true;
 }
 
-// Handler unificado para cliques nas esferas
 function handleEsferaClick(e) {
     const target = e.target;
     
-    // Botão de comprar esfera
     if (target.classList.contains('btn-comprar-esfera')) {
         e.stopPropagation();
         const escolaId = target.dataset.escola;
@@ -7249,7 +7281,6 @@ function handleEsferaClick(e) {
         return;
     }
     
-    // Botão de detalhe da magia
     if (target.classList.contains('btn-detalhe')) {
         e.stopPropagation();
         const card = target.closest('.esfera-card');
@@ -7263,7 +7294,6 @@ function handleEsferaClick(e) {
         return;
     }
     
-    // Clique no card da esfera (para abrir detalhe)
     const card = target.closest('.esfera-card');
     if (card && card.classList.contains('desbloqueada')) {
         const escolaId = card.dataset.escola;
@@ -7360,17 +7390,17 @@ function selecionarVantagem(card) {
     }
     
     if (vantagemId === 'aptidaoMagica') {
-    renderizarEsferas('agua');
-    renderizarEsferas('ar');
-    renderizarEsferas('gelo');
-    renderizarEsferas('fogo');
-    renderizarEsferas('terra');
-    renderizarEsferas('corpo');
-    renderizarEsferas('natureza'); 
-    renderizarEsferas('trevas');
-    renderizarEsferas('luz');      
-    renderizarEsferas('animais'); 
-}
+        renderizarEsferas('agua');
+        renderizarEsferas('ar');
+        renderizarEsferas('gelo');
+        renderizarEsferas('fogo');
+        renderizarEsferas('terra');
+        renderizarEsferas('corpo');
+        renderizarEsferas('natureza'); 
+        renderizarEsferas('trevas');
+        renderizarEsferas('luz');      
+        renderizarEsferas('animais'); 
+    }
     
     if (vantagemId === 'corpoResistente') {
         calcularRD();
@@ -7464,6 +7494,7 @@ function calcularDinheiroInicial() {
 
 function atualizarDinheiroDisplay() {
     if (elements.dinheiroSaldo) elements.dinheiroSaldo.textContent = dinheiro;
+    atualizarSaldoDisplay();
 }
 
 // ============================================
@@ -7535,7 +7566,6 @@ function mudarAba(abaId) {
         renderizarCatalogoPericias('todas');
         renderizarPericiasAdquiridas();
     } else if (abaId === 'magias') {
-        // Limpar grids antes de renderizar
         if (elements.esferasGridAgua) elements.esferasGridAgua.innerHTML = '';
         if (elements.esferasGridAr) elements.esferasGridAr.innerHTML = '';
         if (elements.esferasGridGelo) elements.esferasGridGelo.innerHTML = '';
@@ -7547,7 +7577,6 @@ function mudarAba(abaId) {
         if (elements.esferasGridLuz) elements.esferasGridLuz.innerHTML = '';
         if (elements.esferasGridAnimais) elements.esferasGridAnimais.innerHTML = '';
         
-        // Renderizar todas as escolas
         renderizarEsferas('agua');
         renderizarEsferas('ar');
         renderizarEsferas('gelo');
@@ -7748,7 +7777,7 @@ async function salvarRascunho() {
 }
 
 // ============================================
-// EXPORTAÇÃO PDF (ATUALIZADO COM EQUIPAMENTOS E ESCOLA DO CORPO)
+// EXPORTAÇÃO PDF
 // ============================================
 async function exportarPDF() {
     try {
@@ -7949,9 +7978,6 @@ async function exportarPDF() {
             yPos += (periciasArray.length * 5) + 5;
         }
         
-        // ============================================
-        // SEÇÃO: EQUIPAMENTOS
-        // ============================================
         if (yPos > pageHeight - 80) {
             pdf.addPage();
             yPos = 20;
@@ -7962,12 +7988,10 @@ async function exportarPDF() {
         pdf.text('Equipamentos', marginLeft, yPos);
         yPos += 7;
         
-        // Calcular total de itens e valor total
         let totalItens = 0;
         let valorTotal = 0;
         let pesoTotal = 0;
         
-        // Coletar itens do inventário
         const inventarioCompleto = [];
         const dinheiroAtual = document.getElementById('dinheiroSaldo')?.textContent || '0';
         
@@ -8010,7 +8034,6 @@ async function exportarPDF() {
             }
         }
         
-        // Resumo financeiro
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
         pdf.text('Resumo Financeiro', marginLeft, yPos);
@@ -8030,12 +8053,10 @@ async function exportarPDF() {
             pdf.text('Nenhum item no inventário.', marginLeft, yPos);
             yPos += 8;
         } else {
-            // Separar itens por local
             const itensEquipados = inventarioCompleto.filter(i => i.local === 'Equipado');
             const itensMochila = inventarioCompleto.filter(i => i.local === 'Mochila');
             const itensDeposito = inventarioCompleto.filter(i => i.local === 'Depósito');
             
-            // Função para listar itens de uma categoria
             const listarItensCategoria = (itens, titulo) => {
                 if (itens.length === 0) return;
                 
@@ -8062,7 +8083,6 @@ async function exportarPDF() {
                     let textoItem = `• ${item.nome}`;
                     if (item.quantidade > 1) textoItem += ` (x${item.quantidade})`;
                     
-                    // Adicionar detalhes do item
                     const detalhes = [];
                     if (item.dano) detalhes.push(`Dano: ${item.dano}`);
                     if (item.rd) detalhes.push(`RD: ${item.rd}`);
@@ -8081,7 +8101,6 @@ async function exportarPDF() {
                         pdf.setFontSize(9);
                     }
                     
-                    // Mostrar peso e valor
                     yPos += 4;
                     pdf.text(`   Peso: ${(item.peso * item.quantidade).toFixed(1)} kg | Valor: $${(item.preco * item.quantidade)}`, marginLeft + 5, yPos);
                     
@@ -8091,15 +8110,11 @@ async function exportarPDF() {
                 yPos += 2;
             };
             
-            // Listar itens em ordem: Equipados, Mochila, Depósito
             listarItensCategoria(itensEquipados, '➤ Equipados no Corpo:');
             listarItensCategoria(itensMochila, '➤ Na Mochila:');
             listarItensCategoria(itensDeposito, '➤ No Depósito:');
         }
         
-        // ============================================
-        // SEÇÃO: MAGIAS (ATUALIZADA COM ESCOLA DO CORPO)
-        // ============================================
         let temMagias = false;
         for (const [escolaId, escola] of Object.entries(escolas)) {
             const magiasDesbloqueadas = Object.entries(escola.magias).filter(([_, m]) => m.desbloqueada);
@@ -8258,19 +8273,18 @@ async function carregarPersonagem(id) {
             renderizarPericiasAdquiridas();
         }
         
-        // ===== ATUALIZADO: Carregar todas as escolas =====
-       if (data.escolas) {
-    if (data.escolas.agua) escolas.agua = data.escolas.agua;
-    if (data.escolas.ar) escolas.ar = data.escolas.ar;
-    if (data.escolas.gelo) escolas.gelo = data.escolas.gelo;
-    if (data.escolas.fogo) escolas.fogo = data.escolas.fogo;
-    if (data.escolas.terra) escolas.terra = data.escolas.terra;
-    if (data.escolas.corpo) escolas.corpo = data.escolas.corpo;
-    if (data.escolas.natureza) escolas.natureza = data.escolas.natureza;
-    if (data.escolas.trevas) escolas.trevas = data.escolas.trevas;
-    if (data.escolas.luz) escolas.luz = data.escolas.luz;
-    if (data.escolas.animais) escolas.animais = data.escolas.animais;
-}
+        if (data.escolas) {
+            if (data.escolas.agua) escolas.agua = data.escolas.agua;
+            if (data.escolas.ar) escolas.ar = data.escolas.ar;
+            if (data.escolas.gelo) escolas.gelo = data.escolas.gelo;
+            if (data.escolas.fogo) escolas.fogo = data.escolas.fogo;
+            if (data.escolas.terra) escolas.terra = data.escolas.terra;
+            if (data.escolas.corpo) escolas.corpo = data.escolas.corpo;
+            if (data.escolas.natureza) escolas.natureza = data.escolas.natureza;
+            if (data.escolas.trevas) escolas.trevas = data.escolas.trevas;
+            if (data.escolas.luz) escolas.luz = data.escolas.luz;
+            if (data.escolas.animais) escolas.animais = data.escolas.animais;
+        }
         
         if (data.inventario) {
             inventario = data.inventario;
@@ -8393,19 +8407,18 @@ function carregarDadosSalvos() {
                 renderizarInventario();
             }
             
-            // ===== ATUALIZADO: Carregar todas as escolas do temp =====
-           if (personagemTemp.escolas) {
-    if (personagemTemp.escolas.agua) escolas.agua = personagemTemp.escolas.agua;
-    if (personagemTemp.escolas.ar) escolas.ar = personagemTemp.escolas.ar;
-    if (personagemTemp.escolas.gelo) escolas.gelo = personagemTemp.escolas.gelo;
-    if (personagemTemp.escolas.fogo) escolas.fogo = personagemTemp.escolas.fogo;
-    if (personagemTemp.escolas.terra) escolas.terra = personagemTemp.escolas.terra;
-    if (personagemTemp.escolas.corpo) escolas.corpo = personagemTemp.escolas.corpo;
-    if (personagemTemp.escolas.natureza) escolas.natureza = personagemTemp.escolas.natureza;
-    if (personagemTemp.escolas.trevas) escolas.trevas = personagemTemp.escolas.trevas;
-    if (personagemTemp.escolas.luz) escolas.luz = personagemTemp.escolas.luz;
-    if (personagemTemp.escolas.animais) escolas.animais = personagemTemp.escolas.animais;
-}
+            if (personagemTemp.escolas) {
+                if (personagemTemp.escolas.agua) escolas.agua = personagemTemp.escolas.agua;
+                if (personagemTemp.escolas.ar) escolas.ar = personagemTemp.escolas.ar;
+                if (personagemTemp.escolas.gelo) escolas.gelo = personagemTemp.escolas.gelo;
+                if (personagemTemp.escolas.fogo) escolas.fogo = personagemTemp.escolas.fogo;
+                if (personagemTemp.escolas.terra) escolas.terra = personagemTemp.escolas.terra;
+                if (personagemTemp.escolas.corpo) escolas.corpo = personagemTemp.escolas.corpo;
+                if (personagemTemp.escolas.natureza) escolas.natureza = personagemTemp.escolas.natureza;
+                if (personagemTemp.escolas.trevas) escolas.trevas = personagemTemp.escolas.trevas;
+                if (personagemTemp.escolas.luz) escolas.luz = personagemTemp.escolas.luz;
+                if (personagemTemp.escolas.animais) escolas.animais = personagemTemp.escolas.animais;
+            }
             
             if (personagemTemp.dinheiro !== undefined) {
                 dinheiro = personagemTemp.dinheiro;
@@ -8588,17 +8601,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     carregarDadosSalvos();
                 }
                 
-              // Renderizar todas as escolas
-renderizarEsferas('agua');
-renderizarEsferas('ar');
-renderizarEsferas('gelo');
-renderizarEsferas('fogo');
-renderizarEsferas('terra');
-renderizarEsferas('corpo');
-renderizarEsferas('natureza');
-renderizarEsferas('trevas');
-renderizarEsferas('luz');
-renderizarEsferas('animais');
+                renderizarEsferas('agua');
+                renderizarEsferas('ar');
+                renderizarEsferas('gelo');
+                renderizarEsferas('fogo');
+                renderizarEsferas('terra');
+                renderizarEsferas('corpo');
+                renderizarEsferas('natureza');
+                renderizarEsferas('trevas');
+                renderizarEsferas('luz');
+                renderizarEsferas('animais');
                 
             } catch (error) {}
         } else {
