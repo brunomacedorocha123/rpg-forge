@@ -6060,22 +6060,16 @@ function getResistenciaMagia() {
     return Math.min(90, resistencia);
 }
 
-// ===== NOVAS FUNÇÕES PARA BÔNUS DE APARÊNCIA E RIQUEZA =====
+// ===== FUNÇÕES PARA APARÊNCIA E RIQUEZA (AUTOMÁTICAS) =====
 function getAparencia() {
-    // Primeiro verifica se tem vantagem Atraente
     if (vantagensSelecionadas.has('atraente')) return 'atraente';
-    // Depois verifica se tem desvantagem Feio
     if (desvantagensSelecionadas.has('feio')) return 'feio';
-    // Se não tiver nenhum, retorna normal
     return 'normal';
 }
 
 function getRiqueza() {
-    // Primeiro verifica se tem vantagem Rico
     if (vantagensSelecionadas.has('rico')) return 'rico';
-    // Depois verifica se tem desvantagem Pobre
     if (desvantagensSelecionadas.has('pobre')) return 'pobre';
-    // Se não tiver nenhum, retorna medio
     return 'medio';
 }
 
@@ -6084,14 +6078,11 @@ function getBonusReacao() {
     const aparencia = getAparencia();
     const riqueza = getRiqueza();
     
-    // Bônus da aparência (baseado nas vantagens/desvantagens)
     if (aparencia === 'atraente') bonus += 10;
     else if (aparencia === 'feio') bonus -= 5;
     
-    // Bônus do carisma
     if (vantagensSelecionadas.has('carisma')) bonus += 5;
     
-    // Bônus da riqueza (baseado nas vantagens/desvantagens)
     if (riqueza === 'rico') bonus += 5;
     else if (riqueza === 'pobre') bonus -= 10;
     
@@ -6100,17 +6091,14 @@ function getBonusReacao() {
 
 function getBonusPericia(periciaId) {
     let bonus = 0;
-    
     const aparencia = getAparencia();
     const riqueza = getRiqueza();
     
-    // ===== BÔNUS DO ATRAENTE =====
     if (aparencia === 'atraente') {
         if (periciaId === 'persuasao') bonus += 3;
         if (periciaId === 'sociabilidade') bonus += 3;
     }
     
-    // ===== BÔNUS DO CARISMA =====
     if (vantagensSelecionadas.has('carisma')) {
         if (periciaId === 'persuasao') bonus += 3;
         if (periciaId === 'sociabilidade') bonus += 3;
@@ -6118,17 +6106,14 @@ function getBonusPericia(periciaId) {
         if (periciaId === 'oratoria') bonus += 2;
     }
     
-    // ===== BÔNUS DA RIQUEZA =====
     if (riqueza === 'rico' && periciaId === 'sociabilidade') bonus += 5;
     else if (riqueza === 'pobre' && periciaId === 'sociabilidade') bonus -= 10;
     
-    // ===== BÔNUS DA ORIENTAÇÃO DO EXPLORADOR =====
     if (vantagensSelecionadas.has('orientacaoExplorador')) {
         if (periciaId === 'sobrevivencia') bonus += 5;
         if (periciaId === 'rastreamento') bonus += 3;
     }
     
-    // ===== BÔNUS MÃOS RÁPIDAS =====
     if (vantagensSelecionadas.has('maosRapidas')) {
         if (periciaId === 'furtar') bonus += 5;
         if (periciaId === 'arrombamento') bonus += 5;
@@ -6159,20 +6144,16 @@ function getRDExtra() {
 function atualizarReacaoSocial() {
     let reacao = 0;
     
-    // Aparência (baseada nas vantagens/desvantagens)
     const aparencia = getAparencia();
     if (aparencia === 'atraente') reacao += 10;
     else if (aparencia === 'feio') reacao -= 5;
     
-    // Carisma (vantagem)
     if (vantagensSelecionadas.has('carisma')) reacao += 5;
     
-    // Riqueza (baseada nas vantagens/desvantagens)
     const riqueza = getRiqueza();
     if (riqueza === 'rico') reacao += 5;
     else if (riqueza === 'pobre') reacao -= 10;
     
-    // Atualizar display
     const display = document.getElementById('reacaoSocialDisplay');
     if (display) {
         const sinal = reacao >= 0 ? '+' : '';
@@ -6196,7 +6177,6 @@ function atualizarAparenciaRiquezaDisplay() {
     const aparencia = getAparencia();
     const riqueza = getRiqueza();
     
-    // Atualizar display da aparência
     if (aparenciaDisplay) {
         let texto = '';
         let cor = '#ffd700';
@@ -6214,7 +6194,6 @@ function atualizarAparenciaRiquezaDisplay() {
         aparenciaDisplay.style.color = cor;
     }
     
-    // Atualizar display da riqueza
     if (riquezaDisplay) {
         let texto = '';
         let cor = '#ffd700';
@@ -6232,6 +6211,7 @@ function atualizarAparenciaRiquezaDisplay() {
         riquezaDisplay.style.color = cor;
     }
 }
+
 // ============================================
 // TABELA DE DANO
 // ============================================
@@ -6868,6 +6848,36 @@ function descartarItem(itemId, local) {
 // ============================================
 // ATUALIZAR INTERFACE
 // ============================================
+function atualizarArmaEquipada() {
+    if (!elements.armaNome || !elements.armaDano) return;
+    
+    let arma = null;
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            if (item.dano) arma = item;
+        });
+    }
+    
+    if (arma) {
+        elements.armaNome.textContent = arma.nome;
+        elements.armaDano.textContent = arma.dano;
+    } else {
+        elements.armaNome.textContent = 'Nenhuma';
+        elements.armaDano.textContent = '-';
+    }
+}
+
+function calcularRD() {
+    let rd = getRDExtra();
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            if (item.rd) rd += item.rd;
+        });
+    }
+    if (elements.rdTotal) elements.rdTotal.textContent = rd;
+    return rd;
+}
+
 function atualizarInterface() {
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
     if (elements.stFixo) elements.stFixo.textContent = getSTFixo();
@@ -6953,10 +6963,10 @@ function atualizarInterface() {
     calcularRD();
     atualizarContadoresAbas();
     
-    // NOVAS FUNÇÕES ADICIONADAS
+    // NOVAS FUNÇÕES
     atualizarReacaoSocial();
     atualizarSaldoDisplay();
-    atualizarAparenciaRiquezaDisplay();  // <--- LINHA ADICIONADA
+    atualizarAparenciaRiquezaDisplay();
 }
 
 // ============================================
@@ -7001,10 +7011,8 @@ function renderizarPericiasAdquiridas() {
         else if (pericia.atributo === 'iq') atributoBase = getIQPercentual();
         
         let bonusExtra = getBonusPericia(id);
-        
         const nh = atributoBase + bonus + bonusExtra;
         
-        // Montar string de origem dos bônus
         let origemBonus = '';
         if (bonusExtra > 0) {
             const fontes = [];
@@ -7052,11 +7060,7 @@ function renderizarPericiasAdquiridas() {
 
 function calcularCustoPericia(nivel) {
     const tabelaCustos = {
-        1: 2,   
-        2: 6,   
-        3: 10,  
-        4: 16,  
-        5: 24  
+        1: 2, 2: 6, 3: 10, 4: 16, 5: 24
     };
     return tabelaCustos[nivel] || 0;
 }
@@ -7221,7 +7225,7 @@ function mudarEscola(escolaId) {
 }
 
 // ============================================
-// MAGIAS - RENDERIZAR ESFERAS POR ESCOLA (CORRIGIDO)
+// MAGIAS - RENDERIZAR ESFERAS POR ESCOLA
 // ============================================
 function renderizarEsferas(escolaId = escolaAtual) {
     const escola = escolas[escolaId];
@@ -7390,7 +7394,7 @@ function abrirDetalheMagia(escolaId, magiaId) {
             <td>${nhNivel}%</td>
             <td>${custoNivel} PM</td>
             <td>${tempoNivel}</td>
-        </tr>`;
+         </tr>`;
     }
     
     if (elements.corpoTabelaDetalhe) {
@@ -7407,7 +7411,7 @@ function abrirDetalheMagia(escolaId, magiaId) {
 }
 
 // ============================================
-// VANTAGENS E DESVANTAGENS - CORRIGIDO
+// VANTAGENS E DESVANTAGENS
 // ============================================
 function selecionarVantagem(card) {
     const vantagemId = card.dataset.vantagem;
@@ -7450,6 +7454,10 @@ function selecionarVantagem(card) {
     atualizarLimitesCards();
     atualizarInterface();
     renderizarPericiasAdquiridas(); 
+    
+    atualizarAparenciaRiquezaDisplay();
+    atualizarReacaoSocial();
+    
     triggerAutoSave();
 }
 
@@ -7477,6 +7485,10 @@ function selecionarDesvantagem(card) {
     atualizarLimitesCards();
     atualizarInterface();
     renderizarPericiasAdquiridas(); 
+    
+    atualizarAparenciaRiquezaDisplay();
+    atualizarReacaoSocial();
+    
     triggerAutoSave();
 }
 
@@ -7506,13 +7518,17 @@ function resetarInventarioPorRiqueza() {
             atualizarDinheiroDisplay();
             renderizarInventario();
             atualizarInterface();
+            atualizarAparenciaRiquezaDisplay();
             triggerAutoSave();
         } else {
-            document.getElementById('riqueza').value = personagemTemp?.riqueza || 'medio';
+            dinheiro = calcularDinheiroInicial();
+            atualizarDinheiroDisplay();
+            atualizarAparenciaRiquezaDisplay();
         }
     } else {
         dinheiro = calcularDinheiroInicial();
         atualizarDinheiroDisplay();
+        atualizarAparenciaRiquezaDisplay();
         triggerAutoSave();
     }
 }
@@ -7523,11 +7539,9 @@ function resetarInventarioPorRiqueza() {
 function calcularDinheiroInicial() {
     const base = parseInt(elements.dinheiroBaseInput?.value) || 1000;
     
-    // Primeiro verifica vantagem Rico
     if (vantagensSelecionadas.has('rico')) {
         return base * 5;
     }
-    // Depois verifica desvantagem Pobre
     if (desvantagensSelecionadas.has('pobre')) {
         return Math.floor(base / 2);
     }
@@ -7570,7 +7584,6 @@ function atualizarContadoresAbas() {
     Object.values(escolas).forEach(escola => {
         totalMagias += Object.values(escola.magias).filter(m => m.desbloqueada).length;
     });
-    
     
     if (elements.contadorMagiasAba) {
         elements.contadorMagiasAba.textContent = `${totalMagias}/67`;
@@ -7653,9 +7666,8 @@ function coletarDadosBasicos() {
         idade: parseInt(document.getElementById('idadePersonagem')?.value) || 25,
         altura: parseInt(document.getElementById('alturaPersonagem')?.value) || 170,
         peso: parseFloat(document.getElementById('pesoPersonagem')?.value) || 70,
-        // AGORA PEGA DAS VANTAGENS/DESVANTAGENS AUTOMATICAMENTE
-        aparencia: getAparencia(),  // <- MUDOU: agora usa a função
-        riqueza: getRiqueza(),       // <- MUDOU: agora usa a função
+        aparencia: getAparencia(),
+        riqueza: getRiqueza(),
         dinheiroBase: parseInt(elements.dinheiroBaseInput?.value) || 1000,
         peculiaridades: document.getElementById('peculiaridades')?.value || '',
         fotoURL: elements.previewImage?.src || ''
@@ -8240,7 +8252,6 @@ async function carregarPersonagem(id) {
         personagemId = id;
         modoEdicao = true;
         
-        // Carregar campos básicos
         document.getElementById('nomePersonagem').value = data.nome || '';
         document.getElementById('classePersonagem').value = data.classe || 'guerreiro';
         document.getElementById('idadePersonagem').value = data.idade || 25;
@@ -8248,9 +8259,6 @@ async function carregarPersonagem(id) {
         document.getElementById('pesoPersonagem').value = data.peso || 70;
         document.getElementById('dinheiroBase').value = data.dinheiroBase || 1000;
         document.getElementById('peculiaridades').value = data.peculiaridades || '';
-        
-        // NOTA: aparencia e riqueza NÃO são mais carregadas via selects
-        // Elas serão calculadas automaticamente pelas vantagens/desvantagens
         
         if (data.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
             elements.previewImage.src = data.fotoURL;
@@ -8388,9 +8396,6 @@ function carregarDadosSalvos() {
             document.getElementById('pesoPersonagem').value = personagemTemp.peso || 70;
             document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase || 1000;
             document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
-            
-            // NOTA: aparencia e riqueza NÃO são mais carregadas via selects
-            // Elas serão calculadas automaticamente pelas vantagens/desvantagens
             
             if (personagemTemp.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
                 elements.previewImage.src = personagemTemp.fotoURL;
@@ -8594,8 +8599,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // REMOVIDO: eventos dos selects aparencia e riqueza (não existem mais)
-    
     document.querySelectorAll('.subaba').forEach(subaba => {
         subaba.addEventListener('click', () => {
             mudarEscola(subaba.dataset.escola);
@@ -8640,7 +8643,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // REMOVIDO: aparencia e riqueza do array de camposAutoSave
     const camposAutoSave = [
         'nomePersonagem', 'classePersonagem', 'idadePersonagem', 'alturaPersonagem',
         'pesoPersonagem', 'dinheiroBase', 'peculiaridades'
