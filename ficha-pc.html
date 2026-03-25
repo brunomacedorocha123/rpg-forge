@@ -5144,7 +5144,7 @@ function acumularItem(destino, novoItem, quantidade) {
     const itemExistente = itens.find(i => 
         i.nome === novoItem.nome && 
         i.tipo === novoItem.tipo &&
-        !i.dano && !i.bonus && !i.rd // só acumula itens não equipáveis (consumíveis/utilidades)
+        !i.dano && !i.bonus && !i.rd
     );
     
     if (itemExistente) {
@@ -5262,11 +5262,9 @@ window.confirmarCompra = async function() {
         }
         if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
         
-        // Se for consumível ou item geral, acumula
         if (itemCompraAtual.consumivel || categoriaCompraAtual === 'itens') {
             acumularItem('deposito', novoItem, quantidade);
         } else {
-            // Itens equipáveis vão um por um
             for (let i = 0; i < quantidade; i++) {
                 const itemCopia = { ...novoItem, id: novoItem.id + '_' + i };
                 personagemAtual.inventario.deposito.push(itemCopia);
@@ -5350,14 +5348,12 @@ window.confirmarTransferir = async function() {
     
     try {
         if (quantidade === quantidadeMax) {
-            // Transferir todos
             const index = personagemAtual.inventario[origemTransferirAtual].findIndex(i => i.id === itemTransferirAtual.id);
             if (index !== -1) {
                 personagemAtual.inventario[origemTransferirAtual].splice(index, 1);
             }
             personagemAtual.inventario[destinoTransferirAtual].push(itemTransferirAtual);
         } else {
-            // Transferir apenas parte
             itemTransferirAtual.quantidade -= quantidade;
             
             const itemClone = {
@@ -5386,54 +5382,38 @@ window.confirmarTransferir = async function() {
     }
 };
 
-// ABRIR MODAL DE USAR ITEM
-window.abrirModalUsar = function(itemId, local) {
-    const item = personagemAtual?.inventario?.[local]?.find(i => i.id === itemId);
-    if (!item) return;
+// USAR ITEM (DIRETO, SEM MODAL, SEM EFEITO)
+window.usarItem = async function(itemId, local) {
+    if (!personagemAtual || !currentUser) return;
+    
+    const itemIndex = personagemAtual.inventario[local].findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return;
+    
+    const item = personagemAtual.inventario[local][itemIndex];
     
     if (!item.consumivel) {
         showToast('Este item não pode ser usado!', true);
         return;
     }
     
-    itemUsarAtual = item;
-    localUsarAtual = local;
-    
-    const modal = elements.modalUsarItem;
-    if (!modal) return;
-    
-    const titulo = document.getElementById('modalUsarTitulo');
-    const descricao = elements.modalUsarDescricao;
-    const efeitoDiv = elements.modalUsarEfeito;
-    
-    if (titulo) titulo.textContent = `Usar ${item.nome}`;
-    if (descricao) {
-        descricao.innerHTML = `
-            <div style="text-align: center;">
-                <i class="fas fa-box-open" style="font-size: 32px; color: #ffd700; margin-bottom: 10px; display: block;"></i>
-                Você tem <strong style="color: #ffd700;">${item.quantidade || 1}</strong> unidade(s) de ${item.nome}.
-            </div>
-        `;
+    try {
+        const quantidadeAtual = item.quantidade || 1;
+        if (quantidadeAtual > 1) {
+            item.quantidade = quantidadeAtual - 1;
+        } else {
+            personagemAtual.inventario[local].splice(itemIndex, 1);
+        }
+        
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario
+        });
+        
+        renderizarFicha();
+        
+    } catch (error) {
+        showToast('Erro ao usar item', true);
     }
-    
-    let efeitoTexto = '';
-    if (item.nome === 'Ração') {
-        efeitoTexto = '<i class="fas fa-heartbeat"></i> Recupera 1d3 PF';
-    } else if (item.nome === 'Kit primeiros socorros') {
-        efeitoTexto = '<i class="fas fa-heart"></i> Cura 1d6 PV';
-    } else if (item.nome === 'Poção de Cura') {
-        efeitoTexto = '<i class="fas fa-heart"></i> Cura 2d6+2 PV';
-    } else if (item.nome === 'Antídoto') {
-        efeitoTexto = '<i class="fas fa-skull"></i> Remove veneno';
-    } else if (item.nome === 'Tocha') {
-        efeitoTexto = '<i class="fas fa-fire"></i> Ilumina por 1 hora';
-    } else {
-        efeitoTexto = item.efeito || 'Item consumível';
-    }
-    
-    if (efeitoDiv) efeitoDiv.innerHTML = `<div style="font-size: 16px;">${efeitoTexto}</div>`;
-    
-    modal.classList.add('active');
 };
 
 // CONFIRMAR USAR ITEM
@@ -6070,7 +6050,7 @@ function renderizarInventario() {
                     
                     <div class="item-acoes">
                         ${item.consumivel ? `
-                            <button class="btn-item" onclick="window.abrirModalUsar('${item.id}', '${local}')" ${quebrado ? 'disabled' : ''}>
+                            <button class="btn-item" onclick="window.usarItem('${item.id}', '${local}')" ${quebrado ? 'disabled' : ''}>
                                 <i class="fas fa-utensils"></i> Usar
                             </button>
                         ` : ''}
