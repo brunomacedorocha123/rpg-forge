@@ -5243,8 +5243,7 @@ window.confirmarCompra = async function() {
                    (categoriaCompraAtual === 'armaduras' ? 'armadura' : 'item')),
             preco: itemCompraAtual.preco,
             peso: itemCompraAtual.peso,
-            consumivel: itemCompraAtual.consumivel || false,
-            efeito: itemCompraAtual.efeito || ''
+            consumivel: itemCompraAtual.consumivel || false
         };
         
         if (itemCompraAtual.dano) novoItem.dano = itemCompraAtual.dano;
@@ -5282,7 +5281,7 @@ window.confirmarCompra = async function() {
         if (elements.modalCompraQuantidade) elements.modalCompraQuantidade.classList.remove('active');
         renderizarFicha();
         renderizarLoja(categoriaCompraAtual);
-        showToast(`${quantidade}x ${itemCompraAtual.nome} comprado por $${precoTotal}!`);
+        showToast(`${quantidade}x ${itemCompraAtual.nome} comprado!`);
         
         itemCompraAtual = null;
         categoriaCompraAtual = null;
@@ -5382,7 +5381,7 @@ window.confirmarTransferir = async function() {
     }
 };
 
-// USAR ITEM (DIRETO, SEM MODAL, SEM EFEITO)
+// USAR ITEM - APENAS CONSUME, SEM EFEITO
 window.usarItem = async function(itemId, local) {
     if (!personagemAtual || !currentUser) return;
     
@@ -5410,102 +5409,6 @@ window.usarItem = async function(itemId, local) {
         });
         
         renderizarFicha();
-        
-    } catch (error) {
-        showToast('Erro ao usar item', true);
-    }
-};
-
-// CONFIRMAR USAR ITEM
-window.confirmarUsarItem = async function() {
-    if (!itemUsarAtual || !localUsarAtual) return;
-    
-    const item = itemUsarAtual;
-    const local = localUsarAtual;
-    
-    let mensagem = '';
-    let valorRecuperado = 0;
-    
-    try {
-        // Aplicar efeito baseado no item
-        if (item.nome === 'Ração') {
-            valorRecuperado = Math.floor(Math.random() * 3) + 1; // 1d3
-            const pfAtual = personagemAtual.statusCombate?.fadigaAtual || 0;
-            const pfMax = calcularPF();
-            const novoPf = Math.min(pfMax, pfAtual + valorRecuperado);
-            
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                'statusCombate.fadigaAtual': novoPf
-            });
-            personagemAtual.statusCombate.fadigaAtual = novoPf;
-            
-            mensagem = `Recuperou ${valorRecuperado} PF!`;
-            
-        } else if (item.nome === 'Kit primeiros socorros') {
-            valorRecuperado = Math.floor(Math.random() * 6) + 1; // 1d6
-            const pvAtual = personagemAtual.statusCombate?.vidaAtual || 0;
-            const pvMax = calcularPV();
-            const novoPv = Math.min(pvMax, pvAtual + valorRecuperado);
-            
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                'statusCombate.vidaAtual': novoPv
-            });
-            personagemAtual.statusCombate.vidaAtual = novoPv;
-            
-            mensagem = `Recuperou ${valorRecuperado} PV!`;
-            
-        } else if (item.nome === 'Poção de Cura') {
-            valorRecuperado = Math.floor(Math.random() * 12) + 3; // 2d6+2
-            const pvAtual = personagemAtual.statusCombate?.vidaAtual || 0;
-            const pvMax = calcularPV();
-            const novoPv = Math.min(pvMax, pvAtual + valorRecuperado);
-            
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                'statusCombate.vidaAtual': novoPv
-            });
-            personagemAtual.statusCombate.vidaAtual = novoPv;
-            
-            mensagem = `Recuperou ${valorRecuperado} PV!`;
-            
-        } else if (item.nome === 'Antídoto') {
-            const personagemRef = doc(db, "personagens", personagemAtual.id);
-            await updateDoc(personagemRef, {
-                'statusCombate.envenenado': false
-            });
-            personagemAtual.statusCombate.envenenado = false;
-            mensagem = 'Veneno removido!';
-            
-        } else if (item.nome === 'Tocha') {
-            mensagem = 'Tocha acesa! Ilumina por 1 hora.';
-        } else {
-            mensagem = `Usou ${item.nome}!`;
-        }
-        
-        // Diminuir quantidade do item
-        const itemIndex = personagemAtual.inventario[local].findIndex(i => i.id === item.id);
-        if (itemIndex !== -1) {
-            const quantidadeAtual = personagemAtual.inventario[local][itemIndex].quantidade || 1;
-            if (quantidadeAtual > 1) {
-                personagemAtual.inventario[local][itemIndex].quantidade = quantidadeAtual - 1;
-            } else {
-                personagemAtual.inventario[local].splice(itemIndex, 1);
-            }
-        }
-        
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, {
-            inventario: personagemAtual.inventario
-        });
-        
-        if (elements.modalUsarItem) elements.modalUsarItem.classList.remove('active');
-        renderizarFicha();
-        showToast(`${item.nome} consumido! ${mensagem}`);
-        
-        itemUsarAtual = null;
-        localUsarAtual = null;
         
     } catch (error) {
         showToast('Erro ao usar item', true);
@@ -6054,12 +5957,8 @@ function renderizarInventario() {
                                 <i class="fas fa-utensils"></i> Usar
                             </button>
                         ` : ''}
-                        ${local !== 'deposito' && (quantidade > 1 || !item.consumivel) ? `
+                        ${local !== 'deposito' ? `
                             <button class="btn-item" onclick="window.abrirModalTransferir('${item.id}', '${local}', 'deposito')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-arrow-right"></i> Depositar
-                            </button>
-                        ` : local !== 'deposito' && quantidade === 1 && item.consumivel ? `
-                            <button class="btn-item" onclick="window.moverItem('${item.id}', '${local}', 'deposito')" ${quebrado ? 'disabled' : ''}>
                                 <i class="fas fa-arrow-right"></i> Depositar
                             </button>
                         ` : ''}
@@ -6326,7 +6225,6 @@ function renderizarLoja(categoria = 'armas') {
                     ${item.aparar ? `<span><i class="fas fa-hand"></i> Aparar ${item.aparar}</span>` : ''}
                     <span><i class="fas fa-weight-hanging"></i> ${item.peso} kg</span>
                     ${item.pv ? `<span><i class="fas fa-heartbeat"></i> PV ${item.pv}</span>` : ''}
-                    ${item.consumivel && item.efeito ? `<span><i class="fas fa-magic"></i> ${item.efeito}</span>` : ''}
                 </div>
                 
                 <div class="loja-item-acoes">
@@ -6598,12 +6496,12 @@ window.abrirModalMagia = function(escola, magiaId) {
         const tempo = dados.tempoConjuracao;
         
         linhas += `<tr class="${classe}">
-            <td>${i}</td>
-            <td>${efeito}</td>
-            <td>${nh}%</td>
-            <td>${custoPM} PM</td>
-            <td>${tempo}</td>
-        </tr>`;
+             <td>${i}</td>
+             <td>${efeito}</td>
+             <td>${nh}%</td>
+             <td>${custoPM} PM</td>
+             <td>${tempo}</td>
+         </tr>`;
     }
     if (elements.tabelaMagia) elements.tabelaMagia.innerHTML = linhas;
     
@@ -6675,7 +6573,7 @@ window.venderItem = async function(itemId, local) {
         });
         renderizarInventario();
         renderizarFicha();
-        showToast(`${quantidade}x ${item.nome} vendido por $${valorVenda}!`);
+        showToast(`${quantidade}x ${item.nome} vendido!`);
     } catch (error) {
         showToast('Erro ao vender', true);
     }
@@ -7009,7 +6907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (elements.modalCriarItem) elements.modalCriarItem.classList.remove('active');
                 renderizarInventario();
                 renderizarFicha();
-                showToast(`Item "${nome}" criado com sucesso!`);
+                showToast(`Item "${nome}" criado!`);
                 
             } catch (error) {
                 showToast('Erro ao criar item', true);
@@ -7269,17 +7167,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (elements.confirmarModalTransferir) {
         elements.confirmarModalTransferir.addEventListener('click', window.confirmarTransferir);
-    }
-    
-    if (elements.fecharModalUsar) {
-        elements.fecharModalUsar.addEventListener('click', () => {
-            if (elements.modalUsarItem) elements.modalUsarItem.classList.remove('active');
-            itemUsarAtual = null;
-        });
-    }
-    
-    if (elements.confirmarModalUsar) {
-        elements.confirmarModalUsar.addEventListener('click', window.confirmarUsarItem);
     }
 
     if (elements.btnSair) {
