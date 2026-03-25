@@ -1787,6 +1787,32 @@
 #cargaTotal {
     color: #14141f !important;
 }
+
+/* Melhorias para inputs numéricos nos modais */
+#modalQuantidadeValor, #modalTransferirValor {
+    font-size: 16px;
+    text-align: center;
+    font-weight: 600;
+}
+
+#modalQuantidadeValor:focus, #modalTransferirValor:focus {
+    outline: none;
+    border-color: #ffd700;
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+}
+
+/* Ajuste para responsividade dos modais */
+@media (max-width: 480px) {
+    .modal-content {
+        width: 90%;
+        padding: 16px;
+    }
+    
+    #modalQuantidadeValor, #modalTransferirValor {
+        font-size: 14px;
+        padding: 8px;
+    }
+}
     </style>
 </head>
 <body>
@@ -1826,6 +1852,40 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL DE QUANTIDADE PARA COMPRA -->
+<div class="modal" id="modalQuantidadeCompra">
+    <div class="modal-content" style="max-width: 400px;">
+        <h3 id="modalQuantidadeTitulo" style="color: #ffd700;">Comprar Item</h3>
+        <div id="modalQuantidadeInfo"></div>
+        <div style="margin: 20px 0;">
+            <label style="color: #a0a0b0;">Quantidade:</label>
+            <input type="number" id="modalQuantidadeValor" min="1" value="1" 
+                   style="width: 100%; background: #242434; color: #ffd700; border: 1px solid #ffd700; border-radius: 8px; padding: 10px; margin-top: 5px;">
+        </div>
+        <div class="modal-botoes">
+            <button class="btn-modal secundario" id="fecharModalQuantidade">Cancelar</button>
+            <button class="btn-modal primario" id="confirmarModalQuantidade">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE QUANTIDADE PARA TRANSFERÊNCIA -->
+<div class="modal" id="modalQuantidadeTransferir">
+    <div class="modal-content" style="max-width: 400px;">
+        <h3 id="modalTransferirTitulo" style="color: #ffd700;">Transferir Item</h3>
+        <div id="modalTransferirInfo"></div>
+        <div style="margin: 20px 0;">
+            <label style="color: #a0a0b0;">Quantidade:</label>
+            <input type="number" id="modalTransferirValor" min="1" value="1" 
+                   style="width: 100%; background: #242434; color: #ffd700; border: 1px solid #ffd700; border-radius: 8px; padding: 10px; margin-top: 5px;">
+        </div>
+        <div class="modal-botoes">
+            <button class="btn-modal secundario" id="fecharModalTransferir">Cancelar</button>
+            <button class="btn-modal primario" id="confirmarModalTransferir">Confirmar</button>
+        </div>
+    </div>
+</div>
 
     <div class="modal" id="modalGanharEsfera">
         <div class="modal-content" style="text-align: center;">
@@ -2622,7 +2682,21 @@ const elements = {
     modalMagiaComprar: document.getElementById('modalMagiaComprar'),
     modalMagiaFechar: document.getElementById('modalMagiaFechar'),
     breadcrumbCampanha: document.getElementById('breadcrumbCampanha'),
-    linkCampanha: document.getElementById('linkCampanha')
+    linkCampanha: document.getElementById('linkCampanha'),
+    
+    // ===== NOVOS MODAIS PARA QUANTIDADE =====
+    modalQuantidadeCompra: document.getElementById('modalQuantidadeCompra'),
+    modalQuantidadeTransferir: document.getElementById('modalQuantidadeTransferir'),
+    modalQuantidadeTitulo: document.getElementById('modalQuantidadeTitulo'),
+    modalQuantidadeInfo: document.getElementById('modalQuantidadeInfo'),
+    modalQuantidadeValor: document.getElementById('modalQuantidadeValor'),
+    fecharModalQuantidade: document.getElementById('fecharModalQuantidade'),
+    confirmarModalQuantidade: document.getElementById('confirmarModalQuantidade'),
+    modalTransferirTitulo: document.getElementById('modalTransferirTitulo'),
+    modalTransferirInfo: document.getElementById('modalTransferirInfo'),
+    modalTransferirValor: document.getElementById('modalTransferirValor'),
+    fecharModalTransferir: document.getElementById('fecharModalTransferir'),
+    confirmarModalTransferir: document.getElementById('confirmarModalTransferir')
 };
 
 // ============================================
@@ -2639,6 +2713,13 @@ let esferaPendente = false;
 let escolaAtual = 'agua';
 let abaMagiaAtual = 'minhas';
 let unsubscribePersonagem = null;
+
+// ===== NOVAS VARIÁVEIS PARA QUANTIDADE =====
+let itemCompraAtual = null;        
+let categoriaCompraAtual = null;  
+let itemTransferirAtual = null;    
+let origemTransferirAtual = null;  
+let destinoTransferirAtual = null; 
 
 // ============================================
 // TABELA DE DANO
@@ -4594,6 +4675,7 @@ const catalogoEquipamentos = {
         { id: "espada_longa", nome: "Espada Longa", tipo: "arma", dano: "1d+1", aparar: "0", rd: 5, pv: 800, preco: 250, peso: 2.0, st: 7 },
         { id: "foice", nome: "Foice de Guerra", tipo: "arma", dano: "1d+2", aparar: "-5", rd: 4, pv: 720, preco: 200, peso: 2.5, st: 8 },
         { id: "machado", nome: "Machado", tipo: "arma", dano: "1d+2", aparar: "-10", rd: 6, pv: 880, preco: 150, peso: 2.5, st: 8 },
+        { id: "katana", nome: "Katana", tipo: "arma", dano: "1d+2", aparar: "0", rd: 5, pv: 180, preco: 300, peso: 1.5, st: 7 },
         { id: "maca", nome: "Maça", tipo: "arma", dano: "1d+1", aparar: "-10", rd: 6, pv: 840, preco: 120, peso: 2.0, st: 8 },
         { id: "mangual", nome: "Mangual", tipo: "arma", dano: "1d+2", aparar: "--", rd: 7, pv: 1120, preco: 150, peso: 2.5, st: 8 },
         { id: "martelo", nome: "Martelo", tipo: "arma", dano: "1d+2", aparar: "-10", rd: 7, pv: 1000, preco: 180, peso: 3.0, st: 9 },
@@ -4628,7 +4710,6 @@ const catalogoEquipamentos = {
         { id: 'kit_socorros', nome: 'Kit primeiros socorros', especificacao: '', preco: 50, peso: 1.0 }
     ]
 };
-
 // ============================================
 // FUNÇÕES UTILITÁRIAS
 // ============================================
@@ -4707,6 +4788,15 @@ function getBonusPericia(periciaId) {
     if (personagemAtual?.vantagens?.includes('maosRapidas')) {
         if (periciaId === 'furtar') bonus += 5;
         if (periciaId === 'arrombamento') bonus += 5;
+    }
+    
+    if (personagemAtual?.desvantagens?.includes('caolho')) {
+        if (periciaId === 'rastreamento' || periciaId === 'sobrevivencia' || periciaId === 'detectarMentira') {
+            bonus -= 5;
+        }
+        if (periciaId === 'arco' || periciaId === 'besta' || periciaId === 'arremesso') {
+            bonus -= 5;
+        }
     }
     
     return bonus;
@@ -4866,6 +4956,9 @@ function calcularCarga() {
     if (personagemAtual?.inventario?.mochila) {
         personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
+    if (personagemAtual?.inventario?.deposito) {
+        personagemAtual.inventario.deposito.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    }
     return pesoTotal;
 }
 
@@ -4934,7 +5027,301 @@ function atualizarDisplayPP() {
 }
 
 // ============================================
-// FUNÇÕES DE RENDERIZAÇÃO
+// FUNÇÃO PARA UNIFICAR ITENS IGUAIS
+// ============================================
+function adicionarItemAoInventario(item, local, quantidade) {
+    if (!personagemAtual.inventario[local]) {
+        personagemAtual.inventario[local] = [];
+    }
+    
+    // Verificar se já existe item igual (mesmo nome, tipo, e características)
+    const itemExistente = personagemAtual.inventario[local].find(i => 
+        i.nome === item.nome && 
+        i.tipo === item.tipo &&
+        i.dano === item.dano &&
+        i.rd === item.rd &&
+        i.bonus === item.bonus &&
+        i.st === item.st &&
+        i.aparar === item.aparar &&
+        i.pv === item.pv
+    );
+    
+    if (itemExistente) {
+        // Se já existe, apenas soma a quantidade
+        itemExistente.quantidade = (itemExistente.quantidade || 1) + quantidade;
+        return itemExistente;
+    } else {
+        // Se não existe, cria novo item
+        const novoItem = {
+            ...item,
+            id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            quantidade: quantidade
+        };
+        personagemAtual.inventario[local].push(novoItem);
+        return novoItem;
+    }
+}
+
+// ============================================
+// FUNÇÕES DE TRANSFERÊNCIA PARCIAL
+// ============================================
+function abrirModalTransferirQuantidade(item, origem, destino) {
+    itemTransferirAtual = item;
+    origemTransferirAtual = origem;
+    destinoTransferirAtual = destino;
+    
+    const quantidadeMax = item.quantidade || 1;
+    
+    if (elements.modalTransferirTitulo) {
+        elements.modalTransferirTitulo.textContent = `Transferir ${item.nome}`;
+    }
+    
+    if (elements.modalTransferirInfo) {
+        elements.modalTransferirInfo.innerHTML = `
+            <div style="background: #242434; padding: 10px; border-radius: 8px; margin: 10px 0;">
+                <div>Disponível: <strong style="color: #ffd700;">${quantidadeMax}</strong> unidade(s)</div>
+                <div>Peso por unidade: <strong>${item.peso} kg</strong></div>
+                <div>Peso total: <strong id="pesoTransferirTotal">${item.peso} kg</strong></div>
+            </div>
+        `;
+    }
+    
+    if (elements.modalTransferirValor) {
+        elements.modalTransferirValor.max = quantidadeMax;
+        elements.modalTransferirValor.value = 1;
+        
+        // Atualizar peso total quando mudar quantidade
+        elements.modalTransferirValor.oninput = () => {
+            const qtd = parseInt(elements.modalTransferirValor.value) || 0;
+            const pesoTotal = qtd * item.peso;
+            const pesoEl = document.getElementById('pesoTransferirTotal');
+            if (pesoEl) pesoEl.textContent = pesoTotal.toFixed(1) + ' kg';
+        };
+    }
+    
+    if (elements.modalQuantidadeTransferir) {
+        elements.modalQuantidadeTransferir.classList.add('active');
+    }
+}
+
+async function confirmarTransferirQuantidade() {
+    if (!itemTransferirAtual || !origemTransferirAtual || !destinoTransferirAtual) return;
+    
+    const quantidade = parseInt(elements.modalTransferirValor?.value) || 0;
+    const quantidadeMax = itemTransferirAtual.quantidade || 1;
+    
+    if (quantidade <= 0 || quantidade > quantidadeMax) {
+        showToast('Quantidade inválida!', true);
+        return;
+    }
+    
+    const origemArray = personagemAtual.inventario[origemTransferirAtual];
+    const index = origemArray.findIndex(i => i.id === itemTransferirAtual.id);
+    
+    if (index === -1) return;
+    
+    const item = origemArray[index];
+    
+    if (quantidade === quantidadeMax) {
+        // Se transferir tudo, move o item inteiro
+        origemArray.splice(index, 1);
+        adicionarItemAoInventario(item, destinoTransferirAtual, quantidade);
+    } else {
+        // Se transferir parcial, reduz quantidade no original e cria novo no destino
+        item.quantidade = quantidadeMax - quantidade;
+        
+        const novoItem = { ...item };
+        delete novoItem.id;
+        novoItem.id = item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        adicionarItemAoInventario(novoItem, destinoTransferirAtual, quantidade);
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario
+        });
+        
+        if (elements.modalQuantidadeTransferir) {
+            elements.modalQuantidadeTransferir.classList.remove('active');
+        }
+        
+        renderizarInventario();
+        renderizarFicha();
+        showToast(`${quantidade}x ${item.nome} transferido(s)!`);
+        
+        // Limpar variáveis
+        itemTransferirAtual = null;
+        origemTransferirAtual = null;
+        destinoTransferirAtual = null;
+        
+    } catch (error) {
+        showToast('Erro ao transferir item', true);
+    }
+}
+
+// ============================================
+// FUNÇÕES DE USAR ITEM
+// ============================================
+window.usarItem = async function(itemId, local) {
+    if (!personagemAtual || !currentUser) return;
+    
+    const localArray = personagemAtual.inventario[local];
+    const index = localArray.findIndex(i => i.id === itemId);
+    
+    if (index === -1) return;
+    
+    const item = localArray[index];
+    const quantidade = item.quantidade || 1;
+    
+    // Verificar se é um item consumível (não é arma, nem armadura, nem escudo)
+    const isConsumivel = !item.dano && !item.rd && !item.bonus;
+    
+    if (!isConsumivel) {
+        showToast('Este item não pode ser usado!', true);
+        return;
+    }
+    
+    // Aplicar efeito do item (por enquanto só mensagem)
+    let efeitoMsg = '';
+    if (item.nome.toLowerCase().includes('ração')) {
+        efeitoMsg = 'Você comeu uma ração.';
+    } else if (item.nome.toLowerCase().includes('poção') || item.nome.toLowerCase().includes('pocao')) {
+        efeitoMsg = 'Você bebeu uma poção.';
+    } else {
+        efeitoMsg = `Você usou ${item.nome}.`;
+    }
+    
+    if (quantidade === 1) {
+        // Se for a última unidade, remove o item
+        localArray.splice(index, 1);
+    } else {
+        // Se tiver mais de uma, reduz a quantidade
+        item.quantidade = quantidade - 1;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario
+        });
+        
+        renderizarInventario();
+        renderizarFicha();
+        showToast(`${efeitoMsg} Restam ${quantidade - 1} unidade(s).`);
+        
+    } catch (error) {
+        showToast('Erro ao usar item', true);
+    }
+};
+
+// ============================================
+// FUNÇÃO DE COMPRA COM QUANTIDADE (MODIFICADA)
+// ============================================
+function abrirModalQuantidadeCompra(item, categoria) {
+    itemCompraAtual = item;
+    categoriaCompraAtual = categoria;
+    
+    if (elements.modalQuantidadeTitulo) {
+        elements.modalQuantidadeTitulo.textContent = `Comprar ${item.nome}`;
+    }
+    
+    const precoUnitario = item.preco;
+    const pesoUnitario = item.peso;
+    
+    if (elements.modalQuantidadeInfo) {
+        elements.modalQuantidadeInfo.innerHTML = `
+            <div style="background: #242434; padding: 10px; border-radius: 8px; margin: 10px 0;">
+                <div>Preço unitário: <strong style="color: #ffd700;">$${precoUnitario}</strong></div>
+                <div>Peso por unidade: <strong>${pesoUnitario} kg</strong></div>
+                <div>Preço total: <strong style="color: #ffd700;" id="precoTotalCompra">$${precoUnitario}</strong></div>
+                <div>Peso total: <strong id="pesoTotalCompra">${pesoUnitario} kg</strong></div>
+            </div>
+        `;
+    }
+    
+    if (elements.modalQuantidadeValor) {
+        elements.modalQuantidadeValor.value = 1;
+        elements.modalQuantidadeValor.min = 1;
+        
+        // Atualizar preço e peso quando mudar quantidade
+        elements.modalQuantidadeValor.oninput = () => {
+            const qtd = parseInt(elements.modalQuantidadeValor.value) || 0;
+            const precoTotal = qtd * precoUnitario;
+            const pesoTotal = qtd * pesoUnitario;
+            
+            const precoEl = document.getElementById('precoTotalCompra');
+            const pesoEl = document.getElementById('pesoTotalCompra');
+            
+            if (precoEl) precoEl.textContent = `$${precoTotal}`;
+            if (pesoEl) pesoEl.textContent = `${pesoTotal.toFixed(1)} kg`;
+        };
+    }
+    
+    if (elements.modalQuantidadeCompra) {
+        elements.modalQuantidadeCompra.classList.add('active');
+    }
+}
+
+async function confirmarCompraQuantidade() {
+    if (!itemCompraAtual || !categoriaCompraAtual) return;
+    
+    const quantidade = parseInt(elements.modalQuantidadeValor?.value) || 1;
+    const precoUnitario = itemCompraAtual.preco;
+    const precoTotal = precoUnitario * quantidade;
+    
+    if (personagemAtual.dinheiro < precoTotal) {
+        showToast(`Dinheiro insuficiente! Você tem $${personagemAtual.dinheiro}, precisa de $${precoTotal}`, true);
+        return;
+    }
+    
+    try {
+        const novoItem = {
+            nome: itemCompraAtual.nome,
+            tipo: categoriaCompraAtual === 'armas' ? 'arma' : (categoriaCompraAtual === 'escudos' ? 'escudo' : 'armadura'),
+            preco: precoUnitario,
+            peso: itemCompraAtual.peso,
+        };
+        
+        if (itemCompraAtual.dano) novoItem.dano = itemCompraAtual.dano;
+        if (itemCompraAtual.rd) novoItem.rd = itemCompraAtual.rd;
+        if (itemCompraAtual.bonus) novoItem.bonus = itemCompraAtual.bonus;
+        if (itemCompraAtual.st) novoItem.st = itemCompraAtual.st;
+        if (itemCompraAtual.aparar) novoItem.aparar = itemCompraAtual.aparar;
+        if (itemCompraAtual.pv) {
+            novoItem.pv = itemCompraAtual.pv;
+            novoItem.pvAtual = itemCompraAtual.pv;
+        }
+        
+        // Usar a função unificada para adicionar ao inventário
+        adicionarItemAoInventario(novoItem, 'deposito', quantidade);
+        personagemAtual.dinheiro -= precoTotal;
+        
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario,
+            dinheiro: personagemAtual.dinheiro
+        });
+        
+        if (elements.modalQuantidadeCompra) {
+            elements.modalQuantidadeCompra.classList.remove('active');
+        }
+        
+        renderizarFicha();
+        renderizarLoja(categoriaCompraAtual);
+        showToast(`${quantidade}x ${itemCompraAtual.nome} comprado(s) por $${precoTotal}!`);
+        
+        // Limpar variáveis
+        itemCompraAtual = null;
+        categoriaCompraAtual = null;
+        
+    } catch (error) {
+        showToast('Erro ao comprar item', true);
+    }
+}
+
+// ============================================
+// FUNÇÕES DE RENDERIZAÇÃO (MODIFICADAS)
 // ============================================
 function renderizarFicha() {
     if (!personagemAtual) return;
@@ -5094,6 +5481,16 @@ function renderizarFicha() {
             let nomeD = d;
             if (d.startsWith('fobia:')) {
                 nomeD = 'Fobia: ' + d.replace('fobia:', '');
+            } else if (d.startsWith('codigoHonra:')) {
+                const codigosMap = {
+                    'cavaleiro': 'Código do Cavaleiro',
+                    'ladrao': 'Código do Ladrão',
+                    'mercenario': 'Código do Mercenário',
+                    'samurai': 'Código do Samurai',
+                    'justiceiro': 'Código do Justiceiro'
+                };
+                const codigoId = d.replace('codigoHonra:', '');
+                nomeD = codigosMap[codigoId] || 'Código de Honra';
             } else {
                 nomeD = d.charAt(0).toUpperCase() + d.slice(1).replace(/([A-Z])/g, ' $1').trim();
             }
@@ -5404,6 +5801,9 @@ function renderizarCatalogoMagias(escola) {
     container.innerHTML = html;
 }
 
+// ============================================
+// RENDERIZAR INVENTÁRIO (MODIFICADO COM BOTÃO USAR)
+// ============================================
 function renderizarInventario() {
     const renderizarLista = (itens, local) => {
         if (!itens || itens.length === 0) {
@@ -5419,6 +5819,9 @@ function renderizarInventario() {
             const pvMax = item.pv || 0;
             const percentualPV = pvMax > 0 ? (pvAtual / pvMax) * 100 : 0;
             const quebrado = pvAtual === 0 && temPV;
+            
+            // Verificar se é consumível (não é arma, armadura ou escudo)
+            const isConsumivel = !item.dano && !item.rd && !item.bonus;
             
             return `
                 <div class="item-card">
@@ -5459,10 +5862,11 @@ function renderizarInventario() {
                     ` : ''}
                     
                     <div class="item-acoes">
-                        ${local !== 'deposito' ? `<button class="btn-item" onclick="window.moverItem('${item.id}', '${local}', 'deposito')" ${quebrado ? 'disabled' : ''}><i class="fas fa-arrow-right"></i> Depositar</button>` : ''}
+                        ${isConsumivel ? `<button class="btn-item" onclick="window.usarItem('${item.id}', '${local}')" ${quebrado ? 'disabled' : ''}><i class="fas fa-play"></i> Usar</button>` : ''}
+                        ${local !== 'deposito' ? `<button class="btn-item" onclick="window.abrirModalTransferencia('${item.id}', '${local}', 'deposito')" ${quebrado ? 'disabled' : ''}><i class="fas fa-arrow-right"></i> Depositar</button>` : ''}
                         ${local === 'mochila' ? `<button class="btn-item" onclick="window.equiparItem('${item.id}')" ${quebrado ? 'disabled' : ''}><i class="fas fa-user"></i> Equipar</button>` : ''}
                         ${local === 'corpo' ? `<button class="btn-item" onclick="window.guardarItem('${item.id}')" ${quebrado ? 'disabled' : ''}><i class="fas fa-shopping-bag"></i> Guardar</button>` : ''}
-                        ${local === 'deposito' ? `<button class="btn-item" onclick="window.pegarItem('${item.id}')" ${quebrado ? 'disabled' : ''}><i class="fas fa-arrow-left"></i> Pegar</button>` : ''}
+                        ${local === 'deposito' ? `<button class="btn-item" onclick="window.abrirModalTransferencia('${item.id}', '${local}', 'mochila')" ${quebrado ? 'disabled' : ''}><i class="fas fa-arrow-left"></i> Pegar</button>` : ''}
                         <button class="btn-item" onclick="window.venderItem('${item.id}', '${local}')" ${quebrado ? 'disabled' : ''}><i class="fas fa-coins"></i> Vender</button>
                         <button class="btn-item" onclick="window.excluirItem('${item.id}', '${local}')"><i class="fas fa-trash"></i> Excluir</button>
                     </div>
@@ -5661,56 +6065,8 @@ window.comprarMagia = async function(escola, magiaId) {
     }
 };
 
-window.comprarEquipamento = async function(item, categoria) {
-    if (!personagemAtual || !currentUser) return;
-    
-    if (personagemAtual.dinheiro < item.preco) {
-        showToast('Dinheiro insuficiente!', true);
-        return;
-    }
-    
-    try {
-        const novoItem = {
-            id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            nome: item.nome,
-            tipo: item.tipo,
-            preco: item.preco,
-            peso: item.peso,
-            quantidade: 1
-        };
-        
-        if (item.dano) novoItem.dano = item.dano;
-        if (item.rd) novoItem.rd = item.rd;
-        if (item.bonus) novoItem.bonus = item.bonus;
-        if (item.st) novoItem.st = item.st;
-        if (item.aparar) novoItem.aparar = item.aparar;
-        if (item.pv) {
-            novoItem.pv = item.pv;
-            novoItem.pvAtual = item.pv; 
-        }
-        
-        if (!personagemAtual.inventario) personagemAtual.inventario = { deposito: [], mochila: [], corpo: [] };
-        if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
-        
-        personagemAtual.inventario.deposito.push(novoItem);
-        personagemAtual.dinheiro -= item.preco;
-        
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, {
-            inventario: personagemAtual.inventario,
-            dinheiro: personagemAtual.dinheiro
-        });
-        
-        renderizarFicha();
-        showToast(`${item.nome} comprado!`);
-        
-    } catch (error) {
-        showToast('Erro ao comprar', true);
-    }
-};
-
 // ============================================
-// FUNÇÕES DA LOJA
+// FUNÇÕES DA LOJA (MODIFICADAS)
 // ============================================
 function renderizarLoja(categoria = 'armas') {
     const container = document.getElementById('lojaItensContainer');
@@ -5782,49 +6138,50 @@ window.comprarItemLoja = async function(categoria, itemId) {
     
     if (!item) return;
     
-    if (personagemAtual.dinheiro < item.preco) {
-        showToast(`Dinheiro insuficiente! Você tem $${personagemAtual.dinheiro}`, true);
-        return;
-    }
-    
-    try {
-        const novoItem = {
-            id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-            nome: item.nome,
-            tipo: categoria === 'armas' ? 'arma' : (categoria === 'escudos' ? 'escudo' : 'armadura'),
-            preco: item.preco,
-            peso: item.peso,
-            quantidade: 1
-        };
-        
-        if (item.dano) novoItem.dano = item.dano;
-        if (item.rd) novoItem.rd = item.rd;
-        if (item.bonus) novoItem.bonus = item.bonus;
-        if (item.st) novoItem.st = item.st;
-        if (item.aparar) novoItem.aparar = item.aparar;
-        if (item.pv) {
-            novoItem.pv = item.pv;
-            novoItem.pvAtual = item.pv;
+    // Abrir modal de quantidade para itens gerais (consumíveis)
+    if (categoria === 'itens') {
+        abrirModalQuantidadeCompra(item, categoria);
+    } else {
+        // Para armas, armaduras e escudos, comprar 1 unidade
+        if (personagemAtual.dinheiro < item.preco) {
+            showToast(`Dinheiro insuficiente! Você tem $${personagemAtual.dinheiro}`, true);
+            return;
         }
         
-        if (!personagemAtual.inventario) personagemAtual.inventario = { deposito: [], mochila: [], corpo: [] };
-        if (!personagemAtual.inventario.deposito) personagemAtual.inventario.deposito = [];
-        
-        personagemAtual.inventario.deposito.push(novoItem);
-        personagemAtual.dinheiro -= item.preco;
-        
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, {
-            inventario: personagemAtual.inventario,
-            dinheiro: personagemAtual.dinheiro
-        });
-        
-        renderizarFicha();
-        renderizarLoja(categoria);
-        showToast(`${item.nome} comprado por $${item.preco}!`);
-        
-    } catch (error) {
-        showToast('Erro ao comprar item', true);
+        try {
+            const novoItem = {
+                nome: item.nome,
+                tipo: categoria === 'armas' ? 'arma' : (categoria === 'escudos' ? 'escudo' : 'armadura'),
+                preco: item.preco,
+                peso: item.peso,
+            };
+            
+            if (item.dano) novoItem.dano = item.dano;
+            if (item.rd) novoItem.rd = item.rd;
+            if (item.bonus) novoItem.bonus = item.bonus;
+            if (item.st) novoItem.st = item.st;
+            if (item.aparar) novoItem.aparar = item.aparar;
+            if (item.pv) {
+                novoItem.pv = item.pv;
+                novoItem.pvAtual = item.pv;
+            }
+            
+            adicionarItemAoInventario(novoItem, 'deposito', 1);
+            personagemAtual.dinheiro -= item.preco;
+            
+            const personagemRef = doc(db, "personagens", personagemAtual.id);
+            await updateDoc(personagemRef, {
+                inventario: personagemAtual.inventario,
+                dinheiro: personagemAtual.dinheiro
+            });
+            
+            renderizarFicha();
+            renderizarLoja(categoria);
+            showToast(`${item.nome} comprado!`);
+            
+        } catch (error) {
+            showToast('Erro ao comprar item', true);
+        }
     }
 };
 
@@ -5839,61 +6196,169 @@ function abrirModalLoja() {
     if (modal) modal.classList.add('active');
 }
 
-const fecharModalLoja = document.getElementById('fecharModalLoja');
-if (fecharModalLoja) {
-    fecharModalLoja.addEventListener('click', () => {
-        const modal = document.getElementById('modalLoja');
-        if (modal) modal.classList.remove('active');
-    });
+// ============================================
+// FUNÇÕES DE TRANSFERÊNCIA (MODIFICADAS)
+// ============================================
+window.abrirModalTransferencia = function(itemId, origem, destino) {
+    const origemArray = personagemAtual?.inventario?.[origem];
+    if (!origemArray) return;
+    
+    const item = origemArray.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const quantidade = item.quantidade || 1;
+    
+    if (quantidade > 1) {
+        // Se tem mais de 1, abre modal para escolher quantidade
+        abrirModalTransferirQuantidade(item, origem, destino);
+    } else {
+        // Se tem apenas 1, move diretamente
+        moverItem(itemId, origem, destino);
+    }
+};
+
+async function moverItem(itemId, origem, destino) {
+    if (!personagemAtual?.inventario) return;
+    const origemArray = personagemAtual.inventario[origem];
+    if (!origemArray) return;
+    const index = origemArray.findIndex(i => i.id === itemId);
+    if (index === -1) return;
+    const item = origemArray[index];
+    
+    if (destino === 'corpo' && item.quebrado) {
+        showToast('Item quebrado não pode ser equipado!', true);
+        return;
+    }
+    
+    if (!personagemAtual.inventario[destino]) personagemAtual.inventario[destino] = [];
+    
+    const quantidade = item.quantidade || 1;
+    
+    if (quantidade === 1) {
+        origemArray.splice(index, 1);
+        adicionarItemAoInventario(item, destino, 1);
+    } else {
+        // Se tem mais de 1, mas o usuário escolheu mover tudo (já passou pelo modal)
+        origemArray.splice(index, 1);
+        adicionarItemAoInventario(item, destino, quantidade);
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
+        renderizarInventario();
+        renderizarFicha();
+        showToast('Item movido!');
+    } catch (error) {
+        showToast('Erro ao mover item', true);
+    }
 }
 
-window.filtrarPericias = function(filtro) {
-    document.querySelectorAll('[onclick^="filtrarPericias"]').forEach(btn => {
-        if (btn.textContent.includes('Todas') && filtro === 'todas') {
-            btn.style.background = '#ffd700';
-            btn.style.color = '#14141f';
-        } else if (btn.textContent.includes('Mental') && filtro === 'mental') {
-            btn.style.background = '#ffd700';
-            btn.style.color = '#14141f';
-        } else if (btn.textContent.includes('Física') && filtro === 'fisica') {
-            btn.style.background = '#ffd700';
-            btn.style.color = '#14141f';
-        } else {
-            btn.style.background = '#2a2a3c';
-            btn.style.color = '#ffd700';
-        }
-    });
-    renderizarCatalogoPericias(filtro);
-};
+window.moverItem = moverItem;
+window.equiparItem = (itemId) => moverItem(itemId, 'mochila', 'corpo');
+window.guardarItem = (itemId) => moverItem(itemId, 'corpo', 'mochila');
+window.pegarItem = (itemId) => moverItem(itemId, 'deposito', 'mochila');
 
-window.mudarAbaPericia = function(aba) {
-    document.querySelectorAll('.pericias-tab').forEach(btn => {
-        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
-    });
-    document.getElementById('minhasPericias').style.display = aba === 'minhas' ? 'block' : 'none';
-    document.getElementById('catalogoPericias').style.display = aba === 'catalogo' ? 'block' : 'none';
-    if (aba === 'catalogo') {
-        renderizarCatalogoPericias('todas');
+window.venderItem = async function(itemId, local) {
+    if (!personagemAtual?.inventario) return;
+    const localArray = personagemAtual.inventario[local];
+    if (!localArray) return;
+    const index = localArray.findIndex(i => i.id === itemId);
+    if (index === -1) return;
+    const item = localArray[index];
+    
+    const quantidade = item.quantidade || 1;
+    const valorVenda = Math.floor((item.preco || 0) * (item.quebrado ? 0.1 : 0.5) * quantidade);
+    
+    if (quantidade === 1) {
+        localArray.splice(index, 1);
+    } else {
+        item.quantidade = quantidade - 1;
+    }
+    
+    personagemAtual.dinheiro = (personagemAtual.dinheiro || 0) + valorVenda;
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario,
+            dinheiro: personagemAtual.dinheiro
+        });
+        renderizarInventario();
+        renderizarFicha();
+        showToast(`Item vendido por $${valorVenda}!`);
+    } catch (error) {
+        showToast('Erro ao vender', true);
     }
 };
 
-window.mudarAbaMagia = function(aba) {
-    abaMagiaAtual = aba;
-    document.querySelectorAll('.magias-tab').forEach(btn => {
-        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
-    });
+window.excluirItem = async function(itemId, local) {
+    if (!personagemAtual?.inventario) return;
+    if (!confirm('Tem certeza que deseja excluir este item?')) return;
     
-    const minhasDiv = document.getElementById(`minhasMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
-    const catalogoDiv = document.getElementById(`catalogoMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
+    const localArray = personagemAtual.inventario[local];
+    if (!localArray) return;
+    const index = localArray.findIndex(i => i.id === itemId);
+    if (index === -1) return;
     
-    if (minhasDiv) minhasDiv.style.display = aba === 'minhas' ? 'block' : 'none';
-    if (catalogoDiv) catalogoDiv.style.display = aba === 'catalogo' ? 'block' : 'none';
+    localArray.splice(index, 1);
     
-    if (aba === 'catalogo') {
-        renderizarCatalogoMagias(escolaAtual);
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
+        renderizarInventario();
+        renderizarFicha();
+        showToast('Item excluído!');
+    } catch (error) {
+        showToast('Erro ao excluir item', true);
     }
 };
 
+// ============================================
+// FUNÇÕES DE CRIAÇÃO DE ITEM
+// ============================================
+window.abrirModalCriarItem = function() {
+    if (!personagemAtual || !currentUser) {
+        showToast('Carregue o personagem primeiro', true);
+        return;
+    }
+    
+    document.getElementById('criarItemTipo').value = 'arma';
+    document.getElementById('criarItemNome').value = '';
+    document.getElementById('criarItemPeso').value = '1.0';
+    document.getElementById('criarItemPreco').value = '0';
+    document.getElementById('criarItemDano').value = '';
+    document.getElementById('criarItemST').value = '0';
+    document.getElementById('criarItemRD').value = '0';
+    document.getElementById('criarItemBonus').value = '0';
+    document.getElementById('criarItemVE').value = '';
+    document.getElementById('criarItemQuantidade').value = '1';
+    document.getElementById('criarItemEfeito').value = '';
+    
+    atualizarCamposItem();
+    
+    if (elements.modalCriarItem) elements.modalCriarItem.classList.add('active');
+};
+
+function atualizarCamposItem() {
+    const tipo = elements.criarItemTipo.value;
+    
+    if (elements.camposArma) elements.camposArma.style.display = 'none';
+    if (elements.camposArmadura) elements.camposArmadura.style.display = 'none';
+    if (elements.camposEscudo) elements.camposEscudo.style.display = 'none';
+    
+    if (tipo === 'arma' && elements.camposArma) {
+        elements.camposArma.style.display = 'grid';
+    } else if (tipo === 'armadura' && elements.camposArmadura) {
+        elements.camposArmadura.style.display = 'block';
+    } else if (tipo === 'escudo' && elements.camposEscudo) {
+        elements.camposEscudo.style.display = 'grid';
+    }
+}
+
+// ============================================
+// FUNÇÕES DE XP E RECURSOS
+// ============================================
 window.alterarXP = async function(valor) {
     if (!personagemAtual || !currentUser) return;
     let novoXP = (personagemAtual.xpAtual || 0) + valor;
@@ -6005,6 +6470,9 @@ window.alterarDinheiro = async function(valor) {
     }
 };
 
+// ============================================
+// FUNÇÕES DE MODAIS DE PERÍCIA E MAGIA
+// ============================================
 window.abrirModalPericia = function(periciaId) {
     const pericia = catalogoPericias.find(p => p.id === periciaId);
     if (!pericia) return;
@@ -6103,130 +6571,52 @@ window.abrirModalMagia = function(escola, magiaId) {
     if (elements.modalMagia) elements.modalMagia.classList.add('active');
 };
 
-async function moverItem(itemId, origem, destino) {
-    if (!personagemAtual?.inventario) return;
-    const origemArray = personagemAtual.inventario[origem];
-    if (!origemArray) return;
-    const index = origemArray.findIndex(i => i.id === itemId);
-    if (index === -1) return;
-    const item = origemArray[index];
-    
-    if (destino === 'corpo' && item.quebrado) {
-        showToast('Item quebrado não pode ser equipado!', true);
-        return;
-    }
-    
-    if (!personagemAtual.inventario[destino]) personagemAtual.inventario[destino] = [];
-    origemArray.splice(index, 1);
-    personagemAtual.inventario[destino].push(item);
-    try {
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
-        renderizarInventario();
-        renderizarFicha();
-        showToast('Item movido!');
-    } catch (error) {
-        showToast('Erro ao mover item', true);
-    }
-}
+window.filtrarPericias = function(filtro) {
+    document.querySelectorAll('[onclick^="filtrarPericias"]').forEach(btn => {
+        if (btn.textContent.includes('Todas') && filtro === 'todas') {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else if (btn.textContent.includes('Mental') && filtro === 'mental') {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else if (btn.textContent.includes('Física') && filtro === 'fisica') {
+            btn.style.background = '#ffd700';
+            btn.style.color = '#14141f';
+        } else {
+            btn.style.background = '#2a2a3c';
+            btn.style.color = '#ffd700';
+        }
+    });
+    renderizarCatalogoPericias(filtro);
+};
 
-window.moverItem = moverItem;
-window.equiparItem = (itemId) => moverItem(itemId, 'mochila', 'corpo');
-window.guardarItem = (itemId) => moverItem(itemId, 'corpo', 'mochila');
-window.pegarItem = (itemId) => moverItem(itemId, 'deposito', 'mochila');
-
-window.venderItem = async function(itemId, local) {
-    if (!personagemAtual?.inventario) return;
-    const localArray = personagemAtual.inventario[local];
-    if (!localArray) return;
-    const index = localArray.findIndex(i => i.id === itemId);
-    if (index === -1) return;
-    const item = localArray[index];
-    
-    const valorVenda = Math.floor((item.preco || 0) * (item.quebrado ? 0.1 : 0.5) * (item.quantidade || 1));
-    
-    if (item.quantidade > 1) {
-        item.quantidade--;
-    } else {
-        localArray.splice(index, 1);
-    }
-    
-    personagemAtual.dinheiro = (personagemAtual.dinheiro || 0) + valorVenda;
-    
-    try {
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, {
-            inventario: personagemAtual.inventario,
-            dinheiro: personagemAtual.dinheiro
-        });
-        renderizarInventario();
-        renderizarFicha();
-        showToast(`Item vendido por $${valorVenda}!`);
-    } catch (error) {
-        showToast('Erro ao vender', true);
+window.mudarAbaPericia = function(aba) {
+    document.querySelectorAll('.pericias-tab').forEach(btn => {
+        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
+    });
+    document.getElementById('minhasPericias').style.display = aba === 'minhas' ? 'block' : 'none';
+    document.getElementById('catalogoPericias').style.display = aba === 'catalogo' ? 'block' : 'none';
+    if (aba === 'catalogo') {
+        renderizarCatalogoPericias('todas');
     }
 };
 
-window.excluirItem = async function(itemId, local) {
-    if (!personagemAtual?.inventario) return;
-    if (!confirm('Tem certeza que deseja excluir este item?')) return;
+window.mudarAbaMagia = function(aba) {
+    abaMagiaAtual = aba;
+    document.querySelectorAll('.magias-tab').forEach(btn => {
+        btn.classList.toggle('ativa', btn.textContent.includes(aba === 'minhas' ? 'Minhas' : 'Catálogo'));
+    });
     
-    const localArray = personagemAtual.inventario[local];
-    if (!localArray) return;
-    const index = localArray.findIndex(i => i.id === itemId);
-    if (index === -1) return;
+    const minhasDiv = document.getElementById(`minhasMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
+    const catalogoDiv = document.getElementById(`catalogoMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
     
-    localArray.splice(index, 1);
+    if (minhasDiv) minhasDiv.style.display = aba === 'minhas' ? 'block' : 'none';
+    if (catalogoDiv) catalogoDiv.style.display = aba === 'catalogo' ? 'block' : 'none';
     
-    try {
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
-        renderizarInventario();
-        renderizarFicha();
-        showToast('Item excluído!');
-    } catch (error) {
-        showToast('Erro ao excluir item', true);
+    if (aba === 'catalogo') {
+        renderizarCatalogoMagias(escolaAtual);
     }
 };
-
-window.abrirModalCriarItem = function() {
-    if (!personagemAtual || !currentUser) {
-        showToast('Carregue o personagem primeiro', true);
-        return;
-    }
-    
-    document.getElementById('criarItemTipo').value = 'arma';
-    document.getElementById('criarItemNome').value = '';
-    document.getElementById('criarItemPeso').value = '1.0';
-    document.getElementById('criarItemPreco').value = '0';
-    document.getElementById('criarItemDano').value = '';
-    document.getElementById('criarItemST').value = '0';
-    document.getElementById('criarItemRD').value = '0';
-    document.getElementById('criarItemBonus').value = '0';
-    document.getElementById('criarItemVE').value = '';
-    document.getElementById('criarItemQuantidade').value = '1';
-    document.getElementById('criarItemEfeito').value = '';
-    
-    atualizarCamposItem();
-    
-    if (elements.modalCriarItem) elements.modalCriarItem.classList.add('active');
-};
-
-function atualizarCamposItem() {
-    const tipo = elements.criarItemTipo.value;
-    
-    if (elements.camposArma) elements.camposArma.style.display = 'none';
-    if (elements.camposArmadura) elements.camposArmadura.style.display = 'none';
-    if (elements.camposEscudo) elements.camposEscudo.style.display = 'none';
-    
-    if (tipo === 'arma' && elements.camposArma) {
-        elements.camposArma.style.display = 'grid';
-    } else if (tipo === 'armadura' && elements.camposArmadura) {
-        elements.camposArmadura.style.display = 'block';
-    } else if (tipo === 'escudo' && elements.camposEscudo) {
-        elements.camposEscudo.style.display = 'grid';
-    }
-}
 
 // ============================================
 // FUNÇÃO PRINCIPAL DE CARREGAMENTO
@@ -6424,12 +6814,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const novoItem = {
-                id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                 nome: nome,
                 tipo: tipo,
                 peso: peso,
                 preco: preco,
-                quantidade: quantidade
             };
             
             if (tipo === 'arma') {
@@ -6473,7 +6861,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 personagemAtual.inventario[local] = [];
             }
             
-            personagemAtual.inventario[local].push(novoItem);
+            adicionarItemAoInventario(novoItem, local, quantidade);
             
             try {
                 const personagemRef = doc(db, "personagens", personagemAtual.id);
@@ -6631,7 +7019,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ============================================
-    // EVENTOS DA LOJA
+    // EVENTOS DA LOJA E MODAIS DE QUANTIDADE
     // ============================================
     const btnAbrirLoja = document.getElementById('btnAbrirLoja');
     if (btnAbrirLoja) {
@@ -6640,7 +7028,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const fecharModalLoja = document.getElementById('fecharModalLoja');
     if (fecharModalLoja) {
-        fecharModalLoja.addEventListener('click', fecharModalLoja);
+        fecharModalLoja.addEventListener('click', () => {
+            const modal = document.getElementById('modalLoja');
+            if (modal) modal.classList.remove('active');
+        });
     }
     
     document.querySelectorAll('.loja-categoria-btn').forEach(btn => {
@@ -6651,6 +7042,33 @@ document.addEventListener('DOMContentLoaded', () => {
             renderizarLoja(categoria);
         });
     });
+    
+    // Eventos do modal de quantidade para compra
+    if (elements.fecharModalQuantidade) {
+        elements.fecharModalQuantidade.addEventListener('click', () => {
+            if (elements.modalQuantidadeCompra) elements.modalQuantidadeCompra.classList.remove('active');
+            itemCompraAtual = null;
+            categoriaCompraAtual = null;
+        });
+    }
+    
+    if (elements.confirmarModalQuantidade) {
+        elements.confirmarModalQuantidade.addEventListener('click', confirmarCompraQuantidade);
+    }
+    
+    // Eventos do modal de quantidade para transferência
+    if (elements.fecharModalTransferir) {
+        elements.fecharModalTransferir.addEventListener('click', () => {
+            if (elements.modalQuantidadeTransferir) elements.modalQuantidadeTransferir.classList.remove('active');
+            itemTransferirAtual = null;
+            origemTransferirAtual = null;
+            destinoTransferirAtual = null;
+        });
+    }
+    
+    if (elements.confirmarModalTransferir) {
+        elements.confirmarModalTransferir.addEventListener('click', confirmarTransferirQuantidade);
+    }
 
     if (elements.btnSair) {
         elements.btnSair.addEventListener('click', async () => {
