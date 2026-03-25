@@ -3424,6 +3424,7 @@ let magiaSelecionada = null;
 let escolaMagiaSelecionada = 'agua';
 let inventario = { corpo: [], mochila: [], deposito: [] };
 let dinheiro = 0;
+let valorBaseAnterior = 1000;  
 
 // ============================================
 // ATRIBUTOS
@@ -7787,8 +7788,9 @@ function podeLancarMagiaVerbal() {
 }
 
 // ============================================
-// DINHEIRO
+// DINHEIRO - VERSÃO CORRIGIDA
 // ============================================
+
 function calcularDinheiroInicial() {
     const base = parseInt(elements.dinheiroBaseInput?.value) || 1000;
     
@@ -7806,6 +7808,22 @@ function atualizarDinheiroDisplay() {
     if (elements.dinheiroSaldo) elements.dinheiroSaldo.textContent = dinheiro;
     const saldoDisplay = document.getElementById('dinheiroSaldoDisplay');
     if (saldoDisplay) saldoDisplay.textContent = dinheiro + ' $';
+}
+
+// ⭐ NOVA FUNÇÃO - ATUALIZA DINHEIRO SOMANDO A DIFERENÇA
+function atualizarDinheiroPorMudancaBase(novoValorBase) {
+    if (valorBaseAnterior === novoValorBase) return;
+    
+    let multiplicador = 1;
+    if (vantagensSelecionadas.has('rico')) multiplicador = 5;
+    if (desvantagensSelecionadas.has('pobre')) multiplicador = 0.5;
+    
+    const diferenca = (novoValorBase - valorBaseAnterior) * multiplicador;
+    dinheiro = dinheiro + diferenca;
+    if (dinheiro < 0) dinheiro = 0;
+    valorBaseAnterior = novoValorBase;
+    atualizarDinheiroDisplay();
+    return dinheiro;
 }
 
 // ============================================
@@ -8605,6 +8623,9 @@ async function carregarPersonagem(id) {
             dinheiro = calcularDinheiroInicial();
         }
         
+        // ⭐ CORREÇÃO: Inicializa o valor base anterior com o valor carregado
+        valorBaseAnterior = data.dinheiroBase || 1000;
+        
         if (data.ppDisponivel !== undefined) {
             ppDisponivel = data.ppDisponivel;
             if (elements.ppInicial) elements.ppInicial.value = ppDisponivel;
@@ -8650,6 +8671,9 @@ function carregarDadosSalvos() {
             document.getElementById('pesoPersonagem').value = personagemTemp.peso || 70;
             document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase || 1000;
             document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
+            
+            // ⭐ CORREÇÃO: Inicializa o valor base anterior com o valor do temp
+            valorBaseAnterior = personagemTemp.dinheiroBase || 1000;
             
             if (personagemTemp.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
                 elements.previewImage.src = personagemTemp.fotoURL;
@@ -8845,10 +8869,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // ⭐ CORREÇÃO: Event listener do dinheiroBase corrigido
     if (elements.dinheiroBaseInput) {
+        valorBaseAnterior = parseInt(elements.dinheiroBaseInput.value) || 1000;
+        
         elements.dinheiroBaseInput.addEventListener('change', () => {
-            dinheiro = calcularDinheiroInicial();
-            atualizarDinheiroDisplay();
+            const novoValorBase = parseInt(elements.dinheiroBaseInput.value) || 1000;
+            atualizarDinheiroPorMudancaBase(novoValorBase);
             triggerAutoSave();
         });
     }
