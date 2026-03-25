@@ -4700,15 +4700,15 @@ const catalogoEquipamentos = {
         { id: "escudo_pesado", nome: "Escudo Pesado", tipo: "escudo", bonus: 3, ve: "7/45", preco: 300, peso: 8.0 },
         { id: "escudo_reforcado", nome: "Escudo Reforçado", tipo: "escudo", bonus: 4, ve: "10/60", preco: 500, peso: 12.0 }
     ],
-    itens_gerais: [
-        { id: 'kit_sobrevivencia', nome: 'Kit de sobrevivência individual', especificacao: '', preco: 50, peso: 1.0 },
-        { id: 'corda', nome: 'Corda', especificacao: '10m', preco: 5, peso: 1.5 },
-        { id: 'tocha', nome: 'Tocha', especificacao: '1h de luz', preco: 1, peso: 0.5 },
-        { id: 'mochila', nome: 'Mochila', especificacao: '50kg capacidade', preco: 20, peso: 1.5 },
-        { id: 'racao', nome: 'Ração', especificacao: '1 dia', preco: 2, peso: 0.5 },
-        { id: 'cantil', nome: 'Cantil', especificacao: '1L', preco: 3, peso: 0.8 },
-        { id: 'kit_socorros', nome: 'Kit primeiros socorros', especificacao: '', preco: 50, peso: 1.0 }
-    ]
+   itens_gerais: [
+    { id: 'kit_sobrevivencia', nome: 'Kit de sobrevivência individual', especificacao: '', preco: 50, peso: 1.0, consumivel: false },
+    { id: 'corda', nome: 'Corda', especificacao: '10m', preco: 5, peso: 1.5, consumivel: false },
+    { id: 'tocha', nome: 'Tocha', especificacao: '1h de luz', preco: 1, peso: 0.5, consumivel: true },
+    { id: 'mochila', nome: 'Mochila', especificacao: '50kg capacidade', preco: 20, peso: 1.5, consumivel: false },
+    { id: 'racao', nome: 'Ração', especificacao: '1 dia', preco: 2, peso: 0.5, consumivel: true },
+    { id: 'cantil', nome: 'Cantil', especificacao: '1L', preco: 3, peso: 0.8, consumivel: false },
+    { id: 'kit_socorros', nome: 'Kit primeiros socorros', especificacao: '', preco: 50, peso: 1.0, consumivel: true }
+]
 };
 // ============================================
 // FUNÇÕES UTILITÁRIAS
@@ -5157,166 +5157,6 @@ async function confirmarTransferirQuantidade() {
         
     } catch (error) {
         showToast('Erro ao transferir item', true);
-    }
-}
-
-// ============================================
-// FUNÇÕES DE USAR ITEM
-// ============================================
-window.usarItem = async function(itemId, local) {
-    if (!personagemAtual || !currentUser) return;
-    
-    const localArray = personagemAtual.inventario[local];
-    const index = localArray.findIndex(i => i.id === itemId);
-    
-    if (index === -1) return;
-    
-    const item = localArray[index];
-    const quantidade = item.quantidade || 1;
-    
-    // Verificar se é um item consumível (não é arma, nem armadura, nem escudo)
-    const isConsumivel = !item.dano && !item.rd && !item.bonus;
-    
-    if (!isConsumivel) {
-        showToast('Este item não pode ser usado!', true);
-        return;
-    }
-    
-    // Aplicar efeito do item (por enquanto só mensagem)
-    let efeitoMsg = '';
-    if (item.nome.toLowerCase().includes('ração')) {
-        efeitoMsg = 'Você comeu uma ração.';
-    } else if (item.nome.toLowerCase().includes('poção') || item.nome.toLowerCase().includes('pocao')) {
-        efeitoMsg = 'Você bebeu uma poção.';
-    } else {
-        efeitoMsg = `Você usou ${item.nome}.`;
-    }
-    
-    if (quantidade === 1) {
-        // Se for a última unidade, remove o item
-        localArray.splice(index, 1);
-    } else {
-        // Se tiver mais de uma, reduz a quantidade
-        item.quantidade = quantidade - 1;
-    }
-    
-    try {
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, {
-            inventario: personagemAtual.inventario
-        });
-        
-        renderizarInventario();
-        renderizarFicha();
-        showToast(`${efeitoMsg} Restam ${quantidade - 1} unidade(s).`);
-        
-    } catch (error) {
-        showToast('Erro ao usar item', true);
-    }
-};
-
-// ============================================
-// FUNÇÃO DE COMPRA COM QUANTIDADE (MODIFICADA)
-// ============================================
-function abrirModalQuantidadeCompra(item, categoria) {
-    itemCompraAtual = item;
-    categoriaCompraAtual = categoria;
-    
-    if (elements.modalQuantidadeTitulo) {
-        elements.modalQuantidadeTitulo.textContent = `Comprar ${item.nome}`;
-    }
-    
-    const precoUnitario = item.preco;
-    const pesoUnitario = item.peso;
-    
-    if (elements.modalQuantidadeInfo) {
-        elements.modalQuantidadeInfo.innerHTML = `
-            <div style="background: #242434; padding: 10px; border-radius: 8px; margin: 10px 0;">
-                <div>Preço unitário: <strong style="color: #ffd700;">$${precoUnitario}</strong></div>
-                <div>Peso por unidade: <strong>${pesoUnitario} kg</strong></div>
-                <div>Preço total: <strong style="color: #ffd700;" id="precoTotalCompra">$${precoUnitario}</strong></div>
-                <div>Peso total: <strong id="pesoTotalCompra">${pesoUnitario} kg</strong></div>
-            </div>
-        `;
-    }
-    
-    if (elements.modalQuantidadeValor) {
-        elements.modalQuantidadeValor.value = 1;
-        elements.modalQuantidadeValor.min = 1;
-        
-        // Atualizar preço e peso quando mudar quantidade
-        elements.modalQuantidadeValor.oninput = () => {
-            const qtd = parseInt(elements.modalQuantidadeValor.value) || 0;
-            const precoTotal = qtd * precoUnitario;
-            const pesoTotal = qtd * pesoUnitario;
-            
-            const precoEl = document.getElementById('precoTotalCompra');
-            const pesoEl = document.getElementById('pesoTotalCompra');
-            
-            if (precoEl) precoEl.textContent = `$${precoTotal}`;
-            if (pesoEl) pesoEl.textContent = `${pesoTotal.toFixed(1)} kg`;
-        };
-    }
-    
-    if (elements.modalQuantidadeCompra) {
-        elements.modalQuantidadeCompra.classList.add('active');
-    }
-}
-
-async function confirmarCompraQuantidade() {
-    if (!itemCompraAtual || !categoriaCompraAtual) return;
-    
-    const quantidade = parseInt(elements.modalQuantidadeValor?.value) || 1;
-    const precoUnitario = itemCompraAtual.preco;
-    const precoTotal = precoUnitario * quantidade;
-    
-    if (personagemAtual.dinheiro < precoTotal) {
-        showToast(`Dinheiro insuficiente! Você tem $${personagemAtual.dinheiro}, precisa de $${precoTotal}`, true);
-        return;
-    }
-    
-    try {
-        const novoItem = {
-            nome: itemCompraAtual.nome,
-            tipo: categoriaCompraAtual === 'armas' ? 'arma' : (categoriaCompraAtual === 'escudos' ? 'escudo' : 'armadura'),
-            preco: precoUnitario,
-            peso: itemCompraAtual.peso,
-        };
-        
-        if (itemCompraAtual.dano) novoItem.dano = itemCompraAtual.dano;
-        if (itemCompraAtual.rd) novoItem.rd = itemCompraAtual.rd;
-        if (itemCompraAtual.bonus) novoItem.bonus = itemCompraAtual.bonus;
-        if (itemCompraAtual.st) novoItem.st = itemCompraAtual.st;
-        if (itemCompraAtual.aparar) novoItem.aparar = itemCompraAtual.aparar;
-        if (itemCompraAtual.pv) {
-            novoItem.pv = itemCompraAtual.pv;
-            novoItem.pvAtual = itemCompraAtual.pv;
-        }
-        
-        // Usar a função unificada para adicionar ao inventário
-        adicionarItemAoInventario(novoItem, 'deposito', quantidade);
-        personagemAtual.dinheiro -= precoTotal;
-        
-        const personagemRef = doc(db, "personagens", personagemAtual.id);
-        await updateDoc(personagemRef, {
-            inventario: personagemAtual.inventario,
-            dinheiro: personagemAtual.dinheiro
-        });
-        
-        if (elements.modalQuantidadeCompra) {
-            elements.modalQuantidadeCompra.classList.remove('active');
-        }
-        
-        renderizarFicha();
-        renderizarLoja(categoriaCompraAtual);
-        showToast(`${quantidade}x ${itemCompraAtual.nome} comprado(s) por $${precoTotal}!`);
-        
-        // Limpar variáveis
-        itemCompraAtual = null;
-        categoriaCompraAtual = null;
-        
-    } catch (error) {
-        showToast('Erro ao comprar item', true);
     }
 }
 
@@ -5820,8 +5660,8 @@ function renderizarInventario() {
             const percentualPV = pvMax > 0 ? (pvAtual / pvMax) * 100 : 0;
             const quebrado = pvAtual === 0 && temPV;
             
-            // Verificar se é consumível (não é arma, armadura ou escudo)
-            const isConsumivel = !item.dano && !item.rd && !item.bonus;
+            // Verificar se é consumível (usar o campo consumivel)
+            const isConsumivel = item.consumivel === true;
             
             return `
                 <div class="item-card">
@@ -6138,7 +5978,7 @@ window.comprarItemLoja = async function(categoria, itemId) {
     
     if (!item) return;
     
-    // Abrir modal de quantidade para itens gerais (consumíveis)
+    // Abrir modal de quantidade para itens gerais
     if (categoria === 'itens') {
         abrirModalQuantidadeCompra(item, categoria);
     } else {
@@ -6154,6 +5994,7 @@ window.comprarItemLoja = async function(categoria, itemId) {
                 tipo: categoria === 'armas' ? 'arma' : (categoria === 'escudos' ? 'escudo' : 'armadura'),
                 preco: item.preco,
                 peso: item.peso,
+                consumivel: item.consumivel || false
             };
             
             if (item.dano) novoItem.dano = item.dano;
@@ -6197,6 +6038,343 @@ function abrirModalLoja() {
 }
 
 // ============================================
+// FUNÇÃO PARA UNIFICAR ITENS IGUAIS
+// ============================================
+function adicionarItemAoInventario(item, local, quantidade) {
+    if (!personagemAtual.inventario[local]) {
+        personagemAtual.inventario[local] = [];
+    }
+    
+    const itemExistente = personagemAtual.inventario[local].find(i => 
+        i.nome === item.nome && 
+        i.tipo === item.tipo &&
+        i.dano === item.dano &&
+        i.rd === item.rd &&
+        i.bonus === item.bonus &&
+        i.st === item.st &&
+        i.aparar === item.aparar &&
+        i.pv === item.pv
+    );
+    
+    if (itemExistente) {
+        itemExistente.quantidade = (itemExistente.quantidade || 1) + quantidade;
+        return itemExistente;
+    } else {
+        const novoItem = {
+            ...item,
+            id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            quantidade: quantidade
+        };
+        personagemAtual.inventario[local].push(novoItem);
+        return novoItem;
+    }
+}
+
+// ============================================
+// FUNÇÕES DE USAR ITEM
+// ============================================
+window.usarItem = async function(itemId, local) {
+    if (!personagemAtual || !currentUser) return;
+    
+    const localArray = personagemAtual.inventario[local];
+    const index = localArray.findIndex(i => i.id === itemId);
+    
+    if (index === -1) return;
+    
+    const item = localArray[index];
+    const quantidade = item.quantidade || 1;
+    
+    if (!item.consumivel) {
+        showToast('Este item não pode ser usado!', true);
+        return;
+    }
+    
+    let efeitoMsg = '';
+    let curaPV = 0;
+    let curaPM = 0;
+    
+    const nomeLower = item.nome.toLowerCase();
+    
+    if (nomeLower.includes('ração')) {
+        efeitoMsg = '🍖 Você comeu uma ração e recuperou energias.';
+    } 
+    else if (nomeLower.includes('poção de cura') || nomeLower.includes('pocao de cura')) {
+        if (nomeLower.includes('pequena')) {
+            curaPV = Math.floor(Math.random() * 6) + 1;
+            efeitoMsg = `💚 Você bebeu uma Poção de Cura Pequena e recuperou ${curaPV} PV!`;
+        } else if (nomeLower.includes('média')) {
+            curaPV = Math.floor(Math.random() * 12) + 2;
+            efeitoMsg = `💚 Você bebeu uma Poção de Cura Média e recuperou ${curaPV} PV!`;
+        } else {
+            curaPV = Math.floor(Math.random() * 6) + 1;
+            efeitoMsg = `💚 Você bebeu uma poção e recuperou ${curaPV} PV!`;
+        }
+        
+        const pvMax = calcularPV();
+        const pvAtual = personagemAtual.statusCombate?.vidaAtual || pvMax;
+        const novoPV = Math.min(pvAtual + curaPV, pvMax);
+        personagemAtual.statusCombate.vidaAtual = novoPV;
+        
+    }
+    else if (nomeLower.includes('poção de mana') || nomeLower.includes('pocao de mana')) {
+        curaPM = Math.floor(Math.random() * 6) + 1;
+        efeitoMsg = `💙 Você bebeu uma Poção de Mana e recuperou ${curaPM} PM!`;
+        
+        const pmMax = calcularPM();
+        const pmAtual = personagemAtual.statusCombate?.manaAtual || pmMax;
+        const novoPM = Math.min(pmAtual + curaPM, pmMax);
+        personagemAtual.statusCombate.manaAtual = novoPM;
+        
+    }
+    else if (nomeLower.includes('antídoto')) {
+        efeitoMsg = '🌿 Você usou um antídoto.';
+    }
+    else if (nomeLower.includes('bandagem')) {
+        efeitoMsg = '🩹 Você aplicou uma bandagem.';
+    }
+    else if (nomeLower.includes('tocha')) {
+        efeitoMsg = '🔥 Você acendeu uma tocha.';
+    }
+    else if (nomeLower.includes('kit primeiros socorros')) {
+        efeitoMsg = '🏥 Você usou o kit de primeiros socorros.';
+        curaPV = Math.floor(Math.random() * 3) + 1;
+        const pvMax = calcularPV();
+        const pvAtual = personagemAtual.statusCombate?.vidaAtual || pvMax;
+        const novoPV = Math.min(pvAtual + curaPV, pvMax);
+        personagemAtual.statusCombate.vidaAtual = novoPV;
+    }
+    else {
+        efeitoMsg = `✨ Você usou ${item.nome}.`;
+    }
+    
+    if (quantidade === 1) {
+        localArray.splice(index, 1);
+    } else {
+        item.quantidade = quantidade - 1;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario,
+            statusCombate: personagemAtual.statusCombate
+        });
+        
+        renderizarInventario();
+        renderizarFicha();
+        showToast(efeitoMsg);
+        
+    } catch (error) {
+        showToast('Erro ao usar item', true);
+    }
+};
+
+// ============================================
+// FUNÇÕES DE COMPRA COM QUANTIDADE
+// ============================================
+function abrirModalQuantidadeCompra(item, categoria) {
+    itemCompraAtual = item;
+    categoriaCompraAtual = categoria;
+    
+    if (elements.modalQuantidadeTitulo) {
+        elements.modalQuantidadeTitulo.textContent = `Comprar ${item.nome}`;
+    }
+    
+    const precoUnitario = item.preco;
+    const pesoUnitario = item.peso;
+    
+    if (elements.modalQuantidadeInfo) {
+        elements.modalQuantidadeInfo.innerHTML = `
+            <div style="background: #242434; padding: 10px; border-radius: 8px; margin: 10px 0;">
+                <div>Preço unitário: <strong style="color: #ffd700;">$${precoUnitario}</strong></div>
+                <div>Peso por unidade: <strong>${pesoUnitario} kg</strong></div>
+                <div>Preço total: <strong style="color: #ffd700;" id="precoTotalCompra">$${precoUnitario}</strong></div>
+                <div>Peso total: <strong id="pesoTotalCompra">${pesoUnitario} kg</strong></div>
+            </div>
+        `;
+    }
+    
+    if (elements.modalQuantidadeValor) {
+        elements.modalQuantidadeValor.value = 1;
+        elements.modalQuantidadeValor.min = 1;
+        
+        elements.modalQuantidadeValor.oninput = () => {
+            const qtd = parseInt(elements.modalQuantidadeValor.value) || 0;
+            const precoTotal = qtd * precoUnitario;
+            const pesoTotal = qtd * pesoUnitario;
+            
+            const precoEl = document.getElementById('precoTotalCompra');
+            const pesoEl = document.getElementById('pesoTotalCompra');
+            
+            if (precoEl) precoEl.textContent = `$${precoTotal}`;
+            if (pesoEl) pesoEl.textContent = `${pesoTotal.toFixed(1)} kg`;
+        };
+    }
+    
+    if (elements.modalQuantidadeCompra) {
+        elements.modalQuantidadeCompra.classList.add('active');
+    }
+}
+
+async function confirmarCompraQuantidade() {
+    if (!itemCompraAtual || !categoriaCompraAtual) return;
+    
+    const quantidade = parseInt(elements.modalQuantidadeValor?.value) || 1;
+    const precoUnitario = itemCompraAtual.preco;
+    const precoTotal = precoUnitario * quantidade;
+    
+    if (personagemAtual.dinheiro < precoTotal) {
+        showToast(`Dinheiro insuficiente! Você tem $${personagemAtual.dinheiro}, precisa de $${precoTotal}`, true);
+        return;
+    }
+    
+    try {
+        const novoItem = {
+            nome: itemCompraAtual.nome,
+            tipo: categoriaCompraAtual === 'armas' ? 'arma' : (categoriaCompraAtual === 'escudos' ? 'escudo' : 'armadura'),
+            preco: precoUnitario,
+            peso: itemCompraAtual.peso,
+            consumivel: itemCompraAtual.consumivel || false
+        };
+        
+        if (itemCompraAtual.dano) novoItem.dano = itemCompraAtual.dano;
+        if (itemCompraAtual.rd) novoItem.rd = itemCompraAtual.rd;
+        if (itemCompraAtual.bonus) novoItem.bonus = itemCompraAtual.bonus;
+        if (itemCompraAtual.st) novoItem.st = itemCompraAtual.st;
+        if (itemCompraAtual.aparar) novoItem.aparar = itemCompraAtual.aparar;
+        if (itemCompraAtual.pv) {
+            novoItem.pv = itemCompraAtual.pv;
+            novoItem.pvAtual = itemCompraAtual.pv;
+        }
+        
+        adicionarItemAoInventario(novoItem, 'deposito', quantidade);
+        personagemAtual.dinheiro -= precoTotal;
+        
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario,
+            dinheiro: personagemAtual.dinheiro
+        });
+        
+        if (elements.modalQuantidadeCompra) {
+            elements.modalQuantidadeCompra.classList.remove('active');
+        }
+        
+        renderizarFicha();
+        
+        const lojaModal = document.getElementById('modalLoja');
+        if (lojaModal && lojaModal.classList.contains('active')) {
+            const categoriaAtiva = document.querySelector('.loja-categoria-btn.ativa');
+            if (categoriaAtiva) {
+                renderizarLoja(categoriaAtiva.dataset.categoria);
+            }
+        }
+        
+        showToast(`${quantidade}x ${itemCompraAtual.nome} comprado(s) por $${precoTotal}!`);
+        
+        itemCompraAtual = null;
+        categoriaCompraAtual = null;
+        
+    } catch (error) {
+        showToast('Erro ao comprar item', true);
+    }
+}
+
+// ============================================
+// FUNÇÕES DE TRANSFERÊNCIA PARCIAL
+// ============================================
+function abrirModalTransferirQuantidade(item, origem, destino) {
+    itemTransferirAtual = item;
+    origemTransferirAtual = origem;
+    destinoTransferirAtual = destino;
+    
+    const quantidadeMax = item.quantidade || 1;
+    
+    if (elements.modalTransferirTitulo) {
+        elements.modalTransferirTitulo.textContent = `Transferir ${item.nome}`;
+    }
+    
+    if (elements.modalTransferirInfo) {
+        elements.modalTransferirInfo.innerHTML = `
+            <div style="background: #242434; padding: 10px; border-radius: 8px; margin: 10px 0;">
+                <div>Disponível: <strong style="color: #ffd700;">${quantidadeMax}</strong> unidade(s)</div>
+                <div>Peso por unidade: <strong>${item.peso} kg</strong></div>
+                <div>Peso total: <strong id="pesoTransferirTotal">${(item.peso * 1).toFixed(1)} kg</strong></div>
+            </div>
+        `;
+    }
+    
+    if (elements.modalTransferirValor) {
+        elements.modalTransferirValor.max = quantidadeMax;
+        elements.modalTransferirValor.value = 1;
+        
+        elements.modalTransferirValor.oninput = () => {
+            const qtd = parseInt(elements.modalTransferirValor.value) || 0;
+            const pesoTotal = qtd * item.peso;
+            const pesoEl = document.getElementById('pesoTransferirTotal');
+            if (pesoEl) pesoEl.textContent = pesoTotal.toFixed(1) + ' kg';
+        };
+    }
+    
+    if (elements.modalQuantidadeTransferir) {
+        elements.modalQuantidadeTransferir.classList.add('active');
+    }
+}
+
+async function confirmarTransferirQuantidade() {
+    if (!itemTransferirAtual || !origemTransferirAtual || !destinoTransferirAtual) return;
+    
+    const quantidade = parseInt(elements.modalTransferirValor?.value) || 0;
+    const quantidadeMax = itemTransferirAtual.quantidade || 1;
+    
+    if (quantidade <= 0 || quantidade > quantidadeMax) {
+        showToast('Quantidade inválida!', true);
+        return;
+    }
+    
+    const origemArray = personagemAtual.inventario[origemTransferirAtual];
+    const index = origemArray.findIndex(i => i.id === itemTransferirAtual.id);
+    
+    if (index === -1) return;
+    
+    const item = origemArray[index];
+    
+    if (quantidade === quantidadeMax) {
+        origemArray.splice(index, 1);
+        adicionarItemAoInventario(item, destinoTransferirAtual, quantidade);
+    } else {
+        item.quantidade = quantidadeMax - quantidade;
+        
+        const novoItem = { ...item };
+        delete novoItem.id;
+        novoItem.id = item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        adicionarItemAoInventario(novoItem, destinoTransferirAtual, quantidade);
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        await updateDoc(personagemRef, {
+            inventario: personagemAtual.inventario
+        });
+        
+        if (elements.modalQuantidadeTransferir) {
+            elements.modalQuantidadeTransferir.classList.remove('active');
+        }
+        
+        renderizarInventario();
+        renderizarFicha();
+        showToast(`${quantidade}x ${item.nome} transferido(s)!`);
+        
+        itemTransferirAtual = null;
+        origemTransferirAtual = null;
+        destinoTransferirAtual = null;
+        
+    } catch (error) {
+        showToast('Erro ao transferir item', true);
+    }
+}
+
+// ============================================
 // FUNÇÕES DE TRANSFERÊNCIA (MODIFICADAS)
 // ============================================
 window.abrirModalTransferencia = function(itemId, origem, destino) {
@@ -6209,10 +6387,8 @@ window.abrirModalTransferencia = function(itemId, origem, destino) {
     const quantidade = item.quantidade || 1;
     
     if (quantidade > 1) {
-        // Se tem mais de 1, abre modal para escolher quantidade
         abrirModalTransferirQuantidade(item, origem, destino);
     } else {
-        // Se tem apenas 1, move diretamente
         moverItem(itemId, origem, destino);
     }
 };
@@ -6238,7 +6414,6 @@ async function moverItem(itemId, origem, destino) {
         origemArray.splice(index, 1);
         adicionarItemAoInventario(item, destino, 1);
     } else {
-        // Se tem mais de 1, mas o usuário escolheu mover tudo (já passou pelo modal)
         origemArray.splice(index, 1);
         adicionarItemAoInventario(item, destino, quantidade);
     }
@@ -6493,7 +6668,7 @@ window.abrirModalPericia = function(periciaId) {
     for (let i = 1; i <= 5; i++) {
         const classe = i === nivelAtual ? 'nivel-atual' : '';
         const custo = tabelaCustosPericias[i];
-        linhas += `<tr class="${classe}"><td>${i}</td><td>+${i*4}%</td><td>${custo} PP</td></tr>`;
+                linhas += `<tr class="${classe}">|<td>${i}</td>|<td>+${i*4}%</td>|<td>${custo} PP</td>|</tr>`;
     }
     if (elements.tabelaPericia) elements.tabelaPericia.innerHTML = linhas;
     
@@ -6553,12 +6728,12 @@ window.abrirModalMagia = function(escola, magiaId) {
         const tempo = dados.tempoConjuracao;
         
         linhas += `<tr class="${classe}">
-            <td>${i}</td>
-            <td>${efeito}</td>
-            <td>${nh}%</td>
-            <td>${custoPM} PM</td>
-            <td>${tempo}</td>
-        </tr>`;
+             <td>${i}</td>
+             <td>${efeito}</td>
+             <td>${nh}%</td>
+             <td>${custoPM} PM</td>
+             <td>${tempo}</td>
+         </tr>`;
     }
     if (elements.tabelaMagia) elements.tabelaMagia.innerHTML = linhas;
     
