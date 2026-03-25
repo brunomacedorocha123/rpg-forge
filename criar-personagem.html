@@ -7788,7 +7788,7 @@ function podeLancarMagiaVerbal() {
 }
 
 // ============================================
-// DINHEIRO - VERSÃO CORRIGIDA
+// DINHEIRO - VERSÃO COM RESET AO REDUZIR
 // ============================================
 
 function calcularDinheiroInicial() {
@@ -7810,20 +7810,60 @@ function atualizarDinheiroDisplay() {
     if (saldoDisplay) saldoDisplay.textContent = dinheiro + ' $';
 }
 
-// ⭐ NOVA FUNÇÃO - ATUALIZA DINHEIRO SOMANDO A DIFERENÇA
+// Função principal que gerencia a mudança do Valor Base
 function atualizarDinheiroPorMudancaBase(novoValorBase) {
+    // Se não mudou, não faz nada
     if (valorBaseAnterior === novoValorBase) return;
     
+    // Calcula o multiplicador baseado na riqueza
     let multiplicador = 1;
     if (vantagensSelecionadas.has('rico')) multiplicador = 5;
     if (desvantagensSelecionadas.has('pobre')) multiplicador = 0.5;
     
+    // Se está REDUZINDO o valor base
+    if (novoValorBase < valorBaseAnterior) {
+        const confirmar = confirm(
+            `⚠️ ATENÇÃO! REDUÇÃO DE VALOR BASE ⚠️\n\n` +
+            `Valor anterior: ${valorBaseAnterior}\n` +
+            `Novo valor: ${novoValorBase}\n\n` +
+            `Para evitar inconsistências financeiras, TODOS OS ITENS do inventário serão REMOVIDOS.\n\n` +
+            `O saldo será recalculado baseado no novo valor.\n\n` +
+            `Deseja continuar?`
+        );
+        
+        if (!confirmar) {
+            // Reverte o valor no input
+            elements.dinheiroBaseInput.value = valorBaseAnterior;
+            return;
+        }
+        
+        // Reseta o inventário COMPLETO
+        inventario = { corpo: [], mochila: [], deposito: [] };
+        
+        // Recalcula o saldo baseado no novo valor
+        dinheiro = calcularDinheiroInicial();
+        
+        // Atualiza o valor base anterior
+        valorBaseAnterior = novoValorBase;
+        
+        // Atualiza a interface
+        renderizarInventario();
+        atualizarDinheiroDisplay();
+        atualizarInterface();
+        
+        alert(`✅ Inventário resetado! Novo saldo: $${dinheiro}`);
+        triggerAutoSave();
+        return;
+    }
+    
+    // Se está AUMENTANDO o valor base, apenas adiciona a diferença
     const diferenca = (novoValorBase - valorBaseAnterior) * multiplicador;
     dinheiro = dinheiro + diferenca;
     if (dinheiro < 0) dinheiro = 0;
     valorBaseAnterior = novoValorBase;
+    
     atualizarDinheiroDisplay();
-    return dinheiro;
+    triggerAutoSave();
 }
 
 // ============================================
@@ -8869,13 +8909,61 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ⭐ CORREÇÃO: Event listener do dinheiroBase corrigido
+    // ⭐ EVENT LISTENER DO DINHEIRO BASE COM PROTEÇÃO
     if (elements.dinheiroBaseInput) {
         valorBaseAnterior = parseInt(elements.dinheiroBaseInput.value) || 1000;
         
         elements.dinheiroBaseInput.addEventListener('change', () => {
             const novoValorBase = parseInt(elements.dinheiroBaseInput.value) || 1000;
-            atualizarDinheiroPorMudancaBase(novoValorBase);
+            
+            // Se está REDUZINDO o valor base
+            if (novoValorBase < valorBaseAnterior) {
+                const confirmar = confirm(
+                    `⚠️ ATENÇÃO! REDUÇÃO DE VALOR BASE ⚠️\n\n` +
+                    `Valor anterior: ${valorBaseAnterior}\n` +
+                    `Novo valor: ${novoValorBase}\n\n` +
+                    `Para evitar inconsistências financeiras, TODOS OS ITENS do inventário serão REMOVIDOS.\n\n` +
+                    `O saldo será recalculado baseado no novo valor.\n\n` +
+                    `Deseja continuar?`
+                );
+                
+                if (!confirmar) {
+                    elements.dinheiroBaseInput.value = valorBaseAnterior;
+                    return;
+                }
+                
+                // Reseta o inventário COMPLETO
+                inventario = { corpo: [], mochila: [], deposito: [] };
+                
+                // Recalcula o saldo baseado no novo valor
+                let multiplicador = 1;
+                if (vantagensSelecionadas.has('rico')) multiplicador = 5;
+                if (desvantagensSelecionadas.has('pobre')) multiplicador = 0.5;
+                
+                dinheiro = novoValorBase * multiplicador;
+                valorBaseAnterior = novoValorBase;
+                
+                // Atualiza a interface
+                renderizarInventario();
+                atualizarDinheiroDisplay();
+                atualizarInterface();
+                
+                alert(`✅ Inventário resetado! Novo saldo: $${dinheiro}`);
+                triggerAutoSave();
+                return;
+            }
+            
+            // Se está AUMENTANDO o valor base, apenas adiciona a diferença
+            let multiplicador = 1;
+            if (vantagensSelecionadas.has('rico')) multiplicador = 5;
+            if (desvantagensSelecionadas.has('pobre')) multiplicador = 0.5;
+            
+            const diferenca = (novoValorBase - valorBaseAnterior) * multiplicador;
+            dinheiro = dinheiro + diferenca;
+            if (dinheiro < 0) dinheiro = 0;
+            valorBaseAnterior = novoValorBase;
+            
+            atualizarDinheiroDisplay();
             triggerAutoSave();
         });
     }
