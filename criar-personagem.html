@@ -2282,6 +2282,31 @@ body {
         font-size: 0.65rem;
     }
 }
+
+/* Botão para remover fobia/código de honra */
+.btn-remover-escolha {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(255, 0, 0, 0.7);
+    border: none;
+    color: white;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    z-index: 10;
+}
+
+.btn-remover-escolha:hover {
+    background: #ff0000;
+    transform: scale(1.1);
+}
 </style>
 </head>
 <body>
@@ -7135,6 +7160,72 @@ function triggerAutoSave() {
 }
 
 // ============================================
+// FUNÇÕES PARA REMOVER FOBIA E CÓDIGO DE HONRA
+// ============================================
+
+function removerFobia() {
+    if (confirm('Deseja remover a fobia selecionada?')) {
+        fobiaSelecionada = null;
+        
+        // Remove dos desvantagens selecionadas
+        for (let d of desvantagensSelecionadas) {
+            if (d.startsWith('fobia:')) {
+                desvantagensSelecionadas.delete(d);
+                break;
+            }
+        }
+        
+        // Limpa a exibição
+        if (elements.fobiaEscolhida) {
+            elements.fobiaEscolhida.style.display = 'none';
+            elements.fobiaEscolhida.textContent = '';
+        }
+        if (elements.cardFobia) {
+            elements.cardFobia.classList.remove('selecionada');
+        }
+        
+        // Remove o botão de remover
+        const btnRemover = elements.cardFobia?.querySelector('.btn-remover-escolha');
+        if (btnRemover) btnRemover.remove();
+        
+        atualizarContadoresAbas();
+        atualizarLimitesCards();
+        triggerAutoSave();
+    }
+}
+
+function removerCodigoHonra() {
+    if (confirm('Deseja remover o código de honra selecionado?')) {
+        codigoHonraSelecionado = null;
+        
+        // Remove dos desvantagens selecionadas
+        for (let d of desvantagensSelecionadas) {
+            if (d.startsWith('codigoHonra:')) {
+                desvantagensSelecionadas.delete(d);
+                break;
+            }
+        }
+        
+        // Limpa a exibição
+        if (elements.codigoHonraEscolhido) {
+            elements.codigoHonraEscolhido.style.display = 'none';
+            elements.codigoHonraEscolhido.textContent = '';
+        }
+        if (elements.cardCodigoHonra) {
+            elements.cardCodigoHonra.classList.remove('selecionada');
+        }
+        
+        // Remove o botão de remover
+        const btnRemover = elements.cardCodigoHonra?.querySelector('.btn-remover-escolha');
+        if (btnRemover) btnRemover.remove();
+        
+        atualizarContadoresAbas();
+        atualizarLimitesCards();
+        triggerAutoSave();
+    }
+}
+
+// ============================================
 // FUNÇÕES DO MODAL DE INFORMAÇÃO
 // ============================================
 
@@ -9768,7 +9859,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
     
-    // MODAL DE FOBIAS
+       // MODAL DE FOBIAS
     if (elements.cardFobia && elements.modalFobias) {
         elements.cardFobia.addEventListener('click', () => {
             elements.modalFobias.classList.add('active');
@@ -9806,6 +9897,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (elements.modalFobias) elements.modalFobias.classList.remove('active');
             triggerAutoSave();
+            
+            // ===== ADICIONA BOTÃO DE REMOVER FOBIA =====
+            if (elements.cardFobia && !elements.cardFobia.querySelector('.btn-remover-escolha')) {
+                const btnRemover = document.createElement('button');
+                btnRemover.className = 'btn-remover-escolha';
+                btnRemover.innerHTML = '<i class="fas fa-times"></i>';
+                btnRemover.title = 'Remover fobia';
+                btnRemover.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removerFobia();
+                });
+                elements.cardFobia.style.position = 'relative';
+                elements.cardFobia.appendChild(btnRemover);
+            }
         });
     });
     
@@ -9964,7 +10069,7 @@ document.addEventListener('DOMContentLoaded', () => {
     atualizarLimitesCards();
     renderizarTabelas('armas_ca');
     
-  
+    // INICIALIZA OS BOTÕES DE INFO
     setTimeout(() => {
         adicionarEventosInfoCards();
     }, 500);
