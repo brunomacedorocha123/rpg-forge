@@ -1756,7 +1756,7 @@ body {
                 
                 personagens.push({
                     id: doc.id,
-                    vinculado: estaVinculado, // ← AGORA VEM DOS VÍNCULOS REAIS
+                    vinculado: estaVinculado,
                     status: data.status || 'rascunho',
                     ...data
                 });
@@ -1788,15 +1788,43 @@ body {
         }
     }
 
+    // ===== FUNÇÃO CORRIGIDA - EXCLUI TAMBÉM OS VÍNCULOS =====
     async function excluirPersonagem(id) {
         try {
             showLoading();
             
+            console.log(`🗑️ Excluindo personagem: ${id}`);
+            
+            // 🔥 NOVO: Buscar e excluir TODOS os vínculos deste personagem
+            const vinculosQuery = query(
+                collection(db, "campanha_personagens"),
+                where("personagem_id", "==", id)
+            );
+            
+            const vinculosSnap = await getDocs(vinculosQuery);
+            
+            // Excluir cada vínculo encontrado
+            let vinculosExcluidos = 0;
+            for (const vinculoDoc of vinculosSnap.docs) {
+                console.log(`🗑️ Excluindo vínculo: ${vinculoDoc.id} (campanha: ${vinculoDoc.data().campanha_nome})`);
+                await deleteDoc(vinculoDoc.ref);
+                vinculosExcluidos++;
+            }
+            
+            if (vinculosExcluidos > 0) {
+                console.log(`✅ ${vinculosExcluidos} vínculo(s) excluído(s)`);
+            }
+            
+            // Excluir o personagem
             const docRef = doc(db, "personagens", id);
             await deleteDoc(docRef);
             
+            console.log(`✅ Personagem excluído com sucesso`);
+            
+            // Atualizar array local
             personagens = personagens.filter(p => p.id !== id);
             
+            // Atualizar estatísticas
             const total = personagens.length;
             const vinculados = personagens.filter(p => p.vinculado === true).length;
             const rascunhos = personagens.filter(p => !p.vinculado && p.status === 'rascunho').length;
@@ -1805,11 +1833,12 @@ body {
             totalVinculados.textContent = vinculados;
             totalRascunhos.textContent = rascunhos;
             
+            // Re-renderizar
             renderizarPersonagens();
             
         } catch (error) {
-            console.error('Erro ao excluir personagem:', error);
-            alert('Erro ao excluir personagem');
+            console.error('❌ Erro ao excluir personagem:', error);
+            alert('Erro ao excluir personagem: ' + error.message);
         } finally {
             hideLoading();
         }
