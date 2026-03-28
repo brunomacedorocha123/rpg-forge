@@ -2065,7 +2065,7 @@ const OFFSET_Y = 60;
             });
         }
 
-                     // ============================================
+                   // ============================================
 // FUNÇÕES DE MOVIMENTO DO JOGADOR (COMPLETO)
 // ============================================
 
@@ -2235,6 +2235,8 @@ function iniciarPosicionamento() {
     
     // Ativar modo posicionamento
     modoPosicionamentoAtivo = true;
+    modoMovimentoAtivo = true;  // <--- LINHA ADICIONADA (essencial!)
+    tipoMovimentoAtual = 'posicionar';
     
     // Configurar cursor do canvas
     if (canvas) {
@@ -2933,35 +2935,38 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             });
         }
 
-        // ============================================
-        // EVENTOS DO MAPA
-        // ============================================
-        function handleCanvasClick(clientX, clientY) {
-            if (!modoMovimentoAtivo) return;
-            
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const mouseX = (clientX - rect.left) * scaleX;
-            const mouseY = (clientY - rect.top) * scaleY;
-            const hex = pixelToHex(mouseX, mouseY);
-            
-            if (hex.x >= 0 && hex.y >= 0 && personagemAtual) {
-                const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
-                if (isValid) {
-                    moverPersonagem(personagemAtual.id, hex.x, hex.y);
-                } else {
-                    showToast('Clique apenas nos hexágonos destacados!', true);
-                }
-            }
+       // ============================================
+// EVENTOS DO MAPA
+// ============================================
+function handleCanvasClick(clientX, clientY) {
+    // Verifica se está em MODO POSICIONAMENTO ou MODO MOVIMENTO
+    const emModoAtivo = modoPosicionamentoAtivo || modoMovimentoAtivo;
+    
+    if (!emModoAtivo) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mouseX = (clientX - rect.left) * scaleX;
+    const mouseY = (clientY - rect.top) * scaleY;
+    const hex = pixelToHex(mouseX, mouseY);
+    
+    if (hex.x >= 0 && hex.y >= 0 && personagemAtual) {
+        const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
+        if (isValid) {
+            moverPersonagem(personagemAtual.id, hex.x, hex.y);
+        } else {
+            showToast('Clique apenas nos hexágonos destacados!', true);
         }
-        
-        if (canvas) {
-            canvas.addEventListener('click', handleCanvasClick);
-            canvas.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) handleCanvasClick(e.touches[0].clientX, e.touches[0].clientY);
-            }, { passive: true });
-        }
+    }
+}
+
+if (canvas) {
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) handleCanvasClick(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+}
 
         // ============================================
         // EVENTOS DOS BOTÕES
