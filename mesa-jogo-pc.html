@@ -1730,42 +1730,45 @@ canvas.modo-movimento {
         const statusMovimento = document.getElementById('statusMovimento');
 
         // ============================================
-        // VARIÁVEIS GLOBAIS
-        // ============================================
-        let currentUser = null;
-        let sessaoAtual = null;
-        let campanhaId = null;
-        let vinculoAtual = null;
-        let personagemAtual = null;
-        let todosJogadores = [];
-        let tabelaAtual = 'ful-ataque';
-        
-        // Variáveis do modo combate
-        let posicoes = {};
-        let marcadores = {};
-        let turnoAtual = 1;
-        let vezAtual = 'jogadores';
-        let combateAtivo = false;
-        let modoVisualizacao = 'narrativo';
-        let modoCombateAtivo = false;
-        let highlightHex = [];
-        let estaProcessandoMovimento = false;
-        let unsubscribePosicoes = null;
-        let unsubscribeCombate = null;
-        let unsubscribeMarcadores = null;
-        
-        // Variáveis de movimento ativo
-        let modoMovimentoAtivo = false;
-        let tipoMovimentoAtual = null;
-        
-        // Configurações do mapa
-        const HEX_RADIUS = 24;
-        const HEX_HORIZONTAL_SPACING = HEX_RADIUS * 1.5;
-        const HEX_VERTICAL_SPACING = HEX_RADIUS * Math.sqrt(3);
-        const MAPA_LARGURA = 20;
-        const MAPA_ALTURA = 10;
-        const OFFSET_X = 80;
-        const OFFSET_Y = 60;
+// VARIÁVEIS GLOBAIS (COMPLETO E CORRIGIDO)
+// ============================================
+
+// Autenticação e Sessão
+let currentUser = null;
+let sessaoAtual = null;
+let campanhaId = null;
+let vinculoAtual = null;
+let personagemAtual = null;
+let todosJogadores = [];
+let tabelaAtual = 'ful-ataque';
+
+// Variáveis do modo combate
+let posicoes = {};
+let marcadores = {};
+let turnoAtual = 1;
+let vezAtual = 'jogadores';
+let combateAtivo = false;
+let modoVisualizacao = 'narrativo';
+let modoCombateAtivo = false;
+let highlightHex = [];
+let estaProcessandoMovimento = false;
+let unsubscribePosicoes = null;
+let unsubscribeCombate = null;
+let unsubscribeMarcadores = null;
+
+// ===== VARIÁVEIS DE MOVIMENTO (ESSENCIAIS PARA O POSICIONAMENTO) =====
+let modoPosicionamentoAtivo = false;     // Controla se está em modo de posicionamento
+let modoMovimentoAtivo = false;          // Controla se está em modo de movimento
+let tipoMovimentoAtual = null;           // 'andar' ou 'correr'
+
+// Configurações do mapa HEXAGONAL
+const HEX_RADIUS = 24;
+const HEX_HORIZONTAL_SPACING = HEX_RADIUS * 1.5;
+const HEX_VERTICAL_SPACING = HEX_RADIUS * Math.sqrt(3);
+const MAPA_LARGURA = 20;
+const MAPA_ALTURA = 10;
+const OFFSET_X = 80;
+const OFFSET_Y = 60;
 
         // ============================================
         // FUNÇÕES AUXILIARES
@@ -2062,252 +2065,339 @@ canvas.modo-movimento {
             });
         }
 
-                      // ============================================
-        // FUNÇÕES DE MOVIMENTO DO JOGADOR
-        // ============================================
-        
-        function resetarModoMovimento() {
-            modoPosicionamentoAtivo = false;
-            modoMovimentoAtivo = false;
-            tipoMovimentoAtual = null;
-            highlightHex = [];
-            
-            if (canvas) {
-                canvas.style.cursor = 'default';
-                canvas.classList.remove('modo-movimento');
-            }
-            
-            if (ctx) desenharMapa();
-            atualizarEstadoBotoes();
-        }
+                     // ============================================
+// FUNÇÕES DE MOVIMENTO DO JOGADOR (COMPLETO)
+// ============================================
 
-        function podeMover() {
-            if (!combateAtivo) return { pode: false, motivo: 'Combate não iniciado' };
-            if (vezAtual !== 'jogadores') return { pode: false, motivo: 'Não é sua vez' };
-            const pos = posicoes[personagemAtual?.id];
-            if (!pos || pos.hexX === undefined || pos.hexX === null) {
-                return { pode: false, motivo: 'Posicione seu personagem primeiro' };
-            }
-            return { pode: true, motivo: '' };
-        }
+function resetarModoMovimento() {
+    modoPosicionamentoAtivo = false;
+    modoMovimentoAtivo = false;
+    tipoMovimentoAtual = null;
+    highlightHex = [];
+    
+    if (canvas) {
+        canvas.style.cursor = 'default';
+        canvas.classList.remove('modo-movimento');
+    }
+    
+    if (ctx) desenharMapa();
+    atualizarEstadoBotoes();
+}
 
-        function calcularHexAlcance(hexX, hexY, alcance) {
-            const hexes = [];
-            for (let dx = -alcance; dx <= alcance; dx++) {
-                for (let dy = -alcance; dy <= alcance; dy++) {
-                    const distancia = Math.max(Math.abs(dx), Math.abs(dy));
-                    if (distancia <= alcance) {
-                        const newX = hexX + dx;
-                        const newY = hexY + dy;
-                        if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
-                            const temObstaculo = marcadores[`${newX}_${newY}`];
-                            const ocupado = Object.values(posicoes).some(p => 
-                                p.hexX === newX && p.hexY === newY && p.id !== personagemAtual?.id
-                            );
-                            if (!ocupado && !temObstaculo) {
-                                hexes.push({ x: newX, y: newY });
-                            }
-                        }
-                    }
-                }
-            }
-            return hexes;
-        }
+function podeMover() {
+    if (!combateAtivo) return { pode: false, motivo: 'Combate não iniciado' };
+    if (vezAtual !== 'jogadores') return { pode: false, motivo: 'Não é sua vez' };
+    const pos = posicoes[personagemAtual?.id];
+    if (!pos || pos.hexX === undefined || pos.hexX === null) {
+        return { pode: false, motivo: 'Posicione seu personagem primeiro' };
+    }
+    return { pode: true, motivo: '' };
+}
 
-        function calcularTodosHexVazios() {
-            const hexes = [];
-            for (let x = 0; x < MAPA_LARGURA; x++) {
-                for (let y = 0; y < MAPA_ALTURA; y++) {
-                    const temObstaculo = marcadores[`${x}_${y}`];
-                    const ocupado = Object.values(posicoes).some(p => p.hexX === x && p.hexY === y);
+function calcularHexAlcance(hexX, hexY, alcance) {
+    const hexes = [];
+    for (let dx = -alcance; dx <= alcance; dx++) {
+        for (let dy = -alcance; dy <= alcance; dy++) {
+            const distancia = Math.max(Math.abs(dx), Math.abs(dy));
+            if (distancia <= alcance) {
+                const newX = hexX + dx;
+                const newY = hexY + dy;
+                if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                    const temObstaculo = marcadores[`${newX}_${newY}`];
+                    const ocupado = Object.values(posicoes).some(p => 
+                        p.hexX === newX && p.hexY === newY && p.id !== personagemAtual?.id
+                    );
                     if (!ocupado && !temObstaculo) {
-                        hexes.push({ x, y });
+                        hexes.push({ x: newX, y: newY });
                     }
                 }
             }
-            return hexes;
         }
+    }
+    return hexes;
+}
 
-        function atualizarEstadoBotoes() {
-            const pode = podeMover();
-            const pos = posicoes[personagemAtual?.id];
-            const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null;
+function calcularTodosHexVazios() {
+    const hexes = [];
+    for (let x = 0; x < MAPA_LARGURA; x++) {
+        for (let y = 0; y < MAPA_ALTURA; y++) {
+            const temObstaculo = marcadores[`${x}_${y}`];
+            const ocupado = Object.values(posicoes).some(p => p.hexX === x && p.hexY === y);
+            if (!ocupado && !temObstaculo) {
+                hexes.push({ x, y });
+            }
+        }
+    }
+    return hexes;
+}
+
+function atualizarEstadoBotoes() {
+    const pode = podeMover();
+    const pos = posicoes[personagemAtual?.id];
+    const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexX >= 0;
+    const desloc = calcularDeslocamento();
+    
+    // Atualizar valores de movimento na interface
+    if (valorAndarSpan) valorAndarSpan.textContent = desloc.andar;
+    if (valorCorrerSpan) valorCorrerSpan.textContent = desloc.correr;
+    
+    // ===== BOTÃO POSICIONAR =====
+    if (btnPosicionarPC) {
+        // Regras:
+        // 1. Se NÃO está em combate -> SEMPRE habilitado
+        // 2. Se está em combate E NÃO está posicionado -> habilitado
+        // 3. Se está em combate E JÁ está posicionado -> desabilitado
+        const deveDesabilitar = combateAtivo && estaPosicionado;
+        btnPosicionarPC.disabled = deveDesabilitar;
+        btnPosicionarPC.style.opacity = deveDesabilitar ? '0.5' : '1';
+        
+        // Feedback visual do modo posicionamento
+        if (modoPosicionamentoAtivo) {
+            btnPosicionarPC.style.background = '#2ecc71';
+            btnPosicionarPC.style.border = '2px solid var(--gold)';
+            btnPosicionarPC.innerHTML = '<i class="fas fa-check-circle"></i> Clique no mapa para posicionar';
+        } else {
+            btnPosicionarPC.style.background = 'var(--gold)';
+            btnPosicionarPC.innerHTML = '<i class="fas fa-map-pin"></i> Posicionar Personagem';
+        }
+    }
+    
+    // ===== BOTÕES DE MOVIMENTO (ANDAR E CORRER) =====
+    if (btnMoverAndar && btnMoverCorrer) {
+        // Condições para habilitar movimento:
+        // - Combate está ativo
+        // - É a vez dos jogadores
+        // - Personagem está posicionado
+        // - Não está em modo posicionamento
+        // - Não está já em modo movimento
+        const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo;
+        
+        btnMoverAndar.disabled = !podeMoverFlag;
+        btnMoverCorrer.disabled = !podeMoverFlag;
+        btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
+        btnMoverCorrer.style.opacity = podeMoverFlag ? '1' : '0.5';
+        
+        // Feedback visual do modo movimento
+        if (modoMovimentoAtivo && tipoMovimentoAtual === 'andar') {
+            btnMoverAndar.style.background = '#2ecc71';
+            btnMoverAndar.style.color = 'white';
+            btnMoverCorrer.style.background = 'var(--bg-primary)';
+            btnMoverCorrer.style.color = '#f39c12';
+        } else if (modoMovimentoAtivo && tipoMovimentoAtual === 'correr') {
+            btnMoverCorrer.style.background = '#f39c12';
+            btnMoverCorrer.style.color = 'white';
+            btnMoverAndar.style.background = 'var(--bg-primary)';
+            btnMoverAndar.style.color = '#2ecc71';
+        } else {
+            btnMoverAndar.style.background = 'var(--bg-primary)';
+            btnMoverAndar.style.color = '#2ecc71';
+            btnMoverCorrer.style.background = 'var(--bg-primary)';
+            btnMoverCorrer.style.color = '#f39c12';
+        }
+    }
+    
+    // ===== STATUS DE MOVIMENTO =====
+    if (statusMovimento) {
+        if (!combateAtivo) {
+            statusMovimento.innerHTML = '⏳ Aguardando início do combate';
+            statusMovimento.style.background = 'rgba(255, 170, 0, 0.1)';
+        } else if (vezAtual !== 'jogadores') {
+            statusMovimento.innerHTML = '⌛ Aguardando sua vez';
+            statusMovimento.style.background = 'rgba(100, 100, 100, 0.2)';
+        } else if (!estaPosicionado) {
+            statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
+            statusMovimento.style.background = 'rgba(255, 100, 100, 0.2)';
+        } else if (modoPosicionamentoAtivo) {
+            statusMovimento.innerHTML = '📍 Modo posicionamento: clique no mapa verde para posicionar';
+            statusMovimento.style.background = 'rgba(46, 204, 113, 0.2)';
+        } else if (modoMovimentoAtivo) {
+            statusMovimento.innerHTML = `🎯 Modo movimento: clique no mapa verde para ${tipoMovimentoAtual === 'andar' ? `andar (até ${desloc.andar}m)` : `correr (até ${desloc.correr}m)`}`;
+            statusMovimento.style.background = 'rgba(46, 204, 113, 0.2)';
+        } else {
+            statusMovimento.innerHTML = '✅ Pronto para agir';
+            statusMovimento.style.background = 'rgba(46, 204, 113, 0.1)';
+        }
+    }
+}
+
+function iniciarPosicionamento() {
+    // Verificar se já está posicionado em combate
+    if (combateAtivo) {
+        const pos = posicoes[personagemAtual?.id];
+        if (pos && pos.hexX !== undefined && pos.hexX !== null) {
+            showToast('Personagem já está posicionado! Para reposicionar, peça ao mestre.', true);
+            return;
+        }
+    }
+    
+    // Resetar qualquer modo ativo
+    resetarModoMovimento();
+    
+    // Ativar modo posicionamento
+    modoPosicionamentoAtivo = true;
+    
+    // Configurar cursor do canvas
+    if (canvas) {
+        canvas.style.cursor = 'crosshair';
+        canvas.classList.add('modo-movimento');
+    }
+    
+    // Destacar todos os hexágonos vazios
+    highlightHex = calcularTodosHexVazios();
+    desenharMapa();
+    
+    // Atualizar interface
+    atualizarEstadoBotoes();
+    
+    if (statusMovimento) {
+        statusMovimento.innerHTML = '📍 Modo posicionamento: clique em um hexágono verde';
+    }
+    
+    showToast('🔰 Modo posicionamento ativado! Clique em um hexágono verde para posicionar seu personagem.');
+}
+
+function iniciarMovimento(tipo) {
+    // Verificar se pode mover
+    const pode = podeMover();
+    if (!pode.pode) {
+        showToast(pode.motivo, true);
+        return;
+    }
+    
+    // Verificar se está posicionado
+    const pos = posicoes[personagemAtual?.id];
+    if (!pos || pos.hexX === undefined || pos.hexX === null) {
+        showToast('Posicione seu personagem primeiro!', true);
+        return;
+    }
+    
+    // Calcular alcance
+    const desloc = calcularDeslocamento();
+    const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
+    
+    if (alcance <= 0) {
+        showToast(`Você não tem ${tipo} suficiente para se mover!`, true);
+        return;
+    }
+    
+    // Resetar qualquer modo ativo
+    resetarModoMovimento();
+    
+    // Ativar modo movimento
+    modoMovimentoAtivo = true;
+    tipoMovimentoAtual = tipo;
+    
+    // Configurar cursor
+    if (canvas) {
+        canvas.style.cursor = 'crosshair';
+        canvas.classList.add('modo-movimento');
+    }
+    
+    // Destacar hexágonos alcançáveis
+    highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
+    desenharMapa();
+    
+    // Atualizar interface
+    atualizarEstadoBotoes();
+    
+    if (statusMovimento) {
+        statusMovimento.innerHTML = `🎯 Modo ${tipo}: clique em um hexágono verde (até ${alcance}m)`;
+    }
+    
+    showToast(`🏃 Modo ${tipo} ativado! Clique em um hexágono verde para se mover (até ${alcance}m).`);
+}
+
+async function moverPersonagem(personagemId, hexX, hexY) {
+    // Evitar múltiplos cliques
+    if (estaProcessandoMovimento) {
+        showToast('Aguarde, processando movimento...', true);
+        return;
+    }
+    
+    // Validar se o hexágono está destacado
+    const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
+    if (!isValid) {
+        showToast('❌ Clique apenas nos hexágonos destacados em verde!', true);
+        return;
+    }
+    
+    estaProcessandoMovimento = true;
+    
+    try {
+        if (modoPosicionamentoAtivo) {
+            // POSICIONAMENTO (fora de combate ou primeiro posicionamento)
             const desloc = calcularDeslocamento();
+            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
             
-            if (valorAndarSpan) valorAndarSpan.textContent = desloc.andar;
-            if (valorCorrerSpan) valorCorrerSpan.textContent = desloc.correr;
+            await setDoc(posRef, {
+                personagemId: personagemId,
+                nome: personagemAtual.nome || 'Personagem',
+                tipo: 'pc',
+                cor: '#1E90FF',
+                jogadorUid: currentUser.uid,
+                pv: personagemAtual.statusCombate?.vidaAtual ?? calcularPV(),
+                pvMax: calcularPV(),
+                pm: personagemAtual.statusCombate?.manaAtual ?? calcularPM(),
+                pmMax: calcularPM(),
+                pf: personagemAtual.statusCombate?.fadigaAtual ?? calcularPF(),
+                pfMax: calcularPF(),
+                esquiva: calcularEsquiva(),
+                aparar: calcularAparar(),
+                bloqueio: calcularBloqueio(),
+                andar: desloc.andar,
+                correr: desloc.correr,
+                rd: calcularRD(),
+                hexX: hexX,
+                hexY: hexY,
+                atualizadoEm: serverTimestamp()
+            }, { merge: true });
             
-            if (btnPosicionarPC) {
-                btnPosicionarPC.disabled = combateAtivo && estaPosicionado;
-                btnPosicionarPC.style.opacity = (combateAtivo && estaPosicionado) ? '0.5' : '1';
+            // Atualizar localmente
+            if (!posicoes[personagemId]) posicoes[personagemId] = {};
+            posicoes[personagemId].hexX = hexX;
+            posicoes[personagemId].hexY = hexY;
+            posicoes[personagemId].andar = desloc.andar;
+            posicoes[personagemId].correr = desloc.correr;
+            
+            // Resetar modo e atualizar
+            resetarModoMovimento();
+            desenharMapa();
+            showToast(`✅ ${personagemAtual.nome} posicionado com sucesso em (${hexX}, ${hexY})!`);
+            
+        } else if (modoMovimentoAtivo) {
+            // MOVIMENTO EM COMBATE
+            if (!combateAtivo) {
+                showToast('⚔️ Combate não está ativo!', true);
+                return;
             }
             
-            if (btnMoverAndar && btnMoverCorrer) {
-                const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo && !modoMovimentoAtivo;
-                btnMoverAndar.disabled = !podeMoverFlag;
-                btnMoverCorrer.disabled = !podeMoverFlag;
-                btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
-                btnMoverCorrer.style.opacity = podeMoverFlag ? '1' : '0.5';
+            if (vezAtual !== 'jogadores') {
+                showToast('⏰ Não é sua vez!', true);
+                return;
             }
             
-            if (statusMovimento) {
-                if (!combateAtivo) statusMovimento.innerHTML = '⏳ Aguardando início do combate';
-                else if (vezAtual !== 'jogadores') statusMovimento.innerHTML = '⌛ Aguardando sua vez';
-                else if (!estaPosicionado) statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
-                else if (modoPosicionamentoAtivo) statusMovimento.innerHTML = '📍 Modo posicionamento: clique no mapa';
-                else if (modoMovimentoAtivo) statusMovimento.innerHTML = `🎯 Modo movimento: clique no mapa para ${tipoMovimentoAtual === 'andar' ? `andar (até ${desloc.andar}m)` : `correr (até ${desloc.correr}m)`}`;
-                else statusMovimento.innerHTML = '✅ Pronto para agir';
-            }
-        }
-
-        function iniciarPosicionamento() {
-            if (combateAtivo) {
-                const pos = posicoes[personagemAtual?.id];
-                if (pos && pos.hexX !== undefined && pos.hexX !== null) {
-                    showToast('Personagem já está posicionado!', true);
-                    return;
-                }
-            }
+            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+            await updateDoc(posRef, { 
+                hexX: hexX, 
+                hexY: hexY, 
+                atualizadoEm: serverTimestamp() 
+            });
+            
+            posicoes[personagemId].hexX = hexX;
+            posicoes[personagemId].hexY = hexY;
             
             resetarModoMovimento();
-            
-            modoPosicionamentoAtivo = true;
-            
-            if (canvas) {
-                canvas.style.cursor = 'crosshair';
-                canvas.classList.add('modo-movimento');
-            }
-            
-            highlightHex = calcularTodosHexVazios();
             desenharMapa();
-            
-            if (statusMovimento) {
-                statusMovimento.innerHTML = '📍 Clique no mapa para posicionar seu personagem';
-            }
-            
-            showToast('Modo posicionamento: clique em um hexágono verde para posicionar seu personagem');
+            showToast(`🏃 ${personagemAtual.nome} movido para (${hexX}, ${hexY})!`);
         }
-
-        function iniciarMovimento(tipo) {
-            const pode = podeMover();
-            if (!pode.pode) {
-                showToast(pode.motivo, true);
-                return;
-            }
-            
-            const pos = posicoes[personagemAtual?.id];
-            if (!pos || pos.hexX === undefined || pos.hexX === null) {
-                showToast('Posicione seu personagem primeiro!', true);
-                return;
-            }
-            
-            const desloc = calcularDeslocamento();
-            const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
-            
-            resetarModoMovimento();
-            
-            modoMovimentoAtivo = true;
-            tipoMovimentoAtual = tipo;
-            
-            if (canvas) {
-                canvas.style.cursor = 'crosshair';
-                canvas.classList.add('modo-movimento');
-            }
-            
-            highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
-            desenharMapa();
-            
-            if (statusMovimento) {
-                statusMovimento.innerHTML = `🎯 Clique no mapa para mover (até ${alcance}m)`;
-            }
-            
-            showToast(`Modo ${tipo}: clique em um hexágono verde para se mover (até ${alcance}m)`);
-        }
-
-        async function moverPersonagem(personagemId, hexX, hexY) {
-            if (estaProcessandoMovimento) {
-                showToast('Aguarde, processando movimento...', true);
-                return;
-            }
-            
-            const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
-            if (!isValid) {
-                showToast('Clique apenas nos hexágonos destacados!', true);
-                return;
-            }
-            
-            estaProcessandoMovimento = true;
-            
-            try {
-                if (modoPosicionamentoAtivo) {
-                    const desloc = calcularDeslocamento();
-                    const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-                    
-                    await setDoc(posRef, {
-                        personagemId: personagemId,
-                        nome: personagemAtual.nome || 'Personagem',
-                        tipo: 'pc',
-                        cor: '#1E90FF',
-                        jogadorUid: currentUser.uid,
-                        pv: personagemAtual.statusCombate?.vidaAtual ?? calcularPV(),
-                        pvMax: calcularPV(),
-                        pm: personagemAtual.statusCombate?.manaAtual ?? calcularPM(),
-                        pmMax: calcularPM(),
-                        pf: personagemAtual.statusCombate?.fadigaAtual ?? calcularPF(),
-                        pfMax: calcularPF(),
-                        esquiva: calcularEsquiva(),
-                        aparar: calcularAparar(),
-                        bloqueio: calcularBloqueio(),
-                        andar: desloc.andar,
-                        correr: desloc.correr,
-                        rd: calcularRD(),
-                        hexX: hexX,
-                        hexY: hexY,
-                        atualizadoEm: serverTimestamp()
-                    }, { merge: true });
-                    
-                    if (!posicoes[personagemId]) posicoes[personagemId] = {};
-                    posicoes[personagemId].hexX = hexX;
-                    posicoes[personagemId].hexY = hexY;
-                    posicoes[personagemId].andar = desloc.andar;
-                    posicoes[personagemId].correr = desloc.correr;
-                    
-                    resetarModoMovimento();
-                    desenharMapa();
-                    showToast(`${personagemAtual.nome} posicionado com sucesso!`);
-                }
-                else if (modoMovimentoAtivo) {
-                    if (!combateAtivo) {
-                        showToast('Combate não está ativo!', true);
-                        return;
-                    }
-                    
-                    if (vezAtual !== 'jogadores') {
-                        showToast('Não é sua vez!', true);
-                        return;
-                    }
-                    
-                    const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-                    await updateDoc(posRef, { 
-                        hexX: hexX, 
-                        hexY: hexY, 
-                        atualizadoEm: serverTimestamp() 
-                    });
-                    
-                    posicoes[personagemId].hexX = hexX;
-                    posicoes[personagemId].hexY = hexY;
-                    
-                    resetarModoMovimento();
-                    desenharMapa();
-                    showToast(`${personagemAtual.nome} movido para (${hexX}, ${hexY})`);
-                }
-                
-            } catch (error) {
-                showToast('Erro ao mover personagem', true);
-            } finally {
-                estaProcessandoMovimento = false;
-            }
-        }
+        
+    } catch (error) {
+        console.error('Erro ao mover personagem:', error);
+        showToast('❌ Erro ao mover personagem. Tente novamente.', true);
+    } finally {
+        estaProcessandoMovimento = false;
+    }
+}
 
         // ============================================
         // FUNÇÕES DE UI
