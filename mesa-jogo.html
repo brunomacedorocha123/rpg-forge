@@ -1240,6 +1240,23 @@
                 margin-left: 0;
             }
         }
+        /* Botão excluir NPC no card simples */
+.btn-excluir-npc {
+    background: transparent;
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-excluir-npc:hover {
+    background: #e74c3c;
+    color: white;
+    transform: scale(1.05);
+}
     </style>
 </head>
 <body>
@@ -2091,12 +2108,23 @@
         function showLoading() { loadingOverlay.classList.add('active'); }
         function hideLoading() { loadingOverlay.classList.remove('active'); }
 
+        function showToast(msg, erro = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            if (!toast || !toastMessage) return;
+            toastMessage.textContent = msg;
+            toast.classList.add('show');
+            if (erro) toast.classList.add('erro');
+            else toast.classList.remove('erro');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
         function getSessaoIdFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('sessao');
         }
 
-               // ===========================================
+        // ===========================================
         // FUNÇÃO: ATUALIZAR RECURSO DO NPC NO MODAL
         // ===========================================
         async function atualizarRecursoModalNPC(tipo, delta) {
@@ -2118,43 +2146,58 @@
                 
                 const npc = npcSnap.data();
                 let novoValor, valorAtual, campoMax;
+                let campo = '';
                 
                 if (tipo === 'pv') {
                     valorAtual = npc.recursos?.pv_atual || 0;
                     campoMax = npc.recursos?.pv_max || 20;
                     novoValor = Math.min(Math.max(valorAtual + delta, 0), campoMax);
-                    await updateDoc(npcRef, {
-                        'recursos.pv_atual': novoValor
-                    });
-                    showToast(`${npc.nome}: PV ${valorAtual} → ${novoValor}`);
+                    campo = 'recursos.pv_atual';
                 } else if (tipo === 'pm') {
                     valorAtual = npc.recursos?.pm_atual || 0;
                     campoMax = npc.recursos?.pm_max || 5;
                     novoValor = Math.min(Math.max(valorAtual + delta, 0), campoMax);
-                    await updateDoc(npcRef, {
-                        'recursos.pm_atual': novoValor
-                    });
-                    showToast(`${npc.nome}: PM ${valorAtual} → ${novoValor}`);
+                    campo = 'recursos.pm_atual';
                 } else if (tipo === 'pf') {
                     valorAtual = npc.recursos?.pf_atual || 0;
                     campoMax = npc.recursos?.pf_max || 10;
                     novoValor = Math.min(Math.max(valorAtual + delta, 0), campoMax);
-                    await updateDoc(npcRef, {
-                        'recursos.pf_atual': novoValor
-                    });
-                    showToast(`${npc.nome}: PF ${valorAtual} → ${novoValor}`);
+                    campo = 'recursos.pf_atual';
                 } else {
                     return;
                 }
                 
+                await updateDoc(npcRef, {
+                    [campo]: novoValor
+                });
+                
                 // Atualizar o modal aberto com os novos valores
                 await abrirDetalheNPC(npcId);
+                
+                showToast(`${npc.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${campoMax}`);
                 
             } catch (error) {
                 console.error('Erro ao atualizar recurso:', error);
                 showToast('Erro ao atualizar recurso', true);
             }
         }
+
+        // ===========================================
+        // FUNÇÃO: EXCLUIR NPC
+        // ===========================================
+        window.excluirNPC = async function(npcId, event) {
+            if (event) event.stopPropagation();
+            
+            if (!confirm('Tem certeza que deseja excluir este NPC?')) return;
+            
+            try {
+                await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "npcs", npcId));
+                showToast('NPC excluído com sucesso!');
+            } catch (error) {
+                console.error('Erro ao excluir NPC:', error);
+                showToast('Erro ao excluir NPC', true);
+            }
+        };
 
         // ===========================================
         // FUNÇÃO: ABRIR MODAL DE DETALHES DO NPC
@@ -2173,7 +2216,8 @@
                 modalNpcDetalheAtual = npcId;
                 
                 // Preencher dados no modal
-                document.getElementById('modalDetalheNome').textContent = npc.nome;
+                const nomeEl = document.getElementById('modalDetalheNome');
+                if (nomeEl) nomeEl.textContent = npc.nome;
                 
                 // Recursos
                 const pvAtual = npc.recursos?.pv_atual || npc.recursos?.pv_max || 0;
@@ -2183,19 +2227,28 @@
                 const pfAtual = npc.recursos?.pf_atual || 0;
                 const pfMax = npc.recursos?.pf_max || 0;
                 
-                document.getElementById('modalDetalhePV').textContent = `${pvAtual}/${pvMax}`;
-                document.getElementById('modalDetalhePM').textContent = `${pmAtual}/${pmMax}`;
-                document.getElementById('modalDetalhePF').textContent = `${pfAtual}/${pfMax}`;
+                const pvEl = document.getElementById('modalDetalhePV');
+                const pmEl = document.getElementById('modalDetalhePM');
+                const pfEl = document.getElementById('modalDetalhePF');
+                if (pvEl) pvEl.textContent = `${pvAtual}/${pvMax}`;
+                if (pmEl) pmEl.textContent = `${pmAtual}/${pmMax}`;
+                if (pfEl) pfEl.textContent = `${pfAtual}/${pfMax}`;
                 
                 // Defesas
-                document.getElementById('modalDetalheEsquiva').textContent = (npc.defesas?.esquiva || 0) + '%';
-                document.getElementById('modalDetalheAparar').textContent = (npc.defesas?.aparar || 0) + '%';
-                document.getElementById('modalDetalheBloqueio').textContent = (npc.defesas?.bloqueio || 0) + '%';
-                document.getElementById('modalDetalheRD').textContent = npc.defesas?.rd || 0;
+                const esquivaEl = document.getElementById('modalDetalheEsquiva');
+                const apararEl = document.getElementById('modalDetalheAparar');
+                const bloqueioEl = document.getElementById('modalDetalheBloqueio');
+                const rdEl = document.getElementById('modalDetalheRD');
+                if (esquivaEl) esquivaEl.textContent = (npc.defesas?.esquiva || 0) + '%';
+                if (apararEl) apararEl.textContent = (npc.defesas?.aparar || 0) + '%';
+                if (bloqueioEl) bloqueioEl.textContent = (npc.defesas?.bloqueio || 0) + '%';
+                if (rdEl) rdEl.textContent = npc.defesas?.rd || 0;
                 
                 // Movimento
-                document.getElementById('modalDetalheAndar').textContent = npc.movimento?.andar || 4;
-                document.getElementById('modalDetalheCorrer').textContent = npc.movimento?.correr || 8;
+                const andarEl = document.getElementById('modalDetalheAndar');
+                const correrEl = document.getElementById('modalDetalheCorrer');
+                if (andarEl) andarEl.textContent = npc.movimento?.andar || 4;
+                if (correrEl) correrEl.textContent = npc.movimento?.correr || 8;
                 
                 // Ataques
                 let ataquesHtml = '';
@@ -2213,7 +2266,8 @@
                 } else {
                     ataquesHtml = '<div style="color: var(--text-secondary);">Nenhum ataque</div>';
                 }
-                document.getElementById('modalDetalheAtaques').innerHTML = ataquesHtml;
+                const ataquesContainerModal = document.getElementById('modalDetalheAtaques');
+                if (ataquesContainerModal) ataquesContainerModal.innerHTML = ataquesHtml;
                 
                 // Magias
                 let magiasHtml = '';
@@ -2231,7 +2285,8 @@
                 } else {
                     magiasHtml = '<div style="color: var(--text-secondary);">Nenhuma magia</div>';
                 }
-                document.getElementById('modalDetalheMagias').innerHTML = magiasHtml;
+                const magiasContainerModal = document.getElementById('modalDetalheMagias');
+                if (magiasContainerModal) magiasContainerModal.innerHTML = magiasHtml;
                 
                 // Adicionar listeners aos botões de recurso do modal
                 document.querySelectorAll('#modalNpcDetalhe .btn-recurso-npc').forEach(btn => {
@@ -3117,14 +3172,19 @@
                 snapshot.forEach(doc => {
                     const npc = { id: doc.id, ...doc.data() };
                     
-                    // CARD SIMPLES - apenas nome e PV
+                    // CARD SIMPLES - apenas nome, PV e botão excluir
                     html += `
                         <div class="npc-card-simples" onclick="window.abrirDetalheNPC('${npc.id}')">
                             <div class="npc-nome-simples">
                                 <i class="fas fa-skull"></i> ${npc.nome}
                             </div>
-                            <div class="npc-status-simples">
-                                <i class="fas fa-heart" style="color: #ff6b6b;"></i> ${npc.recursos?.pv_atual || npc.recursos?.pv_max || 0}/${npc.recursos?.pv_max || 0}
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="npc-status-simples">
+                                    <i class="fas fa-heart" style="color: #ff6b6b;"></i> ${npc.recursos?.pv_atual || npc.recursos?.pv_max || 0}/${npc.recursos?.pv_max || 0}
+                                </div>
+                                <button class="btn-excluir-npc" onclick="window.excluirNPC('${npc.id}', event)" title="Excluir NPC">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
                         </div>
                     `;
@@ -3132,18 +3192,6 @@
                 npcsContainer.innerHTML = html || '<div style="color: var(--text-secondary); text-align: center;">Nenhum NPC adicionado</div>';
             });
         }
-
-        window.editarNpc = async (npcId) => {
-            alert('Função de edição em breve!');
-        };
-
-        window.removerNpc = async (npcId) => {
-            if (confirm('Remover este NPC?')) {
-                if (sessaoAtual) {
-                    await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "npcs", npcId));
-                }
-            }
-        };
 
         btnSair.addEventListener('click', async () => {
             await signOut(auth);
