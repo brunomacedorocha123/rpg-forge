@@ -2039,7 +2039,10 @@ body::before {
     </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+  // ============================================
+// IMPORTAÇÕES FIREBASE
+// ============================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { 
     getAuth, 
     onAuthStateChanged,
@@ -2064,6 +2067,9 @@ import {
     writeBatch
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
+// ============================================
+// CONFIGURAÇÃO FIREBASE
+// ============================================
 const firebaseConfig = {
     apiKey: "AIzaSyBrx4JSmFay24k95pu1ICjFfVki8gs_uHw",
     authDomain: "rpgforce-e3227.firebaseapp.com",
@@ -2077,6 +2083,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// ============================================
+// ELEMENTOS DOM
+// ============================================
 const loadingOverlay = document.getElementById('loadingOverlay');
 const toast = document.getElementById('toast');
 const toastMessage = document.getElementById('toastMessage');
@@ -2158,6 +2167,9 @@ const btnMarcador = document.getElementById('btnMarcador');
 const modoAtualCombate = document.getElementById('modoAtualCombate');
 const instrucaoPosicionamento = document.getElementById('instrucaoPosicionamento');
 
+// ============================================
+// CONFIGURAÇÕES DO MAPA HEXAGONAL
+// ============================================
 const HEX_RADIUS = 24;
 const HEX_HORIZONTAL_SPACING = HEX_RADIUS * 2 * 0.75;
 const HEX_VERTICAL_SPACING = HEX_RADIUS * Math.sqrt(3);
@@ -2168,6 +2180,9 @@ const OFFSET_Y = 60;
 
 const coresNPCs = ['#e74c3c', '#27ae60', '#f39c12', '#9b59b6', '#3498db', '#e67e22', '#1abc9c', '#e84342', '#f1c40f', '#e91e63'];
 
+// ============================================
+// VARIÁVEIS GLOBAIS
+// ============================================
 let currentUser = null;
 let sessaoAtual = null;
 let campanhaIdCustom = null;
@@ -2192,6 +2207,9 @@ let unsubscribePosicoes = null;
 let unsubscribeCombate = null;
 let unsubscribeMarcadores = null;
 
+// ============================================
+// TABELAS DE CRÍTICOS E FULMINANTES (COMPLETAS)
+// ============================================
 const tabelasCriticosCompletas = {
     'ful-ataque': [
         "DANO DUPLICADO + IGNORA RD COMPLETAMENTE.",
@@ -2267,6 +2285,9 @@ const tabelasCriticosCompletas = {
     ]
 };
 
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
 function showLoading() { if(loadingOverlay) loadingOverlay.classList.add('active'); }
 function hideLoading() { if(loadingOverlay) loadingOverlay.classList.remove('active'); }
 
@@ -2280,6 +2301,9 @@ function getSessaoIdFromUrl() {
     return new URLSearchParams(window.location.search).get('sessao');
 }
 
+// ============================================
+// FUNÇÕES DO MAPA HEXAGONAL
+// ============================================
 function hexToPixel(hexX, hexY) {
     const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
     const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
@@ -2370,6 +2394,9 @@ function desenharMapa() {
     });
 }
 
+// ============================================
+// FUNÇÕES DE COMBATE
+// ============================================
 async function iniciarCombate() {
     if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
     showLoading();
@@ -2544,6 +2571,9 @@ function handleCanvasClick(e) {
     }
 }
 
+// ============================================
+// FUNÇÕES DE NPC (CRIAR, EDITAR, EXCLUIR, LISTAR)
+// ============================================
 function renderizarAtaques() {
     if (!ataquesContainer) return;
     if (ataquesArray.length === 0) {
@@ -2648,15 +2678,39 @@ window.selecionarNPCparaPosicionar = function(id) {
     showToast(`Clique no mapa para posicionar ${npc.nome}`);
 };
 
+// ============================================
+// FUNÇÃO CORRIGIDA: EXCLUIR NPC (REMOVE DO ARRAY posicoes)
+// ============================================
 window.excluirNPC = async function(npcId, event) {
     if (event) event.stopPropagation();
     if (!confirm('Tem certeza que deseja excluir este NPC?')) return;
     try {
         await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "npcs", npcId));
+        
+        // REMOVER TAMBÉM DO ARRAY posicoes
+        delete posicoes[npcId];
+        
+        // ATUALIZAR A LISTA VISUALMENTE
+        atualizarListaNPCs();
+        
+        // SE O NPC EXCLUÍDO ERA O QUE ESTAVA SELECIONADO, LIMPAR SELEÇÃO
+        if (personagemSelecionado === npcId) {
+            personagemSelecionado = null;
+        }
+        
+        // REDESENHAR O MAPA SE NECESSÁRIO
+        if (ctx) desenharMapa();
+        
         showToast('NPC excluído com sucesso!');
-    } catch(error) { showToast('Erro ao excluir NPC', true); }
+    } catch(error) { 
+        console.error(error);
+        showToast('Erro ao excluir NPC', true); 
+    }
 };
 
+// ============================================
+// FUNÇÕES DE DETALHES DO NPC
+// ============================================
 window.abrirDetalheNPC = async function(npcId) {
     try {
         const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
@@ -2747,6 +2801,9 @@ window.handleRecursoDetalheClick = function(e) {
     if (recurso && !isNaN(delta)) atualizarRecursoModalNPC(recurso, delta);
 };
 
+// ============================================
+// FUNÇÕES DE PCs
+// ============================================
 function renderizarPCs() {
     if (pcVinculados.length === 0) {
         if(pcsContainer) pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;">Nenhum jogador vinculado</div>';
@@ -2787,6 +2844,9 @@ async function carregarPCs() {
     } catch(error) { console.error('Erro ao carregar PCs:', error); }
 }
 
+// ============================================
+// FUNÇÕES DE LISTENERS
+// ============================================
 function iniciarListeners() {
     if (!sessaoAtual) return;
     onSnapshot(doc(db, "sessoes", sessaoAtual.id), (doc) => {
@@ -2817,6 +2877,9 @@ function iniciarListeners() {
     });
 }
 
+// ============================================
+// FUNÇÃO PRINCIPAL: CARREGAR SESSÃO
+// ============================================
 async function carregarSessao() {
     const sessaoId = getSessaoIdFromUrl();
     if (!sessaoId) { showToast('ID da sessão não encontrado!', true); setTimeout(() => window.location.href = 'dashboard-gm.html', 2000); return; }
@@ -2876,6 +2939,9 @@ async function carregarSessao() {
     } catch(error) { console.error(error); showToast('Erro ao carregar sessão: ' + error.message, true); hideLoading(); }
 }
 
+// ============================================
+// EVENTOS DOS BOTÕES DE MODO
+// ============================================
 if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
     btnModoNarrativo.addEventListener('click', () => {
         btnModoNarrativo.classList.add('ativo');
@@ -2892,6 +2958,9 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
     });
 }
 
+// ============================================
+// EVENTOS DOS BOTÕES DE COMBATE
+// ============================================
 if (btnIniciarCombate) btnIniciarCombate.addEventListener('click', iniciarCombate);
 if (btnProximoTurno) btnProximoTurno.addEventListener('click', avancarTurno);
 if (btnEncerrarCombate) btnEncerrarCombate.addEventListener('click', encerrarCombate);
@@ -2908,6 +2977,9 @@ if (btnMarcador) {
 if (canvas) canvas.addEventListener('click', handleCanvasClick);
 if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
 
+// ============================================
+// EVENTOS DE NAVEGAÇÃO
+// ============================================
 if (btnVoltar) btnVoltar.addEventListener('click', () => window.location.href = 'dashboard-gm.html');
 if (btnSair) btnSair.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
 if (btnTabelas) btnTabelas.addEventListener('click', () => { if(modalTabelas) modalTabelas.classList.add('active'); });
@@ -2915,6 +2987,9 @@ if (btnFecharTabelas) btnFecharTabelas.addEventListener('click', () => { if(moda
 const btnFecharModalDetalhe = document.getElementById('btnFecharModalDetalhe');
 if (btnFecharModalDetalhe) btnFecharModalDetalhe.addEventListener('click', () => { const modal = document.getElementById('modalNpcDetalhe'); if(modal) modal.classList.remove('active'); modalNpcDetalheAtual = null; });
 
+// ============================================
+// EVENTOS DO CENÁRIO
+// ============================================
 if (uploadCenario) {
     uploadCenario.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -2939,6 +3014,10 @@ if (uploadCenario) {
 if (cenarioDescricao) {
     cenarioDescricao.addEventListener('input', async () => { if (sessaoAtual) await updateDoc(doc(db, "sessoes", sessaoAtual.id), { 'cena_atual.descricao': cenarioDescricao.value, 'cena_atual.atualizado_em': serverTimestamp() }); });
 }
+
+// ============================================
+// EVENTOS DE ROLAGEM
+// ============================================
 if (btnRolarPericia) {
     btnRolarPericia.addEventListener('click', async () => {
         const dezena = Math.floor(Math.random() * 10);
@@ -2997,8 +3076,16 @@ tabsCritico.forEach(tab => {
         if(resultadoCritico) resultadoCritico.style.display = 'none';
     });
 });
+
+// ============================================
+// EVENTOS DE NPC (CRIAR, EDITAR)
+// ============================================
 if (btnAddAtaque) btnAddAtaque.addEventListener('click', () => { ataquesArray.push({ nome: 'Novo Ataque', bonus: 0, dano: '1d8', alcance: 1 }); renderizarAtaques(); });
 if (btnAddMagiaNpc) btnAddMagiaNpc.addEventListener('click', () => { magiasArray.push({ nome: 'Nova Magia', nh: 50, efeito: 'Efeito da magia' }); renderizarMagiasNpc(); });
+
+// ============================================
+// FUNÇÃO CORRIGIDA: SALVAR NPC (ADICIONA AO ARRAY posicoes)
+// ============================================
 if (btnSalvarNpc) {
     btnSalvarNpc.addEventListener('click', async () => {
         if (!sessaoAtual) { alert('Sessão não carregada!'); return; }
@@ -3015,7 +3102,33 @@ if (btnSalvarNpc) {
             ataques: ataquesArray.filter(a => a.nome && a.dano), magias: magiasArray.filter(m => m.nome), criado_em: serverTimestamp()
         };
         try {
-            await addDoc(collection(db, "sessoes", sessaoAtual.id, "npcs"), npcData);
+            const docRef = await addDoc(collection(db, "sessoes", sessaoAtual.id, "npcs"), npcData);
+            
+            // ADICIONAR O NOVO NPC AO ARRAY posicoes IMEDIATAMENTE
+            posicoes[docRef.id] = {
+                id: docRef.id,
+                nome: nome,
+                tipo: 'npc',
+                cor: npcCor ? npcCor.value : coresNPCs[Object.keys(posicoes).length % coresNPCs.length],
+                pv: pvAtual,
+                pvMax: pvMax,
+                pm: parseInt(npcPmAtual ? npcPmAtual.value : 5) || 5,
+                pmMax: parseInt(npcPmMax ? npcPmMax.value : 5) || 5,
+                pf: parseInt(npcPfAtual ? npcPfAtual.value : 10) || 10,
+                pfMax: parseInt(npcPfMax ? npcPfMax.value : 10) || 10,
+                esquiva: parseInt(npcEsquiva ? npcEsquiva.value : 40) || 40,
+                aparar: parseInt(npcAparar ? npcAparar.value : 0) || 0,
+                bloqueio: parseInt(npcBloqueio ? npcBloqueio.value : 0) || 0,
+                andar: parseInt(npcAndar ? npcAndar.value : 4) || 4,
+                correr: parseInt(npcCorrer ? npcCorrer.value : 8) || 8,
+                rd: parseInt(npcRd ? npcRd.value : 0) || 0,
+                hexX: undefined,
+                hexY: undefined
+            };
+            
+            // ATUALIZAR A LISTA VISUALMENTE
+            atualizarListaNPCs();
+            
             if(modalNpc) modalNpc.classList.remove('active');
             if(npcNome) npcNome.value = '';
             if(npcSt) npcSt.value = '10'; if(npcDx) npcDx.value = '10'; if(npcIq) npcIq.value = '10'; if(npcVigor) npcVigor.value = '10'; if(npcVt) npcVt.value = '10';
@@ -3024,11 +3137,17 @@ if (btnSalvarNpc) {
             if(npcAndar) npcAndar.value = '4'; if(npcCorrer) npcCorrer.value = '8';
             ataquesArray = []; magiasArray = [];
             renderizarAtaques(); renderizarMagiasNpc();
+            
+            showToast('NPC criado com sucesso!');
         } catch(error) { console.error(error); alert('Erro ao salvar NPC: ' + error.message); }
     });
 }
 if (btnCancelarNpc) btnCancelarNpc.addEventListener('click', () => { if(modalNpc) modalNpc.classList.remove('active'); ataquesArray = []; magiasArray = []; renderizarAtaques(); renderizarMagiasNpc(); });
 if (btnAddNpc) btnAddNpc.addEventListener('click', () => { ataquesArray = []; magiasArray = []; renderizarAtaques(); renderizarMagiasNpc(); if(modalNpc) modalNpc.classList.add('active'); });
+
+// ============================================
+// EVENTOS DAS ABAS DOS MODAIS
+// ============================================
 document.querySelectorAll('.subaba').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.subaba').forEach(t => t.classList.remove('ativa'));
@@ -3071,6 +3190,10 @@ document.querySelectorAll('.tabela-tab').forEach(tab => {
         }
     });
 });
+
+// ============================================
+// FECHAR MODAIS AO CLICAR FORA
+// ============================================
 window.addEventListener('click', (e) => {
     const modalNpcDetalhe = document.getElementById('modalNpcDetalhe');
     const modalNpcEl = document.getElementById('modalNpc');
@@ -3084,11 +3207,17 @@ document.querySelectorAll('#modalNpcDetalhe .btn-recurso-npc').forEach(btn => {
     btn.addEventListener('click', window.handleRecursoDetalheClick);
 });
 
+// ============================================
+// CONFIGURAÇÃO DO CANVAS
+// ============================================
 if (canvas) {
     canvas.width = 900;
     canvas.height = 500;
 }
 
+// ============================================
+// AUTENTICAÇÃO FIREBASE
+// ============================================
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -3098,11 +3227,14 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
+// ============================================
+// LIMPAR LISTENERS AO SAIR
+// ============================================
 window.addEventListener('beforeunload', () => {
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
     if (unsubscribeMarcadores) unsubscribeMarcadores();
-});;
+});
 </script>
 </body>
 </html>
