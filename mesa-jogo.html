@@ -2929,26 +2929,36 @@ window.moverNPC = function(id, tipoMovimento) {
 };
 
 // ============================================
-// FUNÇÃO CORRIGIDA: EXCLUIR NPC (REMOVE DO ARRAY posicoes)
+// FUNÇÃO CORRIGIDA: EXCLUIR NPC (REMOVE DO ARRAY posicoes E DO FIRESTORE)
 // ============================================
 window.excluirNPC = async function(npcId, event) {
     if (event) event.stopPropagation();
     if (!confirm('Tem certeza que deseja excluir este NPC?')) return;
     try {
+        // 1. Excluir o NPC da coleção npcs
         await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "npcs", npcId));
         
-        // REMOVER TAMBÉM DO ARRAY posicoes
+        // 2. EXCLUIR TAMBÉM A POSIÇÃO NO FIRESTORE (LINHA ESSENCIAL QUE FALTAVA!)
+        await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId));
+        
+        // 3. REMOVER TAMBÉM DO ARRAY local posicoes
         delete posicoes[npcId];
         
-        // ATUALIZAR A LISTA VISUALMENTE
+        // 4. ATUALIZAR A LISTA VISUALMENTE
         atualizarListaNPCs();
         
-        // SE O NPC EXCLUÍDO ERA O QUE ESTAVA SELECIONADO, LIMPAR SELEÇÃO
+        // 5. SE O NPC EXCLUÍDO ERA O QUE ESTAVA SELECIONADO, LIMPAR SELEÇÃO
         if (personagemSelecionado === npcId) {
             personagemSelecionado = null;
         }
         
-        // REDESENHAR O MAPA SE NECESSÁRIO
+        // 6. SE O NPC EXCLUÍDO ERA O QUE ESTAVA SENDO POSICIONADO, LIMPAR
+        if (npcSelecionadoParaPosicionar === npcId) {
+            npcSelecionadoParaPosicionar = null;
+            if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none';
+        }
+        
+        // 7. REDESENHAR O MAPA
         if (ctx) desenharMapa();
         
         showToast('NPC excluído com sucesso!');
@@ -2957,7 +2967,6 @@ window.excluirNPC = async function(npcId, event) {
         showToast('Erro ao excluir NPC', true); 
     }
 };
-
 // ============================================
 // FUNÇÕES DE DETALHES DO NPC
 // ============================================
