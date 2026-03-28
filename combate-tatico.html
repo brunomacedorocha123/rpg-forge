@@ -1202,7 +1202,7 @@ body::before {
         </div>
     </div>
 
- <script type="module">
+<script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1369,40 +1369,6 @@ function calcularDeslocamentoCombate(dxFixo, vigorFixo) {
         andar: arredondar(andarBruto),
         correr: arredondar(correrBruto)
     };
-}
-
-// ============================================
-// FUNÇÃO: ROLAR DADO REAL
-// ============================================
-function rolarDado(dadoString) {
-    const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
-    if (!match) return { total: 0, resultados: [] };
-    
-    const quantidade = parseInt(match[1]) || 1;
-    const faces = parseInt(match[2]);
-    const modificador = match[3] ? parseInt(match[3]) : 0;
-    
-    let total = 0;
-    let resultados = [];
-    for (let i = 0; i < quantidade; i++) {
-        const valor = Math.floor(Math.random() * faces) + 1;
-        resultados.push(valor);
-        total += valor;
-    }
-    total += modificador;
-    
-    return { total, resultados, modificador, quantidade, faces };
-}
-
-// ============================================
-// FUNÇÃO: ROLAR DEFESA ATIVA (2d10)
-// ============================================
-function rolarDefesa2d10() {
-    const dezena = Math.floor(Math.random() * 10);
-    const unidade = Math.floor(Math.random() * 10);
-    let resultado = (dezena * 10) + unidade;
-    if (resultado === 0) resultado = 100;
-    return { resultado, dezena, unidade };
 }
 
 // ============================================
@@ -1599,23 +1565,6 @@ function extrairDadosPersonagem(personagemData) {
     const derivados = personagemData.derivados || {};
     const atributos = personagemData.atributos || {};
     
-    let armaEquipada = null;
-    let danoArma = "1d4";
-    let nomeArma = "Ataque Desarmado";
-    
-    if (personagemData.inventario?.corpo && Array.isArray(personagemData.inventario.corpo)) {
-        const arma = personagemData.inventario.corpo.find(item => item.tipo === "arma");
-        if (arma) {
-            armaEquipada = arma;
-            nomeArma = arma.nome;
-            if (arma.dano) danoArma = arma.dano;
-        }
-    }
-    
-    const stEsferas = atributos.st?.esferas || 0;
-    const bonusDano = Math.floor(stEsferas / 2);
-    const danoBase = derivados.danoBase || "1d-2";
-    
     // CALCULA DESLOCAMENTO IGUAL À FICHA
     const dxFixo = 5 + (atributos.dx?.esferas || 0);
     const vigorFixo = 5 + (atributos.vigor?.esferas || 0);
@@ -1635,13 +1584,7 @@ function extrairDadosPersonagem(personagemData) {
         bloqueio: derivados.bloqueio || 0,
         rd: derivados.rdExtra || 0,
         andar: desloc.andar,
-        correr: desloc.correr,
-        armaEquipada: {
-            nome: nomeArma,
-            dano: danoArma,
-            bonus: bonusDano
-        },
-        danoBase: danoBase
+        correr: desloc.correr
     };
 }
 
@@ -1738,11 +1681,8 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
                 andar: personagemAtual.andar,
                 correr: personagemAtual.correr,
                 rd: personagemAtual.rd,
-                arma: personagemAtual.armaEquipada,
-                danoBase: personagemAtual.danoBase,
                 hexX: undefined,
-                hexY: undefined,
-                impedidoAtacar: false
+                hexY: undefined
             };
         }
     } catch (error) {
@@ -1763,6 +1703,10 @@ async function carregarNPCs() {
             const npcId = doc.id;
             
             if (!posicoes[npcId]) {
+                // Pega movimento do NPC ou usa padrão 4/8
+                const andarNPC = npc.movimento?.andar || 4;
+                const correrNPC = npc.movimento?.correr || 8;
+                
                 posicoes[npcId] = {
                     id: npcId,
                     nome: npc.nome,
@@ -1777,13 +1721,11 @@ async function carregarNPCs() {
                     esquiva: npc.defesas?.esquiva || 30,
                     aparar: npc.defesas?.aparar || 0,
                     bloqueio: npc.defesas?.bloqueio || 0,
-                    andar: 4,
-                    correr: 8,
+                    andar: andarNPC,
+                    correr: correrNPC,
                     rd: npc.defesas?.rd || 0,
-                    ataques: npc.ataques || [],
                     hexX: undefined,
-                    hexY: undefined,
-                    impedidoAtacar: false
+                    hexY: undefined
                 };
                 indiceCor++;
             }
@@ -1820,11 +1762,8 @@ async function garantirPosicaoPC(personagemId) {
                 andar: pos.andar,
                 correr: pos.correr,
                 rd: pos.rd,
-                arma: pos.arma,
-                danoBase: pos.danoBase,
                 hexX: null,
                 hexY: null,
-                impedidoAtacar: false,
                 atualizadoEm: serverTimestamp()
             });
             return true;
@@ -1886,11 +1825,8 @@ async function iniciarCombate() {
                 andar: pos.andar || 6,
                 correr: pos.correr || 12,
                 rd: pos.rd || 0,
-                arma: pos.arma,
-                danoBase: pos.danoBase,
                 hexX: pos.hexX !== undefined ? pos.hexX : null,
                 hexY: pos.hexY !== undefined ? pos.hexY : null,
-                impedidoAtacar: false,
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
         });
@@ -1986,11 +1922,6 @@ async function moverPersonagem(personagemId, hexX, hexY) {
 async function avancarTurno() {
     if (!ehGM || !combateId || !sessaoAtual) return;
     
-    // Resetar impedidoAtacar no final do turno
-    Object.values(posicoes).forEach(pos => {
-        pos.impedidoAtacar = false;
-    });
-    
     if (vezAtual === 'jogadores') {
         vezAtual = 'npcs';
         showToast('Vez dos NPCs');
@@ -2008,10 +1939,6 @@ async function avancarTurno() {
     });
     
     atualizarUI();
-    
-    if (personagemSelecionado && posicoes[personagemSelecionado]) {
-        atualizarFicha(personagemSelecionado);
-    }
 }
 
 async function finalizarTurnoJogadores() {
@@ -2054,7 +1981,6 @@ async function encerrarCombate() {
         Object.keys(posicoes).forEach(id => {
             posicoes[id].hexX = undefined;
             posicoes[id].hexY = undefined;
-            posicoes[id].impedidoAtacar = false;
         });
         
         atualizarUI();
@@ -2140,7 +2066,6 @@ function iniciarListenersCombate() {
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
-                if (posicoes[id].impedidoAtacar === undefined) posicoes[id].impedidoAtacar = false;
             } else if (change.type === "removed") {
                 if (posicoes[id]) {
                     posicoes[id].hexX = undefined;
@@ -2447,49 +2372,19 @@ function atualizarFicha(personagemId) {
     const podeAgir = ehGM || pos.jogadorUid === currentUser?.uid;
     const ehVezCorreta = vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs');
     const estaPosicionado = pos.hexX !== undefined && pos.hexX !== null;
-    const impedidoAtacar = pos.impedidoAtacar || false;
     
+    // APENAS BOTÕES DE MOVIMENTO
     let acoesHtml = `
         <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.9rem;">
-            <i class="fas fa-fist-raised"></i> Ações
+            <i class="fas fa-shoe-prints"></i> Movimento
         </h4>
     `;
-    
-    // Aviso se correu
-    if (impedidoAtacar) {
-        acoesHtml += `
-            <div class="aviso-corrida" style="background: rgba(243, 156, 18, 0.2); border-left: 3px solid #f39c12; padding: 8px; margin: 10px 0; border-radius: 6px; font-size: 0.8rem; color: #f39c12;">
-                <i class="fas fa-running"></i> Você correu neste turno e não pode atacar!
-            </div>
-        `;
-    }
-    
-    // ATAQUE
-    if (pos.arma && !impedidoAtacar) {
-        const danoTotal = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
-        acoesHtml += `
-            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
-                    ${!podeAgir || !ehVezCorreta || !estaPosicionado || impedidoAtacar ? 'disabled' : ''}>
-                <span><i class="fas fa-fist-raised"></i> ${pos.arma.nome}</span>
-                <span class="dano">${danoTotal}</span>
-            </button>
-        `;
-    } else if (!impedidoAtacar) {
-        acoesHtml += `
-            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
-                    ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
-                <span><i class="fas fa-fist-raised"></i> Ataque Básico</span>
-                <span class="dano">${pos.danoBase || '1d4'}</span>
-            </button>
-        `;
-    }
     
     // MOVIMENTO: ANDAR
     acoesHtml += `
         <button class="btn-acao" style="border-color: #2ecc71; color: #2ecc71;" onclick="window.iniciarMovimento('${personagemId}', 'andar')" 
                 ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
             <span><i class="fas fa-shoe-prints"></i> Andar (${pos.andar || 0}m)</span>
-            <span class="dano">✓ Pode atacar</span>
         </button>
     `;
     
@@ -2498,16 +2393,6 @@ function atualizarFicha(personagemId) {
         <button class="btn-acao" style="border-color: #f39c12; color: #f39c12;" onclick="window.iniciarMovimento('${personagemId}', 'correr')" 
                 ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
             <span><i class="fas fa-running"></i> Correr (${pos.correr || 0}m)</span>
-            <span class="dano">✗ Não pode atacar</span>
-        </button>
-    `;
-    
-    // DEFESA ATIVA
-    acoesHtml += `
-        <button class="btn-acao" style="border-color: #3498db; color: #3498db;" onclick="window.rolarDefesa('${personagemId}')" 
-                ${!podeAgir || !estaPosicionado ? 'disabled' : ''}>
-            <span><i class="fas fa-shield-alt"></i> Defesa Ativa</span>
-            <span class="dano">2d10</span>
         </button>
     `;
     
@@ -2586,48 +2471,6 @@ async function atualizarRecursoNPC(npcId, tipo, delta) {
 }
 
 // ============================================
-// FUNÇÃO DE ATAQUE COM DANO REAL
-// ============================================
-window.realizarAtaque = function(personagemId, ataqueIndex = null) {
-    const pos = posicoes[personagemId];
-    if (!pos) return;
-    
-    let danoTexto = "";
-    let nomeAtaque = "";
-    
-    if (ataqueIndex !== null && pos.ataques && pos.ataques[ataqueIndex]) {
-        const ataque = pos.ataques[ataqueIndex];
-        nomeAtaque = ataque.nome;
-        danoTexto = `${ataque.dano}${ataque.bonus > 0 ? `+${ataque.bonus}` : ataque.bonus < 0 ? `${ataque.bonus}` : ''}`;
-    } else if (pos.arma) {
-        nomeAtaque = pos.arma.nome;
-        danoTexto = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
-    } else {
-        nomeAtaque = "Ataque Básico";
-        danoTexto = pos.danoBase || "1d4";
-    }
-    
-    const resultado = rolarDado(danoTexto);
-    
-    if (resultado && resultado.total !== undefined) {
-        let detalhes = `${resultado.resultados.join('+')}`;
-        if (resultado.modificador !== 0) {
-            detalhes += `${resultado.modificador >= 0 ? '+' : ''}${resultado.modificador}`;
-        }
-        showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Rolou ${detalhes} = ${resultado.total} de dano!`);
-        
-        if (ehGM && personagemSelecionado && personagemSelecionado !== personagemId) {
-            const alvo = posicoes[personagemSelecionado];
-            if (alvo) {
-                showToast(`💥 Dano aplicado a ${alvo.nome}? (use os botões de PV para reduzir)`);
-            }
-        }
-    } else {
-        showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Dano: ${danoTexto}`);
-    }
-};
-
-// ============================================
 // FUNÇÃO DE MOVIMENTO (ANDAR OU CORRER)
 // ============================================
 window.iniciarMovimento = function(id, tipoMovimento = 'andar') {
@@ -2650,13 +2493,6 @@ window.iniciarMovimento = function(id, tipoMovimento = 'andar') {
     if (pos && pos.hexX !== undefined && pos.hexX !== null) {
         let alcance = tipoMovimento === 'correr' ? (pos.correr || 6) : (pos.andar || 6);
         
-        if (tipoMovimento === 'correr') {
-            pos.impedidoAtacar = true;
-            showToast(`🏃 ${pos.nome} está correndo! Não poderá atacar neste turno.`);
-        } else {
-            pos.impedidoAtacar = false;
-        }
-        
         highlightHex = [];
         
         for (let dx = -alcance; dx <= alcance; dx++) {
@@ -2678,56 +2514,6 @@ window.iniciarMovimento = function(id, tipoMovimento = 'andar') {
     
     atualizarFicha(id);
     desenharMapa();
-};
-
-// ============================================
-// FUNÇÃO DE DEFESA ATIVA (2d10)
-// ============================================
-window.rolarDefesa = function(personagemId) {
-    const pos = posicoes[personagemId];
-    if (!pos) return;
-    
-    const resultado = rolarDefesa2d10();
-    
-    let valorDefesa = 0;
-    let nomeDefesa = "";
-    
-    const esquiva = pos.esquiva || 0;
-    const aparar = pos.aparar || 0;
-    const bloqueio = pos.bloqueio || 0;
-    
-    if (esquiva >= aparar && esquiva >= bloqueio) {
-        valorDefesa = esquiva;
-        nomeDefesa = "Esquiva";
-    } else if (aparar >= bloqueio) {
-        valorDefesa = aparar;
-        nomeDefesa = "Aparar";
-    } else {
-        valorDefesa = bloqueio;
-        nomeDefesa = "Bloqueio";
-    }
-    
-    const sucesso = resultado.resultado <= valorDefesa;
-    const resultadoTexto = sucesso ? "SUCESSO!" : "FALHA!";
-    const cor = sucesso ? "#2ecc71" : "#e74c3c";
-    
-    showToast(`🛡️ ${pos.nome} rolou ${resultado.resultado}% para ${nomeDefesa} (${valorDefesa}%) → ${resultadoTexto}`);
-    
-    if (sessaoAtual) {
-        addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-            tipo: 'defesa',
-            jogador: pos.nome,
-            personagemId: personagemId,
-            defesaUsada: nomeDefesa,
-            valorDefesa: valorDefesa,
-            resultado: resultado.resultado,
-            sucesso: sucesso,
-            dezena: resultado.dezena,
-            unidade: resultado.unidade,
-            visibilidade: 'publico',
-            timestamp: serverTimestamp()
-        });
-    }
 };
 
 // ============================================
@@ -2799,7 +2585,6 @@ async function carregarSessao() {
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
-                if (posicoes[id].impedidoAtacar === undefined) posicoes[id].impedidoAtacar = false;
             });
             
             iniciarListenersCombate();
