@@ -852,6 +852,166 @@ body::before {
         overflow: auto;
     }
 }
+/* ============================================ */
+/* RECURSOS NPC (BARRAS E BOTÕES) */
+/* ============================================ */
+
+/* Container dos recursos do NPC */
+.recursos-npc {
+    margin: 15px 0;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border-left: 3px solid var(--gold);
+}
+
+/* Título dos recursos */
+.recursos-npc h4 {
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Cada linha de recurso (PV, PM, PF) */
+.recurso-linha {
+    margin-bottom: 15px;
+}
+
+.recurso-linha:last-child {
+    margin-bottom: 0;
+}
+
+/* Cabeçalho do recurso (ícone + valor) */
+.recurso-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+}
+
+.recurso-header .recurso-nome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.recurso-header .recurso-nome i {
+    font-size: 0.9rem;
+}
+
+.recurso-header .recurso-nome .pv-icon { color: #ff6b6b; }
+.recurso-header .recurso-nome .pm-icon { color: #6b6bff; }
+.recurso-header .recurso-nome .pf-icon { color: var(--gold); }
+
+.recurso-header .recurso-valor {
+    font-weight: 600;
+    color: var(--gold-bright);
+    font-size: 0.85rem;
+}
+
+/* Barra de progresso */
+.recurso-barra-container {
+    width: 100%;
+    height: 10px;
+    background: var(--bg-primary);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.recurso-barra {
+    height: 100%;
+    transition: width 0.2s ease;
+    border-radius: 10px;
+}
+
+.recurso-barra.pv-barra { background: linear-gradient(90deg, #ff4444, #ff6b6b); }
+.recurso-barra.pm-barra { background: linear-gradient(90deg, #4444ff, #6b6bff); }
+.recurso-barra.pf-barra { background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
+
+/* Botões de edição */
+.recurso-botoes {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.btn-recurso-npc {
+    background: var(--bg-primary);
+    border: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+}
+
+.btn-recurso-npc:hover {
+    transform: translateY(-1px);
+}
+
+/* Cores específicas para cada tipo */
+.btn-recurso-npc.pv-btn {
+    border: 1px solid #ff6b6b;
+    color: #ff6b6b;
+}
+
+.btn-recurso-npc.pv-btn:hover {
+    background: #ff6b6b;
+    color: var(--bg-primary);
+}
+
+.btn-recurso-npc.pm-btn {
+    border: 1px solid #6b6bff;
+    color: #6b6bff;
+}
+
+.btn-recurso-npc.pm-btn:hover {
+    background: #6b6bff;
+    color: var(--bg-primary);
+}
+
+.btn-recurso-npc.pf-btn {
+    border: 1px solid var(--gold);
+    color: var(--gold);
+}
+
+.btn-recurso-npc.pf-btn:hover {
+    background: var(--gold);
+    color: var(--bg-primary);
+}
+
+/* Divisor entre recursos e ações */
+.divisor-recursos {
+    height: 1px;
+    background: var(--border-glow);
+    margin: 15px 0;
+}
+
+/* Responsivo para mobile */
+@media (max-width: 768px) {
+    .recursos-npc {
+        padding: 8px;
+    }
+    
+    .recurso-header {
+        font-size: 0.8rem;
+    }
+    
+    .btn-recurso-npc {
+        padding: 3px 8px;
+        font-size: 0.7rem;
+    }
+    
+    .recurso-barra-container {
+        height: 8px;
+    }
+}
     </style>
 </head>
 <body>
@@ -892,7 +1052,6 @@ body::before {
                     <button class="btn-combate" id="btnEncerrarCombate" disabled>
                         <i class="fas fa-stop"></i> Encerrar
                     </button>
-                    <!-- NOVO BOTÃO DE MARCADOR -->
                     <button class="btn-combate" id="btnMarcador" style="border-color: #8B4513; color: #8B4513;">
                         <i class="fas fa-map-marker-alt"></i> Obstáculo
                     </button>
@@ -997,7 +1156,7 @@ body::before {
         </div>
     </div>
 
-  <script type="module">
+   <script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1139,6 +1298,98 @@ function showToast(msg, erro = false) {
 function getSessaoIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('sessao');
+}
+
+// ============================================
+// FUNÇÃO: ROLAR DADO REAL
+// ============================================
+function rolarDado(dadoString) {
+    // Suporta formatos: "1d8", "2d6+2", "1d10-1", "3d8+5"
+    const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
+    if (!match) return 0;
+    
+    const quantidade = parseInt(match[1]) || 1;
+    const faces = parseInt(match[2]);
+    const modificador = match[3] ? parseInt(match[3]) : 0;
+    
+    let total = 0;
+    let resultados = [];
+    for (let i = 0; i < quantidade; i++) {
+        const valor = Math.floor(Math.random() * faces) + 1;
+        resultados.push(valor);
+        total += valor;
+    }
+    total += modificador;
+    
+    return { total, resultados, modificador, quantidade, faces };
+}
+
+// ============================================
+// FUNÇÃO: ATUALIZAR RECURSO DO NPC (PV/PM/PF)
+// ============================================
+async function atualizarRecursoNPC(npcId, tipo, delta) {
+    if (!ehGM) {
+        showToast('Apenas o GM pode alterar recursos de NPCs', true);
+        return false;
+    }
+    
+    const pos = posicoes[npcId];
+    if (!pos || pos.tipo !== 'npc') return false;
+    
+    let campoAtual, campoMax, novoValor;
+    
+    if (tipo === 'pv') {
+        campoAtual = 'pv';
+        campoMax = 'pvMax';
+        novoValor = (pos.pv || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pvMax);
+        posicoes[npcId].pv = novoValor;
+    } else if (tipo === 'pm') {
+        campoAtual = 'pm';
+        campoMax = 'pmMax';
+        novoValor = (pos.pm || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pmMax);
+        posicoes[npcId].pm = novoValor;
+    } else if (tipo === 'pf') {
+        campoAtual = 'pf';
+        campoMax = 'pfMax';
+        novoValor = (pos.pf || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pfMax);
+        posicoes[npcId].pf = novoValor;
+    } else {
+        return false;
+    }
+    
+    try {
+        // Atualizar no Firestore
+        const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
+        await updateDoc(npcRef, {
+            [`recursos.${tipo}_atual`]: novoValor
+        });
+        
+        // Atualizar também na posição (se existir)
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
+        await setDoc(posRef, {
+            [campoAtual]: novoValor
+        }, { merge: true });
+        
+        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campaoMax]}`);
+        
+        // Atualizar interface se for o personagem selecionado
+        if (personagemSelecionado === npcId) {
+            atualizarFicha(npcId);
+        }
+        
+        // Atualizar lista de personagens
+        atualizarListaPersonagens();
+        desenharMapa();
+        
+        return true;
+    } catch (error) {
+        console.error('Erro ao atualizar recurso:', error);
+        showToast('Erro ao atualizar recurso', true);
+        return false;
+    }
 }
 
 // ============================================
@@ -1503,7 +1754,7 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
 }
 
 // ============================================
-// FUNÇÃO: Carregar NPCs
+// FUNÇÃO: Carregar NPCs (COM PF)
 // ============================================
 async function carregarNPCs() {
     if (!sessaoAtual) return;
@@ -1527,6 +1778,8 @@ async function carregarNPCs() {
                     pvMax: npc.recursos?.pv_max || 20,
                     pm: npc.recursos?.pm_atual || 5,
                     pmMax: npc.recursos?.pm_max || 5,
+                    pf: npc.recursos?.pf_atual || 10,
+                    pfMax: npc.recursos?.pf_max || 10,
                     esquiva: npc.defesas?.esquiva || 30,
                     aparar: npc.defesas?.aparar || 0,
                     bloqueio: npc.defesas?.bloqueio || 0,
@@ -1956,7 +2209,9 @@ function atualizarListaPersonagens() {
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
                         <span class="personagem-nome">${pos.nome}</span>
                         <span class="personagem-status">📌 posicionar</span>
-                        <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        ${ehGM ? `<span class="personagem-pm">💙 ${pos.pm || '?'}/${pos.pmMax || '?'}</span>` : ''}
+                        ${ehGM ? `<span class="personagem-pf">💛 ${pos.pf || '?'}/${pos.pfMax || '?'}</span>` : ''}
                     </div>
                 `;
             });
@@ -2004,6 +2259,8 @@ function atualizarListaPersonagens() {
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
                         <span class="personagem-nome">🧌 ${pos.nome}</span>
                         <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        <span class="personagem-pm">💙 ${pos.pm || '?'}/${pos.pmMax || '?'}</span>
+                        <span class="personagem-pf">💛 ${pos.pf || '?'}/${pos.pfMax || '?'}</span>
                     </div>
                 `;
             });
@@ -2021,7 +2278,7 @@ function atualizarListaPersonagens() {
                     <div class="personagem-cor" style="background: #1E90FF"></div>
                     <span class="personagem-nome">${meuPC.nome} (você)</span>
                     <span class="personagem-status">📌 clique no mapa</span>
-                    <span class="personagem-pv">${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
+                    <span class="personagem-pv">❤️ ${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
                 </div>
             `;
             html += `</div>`;
@@ -2050,7 +2307,7 @@ function atualizarFicha(personagemId) {
     fichaPV.textContent = `${pos.pv || '?'}/${pos.pvMax || '?'}`;
     
     if (podeVerCompleto) {
-        // Mostra PM e PF se existirem
+        // Mostra PM
         if (pos.pm !== undefined) {
             fichaPM.textContent = `${pos.pm || '?'}/${pos.pmMax || '?'}`;
         } else {
@@ -2058,7 +2315,7 @@ function atualizarFicha(personagemId) {
         }
         
         // Adiciona PF na interface se existir
-        const pfElement = document.getElementById('fichaPF');
+        let pfElement = document.getElementById('fichaPF');
         if (pos.pf !== undefined) {
             if (!pfElement) {
                 const pfHtml = `<div class="stat-item"><div class="stat-label">PF</div><div class="stat-value" id="fichaPF">${pos.pf}/${pos.pfMax}</div></div>`;
@@ -2080,6 +2337,102 @@ function atualizarFicha(personagemId) {
         
         const avisoAnterior = document.querySelector('.aviso-npc');
         if (avisoAnterior) avisoAnterior.remove();
+        
+        // ============================================
+        // 🔥 ADICIONAR RECURSOS EDITÁVEIS PARA NPCs (GM) 🔥
+        // ============================================
+        if (pos.tipo === 'npc' && ehGM) {
+            // Verificar se já existe a div de recursos NPC
+            let recursosDiv = document.querySelector('.recursos-npc-editaveis');
+            if (!recursosDiv) {
+                recursosDiv = document.createElement('div');
+                recursosDiv.className = 'recursos-npc-editaveis';
+                recursosDiv.style.marginTop = '15px';
+                recursosDiv.style.marginBottom = '15px';
+                recursosDiv.style.padding = '10px';
+                recursosDiv.style.background = 'var(--bg-secondary)';
+                recursosDiv.style.borderRadius = '12px';
+                recursosDiv.style.borderLeft = '3px solid var(--gold)';
+                
+                // Inserir após as defesas
+                const defesasDiv = document.querySelector('.defesas-rapidas');
+                if (defesasDiv) {
+                    defesasDiv.insertAdjacentElement('afterend', recursosDiv);
+                } else {
+                    const fichaRapida = document.querySelector('.ficha-rapida');
+                    fichaRapida.appendChild(recursosDiv);
+                }
+            }
+            
+            // Atualizar conteúdo dos recursos
+            recursosDiv.innerHTML = `
+                <h4 style="color: var(--gold); font-size: 14px; margin-bottom: 10px;">
+                    <i class="fas fa-dice-d20"></i> Editar Recursos
+                </h4>
+                
+                <!-- PV -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span><i class="fas fa-heart" style="color: #ff6b6b;"></i> PV</span>
+                        <span id="fichaPVEditavel">${pos.pv}/${pos.pvMax}</span>
+                    </div>
+                    <div style="width: 100%; height: 12px; background: #333; border-radius: 6px; overflow: hidden;">
+                        <div id="fichaPVBarraEditavel" style="width: ${(pos.pv/pos.pvMax)*100}%; height: 100%; background: linear-gradient(90deg, #ff4444, #ff6b6b);"></div>
+                    </div>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <button class="btn-recurso-npc" data-recurso="pv" data-delta="-1" style="background: var(--bg-primary); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">-1</button>
+                        <button class="btn-recurso-npc" data-recurso="pv" data-delta="1" style="background: var(--bg-primary); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">+1</button>
+                        <button class="btn-recurso-npc" data-recurso="pv" data-delta="-5" style="background: var(--bg-primary); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">-5</button>
+                        <button class="btn-recurso-npc" data-recurso="pv" data-delta="5" style="background: var(--bg-primary); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">+5</button>
+                    </div>
+                </div>
+                
+                <!-- PM -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span><i class="fas fa-magic" style="color: #6b6bff;"></i> PM</span>
+                        <span id="fichaPMEditavel">${pos.pm || 0}/${pos.pmMax || 0}</span>
+                    </div>
+                    <div style="width: 100%; height: 12px; background: #333; border-radius: 6px; overflow: hidden;">
+                        <div id="fichaPMBarraEditavel" style="width: ${((pos.pm || 0)/(pos.pmMax || 1))*100}%; height: 100%; background: linear-gradient(90deg, #4444ff, #6b6bff);"></div>
+                    </div>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <button class="btn-recurso-npc" data-recurso="pm" data-delta="-1" style="background: var(--bg-primary); border: 1px solid #6b6bff; color: #6b6bff; padding: 4px 8px; border-radius: 4px; cursor: pointer;">-1</button>
+                        <button class="btn-recurso-npc" data-recurso="pm" data-delta="1" style="background: var(--bg-primary); border: 1px solid #6b6bff; color: #6b6bff; padding: 4px 8px; border-radius: 4px; cursor: pointer;">+1</button>
+                        <button class="btn-recurso-npc" data-recurso="pm" data-delta="-5" style="background: var(--bg-primary); border: 1px solid #6b6bff; color: #6b6bff; padding: 4px 8px; border-radius: 4px; cursor: pointer;">-5</button>
+                        <button class="btn-recurso-npc" data-recurso="pm" data-delta="5" style="background: var(--bg-primary); border: 1px solid #6b6bff; color: #6b6bff; padding: 4px 8px; border-radius: 4px; cursor: pointer;">+5</button>
+                    </div>
+                </div>
+                
+                <!-- PF -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span><i class="fas fa-tint" style="color: var(--gold);"></i> PF</span>
+                        <span id="fichaPFEditavel">${pos.pf || 0}/${pos.pfMax || 0}</span>
+                    </div>
+                    <div style="width: 100%; height: 12px; background: #333; border-radius: 6px; overflow: hidden;">
+                        <div id="fichaPFBarraEditavel" style="width: ${((pos.pf || 0)/(pos.pfMax || 1))*100}%; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-bright));"></div>
+                    </div>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <button class="btn-recurso-npc" data-recurso="pf" data-delta="-1" style="background: var(--bg-primary); border: 1px solid var(--gold); color: var(--gold); padding: 4px 8px; border-radius: 4px; cursor: pointer;">-1</button>
+                        <button class="btn-recurso-npc" data-recurso="pf" data-delta="1" style="background: var(--bg-primary); border: 1px solid var(--gold); color: var(--gold); padding: 4px 8px; border-radius: 4px; cursor: pointer;">+1</button>
+                        <button class="btn-recurso-npc" data-recurso="pf" data-delta="-5" style="background: var(--bg-primary); border: 1px solid var(--gold); color: var(--gold); padding: 4px 8px; border-radius: 4px; cursor: pointer;">-5</button>
+                        <button class="btn-recurso-npc" data-recurso="pf" data-delta="5" style="background: var(--bg-primary); border: 1px solid var(--gold); color: var(--gold); padding: 4px 8px; border-radius: 4px; cursor: pointer;">+5</button>
+                    </div>
+                </div>
+            `;
+            
+            // Adicionar event listeners aos botões
+            document.querySelectorAll('.btn-recurso-npc').forEach(btn => {
+                btn.removeEventListener('click', handleRecursoClick);
+                btn.addEventListener('click', handleRecursoClick);
+            });
+        } else {
+            // Remover a div de recursos editáveis se existir (para PCs ou quando não é GM)
+            const recursosDiv = document.querySelector('.recursos-npc-editaveis');
+            if (recursosDiv) recursosDiv.remove();
+        }
+        
     } else {
         fichaPM.textContent = '?/?';
         fichaEsquiva.textContent = '?%';
@@ -2101,6 +2454,10 @@ function atualizarFicha(personagemId) {
         if (!document.querySelector('.aviso-npc')) {
             ficha.insertBefore(aviso, document.querySelector('.acoes-painel'));
         }
+        
+        // Remover div de recursos editáveis se existir
+        const recursosDiv = document.querySelector('.recursos-npc-editaveis');
+        if (recursosDiv) recursosDiv.remove();
     }
     
     const podeAgir = ehGM || pos.jogadorUid === currentUser?.uid;
@@ -2149,21 +2506,50 @@ function atualizarFicha(personagemId) {
     acoesContainer.innerHTML = acoesHtml;
 }
 
+// Handler para os botões de recurso
+function handleRecursoClick(e) {
+    const btn = e.currentTarget;
+    const recurso = btn.dataset.recurso;
+    const delta = parseInt(btn.dataset.delta);
+    if (personagemSelecionado) {
+        atualizarRecursoNPC(personagemSelecionado, recurso, delta);
+    }
+}
+
 // ============================================
-// FUNÇÃO DE ATAQUE (simulada)
+// FUNÇÃO DE ATAQUE (COM DADOS REAIS)
 // ============================================
 window.realizarAtaque = function(personagemId) {
     const pos = posicoes[personagemId];
     if (!pos) return;
     
     let danoTexto = "";
+    let nomeAtaque = "";
+    
     if (pos.arma) {
+        nomeAtaque = pos.arma.nome;
         danoTexto = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
     } else {
+        nomeAtaque = "Ataque Básico";
         danoTexto = pos.danoBase || "1d4";
     }
     
-    showToast(`🎲 Ataque com ${pos.arma?.nome || 'Ataque Básico'}! Dano: ${danoTexto}`);
+    // Rolar o dano real
+    const resultado = rolarDado(danoTexto);
+    
+    if (resultado && resultado.total !== undefined) {
+        showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Rolou ${resultado.resultados.join('+')}${resultado.modificador >= 0 ? `+${resultado.modificador}` : resultado.modificador} = ${resultado.total} de dano!`);
+        
+        // Se for GM e tiver um alvo selecionado, poderia aplicar dano
+        if (ehGM && personagemSelecionado && personagemSelecionado !== personagemId) {
+            const alvo = posicoes[personagemSelecionado];
+            if (alvo && alvo.tipo === 'npc') {
+                showToast(`💥 Dano aplicado a ${alvo.nome}? (clique nos botões de PV para reduzir)`);
+            }
+        }
+    } else {
+        showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Dano: ${danoTexto}`);
+    }
 };
 
 // ============================================
