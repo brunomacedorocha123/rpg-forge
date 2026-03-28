@@ -1161,6 +1161,14 @@
     background: rgba(255, 170, 0, 0.1);
     border-radius: 6px;
 }
+/* Cursor do mapa para modo movimento */
+canvas {
+    cursor: default;
+}
+
+canvas.modo-movimento {
+    cursor: crosshair !important;
+}
     </style>
 </head>
 <body>
@@ -2054,7 +2062,7 @@
             });
         }
 
-        // ============================================
+                // ============================================
         // FUNÇÕES DE MOVIMENTO DO JOGADOR
         // ============================================
         
@@ -2062,6 +2070,12 @@
             modoMovimentoAtivo = false;
             tipoMovimentoAtual = null;
             highlightHex = [];
+            
+            if (canvas) {
+                canvas.style.cursor = 'default';
+                canvas.classList.remove('modo-movimento');
+            }
+            
             if (ctx) desenharMapa();
             atualizarEstadoBotoes();
         }
@@ -2145,7 +2159,6 @@
         }
 
         function iniciarPosicionamento() {
-            // Verificar se já está posicionado durante combate
             if (combateAtivo) {
                 const pos = posicoes[personagemAtual?.id];
                 if (pos && pos.hexX !== undefined && pos.hexX !== null) {
@@ -2154,14 +2167,16 @@
                 }
             }
             
-            // Resetar modo anterior
             resetarModoMovimento();
             
-            // Ativar modo posicionamento
             modoMovimentoAtivo = true;
             tipoMovimentoAtual = 'posicionar';
             
-            // Calcular todos os hexágonos vazios
+            if (canvas) {
+                canvas.style.cursor = 'crosshair';
+                canvas.classList.add('modo-movimento');
+            }
+            
             highlightHex = calcularTodosHexVazios();
             desenharMapa();
             
@@ -2188,12 +2203,15 @@
             const desloc = calcularDeslocamento();
             const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
             
-            // Resetar modo anterior
             resetarModoMovimento();
             
-            // Ativar modo movimento
             modoMovimentoAtivo = true;
             tipoMovimentoAtual = tipo;
+            
+            if (canvas) {
+                canvas.style.cursor = 'crosshair';
+                canvas.classList.add('modo-movimento');
+            }
             
             highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
             desenharMapa();
@@ -2211,7 +2229,6 @@
                 return;
             }
             
-            // Verificar se o hexágono está no highlight
             const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
             if (!isValid) {
                 showToast('Clique apenas nos hexágonos destacados!', true);
@@ -2221,7 +2238,6 @@
             estaProcessandoMovimento = true;
             
             try {
-                // Modo posicionamento
                 if (tipoMovimentoAtual === 'posicionar') {
                     const desloc = calcularDeslocamento();
                     const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
@@ -2249,7 +2265,6 @@
                         atualizadoEm: serverTimestamp()
                     }, { merge: true });
                     
-                    // Atualizar local
                     if (!posicoes[personagemId]) posicoes[personagemId] = {};
                     posicoes[personagemId].hexX = hexX;
                     posicoes[personagemId].hexY = hexY;
@@ -2260,7 +2275,6 @@
                     desenharMapa();
                     showToast(`${personagemAtual.nome} posicionado com sucesso!`);
                 }
-                // Modo movimento (andar/correr)
                 else if (tipoMovimentoAtual === 'andar' || tipoMovimentoAtual === 'correr') {
                     if (!combateAtivo) {
                         showToast('Combate não está ativo!', true);
@@ -2288,8 +2302,7 @@
                 }
                 
             } catch (error) {
-                console.error('Erro ao mover:', error);
-                showToast('Erro ao mover personagem: ' + error.message, true);
+                showToast('Erro ao mover personagem', true);
             } finally {
                 estaProcessandoMovimento = false;
             }
@@ -2430,7 +2443,6 @@
                 } else {
                     combateAtivo = false;
                     modoCombateAtivo = false;
-                    // Resetar modo movimento quando combate termina
                     resetarModoMovimento();
                 }
                 if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
@@ -2473,7 +2485,6 @@
         function iniciarListeners() {
             if (!sessaoAtual) return;
 
-            // Escutar mudanças no modo de visualização
             onSnapshot(doc(db, "sessoes", sessaoAtual.id), (docSnap) => {
                 if (docSnap.exists()) {
                     const dados = docSnap.data();
@@ -2490,7 +2501,6 @@
                         }
                     }
                     
-                    // Controle de modo (Narrativo/Combate) vindo do GM
                     if (dados.modoVisualizacao) {
                         modoVisualizacao = dados.modoVisualizacao;
                         if (modoVisualizacao === 'combate') {
@@ -2503,7 +2513,6 @@
                             modoNarrativo.style.display = 'block';
                             modoCombate.style.display = 'none';
                             modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo'));
-                            // Resetar modo movimento ao sair do modo combate
                             resetarModoMovimento();
                             if (unsubscribePosicoes) unsubscribePosicoes();
                             if (unsubscribeCombate) unsubscribeCombate();
@@ -2513,7 +2522,6 @@
                 }
             });
 
-            // Rolagens
             const rolagensQuery = query(
                 collection(db, "sessoes", sessaoAtual.id, "rolagens"),
                 where("visibilidade", "==", "publico"),
@@ -2563,7 +2571,6 @@
                 logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
             });
 
-            // NPCs na cena
             const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
             onSnapshot(npcsQuery, (snapshot) => {
                 let html = '';
@@ -2839,10 +2846,7 @@
         // EVENTOS DO MAPA
         // ============================================
         function handleCanvasClick(clientX, clientY) {
-            if (!modoMovimentoAtivo) {
-                // Se não está em modo movimento, não faz nada
-                return;
-            }
+            if (!modoMovimentoAtivo) return;
             
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -2852,7 +2856,6 @@
             const hex = pixelToHex(mouseX, mouseY);
             
             if (hex.x >= 0 && hex.y >= 0 && personagemAtual) {
-                // Verificar se o hex está nos destacados
                 const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
                 if (isValid) {
                     moverPersonagem(personagemAtual.id, hex.x, hex.y);
