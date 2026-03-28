@@ -2062,11 +2062,12 @@ canvas.modo-movimento {
             });
         }
 
-                // ============================================
+                      // ============================================
         // FUNÇÕES DE MOVIMENTO DO JOGADOR
         // ============================================
         
         function resetarModoMovimento() {
+            modoPosicionamentoAtivo = false;
             modoMovimentoAtivo = false;
             tipoMovimentoAtual = null;
             highlightHex = [];
@@ -2142,7 +2143,7 @@ canvas.modo-movimento {
             }
             
             if (btnMoverAndar && btnMoverCorrer) {
-                const podeMoverFlag = pode.pode && estaPosicionado && !modoMovimentoAtivo;
+                const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo && !modoMovimentoAtivo;
                 btnMoverAndar.disabled = !podeMoverFlag;
                 btnMoverCorrer.disabled = !podeMoverFlag;
                 btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
@@ -2153,7 +2154,8 @@ canvas.modo-movimento {
                 if (!combateAtivo) statusMovimento.innerHTML = '⏳ Aguardando início do combate';
                 else if (vezAtual !== 'jogadores') statusMovimento.innerHTML = '⌛ Aguardando sua vez';
                 else if (!estaPosicionado) statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
-                else if (modoMovimentoAtivo) statusMovimento.innerHTML = `🎯 Modo ativo: clique no mapa para ${tipoMovimentoAtual === 'posicionar' ? 'posicionar' : (tipoMovimentoAtual === 'andar' ? `andar (até ${desloc.andar}m)` : `correr (até ${desloc.correr}m)`)}`;
+                else if (modoPosicionamentoAtivo) statusMovimento.innerHTML = '📍 Modo posicionamento: clique no mapa';
+                else if (modoMovimentoAtivo) statusMovimento.innerHTML = `🎯 Modo movimento: clique no mapa para ${tipoMovimentoAtual === 'andar' ? `andar (até ${desloc.andar}m)` : `correr (até ${desloc.correr}m)`}`;
                 else statusMovimento.innerHTML = '✅ Pronto para agir';
             }
         }
@@ -2169,8 +2171,7 @@ canvas.modo-movimento {
             
             resetarModoMovimento();
             
-            modoMovimentoAtivo = true;
-            tipoMovimentoAtual = 'posicionar';
+            modoPosicionamentoAtivo = true;
             
             if (canvas) {
                 canvas.style.cursor = 'crosshair';
@@ -2238,7 +2239,7 @@ canvas.modo-movimento {
             estaProcessandoMovimento = true;
             
             try {
-                if (tipoMovimentoAtual === 'posicionar') {
+                if (modoPosicionamentoAtivo) {
                     const desloc = calcularDeslocamento();
                     const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
                     
@@ -2275,7 +2276,7 @@ canvas.modo-movimento {
                     desenharMapa();
                     showToast(`${personagemAtual.nome} posicionado com sucesso!`);
                 }
-                else if (tipoMovimentoAtual === 'andar' || tipoMovimentoAtual === 'correr') {
+                else if (modoMovimentoAtivo) {
                     if (!combateAtivo) {
                         showToast('Combate não está ativo!', true);
                         return;
