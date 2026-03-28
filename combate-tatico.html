@@ -1306,7 +1306,7 @@ function getSessaoIdFromUrl() {
 function rolarDado(dadoString) {
     // Suporta formatos: "1d8", "2d6+2", "1d10-1", "3d8+5"
     const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
-    if (!match) return 0;
+    if (!match) return { total: 0, resultados: [] };
     
     const quantidade = parseInt(match[1]) || 1;
     const faces = parseInt(match[2]);
@@ -1325,7 +1325,7 @@ function rolarDado(dadoString) {
 }
 
 // ============================================
-// FUNÇÃO: ATUALIZAR RECURSO DO NPC (PV/PM/PF)
+// FUNÇÃO: ATUALIZAR RECURSO DO NPC (PV/PM/PF) - CORRIGIDA
 // ============================================
 async function atualizarRecursoNPC(npcId, tipo, delta) {
     if (!ehGM) {
@@ -1361,7 +1361,7 @@ async function atualizarRecursoNPC(npcId, tipo, delta) {
     }
     
     try {
-        // Atualizar no Firestore
+        // Atualizar no Firestore (NPC)
         const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
         await updateDoc(npcRef, {
             [`recursos.${tipo}_atual`]: novoValor
@@ -1373,7 +1373,7 @@ async function atualizarRecursoNPC(npcId, tipo, delta) {
             [campoAtual]: novoValor
         }, { merge: true });
         
-        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campaoMax]}`);
+        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campoMax]}`);
         
         // Atualizar interface se for o personagem selecionado
         if (personagemSelecionado === npcId) {
@@ -1486,7 +1486,6 @@ function desenharToken(ctx, x, y, personagem) {
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
 }
 
-// ===== FUNÇÃO: Desenhar marcadores de obstáculo =====
 function desenharMarcadores() {
     Object.values(marcadores).forEach(m => {
         const pixel = hexToPixel(m.x, m.y);
@@ -1549,7 +1548,6 @@ function desenharMapa() {
     });
 }
 
-// ===== FUNÇÃO: Alternar marcador no Firestore =====
 async function toggleMarcador(hexX, hexY) {
     if (!ehGM) {
         showToast('Apenas o GM pode colocar marcadores', true);
@@ -1588,7 +1586,6 @@ function extrairDadosPersonagem(personagemData) {
     const derivados = personagemData.derivados || {};
     const atributos = personagemData.atributos || {};
     
-    // Busca a arma equipada no inventário
     let armaEquipada = null;
     let danoArma = "1d4";
     let nomeArma = "Ataque Desarmado";
@@ -1602,14 +1599,10 @@ function extrairDadosPersonagem(personagemData) {
         }
     }
     
-    // Calcula bônus de dano baseado no atributo ST
     const stEsferas = atributos.st?.esferas || 0;
     const bonusDano = Math.floor(stEsferas / 2);
-    
-    // Dano base do personagem
     const danoBase = derivados.danoBase || "1d-2";
     
-    // Calcula deslocamento
     let andar = 6, correr = 12;
     if (derivados.deslocamento) {
         const partes = derivados.deslocamento.split('/');
@@ -1643,9 +1636,6 @@ function extrairDadosPersonagem(personagemData) {
     };
 }
 
-// ============================================
-// FUNÇÃO: Garantir participação na sessao_participantes
-// ============================================
 async function garantirParticipacaoNaSessao() {
     if (!sessaoAtual || !currentUser || ehGM) return true;
     
@@ -1687,9 +1677,6 @@ async function garantirParticipacaoNaSessao() {
     }
 }
 
-// ============================================
-// FUNÇÃO: Carregar personagem jogador com dados REAIS
-// ============================================
 async function carregarPersonagemJogador(campanhaIdCustom) {
     if (!campanhaIdCustom || !currentUser) return;
     
@@ -1753,9 +1740,6 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
     }
 }
 
-// ============================================
-// FUNÇÃO: Carregar NPCs (COM PF)
-// ============================================
 async function carregarNPCs() {
     if (!sessaoAtual) return;
     
@@ -1795,9 +1779,6 @@ async function carregarNPCs() {
     } catch (error) {}
 }
 
-// ============================================
-// FUNÇÃO: Garantir posição do PC
-// ============================================
 async function garantirPosicaoPC(personagemId) {
     if (!sessaoAtual) return false;
     
@@ -2210,8 +2191,6 @@ function atualizarListaPersonagens() {
                         <span class="personagem-nome">${pos.nome}</span>
                         <span class="personagem-status">📌 posicionar</span>
                         <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
-                        ${ehGM ? `<span class="personagem-pm">💙 ${pos.pm || '?'}/${pos.pmMax || '?'}</span>` : ''}
-                        ${ehGM ? `<span class="personagem-pf">💛 ${pos.pf || '?'}/${pos.pfMax || '?'}</span>` : ''}
                     </div>
                 `;
             });
@@ -2307,14 +2286,12 @@ function atualizarFicha(personagemId) {
     fichaPV.textContent = `${pos.pv || '?'}/${pos.pvMax || '?'}`;
     
     if (podeVerCompleto) {
-        // Mostra PM
         if (pos.pm !== undefined) {
             fichaPM.textContent = `${pos.pm || '?'}/${pos.pmMax || '?'}`;
         } else {
             fichaPM.textContent = '?/?';
         }
         
-        // Adiciona PF na interface se existir
         let pfElement = document.getElementById('fichaPF');
         if (pos.pf !== undefined) {
             if (!pfElement) {
@@ -2339,10 +2316,9 @@ function atualizarFicha(personagemId) {
         if (avisoAnterior) avisoAnterior.remove();
         
         // ============================================
-        // 🔥 ADICIONAR RECURSOS EDITÁVEIS PARA NPCs (GM) 🔥
+        // RECURSOS EDITÁVEIS PARA NPCs (APENAS GM)
         // ============================================
         if (pos.tipo === 'npc' && ehGM) {
-            // Verificar se já existe a div de recursos NPC
             let recursosDiv = document.querySelector('.recursos-npc-editaveis');
             if (!recursosDiv) {
                 recursosDiv = document.createElement('div');
@@ -2354,7 +2330,6 @@ function atualizarFicha(personagemId) {
                 recursosDiv.style.borderRadius = '12px';
                 recursosDiv.style.borderLeft = '3px solid var(--gold)';
                 
-                // Inserir após as defesas
                 const defesasDiv = document.querySelector('.defesas-rapidas');
                 if (defesasDiv) {
                     defesasDiv.insertAdjacentElement('afterend', recursosDiv);
@@ -2364,13 +2339,11 @@ function atualizarFicha(personagemId) {
                 }
             }
             
-            // Atualizar conteúdo dos recursos
             recursosDiv.innerHTML = `
                 <h4 style="color: var(--gold); font-size: 14px; margin-bottom: 10px;">
                     <i class="fas fa-dice-d20"></i> Editar Recursos
                 </h4>
                 
-                <!-- PV -->
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span><i class="fas fa-heart" style="color: #ff6b6b;"></i> PV</span>
@@ -2387,7 +2360,6 @@ function atualizarFicha(personagemId) {
                     </div>
                 </div>
                 
-                <!-- PM -->
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span><i class="fas fa-magic" style="color: #6b6bff;"></i> PM</span>
@@ -2404,7 +2376,6 @@ function atualizarFicha(personagemId) {
                     </div>
                 </div>
                 
-                <!-- PF -->
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span><i class="fas fa-tint" style="color: var(--gold);"></i> PF</span>
@@ -2422,13 +2393,11 @@ function atualizarFicha(personagemId) {
                 </div>
             `;
             
-            // Adicionar event listeners aos botões
             document.querySelectorAll('.btn-recurso-npc').forEach(btn => {
                 btn.removeEventListener('click', handleRecursoClick);
                 btn.addEventListener('click', handleRecursoClick);
             });
         } else {
-            // Remover a div de recursos editáveis se existir (para PCs ou quando não é GM)
             const recursosDiv = document.querySelector('.recursos-npc-editaveis');
             if (recursosDiv) recursosDiv.remove();
         }
@@ -2455,7 +2424,6 @@ function atualizarFicha(personagemId) {
             ficha.insertBefore(aviso, document.querySelector('.acoes-painel'));
         }
         
-        // Remover div de recursos editáveis se existir
         const recursosDiv = document.querySelector('.recursos-npc-editaveis');
         if (recursosDiv) recursosDiv.remove();
     }
@@ -2464,7 +2432,6 @@ function atualizarFicha(personagemId) {
     const ehVezCorreta = vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs');
     const estaPosicionado = pos.hexX !== undefined && pos.hexX !== null;
     
-    // Gera as ações baseadas nos dados do personagem
     let acoesHtml = `
         <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.9rem;">
             <i class="fas fa-fist-raised"></i> Ações
@@ -2506,7 +2473,6 @@ function atualizarFicha(personagemId) {
     acoesContainer.innerHTML = acoesHtml;
 }
 
-// Handler para os botões de recurso
 function handleRecursoClick(e) {
     const btn = e.currentTarget;
     const recurso = btn.dataset.recurso;
@@ -2517,7 +2483,7 @@ function handleRecursoClick(e) {
 }
 
 // ============================================
-// FUNÇÃO DE ATAQUE (COM DADOS REAIS)
+// FUNÇÃO DE ATAQUE (COM DANO REAL)
 // ============================================
 window.realizarAtaque = function(personagemId) {
     const pos = posicoes[personagemId];
@@ -2534,17 +2500,19 @@ window.realizarAtaque = function(personagemId) {
         danoTexto = pos.danoBase || "1d4";
     }
     
-    // Rolar o dano real
     const resultado = rolarDado(danoTexto);
     
     if (resultado && resultado.total !== undefined) {
-        showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Rolou ${resultado.resultados.join('+')}${resultado.modificador >= 0 ? `+${resultado.modificador}` : resultado.modificador} = ${resultado.total} de dano!`);
+        let detalhes = `${resultado.resultados.join('+')}`;
+        if (resultado.modificador !== 0) {
+            detalhes += `${resultado.modificador >= 0 ? '+' : ''}${resultado.modificador}`;
+        }
+        showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Rolou ${detalhes} = ${resultado.total} de dano!`);
         
-        // Se for GM e tiver um alvo selecionado, poderia aplicar dano
         if (ehGM && personagemSelecionado && personagemSelecionado !== personagemId) {
             const alvo = posicoes[personagemSelecionado];
-            if (alvo && alvo.tipo === 'npc') {
-                showToast(`💥 Dano aplicado a ${alvo.nome}? (clique nos botões de PV para reduzir)`);
+            if (alvo) {
+                showToast(`💥 Dano aplicado a ${alvo.nome}? (use os botões de PV para reduzir)`);
             }
         }
     } else {
