@@ -1712,7 +1712,7 @@
         const logContainer = document.getElementById('logContainer');
 
         // ============================================
-        // ELEMENTOS DOS BOTÕES DE MOVIMENTO (NOVOS)
+        // ELEMENTOS DOS BOTÕES DE MOVIMENTO
         // ============================================
         const btnPosicionarPC = document.getElementById('btnPosicionarPC');
         const btnMoverAndar = document.getElementById('btnMoverAndar');
@@ -1732,7 +1732,7 @@
         let todosJogadores = [];
         let tabelaAtual = 'ful-ataque';
         
-        // ===== NOVAS VARIÁVEIS PARA O MODO COMBATE =====
+        // Variáveis do modo combate
         let posicoes = {};
         let marcadores = {};
         let turnoAtual = 1;
@@ -1746,11 +1746,11 @@
         let unsubscribeCombate = null;
         let unsubscribeMarcadores = null;
         
-        // ===== VARIÁVEIS DE MOVIMENTO ATIVO =====
+        // Variáveis de movimento ativo
         let modoMovimentoAtivo = false;
         let tipoMovimentoAtual = null;
         
-        // ===== CONFIGURAÇÕES DO MAPA HEXAGONAL =====
+        // Configurações do mapa
         const HEX_RADIUS = 24;
         const HEX_HORIZONTAL_SPACING = HEX_RADIUS * 1.5;
         const HEX_VERTICAL_SPACING = HEX_RADIUS * Math.sqrt(3);
@@ -1929,7 +1929,7 @@
         }
 
         // ============================================
-        // FUNÇÕES DO MAPA HEXAGONAL
+        // FUNÇÕES DO MAPA HEXAGONAL (CORRIGIDAS)
         // ============================================
         function hexToPixel(hexX, hexY) {
             const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
@@ -1984,9 +1984,13 @@
         }
 
         function desenharToken(ctx, x, y, personagem) {
+            // Verificar se personagem tem nome válido
+            const nomeToken = personagem?.nome || '?';
+            const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
+            
             ctx.beginPath();
             ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
-            ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
+            ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
             ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
@@ -1995,12 +1999,12 @@
             ctx.font = 'bold 16px "Inter", sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+            ctx.fillText(personagem?.tipo === 'pc' ? '🧙' : '🧌', x, y);
             ctx.font = 'bold 10px "Inter", sans-serif';
-            ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
+            ctx.fillText(nomeAbreviado, x, y + 22);
             ctx.font = 'bold 8px "Inter", sans-serif';
             ctx.fillStyle = '#ff6b6b';
-            ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+            ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
         }
 
         function desenharMarcadores() {
@@ -2043,7 +2047,7 @@
             desenharMarcadores();
             
             Object.values(posicoes).forEach(pos => {
-                if (pos.hexX !== undefined && pos.hexX !== null && pos.hexY !== undefined && pos.hexY !== null) {
+                if (pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexY !== undefined && pos.hexY !== null) {
                     const pixel = hexToPixel(pos.hexX, pos.hexY);
                     desenharToken(ctx, pixel.x, pixel.y, pos);
                 }
@@ -2051,10 +2055,17 @@
         }
 
         // ============================================
-        // FUNÇÕES DE MOVIMENTO DO JOGADOR (ATUALIZADAS)
+        // FUNÇÕES DE MOVIMENTO DO JOGADOR
         // ============================================
         
-        // Verificar se pode mover
+        function resetarModoMovimento() {
+            modoMovimentoAtivo = false;
+            tipoMovimentoAtual = null;
+            highlightHex = [];
+            if (ctx) desenharMapa();
+            atualizarEstadoBotoes();
+        }
+
         function podeMover() {
             if (!combateAtivo) return { pode: false, motivo: 'Combate não iniciado' };
             if (vezAtual !== 'jogadores') return { pode: false, motivo: 'Não é sua vez' };
@@ -2065,7 +2076,6 @@
             return { pode: true, motivo: '' };
         }
 
-        // Calcular hexágonos alcançáveis
         function calcularHexAlcance(hexX, hexY, alcance) {
             const hexes = [];
             for (let dx = -alcance; dx <= alcance; dx++) {
@@ -2089,7 +2099,20 @@
             return hexes;
         }
 
-        // Atualizar estado dos botões
+        function calcularTodosHexVazios() {
+            const hexes = [];
+            for (let x = 0; x < MAPA_LARGURA; x++) {
+                for (let y = 0; y < MAPA_ALTURA; y++) {
+                    const temObstaculo = marcadores[`${x}_${y}`];
+                    const ocupado = Object.values(posicoes).some(p => p.hexX === x && p.hexY === y);
+                    if (!ocupado && !temObstaculo) {
+                        hexes.push({ x, y });
+                    }
+                }
+            }
+            return hexes;
+        }
+
         function atualizarEstadoBotoes() {
             const pode = podeMover();
             const pos = posicoes[personagemAtual?.id];
@@ -2116,13 +2139,13 @@
                 if (!combateAtivo) statusMovimento.innerHTML = '⏳ Aguardando início do combate';
                 else if (vezAtual !== 'jogadores') statusMovimento.innerHTML = '⌛ Aguardando sua vez';
                 else if (!estaPosicionado) statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
-                else if (modoMovimentoAtivo) statusMovimento.innerHTML = `🎯 Modo movimento ativo: clique no mapa para mover (até ${tipoMovimentoAtual === 'andar' ? desloc.andar : desloc.correr}m)`;
+                else if (modoMovimentoAtivo) statusMovimento.innerHTML = `🎯 Modo ativo: clique no mapa para ${tipoMovimentoAtual === 'posicionar' ? 'posicionar' : (tipoMovimentoAtual === 'andar' ? `andar (até ${desloc.andar}m)` : `correr (até ${desloc.correr}m)`)}`;
                 else statusMovimento.innerHTML = '✅ Pronto para agir';
             }
         }
 
-        // Iniciar posicionamento
         function iniciarPosicionamento() {
+            // Verificar se já está posicionado durante combate
             if (combateAtivo) {
                 const pos = posicoes[personagemAtual?.id];
                 if (pos && pos.hexX !== undefined && pos.hexX !== null) {
@@ -2131,29 +2154,24 @@
                 }
             }
             
+            // Resetar modo anterior
+            resetarModoMovimento();
+            
+            // Ativar modo posicionamento
             modoMovimentoAtivo = true;
             tipoMovimentoAtual = 'posicionar';
             
-            highlightHex = [];
-            for (let x = 0; x < MAPA_LARGURA; x++) {
-                for (let y = 0; y < MAPA_ALTURA; y++) {
-                    const temObstaculo = marcadores[`${x}_${y}`];
-                    const ocupado = Object.values(posicoes).some(p => p.hexX === x && p.hexY === y);
-                    if (!ocupado && !temObstaculo) {
-                        highlightHex.push({ x, y });
-                    }
-                }
-            }
+            // Calcular todos os hexágonos vazios
+            highlightHex = calcularTodosHexVazios();
             desenharMapa();
             
             if (statusMovimento) {
                 statusMovimento.innerHTML = '📍 Clique no mapa para posicionar seu personagem';
             }
             
-            showToast('Modo posicionamento: clique em um hexágono para posicionar seu personagem');
+            showToast('Modo posicionamento: clique em um hexágono verde para posicionar seu personagem');
         }
 
-        // Iniciar movimento (andar ou correr)
         function iniciarMovimento(tipo) {
             const pode = podeMover();
             if (!pode.pode) {
@@ -2170,6 +2188,10 @@
             const desloc = calcularDeslocamento();
             const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
             
+            // Resetar modo anterior
+            resetarModoMovimento();
+            
+            // Ativar modo movimento
             modoMovimentoAtivo = true;
             tipoMovimentoAtual = tipo;
             
@@ -2180,34 +2202,33 @@
                 statusMovimento.innerHTML = `🎯 Clique no mapa para mover (até ${alcance}m)`;
             }
             
-            showToast(`Modo ${tipo}: clique em um hexágono destacado para se mover (até ${alcance}m)`);
+            showToast(`Modo ${tipo}: clique em um hexágono verde para se mover (até ${alcance}m)`);
         }
 
-        // Função principal de mover personagem (suporta posicionamento e movimento)
         async function moverPersonagem(personagemId, hexX, hexY) {
-            if (estaProcessandoMovimento) return;
+            if (estaProcessandoMovimento) {
+                showToast('Aguarde, processando movimento...', true);
+                return;
+            }
             
-            // Modo posicionamento (pode posicionar mesmo sem combate)
-            if (modoMovimentoAtivo && tipoMovimentoAtual === 'posicionar') {
-                const temObstaculo = marcadores[`${hexX}_${hexY}`];
-                if (temObstaculo) {
-                    showToast('Este hexágono contém um obstáculo!', true);
-                    return;
-                }
-                
-                const ocupado = Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY && p.id !== personagemId);
-                if (ocupado) {
-                    showToast('Este hexágono já está ocupado!', true);
-                    return;
-                }
-                
-                estaProcessandoMovimento = true;
-                try {
+            // Verificar se o hexágono está no highlight
+            const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
+            if (!isValid) {
+                showToast('Clique apenas nos hexágonos destacados!', true);
+                return;
+            }
+            
+            estaProcessandoMovimento = true;
+            
+            try {
+                // Modo posicionamento
+                if (tipoMovimentoAtual === 'posicionar') {
                     const desloc = calcularDeslocamento();
                     const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+                    
                     await setDoc(posRef, {
                         personagemId: personagemId,
-                        nome: personagemAtual.nome,
+                        nome: personagemAtual.nome || 'Personagem',
                         tipo: 'pc',
                         cor: '#1E90FF',
                         jogadorUid: currentUser.uid,
@@ -2228,76 +2249,47 @@
                         atualizadoEm: serverTimestamp()
                     }, { merge: true });
                     
-                    posicoes[personagemId] = {
-                        ...posicoes[personagemId],
-                        id: personagemId,
-                        hexX: hexX,
-                        hexY: hexY,
-                        andar: desloc.andar,
-                        correr: desloc.correr
-                    };
+                    // Atualizar local
+                    if (!posicoes[personagemId]) posicoes[personagemId] = {};
+                    posicoes[personagemId].hexX = hexX;
+                    posicoes[personagemId].hexY = hexY;
+                    posicoes[personagemId].andar = desloc.andar;
+                    posicoes[personagemId].correr = desloc.correr;
                     
-                    modoMovimentoAtivo = false;
-                    highlightHex = [];
+                    resetarModoMovimento();
                     desenharMapa();
-                    atualizarEstadoBotoes();
                     showToast(`${personagemAtual.nome} posicionado com sucesso!`);
-                } catch (error) {
-                    showToast('Erro ao posicionar: ' + error.message, true);
-                } finally {
-                    estaProcessandoMovimento = false;
                 }
-                return;
-            }
-            
-            // Movimento normal durante combate
-            if (!combateAtivo) {
-                showToast('Combate não está ativo!', true);
-                return;
-            }
-            
-            const pos = posicoes[personagemId];
-            if (!pos || pos.tipo !== 'pc' || pos.jogadorUid !== currentUser?.uid) return;
-            if (vezAtual !== 'jogadores') {
-                showToast('Não é sua vez!', true);
-                return;
-            }
-            
-            const temObstaculo = marcadores[`${hexX}_${hexY}`];
-            if (temObstaculo) {
-                showToast('Este hexágono contém um obstáculo!', true);
-                return;
-            }
-            
-            const ocupado = Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY && p.id !== personagemId);
-            if (ocupado) {
-                showToast('Este hexágono já está ocupado!', true);
-                return;
-            }
-            
-            const desloc = calcularDeslocamento();
-            const alcance = tipoMovimentoAtual === 'correr' ? desloc.correr : desloc.andar;
-            const distancia = Math.max(Math.abs(pos.hexX - hexX), Math.abs(pos.hexY - hexY));
-            
-            if (distancia > alcance) {
-                showToast(`Distância máxima é ${alcance}m!`, true);
-                return;
-            }
-            
-            estaProcessandoMovimento = true;
-            try {
-                const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-                await updateDoc(posRef, { hexX: hexX, hexY: hexY, atualizadoEm: serverTimestamp() });
-                posicoes[personagemId].hexX = hexX;
-                posicoes[personagemId].hexY = hexY;
+                // Modo movimento (andar/correr)
+                else if (tipoMovimentoAtual === 'andar' || tipoMovimentoAtual === 'correr') {
+                    if (!combateAtivo) {
+                        showToast('Combate não está ativo!', true);
+                        return;
+                    }
+                    
+                    if (vezAtual !== 'jogadores') {
+                        showToast('Não é sua vez!', true);
+                        return;
+                    }
+                    
+                    const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+                    await updateDoc(posRef, { 
+                        hexX: hexX, 
+                        hexY: hexY, 
+                        atualizadoEm: serverTimestamp() 
+                    });
+                    
+                    posicoes[personagemId].hexX = hexX;
+                    posicoes[personagemId].hexY = hexY;
+                    
+                    resetarModoMovimento();
+                    desenharMapa();
+                    showToast(`${personagemAtual.nome} movido para (${hexX}, ${hexY})`);
+                }
                 
-                modoMovimentoAtivo = false;
-                highlightHex = [];
-                desenharMapa();
-                atualizarEstadoBotoes();
-                showToast(`${pos.nome} movido para (${hexX}, ${hexY})`);
             } catch (error) {
-                showToast('Erro ao mover: ' + error.message, true);
+                console.error('Erro ao mover:', error);
+                showToast('Erro ao mover personagem: ' + error.message, true);
             } finally {
                 estaProcessandoMovimento = false;
             }
@@ -2412,12 +2404,12 @@
         function iniciarListenerMarcadores() {
             if (!sessaoAtual) return;
             const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
+            if (unsubscribeMarcadores) unsubscribeMarcadores();
             unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    const data = change.doc.data();
-                    const key = `${data.x}_${data.y}`;
-                    if (change.type === "added") marcadores[key] = { id: change.doc.id, x: data.x, y: data.y };
-                    else if (change.type === "removed") delete marcadores[key];
+                marcadores = {};
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    marcadores[`${data.x}_${data.y}`] = { id: docSnap.id, x: data.x, y: data.y };
                 });
                 desenharMapa();
             });
@@ -2427,6 +2419,7 @@
             if (!sessaoAtual) return;
             
             const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
+            if (unsubscribeCombate) unsubscribeCombate();
             unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
                 if (!snapshot.empty) {
                     const combate = snapshot.docs[0];
@@ -2437,6 +2430,8 @@
                 } else {
                     combateAtivo = false;
                     modoCombateAtivo = false;
+                    // Resetar modo movimento quando combate termina
+                    resetarModoMovimento();
                 }
                 if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
                 if (vezJogadores && vezNPCs) {
@@ -2453,6 +2448,7 @@
             });
             
             const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
+            if (unsubscribePosicoes) unsubscribePosicoes();
             unsubscribePosicoes = onSnapshot(posicoesRef, (snapshot) => {
                 snapshot.docChanges().forEach((change) => {
                     const id = change.doc.id;
@@ -2478,9 +2474,9 @@
             if (!sessaoAtual) return;
 
             // Escutar mudanças no modo de visualização
-            onSnapshot(doc(db, "sessoes", sessaoAtual.id), (doc) => {
-                if (doc.exists()) {
-                    const dados = doc.data();
+            onSnapshot(doc(db, "sessoes", sessaoAtual.id), (docSnap) => {
+                if (docSnap.exists()) {
+                    const dados = docSnap.data();
                     if (dados.cena_atual) {
                         if (dados.cena_atual.descricao !== undefined) {
                             cenarioDescricao.value = dados.cena_atual.descricao || '';
@@ -2507,6 +2503,8 @@
                             modoNarrativo.style.display = 'block';
                             modoCombate.style.display = 'none';
                             modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo'));
+                            // Resetar modo movimento ao sair do modo combate
+                            resetarModoMovimento();
                             if (unsubscribePosicoes) unsubscribePosicoes();
                             if (unsubscribeCombate) unsubscribeCombate();
                             if (unsubscribeMarcadores) unsubscribeMarcadores();
@@ -2525,8 +2523,8 @@
             
             onSnapshot(rolagensQuery, (snapshot) => {
                 let logHtml = '';
-                snapshot.forEach(doc => {
-                    const r = doc.data();
+                snapshot.forEach(docSnap => {
+                    const r = docSnap.data();
                     
                     if (r.tipo === 'pericia') {
                         logHtml += `
@@ -2569,14 +2567,14 @@
             const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
             onSnapshot(npcsQuery, (snapshot) => {
                 let html = '';
-                snapshot.forEach(doc => {
-                    const npc = doc.data();
+                snapshot.forEach(docSnap => {
+                    const npc = docSnap.data();
                     const pvAtual = npc.recursos?.pv_atual ?? '?';
                     const pvMax = npc.recursos?.pv_max ?? '?';
                     
                     html += `
                         <div class="npc-cena-item">
-                            <span class="npc-cena-nome">${npc.nome}</span>
+                            <span class="npc-cena-nome">${npc.nome || '?'}</span>
                             <span class="npc-cena-pv">PV: ${pvAtual}/${pvMax}</span>
                         </div>
                     `;
@@ -2798,10 +2796,11 @@
                 tab.classList.add('ativa');
                 
                 tabelasCritico.forEach(tabela => tabela.classList.remove('ativa'));
-                document.getElementById(`tabela-${tabId}`).classList.add('ativa');
+                const targetTable = document.getElementById(`tabela-${tabId}`);
+                if (targetTable) targetTable.classList.add('ativa');
                 
                 tabelaAtual = tabId;
-                resultadoCritico.style.display = 'none';
+                if (resultadoCritico) resultadoCritico.style.display = 'none';
             });
         });
 
@@ -2810,9 +2809,9 @@
                 const resultado = Math.floor(Math.random() * 10) + 1;
                 const texto = tabelas[tabelaAtual][resultado - 1];
                 
-                resultadoCriticoNumero.textContent = resultado;
-                resultadoCriticoTexto.textContent = texto;
-                resultadoCritico.style.display = 'block';
+                if (resultadoCriticoNumero) resultadoCriticoNumero.textContent = resultado;
+                if (resultadoCriticoTexto) resultadoCriticoTexto.textContent = texto;
+                if (resultadoCritico) resultadoCritico.style.display = 'block';
                 
                 if (sessaoAtual) {
                     let nomeTabela = '';
@@ -2837,7 +2836,7 @@
         }
 
         // ============================================
-        // EVENTOS DO MAPA (ATUALIZADO)
+        // EVENTOS DO MAPA
         // ============================================
         function handleCanvasClick(clientX, clientY) {
             if (!modoMovimentoAtivo) {
@@ -2857,10 +2856,7 @@
                 const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
                 if (isValid) {
                     moverPersonagem(personagemAtual.id, hex.x, hex.y);
-                } else if (modoMovimentoAtivo && tipoMovimentoAtual === 'posicionar') {
-                    // Para posicionamento, aceita qualquer hex vazio (já filtrado no highlightHex)
-                    showToast('Clique apenas nos hexágonos destacados (sem obstáculos e sem ocupação)!', true);
-                } else if (modoMovimentoAtivo) {
+                } else {
                     showToast('Clique apenas nos hexágonos destacados!', true);
                 }
             }
@@ -2874,7 +2870,7 @@
         }
 
         // ============================================
-        // EVENTOS DOS BOTÕES (NOVOS)
+        // EVENTOS DOS BOTÕES
         // ============================================
         if (btnPosicionarPC) {
             btnPosicionarPC.addEventListener('click', iniciarPosicionamento);
@@ -2959,14 +2955,14 @@
                 const vinculosSnap = await getDocs(vinculosQuery);
                 todosJogadores = [];
 
-                for (const doc of vinculosSnap.docs) {
-                    const vinculo = doc.data();
+                for (const docSnap of vinculosSnap.docs) {
+                    const vinculo = docSnap.data();
                     
                     const personagemRef = doc(db, "personagens", vinculo.personagem_id);
                     const personagemSnap = await getDoc(personagemRef);
                     
                     todosJogadores.push({
-                        id: doc.id,
+                        id: docSnap.id,
                         ...vinculo,
                         personagem: personagemSnap.exists() ? personagemSnap.data() : null
                     });
