@@ -2394,7 +2394,7 @@ async function iniciarCombate() {
         await batch.commit();
         atualizarUICombate();
         showToast('Combate iniciado! Posicione os personagens.');
-    } catch(e) { showToast('Erro ao iniciar', true); } finally { hideLoading(); }
+    } catch(e) { showToast('Erro ao iniciar: ' + e.message, true); } finally { hideLoading(); }
 }
 
 async function moverPersonagem(id, hexX, hexY) {
@@ -2440,7 +2440,7 @@ async function encerrarCombate() {
         desenharMapa();
         atualizarListaNPCs();
         showToast('Combate encerrado');
-    } catch(e) { showToast('Erro ao encerrar', true); } finally { hideLoading(); }
+    } catch(e) { showToast('Erro ao encerrar: ' + e.message, true); } finally { hideLoading(); }
 }
 
 function atualizarUICombate() {
@@ -2522,8 +2522,11 @@ function handleCanvasClick(e) {
     if (hex.x >= 0 && hex.y >= 0) {
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
-            if (marcadores[`${hex.x}_${hex.y}`]) deleteDoc(doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId));
-            else setDoc(doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId), { x: hex.x, y: hex.y, criado_por: currentUser.uid });
+            if (marcadores[`${hex.x}_${hex.y}`]) {
+                deleteDoc(doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId));
+            } else {
+                setDoc(doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId), { x: hex.x, y: hex.y, criado_por: currentUser.uid });
+            }
             return;
         }
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
@@ -2698,8 +2701,8 @@ window.abrirDetalheNPC = async function(npcId) {
             magiasModal.innerHTML = magiasHtml;
         }
         document.querySelectorAll('#modalNpcDetalhe .btn-recurso-npc').forEach(btn => {
-            btn.removeEventListener('click', handleRecursoDetalheClick);
-            btn.addEventListener('click', handleRecursoDetalheClick);
+            btn.removeEventListener('click', window.handleRecursoDetalheClick);
+            btn.addEventListener('click', window.handleRecursoDetalheClick);
         });
         const modalNpcDetalhe = document.getElementById('modalNpcDetalhe');
         if(modalNpcDetalhe) modalNpcDetalhe.classList.add('active');
@@ -2737,12 +2740,12 @@ async function atualizarRecursoModalNPC(tipo, delta) {
     } catch(error) { showToast('Erro ao atualizar recurso', true); }
 }
 
-function handleRecursoDetalheClick(e) {
+window.handleRecursoDetalheClick = function(e) {
     const btn = e.currentTarget;
     const recurso = btn.getAttribute('data-recurso');
     const delta = parseInt(btn.getAttribute('data-delta'));
     if (recurso && !isNaN(delta)) atualizarRecursoModalNPC(recurso, delta);
-}
+};
 
 function renderizarPCs() {
     if (pcVinculados.length === 0) {
@@ -2870,7 +2873,7 @@ async function carregarSessao() {
         if (ctx) desenharMapa();
         atualizarListaNPCs();
         hideLoading();
-    } catch(error) { console.error(error); showToast('Erro ao carregar sessão', true); hideLoading(); }
+    } catch(error) { console.error(error); showToast('Erro ao carregar sessão: ' + error.message, true); hideLoading(); }
 }
 
 if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
@@ -3077,8 +3080,8 @@ window.addEventListener('click', (e) => {
     if (e.target === modalTabelasEl && modalTabelasEl) modalTabelasEl.classList.remove('active');
 });
 document.querySelectorAll('#modalNpcDetalhe .btn-recurso-npc').forEach(btn => {
-    btn.removeEventListener('click', handleRecursoDetalheClick);
-    btn.addEventListener('click', handleRecursoDetalheClick);
+    btn.removeEventListener('click', window.handleRecursoDetalheClick);
+    btn.addEventListener('click', window.handleRecursoDetalheClick);
 });
 
 if (canvas) {
@@ -3099,7 +3102,7 @@ window.addEventListener('beforeunload', () => {
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
     if (unsubscribeMarcadores) unsubscribeMarcadores();
-});
+});;
 </script>
 </body>
 </html>
