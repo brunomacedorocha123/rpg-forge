@@ -1012,6 +1012,52 @@ body::before {
         height: 8px;
     }
 }
+
+/* ============================================ */
+/* BOTÕES DE MOVIMENTO ESPECÍFICOS */
+/* ============================================ */
+.btn-movimento-andar {
+    background: var(--bg-primary);
+    border: 1px solid #2ecc71;
+    color: #2ecc71;
+}
+
+.btn-movimento-andar:hover:not(:disabled) {
+    background: #2ecc71;
+    color: var(--bg-primary);
+}
+
+.btn-movimento-correr {
+    background: var(--bg-primary);
+    border: 1px solid #f39c12;
+    color: #f39c12;
+}
+
+.btn-movimento-correr:hover:not(:disabled) {
+    background: #f39c12;
+    color: var(--bg-primary);
+}
+
+.btn-defesa {
+    background: var(--bg-primary);
+    border: 1px solid #3498db;
+    color: #3498db;
+}
+
+.btn-defesa:hover:not(:disabled) {
+    background: #3498db;
+    color: var(--bg-primary);
+}
+
+.aviso-corrida {
+    background: rgba(243, 156, 18, 0.2);
+    border-left: 3px solid #f39c12;
+    padding: 8px;
+    margin: 10px 0;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #f39c12;
+}
     </style>
 </head>
 <body>
@@ -1156,7 +1202,7 @@ body::before {
         </div>
     </div>
 
-  <script type="module">
+ <script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1298,6 +1344,65 @@ function showToast(msg, erro = false) {
 function getSessaoIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('sessao');
+}
+
+// ============================================
+// FUNÇÃO: CALCULAR DESLOCAMENTO (MESMA DA FICHA)
+// ============================================
+function calcularDeslocamentoCombate(dxFixo, vigorFixo) {
+    const soma = dxFixo + vigorFixo;
+    
+    const andarBruto = soma * 0.1;
+    const correrBruto = soma * 0.3;
+    
+    function arredondar(valor) {
+        const parteInteira = Math.floor(valor);
+        const parteDecimal = valor - parteInteira;
+        if (parteDecimal < 0.5) {
+            return parteInteira;
+        } else {
+            return parteInteira + 1;
+        }
+    }
+    
+    return {
+        andar: arredondar(andarBruto),
+        correr: arredondar(correrBruto)
+    };
+}
+
+// ============================================
+// FUNÇÃO: ROLAR DADO REAL
+// ============================================
+function rolarDado(dadoString) {
+    const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
+    if (!match) return { total: 0, resultados: [] };
+    
+    const quantidade = parseInt(match[1]) || 1;
+    const faces = parseInt(match[2]);
+    const modificador = match[3] ? parseInt(match[3]) : 0;
+    
+    let total = 0;
+    let resultados = [];
+    for (let i = 0; i < quantidade; i++) {
+        const valor = Math.floor(Math.random() * faces) + 1;
+        resultados.push(valor);
+        total += valor;
+    }
+    total += modificador;
+    
+    return { total, resultados, modificador, quantidade, faces };
+}
+
+// ============================================
+// FUNÇÃO: ROLAR DEFESA ATIVA (2d10)
+// ============================================
+function rolarDefesa2d10() {
+    const dezena = Math.floor(Math.random() * 10);
+    const unidade = Math.floor(Math.random() * 10);
+    let resultado = (dezena * 10) + unidade;
+    if (resultado === 0) resultado = 100;
+    return { resultado, dezena, unidade };
 }
 
 // ============================================
@@ -1487,7 +1592,7 @@ async function toggleMarcador(hexX, hexY) {
 }
 
 // ============================================
-// FUNÇÃO: Buscar dados REAIS do personagem no Firestore
+// FUNÇÃO: BUSCAR DADOS REAIS DO PERSONAGEM
 // ============================================
 function extrairDadosPersonagem(personagemData) {
     const status = personagemData.statusCombate || {};
@@ -1511,14 +1616,10 @@ function extrairDadosPersonagem(personagemData) {
     const bonusDano = Math.floor(stEsferas / 2);
     const danoBase = derivados.danoBase || "1d-2";
     
-    let andar = 6, correr = 12;
-    if (derivados.deslocamento) {
-        const partes = derivados.deslocamento.split('/');
-        if (partes.length >= 2) {
-            andar = parseInt(partes[0]) || 6;
-            correr = parseInt(partes[1]) || 12;
-        }
-    }
+    // CALCULA DESLOCAMENTO IGUAL À FICHA
+    const dxFixo = 5 + (atributos.dx?.esferas || 0);
+    const vigorFixo = 5 + (atributos.vigor?.esferas || 0);
+    const desloc = calcularDeslocamentoCombate(dxFixo, vigorFixo);
     
     return {
         nome: personagemData.nome,
@@ -1533,8 +1634,8 @@ function extrairDadosPersonagem(personagemData) {
         aparar: derivados.aparar || 0,
         bloqueio: derivados.bloqueio || 0,
         rd: derivados.rdExtra || 0,
-        andar: andar,
-        correr: correr,
+        andar: desloc.andar,
+        correr: desloc.correr,
         armaEquipada: {
             nome: nomeArma,
             dano: danoArma,
@@ -1640,7 +1741,8 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
                 arma: personagemAtual.armaEquipada,
                 danoBase: personagemAtual.danoBase,
                 hexX: undefined,
-                hexY: undefined
+                hexY: undefined,
+                impedidoAtacar: false
             };
         }
     } catch (error) {
@@ -1648,9 +1750,6 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
     }
 }
 
-// ============================================
-// FUNÇÃO: Carregar NPCs (COM PF)
-// ============================================
 async function carregarNPCs() {
     if (!sessaoAtual) return;
     
@@ -1683,7 +1782,8 @@ async function carregarNPCs() {
                     rd: npc.defesas?.rd || 0,
                     ataques: npc.ataques || [],
                     hexX: undefined,
-                    hexY: undefined
+                    hexY: undefined,
+                    impedidoAtacar: false
                 };
                 indiceCor++;
             }
@@ -1724,6 +1824,7 @@ async function garantirPosicaoPC(personagemId) {
                 danoBase: pos.danoBase,
                 hexX: null,
                 hexY: null,
+                impedidoAtacar: false,
                 atualizadoEm: serverTimestamp()
             });
             return true;
@@ -1731,91 +1832,6 @@ async function garantirPosicaoPC(personagemId) {
         return true;
     } catch (error) {
         return false;
-    }
-}
-
-// ============================================
-// FUNÇÃO: ROLAR DADO REAL
-// ============================================
-function rolarDado(dadoString) {
-    const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
-    if (!match) return { total: 0, resultados: [] };
-    
-    const quantidade = parseInt(match[1]) || 1;
-    const faces = parseInt(match[2]);
-    const modificador = match[3] ? parseInt(match[3]) : 0;
-    
-    let total = 0;
-    let resultados = [];
-    for (let i = 0; i < quantidade; i++) {
-        const valor = Math.floor(Math.random() * faces) + 1;
-        resultados.push(valor);
-        total += valor;
-    }
-    total += modificador;
-    
-    return { total, resultados, modificador, quantidade, faces };
-}
-
-// ============================================
-// FUNÇÃO: ATUALIZAR RECURSO DO NPC
-// ============================================
-async function atualizarRecursoNPC(npcId, tipo, delta) {
-    if (!ehGM) {
-        showToast('Apenas o GM pode alterar recursos de NPCs', true);
-        return;
-    }
-    
-    const pos = posicoes[npcId];
-    if (!pos || pos.tipo !== 'npc') return;
-    
-    let campoAtual, campoMax, novoValor;
-    
-    if (tipo === 'pv') {
-        campoAtual = 'pv';
-        campoMax = 'pvMax';
-        novoValor = (pos.pv || 0) + delta;
-        novoValor = Math.min(Math.max(novoValor, 0), pos.pvMax);
-        posicoes[npcId].pv = novoValor;
-    } else if (tipo === 'pm') {
-        campoAtual = 'pm';
-        campoMax = 'pmMax';
-        novoValor = (pos.pm || 0) + delta;
-        novoValor = Math.min(Math.max(novoValor, 0), pos.pmMax);
-        posicoes[npcId].pm = novoValor;
-    } else if (tipo === 'pf') {
-        campoAtual = 'pf';
-        campoMax = 'pfMax';
-        novoValor = (pos.pf || 0) + delta;
-        novoValor = Math.min(Math.max(novoValor, 0), pos.pfMax);
-        posicoes[npcId].pf = novoValor;
-    } else {
-        return;
-    }
-    
-    try {
-        const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
-        await updateDoc(npcRef, {
-            [`recursos.${tipo}_atual`]: novoValor
-        });
-        
-        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
-        await setDoc(posRef, {
-            [campoAtual]: novoValor
-        }, { merge: true });
-        
-        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campoMax]}`);
-        
-        if (personagemSelecionado === npcId) {
-            atualizarFicha(npcId);
-        }
-        
-        atualizarListaPersonagens();
-        desenharMapa();
-        
-    } catch (error) {
-        console.error('Erro:', error);
-        showToast('Erro ao atualizar recurso', true);
     }
 }
 
@@ -1874,6 +1890,7 @@ async function iniciarCombate() {
                 danoBase: pos.danoBase,
                 hexX: pos.hexX !== undefined ? pos.hexX : null,
                 hexY: pos.hexY !== undefined ? pos.hexY : null,
+                impedidoAtacar: false,
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
         });
@@ -1969,6 +1986,11 @@ async function moverPersonagem(personagemId, hexX, hexY) {
 async function avancarTurno() {
     if (!ehGM || !combateId || !sessaoAtual) return;
     
+    // Resetar impedidoAtacar no final do turno
+    Object.values(posicoes).forEach(pos => {
+        pos.impedidoAtacar = false;
+    });
+    
     if (vezAtual === 'jogadores') {
         vezAtual = 'npcs';
         showToast('Vez dos NPCs');
@@ -1986,6 +2008,10 @@ async function avancarTurno() {
     });
     
     atualizarUI();
+    
+    if (personagemSelecionado && posicoes[personagemSelecionado]) {
+        atualizarFicha(personagemSelecionado);
+    }
 }
 
 async function finalizarTurnoJogadores() {
@@ -2028,6 +2054,7 @@ async function encerrarCombate() {
         Object.keys(posicoes).forEach(id => {
             posicoes[id].hexX = undefined;
             posicoes[id].hexY = undefined;
+            posicoes[id].impedidoAtacar = false;
         });
         
         atualizarUI();
@@ -2113,6 +2140,7 @@ function iniciarListenersCombate() {
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+                if (posicoes[id].impedidoAtacar === undefined) posicoes[id].impedidoAtacar = false;
             } else if (change.type === "removed") {
                 if (posicoes[id]) {
                     posicoes[id].hexX = undefined;
@@ -2187,7 +2215,7 @@ function atualizarListaPersonagens() {
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
                         <span class="personagem-nome">${pos.nome}</span>
                         <span class="personagem-status">📌 posicionar</span>
-                        <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
                     </div>
                 `;
             });
@@ -2235,6 +2263,8 @@ function atualizarListaPersonagens() {
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
                         <span class="personagem-nome">🧌 ${pos.nome}</span>
                         <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        <span class="personagem-pm">💙 ${pos.pm || '?'}/${pos.pmMax || '?'}</span>
+                        <span class="personagem-pf">💛 ${pos.pf || '?'}/${pos.pfMax || '?'}</span>
                     </div>
                 `;
             });
@@ -2252,7 +2282,7 @@ function atualizarListaPersonagens() {
                     <div class="personagem-cor" style="background: #1E90FF"></div>
                     <span class="personagem-nome">${meuPC.nome} (você)</span>
                     <span class="personagem-status">📌 clique no mapa</span>
-                    <span class="personagem-pv">${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
+                    <span class="personagem-pv">❤️ ${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
                 </div>
             `;
             html += `</div>`;
@@ -2287,7 +2317,6 @@ function atualizarFicha(personagemId) {
             fichaPM.textContent = '?/?';
         }
         
-        // PF
         let pfElement = document.getElementById('fichaPF');
         if (pos.pf !== undefined) {
             if (!pfElement) {
@@ -2418,6 +2447,7 @@ function atualizarFicha(personagemId) {
     const podeAgir = ehGM || pos.jogadorUid === currentUser?.uid;
     const ehVezCorreta = vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs');
     const estaPosicionado = pos.hexX !== undefined && pos.hexX !== null;
+    const impedidoAtacar = pos.impedidoAtacar || false;
     
     let acoesHtml = `
         <h4 style="color: var(--gold); margin: 10px 0; font-size: 0.9rem;">
@@ -2425,30 +2455,28 @@ function atualizarFicha(personagemId) {
         </h4>
     `;
     
-    // Verifica se tem ataques (NPCs)
-    if (pos.ataques && pos.ataques.length > 0 && pos.tipo === 'npc' && ehGM) {
-        pos.ataques.forEach((ataque, idx) => {
-            const danoTotal = `${ataque.dano}${ataque.bonus > 0 ? `+${ataque.bonus}` : ataque.bonus < 0 ? `${ataque.bonus}` : ''}`;
-            acoesHtml += `
-                <button class="btn-acao" onclick="window.realizarAtaqueComDado('${personagemId}', ${idx})" 
-                        ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
-                    <span><i class="fas fa-fist-raised"></i> ${ataque.nome}</span>
-                    <span class="dano">${danoTotal}</span>
-                </button>
-            `;
-        });
-    } else if (pos.arma) {
+    // Aviso se correu
+    if (impedidoAtacar) {
+        acoesHtml += `
+            <div class="aviso-corrida" style="background: rgba(243, 156, 18, 0.2); border-left: 3px solid #f39c12; padding: 8px; margin: 10px 0; border-radius: 6px; font-size: 0.8rem; color: #f39c12;">
+                <i class="fas fa-running"></i> Você correu neste turno e não pode atacar!
+            </div>
+        `;
+    }
+    
+    // ATAQUE
+    if (pos.arma && !impedidoAtacar) {
         const danoTotal = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
         acoesHtml += `
-            <button class="btn-acao" onclick="window.realizarAtaqueComDado('${personagemId}')" 
-                    ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
+                    ${!podeAgir || !ehVezCorreta || !estaPosicionado || impedidoAtacar ? 'disabled' : ''}>
                 <span><i class="fas fa-fist-raised"></i> ${pos.arma.nome}</span>
                 <span class="dano">${danoTotal}</span>
             </button>
         `;
-    } else {
+    } else if (!impedidoAtacar) {
         acoesHtml += `
-            <button class="btn-acao" onclick="window.realizarAtaqueComDado('${personagemId}')" 
+            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
                     ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
                 <span><i class="fas fa-fist-raised"></i> Ataque Básico</span>
                 <span class="dano">${pos.danoBase || '1d4'}</span>
@@ -2456,16 +2484,30 @@ function atualizarFicha(personagemId) {
         `;
     }
     
+    // MOVIMENTO: ANDAR
     acoesHtml += `
-        <button class="btn-acao" onclick="window.iniciarMovimento('${personagemId}')" 
+        <button class="btn-acao" style="border-color: #2ecc71; color: #2ecc71;" onclick="window.iniciarMovimento('${personagemId}', 'andar')" 
                 ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
-            <span><i class="fas fa-shoe-prints"></i> Mover</span>
-            <span class="dano">${pos.andar || 0}m</span>
+            <span><i class="fas fa-shoe-prints"></i> Andar (${pos.andar || 0}m)</span>
+            <span class="dano">✓ Pode atacar</span>
         </button>
-        <button class="btn-acao" 
+    `;
+    
+    // MOVIMENTO: CORRER
+    acoesHtml += `
+        <button class="btn-acao" style="border-color: #f39c12; color: #f39c12;" onclick="window.iniciarMovimento('${personagemId}', 'correr')" 
                 ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
-            <span><i class="fas fa-shield"></i> Defender</span>
-            <span class="dano">+10%</span>
+            <span><i class="fas fa-running"></i> Correr (${pos.correr || 0}m)</span>
+            <span class="dano">✗ Não pode atacar</span>
+        </button>
+    `;
+    
+    // DEFESA ATIVA
+    acoesHtml += `
+        <button class="btn-acao" style="border-color: #3498db; color: #3498db;" onclick="window.rolarDefesa('${personagemId}')" 
+                ${!podeAgir || !estaPosicionado ? 'disabled' : ''}>
+            <span><i class="fas fa-shield-alt"></i> Defesa Ativa</span>
+            <span class="dano">2d10</span>
         </button>
     `;
     
@@ -2482,9 +2524,71 @@ function handleRecursoClick(e) {
 }
 
 // ============================================
-// FUNÇÃO DE ATAQUE COM DADOS REAIS
+// FUNÇÃO: ATUALIZAR RECURSO DO NPC
 // ============================================
-window.realizarAtaqueComDado = function(personagemId, ataqueIndex = null) {
+async function atualizarRecursoNPC(npcId, tipo, delta) {
+    if (!ehGM) {
+        showToast('Apenas o GM pode alterar recursos de NPCs', true);
+        return;
+    }
+    
+    const pos = posicoes[npcId];
+    if (!pos || pos.tipo !== 'npc') return;
+    
+    let campoAtual, campoMax, novoValor;
+    
+    if (tipo === 'pv') {
+        campoAtual = 'pv';
+        campoMax = 'pvMax';
+        novoValor = (pos.pv || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pvMax);
+        posicoes[npcId].pv = novoValor;
+    } else if (tipo === 'pm') {
+        campoAtual = 'pm';
+        campoMax = 'pmMax';
+        novoValor = (pos.pm || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pmMax);
+        posicoes[npcId].pm = novoValor;
+    } else if (tipo === 'pf') {
+        campoAtual = 'pf';
+        campoMax = 'pfMax';
+        novoValor = (pos.pf || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pfMax);
+        posicoes[npcId].pf = novoValor;
+    } else {
+        return;
+    }
+    
+    try {
+        const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
+        await updateDoc(npcRef, {
+            [`recursos.${tipo}_atual`]: novoValor
+        });
+        
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
+        await setDoc(posRef, {
+            [campoAtual]: novoValor
+        }, { merge: true });
+        
+        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campoMax]}`);
+        
+        if (personagemSelecionado === npcId) {
+            atualizarFicha(npcId);
+        }
+        
+        atualizarListaPersonagens();
+        desenharMapa();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao atualizar recurso', true);
+    }
+}
+
+// ============================================
+// FUNÇÃO DE ATAQUE COM DANO REAL
+// ============================================
+window.realizarAtaque = function(personagemId, ataqueIndex = null) {
     const pos = posicoes[personagemId];
     if (!pos) return;
     
@@ -2511,13 +2615,120 @@ window.realizarAtaqueComDado = function(personagemId, ataqueIndex = null) {
             detalhes += `${resultado.modificador >= 0 ? '+' : ''}${resultado.modificador}`;
         }
         showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Rolou ${detalhes} = ${resultado.total} de dano!`);
+        
+        if (ehGM && personagemSelecionado && personagemSelecionado !== personagemId) {
+            const alvo = posicoes[personagemSelecionado];
+            if (alvo) {
+                showToast(`💥 Dano aplicado a ${alvo.nome}? (use os botões de PV para reduzir)`);
+            }
+        }
     } else {
         showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Dano: ${danoTexto}`);
     }
 };
 
-// Manter função antiga para compatibilidade
-window.realizarAtaque = window.realizarAtaqueComDado;
+// ============================================
+// FUNÇÃO DE MOVIMENTO (ANDAR OU CORRER)
+// ============================================
+window.iniciarMovimento = function(id, tipoMovimento = 'andar') {
+    const podeMover = ehGM || posicoes[id]?.jogadorUid === currentUser?.uid;
+    
+    if (!podeMover) {
+        showToast('Você só pode mover seu próprio personagem', true);
+        return;
+    }
+    
+    if (vezAtual !== (posicoes[id]?.tipo === 'pc' ? 'jogadores' : 'npcs')) {
+        showToast('Não é a vez deste personagem', true);
+        return;
+    }
+    
+    personagemSelecionado = id;
+    modoCombate = 'movimento';
+    
+    const pos = posicoes[id];
+    if (pos && pos.hexX !== undefined && pos.hexX !== null) {
+        let alcance = tipoMovimento === 'correr' ? (pos.correr || 6) : (pos.andar || 6);
+        
+        if (tipoMovimento === 'correr') {
+            pos.impedidoAtacar = true;
+            showToast(`🏃 ${pos.nome} está correndo! Não poderá atacar neste turno.`);
+        } else {
+            pos.impedidoAtacar = false;
+        }
+        
+        highlightHex = [];
+        
+        for (let dx = -alcance; dx <= alcance; dx++) {
+            for (let dy = -alcance; dy <= alcance; dy++) {
+                const newX = pos.hexX + dx;
+                const newY = pos.hexY + dy;
+                if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                    const temObstaculo = marcadores[`${newX}_${newY}`];
+                    const ocupado = Object.values(posicoes).some(p => 
+                        p.hexX === newX && p.hexY === newY && p.id !== id
+                    );
+                    if (!ocupado && !temObstaculo) {
+                        highlightHex.push({ x: newX, y: newY });
+                    }
+                }
+            }
+        }
+    }
+    
+    atualizarFicha(id);
+    desenharMapa();
+};
+
+// ============================================
+// FUNÇÃO DE DEFESA ATIVA (2d10)
+// ============================================
+window.rolarDefesa = function(personagemId) {
+    const pos = posicoes[personagemId];
+    if (!pos) return;
+    
+    const resultado = rolarDefesa2d10();
+    
+    let valorDefesa = 0;
+    let nomeDefesa = "";
+    
+    const esquiva = pos.esquiva || 0;
+    const aparar = pos.aparar || 0;
+    const bloqueio = pos.bloqueio || 0;
+    
+    if (esquiva >= aparar && esquiva >= bloqueio) {
+        valorDefesa = esquiva;
+        nomeDefesa = "Esquiva";
+    } else if (aparar >= bloqueio) {
+        valorDefesa = aparar;
+        nomeDefesa = "Aparar";
+    } else {
+        valorDefesa = bloqueio;
+        nomeDefesa = "Bloqueio";
+    }
+    
+    const sucesso = resultado.resultado <= valorDefesa;
+    const resultadoTexto = sucesso ? "SUCESSO!" : "FALHA!";
+    const cor = sucesso ? "#2ecc71" : "#e74c3c";
+    
+    showToast(`🛡️ ${pos.nome} rolou ${resultado.resultado}% para ${nomeDefesa} (${valorDefesa}%) → ${resultadoTexto}`);
+    
+    if (sessaoAtual) {
+        addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+            tipo: 'defesa',
+            jogador: pos.nome,
+            personagemId: personagemId,
+            defesaUsada: nomeDefesa,
+            valorDefesa: valorDefesa,
+            resultado: resultado.resultado,
+            sucesso: sucesso,
+            dezena: resultado.dezena,
+            unidade: resultado.unidade,
+            visibilidade: 'publico',
+            timestamp: serverTimestamp()
+        });
+    }
+};
 
 // ============================================
 // CARREGAMENTO INICIAL
@@ -2588,6 +2799,7 @@ async function carregarSessao() {
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+                if (posicoes[id].impedidoAtacar === undefined) posicoes[id].impedidoAtacar = false;
             });
             
             iniciarListenersCombate();
@@ -2757,48 +2969,6 @@ window.selecionarNPCparaPosicionar = function(npcId) {
     atualizarListaPersonagens();
     desenharMapa();
     showToast(`Clique no mapa para posicionar ${npc.nome}`);
-};
-
-window.iniciarMovimento = function(id) {
-    const podeMover = ehGM || posicoes[id]?.jogadorUid === currentUser?.uid;
-    
-    if (!podeMover) {
-        showToast('Você só pode mover seu próprio personagem', true);
-        return;
-    }
-    
-    if (vezAtual !== (posicoes[id]?.tipo === 'pc' ? 'jogadores' : 'npcs')) {
-        showToast('Não é a vez deste personagem', true);
-        return;
-    }
-    
-    personagemSelecionado = id;
-    modoCombate = 'movimento';
-    atualizarFicha(id);
-    
-    const pos = posicoes[id];
-    if (pos && pos.hexX !== undefined && pos.hexX !== null) {
-        const alcance = pos.andar || 6;
-        highlightHex = [];
-        
-        for (let dx = -alcance; dx <= alcance; dx++) {
-            for (let dy = -alcance; dy <= alcance; dy++) {
-                const newX = pos.hexX + dx;
-                const newY = pos.hexY + dy;
-                if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
-                    const temObstaculo = marcadores[`${newX}_${newY}`];
-                    const ocupado = Object.values(posicoes).some(p => 
-                        p.hexX === newX && p.hexY === newY && p.id !== id
-                    );
-                    if (!ocupado && !temObstaculo) {
-                        highlightHex.push({ x: newX, y: newY });
-                    }
-                }
-            }
-        }
-    }
-    
-    desenharMapa();
 };
 
 // ============================================
