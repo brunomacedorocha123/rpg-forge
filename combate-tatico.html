@@ -1156,7 +1156,7 @@ body::before {
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
 // ============================================
 // IMPORTS FIREBASE
 // ============================================
@@ -1298,98 +1298,6 @@ function showToast(msg, erro = false) {
 function getSessaoIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('sessao');
-}
-
-// ============================================
-// FUNÇÃO: ROLAR DADO REAL
-// ============================================
-function rolarDado(dadoString) {
-    // Suporta formatos: "1d8", "2d6+2", "1d10-1", "3d8+5"
-    const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
-    if (!match) return { total: 0, resultados: [] };
-    
-    const quantidade = parseInt(match[1]) || 1;
-    const faces = parseInt(match[2]);
-    const modificador = match[3] ? parseInt(match[3]) : 0;
-    
-    let total = 0;
-    let resultados = [];
-    for (let i = 0; i < quantidade; i++) {
-        const valor = Math.floor(Math.random() * faces) + 1;
-        resultados.push(valor);
-        total += valor;
-    }
-    total += modificador;
-    
-    return { total, resultados, modificador, quantidade, faces };
-}
-
-// ============================================
-// FUNÇÃO: ATUALIZAR RECURSO DO NPC (PV/PM/PF) - CORRIGIDA
-// ============================================
-async function atualizarRecursoNPC(npcId, tipo, delta) {
-    if (!ehGM) {
-        showToast('Apenas o GM pode alterar recursos de NPCs', true);
-        return false;
-    }
-    
-    const pos = posicoes[npcId];
-    if (!pos || pos.tipo !== 'npc') return false;
-    
-    let campoAtual, campoMax, novoValor;
-    
-    if (tipo === 'pv') {
-        campoAtual = 'pv';
-        campoMax = 'pvMax';
-        novoValor = (pos.pv || 0) + delta;
-        novoValor = Math.min(Math.max(novoValor, 0), pos.pvMax);
-        posicoes[npcId].pv = novoValor;
-    } else if (tipo === 'pm') {
-        campoAtual = 'pm';
-        campoMax = 'pmMax';
-        novoValor = (pos.pm || 0) + delta;
-        novoValor = Math.min(Math.max(novoValor, 0), pos.pmMax);
-        posicoes[npcId].pm = novoValor;
-    } else if (tipo === 'pf') {
-        campoAtual = 'pf';
-        campoMax = 'pfMax';
-        novoValor = (pos.pf || 0) + delta;
-        novoValor = Math.min(Math.max(novoValor, 0), pos.pfMax);
-        posicoes[npcId].pf = novoValor;
-    } else {
-        return false;
-    }
-    
-    try {
-        // Atualizar no Firestore (NPC)
-        const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
-        await updateDoc(npcRef, {
-            [`recursos.${tipo}_atual`]: novoValor
-        });
-        
-        // Atualizar também na posição (se existir)
-        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
-        await setDoc(posRef, {
-            [campoAtual]: novoValor
-        }, { merge: true });
-        
-        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campoMax]}`);
-        
-        // Atualizar interface se for o personagem selecionado
-        if (personagemSelecionado === npcId) {
-            atualizarFicha(npcId);
-        }
-        
-        // Atualizar lista de personagens
-        atualizarListaPersonagens();
-        desenharMapa();
-        
-        return true;
-    } catch (error) {
-        console.error('Erro ao atualizar recurso:', error);
-        showToast('Erro ao atualizar recurso', true);
-        return false;
-    }
 }
 
 // ============================================
@@ -1740,6 +1648,9 @@ async function carregarPersonagemJogador(campanhaIdCustom) {
     }
 }
 
+// ============================================
+// FUNÇÃO: Carregar NPCs (COM PF)
+// ============================================
 async function carregarNPCs() {
     if (!sessaoAtual) return;
     
@@ -1770,6 +1681,7 @@ async function carregarNPCs() {
                     andar: 4,
                     correr: 8,
                     rd: npc.defesas?.rd || 0,
+                    ataques: npc.ataques || [],
                     hexX: undefined,
                     hexY: undefined
                 };
@@ -1819,6 +1731,91 @@ async function garantirPosicaoPC(personagemId) {
         return true;
     } catch (error) {
         return false;
+    }
+}
+
+// ============================================
+// FUNÇÃO: ROLAR DADO REAL
+// ============================================
+function rolarDado(dadoString) {
+    const match = dadoString.match(/(\d*)d(\d+)([+-]\d+)?/i);
+    if (!match) return { total: 0, resultados: [] };
+    
+    const quantidade = parseInt(match[1]) || 1;
+    const faces = parseInt(match[2]);
+    const modificador = match[3] ? parseInt(match[3]) : 0;
+    
+    let total = 0;
+    let resultados = [];
+    for (let i = 0; i < quantidade; i++) {
+        const valor = Math.floor(Math.random() * faces) + 1;
+        resultados.push(valor);
+        total += valor;
+    }
+    total += modificador;
+    
+    return { total, resultados, modificador, quantidade, faces };
+}
+
+// ============================================
+// FUNÇÃO: ATUALIZAR RECURSO DO NPC
+// ============================================
+async function atualizarRecursoNPC(npcId, tipo, delta) {
+    if (!ehGM) {
+        showToast('Apenas o GM pode alterar recursos de NPCs', true);
+        return;
+    }
+    
+    const pos = posicoes[npcId];
+    if (!pos || pos.tipo !== 'npc') return;
+    
+    let campoAtual, campoMax, novoValor;
+    
+    if (tipo === 'pv') {
+        campoAtual = 'pv';
+        campoMax = 'pvMax';
+        novoValor = (pos.pv || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pvMax);
+        posicoes[npcId].pv = novoValor;
+    } else if (tipo === 'pm') {
+        campoAtual = 'pm';
+        campoMax = 'pmMax';
+        novoValor = (pos.pm || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pmMax);
+        posicoes[npcId].pm = novoValor;
+    } else if (tipo === 'pf') {
+        campoAtual = 'pf';
+        campoMax = 'pfMax';
+        novoValor = (pos.pf || 0) + delta;
+        novoValor = Math.min(Math.max(novoValor, 0), pos.pfMax);
+        posicoes[npcId].pf = novoValor;
+    } else {
+        return;
+    }
+    
+    try {
+        const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
+        await updateDoc(npcRef, {
+            [`recursos.${tipo}_atual`]: novoValor
+        });
+        
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
+        await setDoc(posRef, {
+            [campoAtual]: novoValor
+        }, { merge: true });
+        
+        showToast(`${pos.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}/${pos[campoMax]}`);
+        
+        if (personagemSelecionado === npcId) {
+            atualizarFicha(npcId);
+        }
+        
+        atualizarListaPersonagens();
+        desenharMapa();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showToast('Erro ao atualizar recurso', true);
     }
 }
 
@@ -2190,7 +2187,7 @@ function atualizarListaPersonagens() {
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
                         <span class="personagem-nome">${pos.nome}</span>
                         <span class="personagem-status">📌 posicionar</span>
-                        <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
+                        <span class="personagem-pv">${pos.pv || '?'}/${pos.pvMax || '?'}</span>
                     </div>
                 `;
             });
@@ -2238,8 +2235,6 @@ function atualizarListaPersonagens() {
                         <div class="personagem-cor" style="background: ${pos.cor}"></div>
                         <span class="personagem-nome">🧌 ${pos.nome}</span>
                         <span class="personagem-pv">❤️ ${pos.pv || '?'}/${pos.pvMax || '?'}</span>
-                        <span class="personagem-pm">💙 ${pos.pm || '?'}/${pos.pmMax || '?'}</span>
-                        <span class="personagem-pf">💛 ${pos.pf || '?'}/${pos.pfMax || '?'}</span>
                     </div>
                 `;
             });
@@ -2257,7 +2252,7 @@ function atualizarListaPersonagens() {
                     <div class="personagem-cor" style="background: #1E90FF"></div>
                     <span class="personagem-nome">${meuPC.nome} (você)</span>
                     <span class="personagem-status">📌 clique no mapa</span>
-                    <span class="personagem-pv">❤️ ${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
+                    <span class="personagem-pv">${meuPC.pv || '?'}/${meuPC.pvMax || '?'}</span>
                 </div>
             `;
             html += `</div>`;
@@ -2292,6 +2287,7 @@ function atualizarFicha(personagemId) {
             fichaPM.textContent = '?/?';
         }
         
+        // PF
         let pfElement = document.getElementById('fichaPF');
         if (pos.pf !== undefined) {
             if (!pfElement) {
@@ -2347,10 +2343,7 @@ function atualizarFicha(personagemId) {
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span><i class="fas fa-heart" style="color: #ff6b6b;"></i> PV</span>
-                        <span id="fichaPVEditavel">${pos.pv}/${pos.pvMax}</span>
-                    </div>
-                    <div style="width: 100%; height: 12px; background: #333; border-radius: 6px; overflow: hidden;">
-                        <div id="fichaPVBarraEditavel" style="width: ${(pos.pv/pos.pvMax)*100}%; height: 100%; background: linear-gradient(90deg, #ff4444, #ff6b6b);"></div>
+                        <span>${pos.pv}/${pos.pvMax}</span>
                     </div>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <button class="btn-recurso-npc" data-recurso="pv" data-delta="-1" style="background: var(--bg-primary); border: 1px solid #ff6b6b; color: #ff6b6b; padding: 4px 8px; border-radius: 4px; cursor: pointer;">-1</button>
@@ -2363,10 +2356,7 @@ function atualizarFicha(personagemId) {
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span><i class="fas fa-magic" style="color: #6b6bff;"></i> PM</span>
-                        <span id="fichaPMEditavel">${pos.pm || 0}/${pos.pmMax || 0}</span>
-                    </div>
-                    <div style="width: 100%; height: 12px; background: #333; border-radius: 6px; overflow: hidden;">
-                        <div id="fichaPMBarraEditavel" style="width: ${((pos.pm || 0)/(pos.pmMax || 1))*100}%; height: 100%; background: linear-gradient(90deg, #4444ff, #6b6bff);"></div>
+                        <span>${pos.pm || 0}/${pos.pmMax || 0}</span>
                     </div>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <button class="btn-recurso-npc" data-recurso="pm" data-delta="-1" style="background: var(--bg-primary); border: 1px solid #6b6bff; color: #6b6bff; padding: 4px 8px; border-radius: 4px; cursor: pointer;">-1</button>
@@ -2379,10 +2369,7 @@ function atualizarFicha(personagemId) {
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                         <span><i class="fas fa-tint" style="color: var(--gold);"></i> PF</span>
-                        <span id="fichaPFEditavel">${pos.pf || 0}/${pos.pfMax || 0}</span>
-                    </div>
-                    <div style="width: 100%; height: 12px; background: #333; border-radius: 6px; overflow: hidden;">
-                        <div id="fichaPFBarraEditavel" style="width: ${((pos.pf || 0)/(pos.pfMax || 1))*100}%; height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-bright));"></div>
+                        <span>${pos.pf || 0}/${pos.pfMax || 0}</span>
                     </div>
                     <div style="display: flex; gap: 5px; margin-top: 5px;">
                         <button class="btn-recurso-npc" data-recurso="pf" data-delta="-1" style="background: var(--bg-primary); border: 1px solid var(--gold); color: var(--gold); padding: 4px 8px; border-radius: 4px; cursor: pointer;">-1</button>
@@ -2438,10 +2425,22 @@ function atualizarFicha(personagemId) {
         </h4>
     `;
     
-    if (pos.arma) {
+    // Verifica se tem ataques (NPCs)
+    if (pos.ataques && pos.ataques.length > 0 && pos.tipo === 'npc' && ehGM) {
+        pos.ataques.forEach((ataque, idx) => {
+            const danoTotal = `${ataque.dano}${ataque.bonus > 0 ? `+${ataque.bonus}` : ataque.bonus < 0 ? `${ataque.bonus}` : ''}`;
+            acoesHtml += `
+                <button class="btn-acao" onclick="window.realizarAtaqueComDado('${personagemId}', ${idx})" 
+                        ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
+                    <span><i class="fas fa-fist-raised"></i> ${ataque.nome}</span>
+                    <span class="dano">${danoTotal}</span>
+                </button>
+            `;
+        });
+    } else if (pos.arma) {
         const danoTotal = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
         acoesHtml += `
-            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
+            <button class="btn-acao" onclick="window.realizarAtaqueComDado('${personagemId}')" 
                     ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
                 <span><i class="fas fa-fist-raised"></i> ${pos.arma.nome}</span>
                 <span class="dano">${danoTotal}</span>
@@ -2449,7 +2448,7 @@ function atualizarFicha(personagemId) {
         `;
     } else {
         acoesHtml += `
-            <button class="btn-acao" onclick="window.realizarAtaque('${personagemId}')" 
+            <button class="btn-acao" onclick="window.realizarAtaqueComDado('${personagemId}')" 
                     ${!podeAgir || !ehVezCorreta || !estaPosicionado ? 'disabled' : ''}>
                 <span><i class="fas fa-fist-raised"></i> Ataque Básico</span>
                 <span class="dano">${pos.danoBase || '1d4'}</span>
@@ -2483,16 +2482,20 @@ function handleRecursoClick(e) {
 }
 
 // ============================================
-// FUNÇÃO DE ATAQUE (COM DANO REAL)
+// FUNÇÃO DE ATAQUE COM DADOS REAIS
 // ============================================
-window.realizarAtaque = function(personagemId) {
+window.realizarAtaqueComDado = function(personagemId, ataqueIndex = null) {
     const pos = posicoes[personagemId];
     if (!pos) return;
     
     let danoTexto = "";
     let nomeAtaque = "";
     
-    if (pos.arma) {
+    if (ataqueIndex !== null && pos.ataques && pos.ataques[ataqueIndex]) {
+        const ataque = pos.ataques[ataqueIndex];
+        nomeAtaque = ataque.nome;
+        danoTexto = `${ataque.dano}${ataque.bonus > 0 ? `+${ataque.bonus}` : ataque.bonus < 0 ? `${ataque.bonus}` : ''}`;
+    } else if (pos.arma) {
         nomeAtaque = pos.arma.nome;
         danoTexto = `${pos.arma.dano}${pos.arma.bonus > 0 ? `+${pos.arma.bonus}` : pos.arma.bonus < 0 ? `${pos.arma.bonus}` : ''}`;
     } else {
@@ -2508,17 +2511,13 @@ window.realizarAtaque = function(personagemId) {
             detalhes += `${resultado.modificador >= 0 ? '+' : ''}${resultado.modificador}`;
         }
         showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Rolou ${detalhes} = ${resultado.total} de dano!`);
-        
-        if (ehGM && personagemSelecionado && personagemSelecionado !== personagemId) {
-            const alvo = posicoes[personagemSelecionado];
-            if (alvo) {
-                showToast(`💥 Dano aplicado a ${alvo.nome}? (use os botões de PV para reduzir)`);
-            }
-        }
     } else {
         showToast(`🎲 ${pos.nome} usou ${nomeAtaque}! Dano: ${danoTexto}`);
     }
 };
+
+// Manter função antiga para compatibilidade
+window.realizarAtaque = window.realizarAtaqueComDado;
 
 // ============================================
 // CARREGAMENTO INICIAL
