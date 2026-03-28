@@ -1769,9 +1769,9 @@ body::before {
         const modoAtualSpan = document.getElementById('modoAtual');
 
         // ============================================
-        // CONFIGURAÇÕES DO MAPA HEXAGONAL
+        // CONFIGURAÇÕES DO MAPA HEXAGONAL - CORRIGIDAS
         // ============================================
-        const HEX_RADIUS = 26;
+        const HEX_RADIUS = 28;
         const HEX_WIDTH = HEX_RADIUS * 2;
         const HEX_HEIGHT = HEX_RADIUS * Math.sqrt(3);
         const HEX_HORIZONTAL_SPACING = HEX_WIDTH * 0.75;
@@ -1828,33 +1828,26 @@ body::before {
         }
 
         // ============================================
-        // FUNÇÕES DO MAPA HEXAGONAL
+        // FUNÇÕES DO MAPA HEXAGONAL - CORRIGIDAS
         // ============================================
         function hexToPixel(hexX, hexY) {
             const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
-            const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
+            const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 1 ? HEX_VERTICAL_SPACING / 2 : 0);
             return { x, y };
         }
 
         function pixelToHex(pixelX, pixelY) {
-            const approxX = Math.round((pixelX - OFFSET_X) / HEX_HORIZONTAL_SPACING);
             let bestHex = { x: -1, y: -1 };
             let bestDist = Infinity;
             
-            for (let dx = -2; dx <= 2; dx++) {
-                for (let dy = -2; dy <= 2; dy++) {
-                    const testX = approxX + dx;
-                    if (testX < 0 || testX >= MAPA_LARGURA) continue;
-                    
-                    let testY = Math.round((pixelY - OFFSET_Y - (testX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2)) / HEX_VERTICAL_SPACING);
-                    if (testY < 0 || testY >= MAPA_ALTURA) continue;
-                    
-                    const pixel = hexToPixel(testX, testY);
+            for (let x = 0; x < MAPA_LARGURA; x++) {
+                for (let y = 0; y < MAPA_ALTURA; y++) {
+                    const pixel = hexToPixel(x, y);
                     const dist = Math.hypot(pixelX - pixel.x, pixelY - pixel.y);
                     
                     if (dist < bestDist && dist < HEX_RADIUS) {
                         bestDist = dist;
-                        bestHex = { x: testX, y: testY };
+                        bestHex = { x, y };
                     }
                 }
             }
@@ -1938,10 +1931,20 @@ body::before {
 
         function desenharMapa() {
             if (!ctx) return;
+            
+            // Calcular o tamanho real necessário para o canvas
+            const maxX = OFFSET_X + (MAPA_LARGURA - 1) * HEX_HORIZONTAL_SPACING + HEX_RADIUS * 2;
+            const maxY = OFFSET_Y + (MAPA_ALTURA - 1) * HEX_VERTICAL_SPACING + HEX_HEIGHT + HEX_VERTICAL_SPACING / 2;
+            
+            // Ajustar o tamanho do canvas para mostrar todo o grid
+            canvas.width = Math.max(1200, maxX + 50);
+            canvas.height = Math.max(700, maxY + 50);
+            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#f8f9fa';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Desenhar todos os hexágonos
             for (let x = 0; x < MAPA_LARGURA; x++) {
                 for (let y = 0; y < MAPA_ALTURA; y++) {
                     const pixel = hexToPixel(x, y);
@@ -1957,6 +1960,7 @@ body::before {
             
             desenharMarcadores();
             
+            // Desenhar todos os tokens
             Object.values(posicoes).forEach(pos => {
                 if (pos.hexX !== undefined && pos.hexX !== null && pos.hexY !== undefined && pos.hexY !== null) {
                     const pixel = hexToPixel(pos.hexX, pos.hexY);
@@ -3034,7 +3038,6 @@ body::before {
             modoCombateContent.classList.add('ativo');
             modoNarrativoContent.classList.remove('ativo');
             setTimeout(() => {
-                canvas.width = Math.min(1000, canvas.parentElement.clientWidth - 32);
                 desenharMapa();
             }, 100);
         });
@@ -3171,7 +3174,6 @@ body::before {
                 let logHtml = '';
                 snapshot.forEach(doc => {
                     const r = doc.data();
-                    const icone = r.tipo === 'pericia' ? '🎲' : (r.tipo === 'dano' ? '💥' : (r.tipo === 'critico' ? '⚡' : '📌'));
                     
                     if (r.tipo === 'pericia') {
                         logHtml += `<div class="log-item"><i class="fas fa-dice"></i> ${r.jogador}: Perícia ${r.resultado}%</div>`;
@@ -3252,10 +3254,6 @@ body::before {
         // INICIALIZAÇÃO
         // ============================================
         function inicializarCanvas() {
-            const container = canvas.parentElement;
-            const maxWidth = container.clientWidth - 32;
-            canvas.width = Math.min(1000, maxWidth);
-            canvas.height = (canvas.width / 1000) * 600;
             desenharMapa();
         }
         
