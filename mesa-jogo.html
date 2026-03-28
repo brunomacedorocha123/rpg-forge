@@ -2096,11 +2096,14 @@
             return urlParams.get('sessao');
         }
 
-        // ===========================================
+               // ===========================================
         // FUNÇÃO: ATUALIZAR RECURSO DO NPC NO MODAL
         // ===========================================
         async function atualizarRecursoModalNPC(tipo, delta) {
-            if (!modalNpcDetalheAtual) return;
+            if (!modalNpcDetalheAtual) {
+                showToast('Nenhum NPC selecionado', true);
+                return;
+            }
             
             const npcId = modalNpcDetalheAtual;
             
@@ -2108,41 +2111,47 @@
                 const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
                 const npcSnap = await getDoc(npcRef);
                 
-                if (!npcSnap.exists()) return;
+                if (!npcSnap.exists()) {
+                    showToast('NPC não encontrado!', true);
+                    return;
+                }
                 
                 const npc = npcSnap.data();
-                let campoAtual, campoMax, novoValor;
+                let novoValor, valorAtual, campoMax;
                 
                 if (tipo === 'pv') {
-                    campoAtual = 'pv_atual';
-                    campoMax = 'pv_max';
-                    novoValor = (npc.recursos?.pv_atual || 0) + delta;
-                    novoValor = Math.min(Math.max(novoValor, 0), npc.recursos?.pv_max || 20);
+                    valorAtual = npc.recursos?.pv_atual || 0;
+                    campoMax = npc.recursos?.pv_max || 20;
+                    novoValor = Math.min(Math.max(valorAtual + delta, 0), campoMax);
+                    await updateDoc(npcRef, {
+                        'recursos.pv_atual': novoValor
+                    });
+                    showToast(`${npc.nome}: PV ${valorAtual} → ${novoValor}`);
                 } else if (tipo === 'pm') {
-                    campoAtual = 'pm_atual';
-                    campoMax = 'pm_max';
-                    novoValor = (npc.recursos?.pm_atual || 0) + delta;
-                    novoValor = Math.min(Math.max(novoValor, 0), npc.recursos?.pm_max || 5);
+                    valorAtual = npc.recursos?.pm_atual || 0;
+                    campoMax = npc.recursos?.pm_max || 5;
+                    novoValor = Math.min(Math.max(valorAtual + delta, 0), campoMax);
+                    await updateDoc(npcRef, {
+                        'recursos.pm_atual': novoValor
+                    });
+                    showToast(`${npc.nome}: PM ${valorAtual} → ${novoValor}`);
                 } else if (tipo === 'pf') {
-                    campoAtual = 'pf_atual';
-                    campoMax = 'pf_max';
-                    novoValor = (npc.recursos?.pf_atual || 0) + delta;
-                    novoValor = Math.min(Math.max(novoValor, 0), npc.recursos?.pf_max || 10);
+                    valorAtual = npc.recursos?.pf_atual || 0;
+                    campoMax = npc.recursos?.pf_max || 10;
+                    novoValor = Math.min(Math.max(valorAtual + delta, 0), campoMax);
+                    await updateDoc(npcRef, {
+                        'recursos.pf_atual': novoValor
+                    });
+                    showToast(`${npc.nome}: PF ${valorAtual} → ${novoValor}`);
                 } else {
                     return;
                 }
                 
-                await updateDoc(npcRef, {
-                    [`recursos.${campoAtual}`]: novoValor
-                });
-                
-                // Atualizar o modal aberto
-                abrirDetalheNPC(npcId);
-                
-                showToast(`${npc.nome}: ${tipo.toUpperCase()} ${delta >= 0 ? '+' : ''}${delta} → ${novoValor}`);
+                // Atualizar o modal aberto com os novos valores
+                await abrirDetalheNPC(npcId);
                 
             } catch (error) {
-                console.error('Erro:', error);
+                console.error('Erro ao atualizar recurso:', error);
                 showToast('Erro ao atualizar recurso', true);
             }
         }
@@ -2240,8 +2249,11 @@
         
         function handleRecursoDetalheClick(e) {
             const btn = e.currentTarget;
-            const recurso = btn.dataset.recurso;
-            const delta = parseInt(btn.dataset.delta);
+            const recurso = btn.getAttribute('data-recurso');
+            const delta = parseInt(btn.getAttribute('data-delta'));
+            
+            if (!recurso || isNaN(delta)) return;
+            
             atualizarRecursoModalNPC(recurso, delta);
         }
 
