@@ -2208,6 +2208,20 @@ let unsubscribeCombate = null;
 let unsubscribeMarcadores = null;
 
 // ============================================
+// CONTROLE DE MOVIMENTO POR TURNO (NOVO)
+// ============================================
+// moveuNoTurno[personagemId] = { moveu: true/false, tipo: 'andar' ou 'correr', distanciaUsada: 0, distanciaMax: 0 }
+let moveuNoTurno = {};
+
+// ============================================
+// FUNÇÃO PARA RESETAR MOVIMENTO NO PRÓXIMO TURNO
+// ============================================
+function resetarMovimentoTurno() {
+    moveuNoTurno = {};
+    console.log('Movimento resetado para o novo turno');
+}
+
+// ============================================
 // TABELAS DE CRÍTICOS E FULMINANTES (COMPLETAS)
 // ============================================
 const tabelasCriticosCompletas = {
@@ -2419,7 +2433,12 @@ async function iniciarCombate() {
             }, { merge: true });
         });
         await batch.commit();
+        
+        // Resetar movimento ao iniciar combate
+        resetarMovimentoTurno();
+        
         atualizarUICombate();
+        atualizarListaNPCs(); // Atualizar lista para mostrar botões habilitados
         showToast('Combate iniciado! Posicione os personagens.');
     } catch(e) { showToast('Erro ao iniciar: ' + e.message, true); } finally { hideLoading(); }
 }
@@ -2432,11 +2451,29 @@ async function moverPersonagem(id, hexX, hexY) {
     if (Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY && p.id !== id)) {
         showToast('Ocupado!', true); return;
     }
+    
+    // Calcular distância percorrida
+    let distanciaPercorrida = 0;
+    if (pos.hexX !== undefined && pos.hexX !== null) {
+        distanciaPercorrida = Math.abs(pos.hexX - hexX) + Math.abs(pos.hexY - hexY);
+    }
+    
     const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", id);
     await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
     posicoes[id].hexX = hexX;
     posicoes[id].hexY = hexY;
-    if (npcSelecionadoParaPosicionar === id) { npcSelecionadoParaPosicionar = null; if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none'; }
+    
+    // Atualizar movimento no turno se foi um movimento de combate
+    if (moveuNoTurno[id]?.moveu && distanciaPercorrida > 0) {
+        moveuNoTurno[id].distanciaUsada = distanciaPercorrida;
+        showToast(`${posicoes[id].nome} moveu ${distanciaPercorrida}m de ${moveuNoTurno[id].distanciaMax}m`);
+    }
+    
+    if (npcSelecionadoParaPosicionar === id) { 
+        npcSelecionadoParaPosicionar = null; 
+        if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none'; 
+    }
+    
     desenharMapa();
     atualizarListaNPCs();
     if (personagemSelecionado === id) atualizarFichaCombate(id);
@@ -2444,10 +2481,19 @@ async function moverPersonagem(id, hexX, hexY) {
 
 async function avancarTurno() {
     if (!ehGM || !combateId) return;
-    if (vezAtual === 'jogadores') { vezAtual = 'npcs'; showToast('Vez dos NPCs'); }
-    else { turnoAtual++; vezAtual = 'jogadores'; showToast(`Turno ${turnoAtual} - Vez dos Jogadores`); }
+    if (vezAtual === 'jogadores') { 
+        vezAtual = 'npcs'; 
+        resetarMovimentoTurno();
+        showToast('Vez dos NPCs - Movimento resetado');
+    } else { 
+        turnoAtual++; 
+        vezAtual = 'jogadores'; 
+        resetarMovimentoTurno();
+        showToast(`Turno ${turnoAtual} - Vez dos Jogadores - Movimento resetado`);
+    }
     await updateDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), { turno: turnoAtual, vez: vezAtual });
     atualizarUICombate();
+    atualizarListaNPCs(); // Atualizar lista para habilitar/desabilitar botões
 }
 
 async function encerrarCombate() {
@@ -2463,6 +2509,10 @@ async function encerrarCombate() {
         combateAtivo = false;
         combateId = null;
         Object.keys(posicoes).forEach(id => { posicoes[id].hexX = undefined; posicoes[id].hexY = undefined; });
+        
+        // Resetar movimento ao encerrar combate
+        resetarMovimentoTurno();
+        
         atualizarUICombate();
         desenharMapa();
         atualizarListaNPCs();
@@ -2485,6 +2535,9 @@ function atualizarUICombate() {
 function atualizarFichaCombate(id) {
     const pos = posicoes[id];
     if (!pos) return;
+    const jaMoveu = moveuNoTurno[id]?.moveu || false;
+    const podeMover = combateAtivo && vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs') && !jaMoveu && pos.hexX !== undefined && pos.hexX !== null;
+    
     const fichaHtml = `
         <div class="ficha-combate">
             <div class="ficha-header">
@@ -2503,27 +2556,51 @@ function atualizarFichaCombate(id) {
                 <div>RD ${pos.rd || 0}</div>
             </div>
             <div><i class="fas fa-shoe-prints"></i> Andar ${pos.andar || 0}m | <i class="fas fa-running"></i> Correr ${pos.correr || 0}m</div>
+            ${jaMoveu ? '<div style="color:#ffaa00; font-size:0.8rem; margin:5px 0;"><i class="fas fa-hourglass-half"></i> Já moveu neste turno</div>' : ''}
             <div class="acoes-painel" style="margin-top:12px">
-                <button class="btn-acao btn-andar" onclick="window.iniciarMovimento('${id}', 'andar')" ${!ehGM && vezAtual !== (pos.tipo === 'pc' ? 'jogadores' : 'npcs') ? 'disabled' : ''}>
+                <button class="btn-acao btn-andar" onclick="window.iniciarMovimento('${id}', 'andar')" ${!podeMover ? 'disabled' : ''} style="border-color: #2ecc71; color: #2ecc71;">
                     <span><i class="fas fa-shoe-prints"></i> Andar (${pos.andar || 0}m)</span>
                 </button>
-                <button class="btn-acao btn-correr" onclick="window.iniciarMovimento('${id}', 'correr')" ${!ehGM && vezAtual !== (pos.tipo === 'pc' ? 'jogadores' : 'npcs') ? 'disabled' : ''}>
+                <button class="btn-acao btn-correr" onclick="window.iniciarMovimento('${id}', 'correr')" ${!podeMover ? 'disabled' : ''} style="border-color: #f39c12; color: #f39c12;">
                     <span><i class="fas fa-running"></i> Correr (${pos.correr || 0}m)</span>
                 </button>
             </div>
         </div>
     `;
     const container = document.querySelector('.personagens-lista-combate');
-    if (container) container.insertAdjacentHTML('afterbegin', fichaHtml);
+    if (container) container.innerHTML = fichaHtml;
 }
 
 window.iniciarMovimento = function(id, tipo) {
     const pos = posicoes[id];
     if (!pos || pos.hexX === undefined) { showToast('Personagem não posicionado!', true); return; }
+    
+    // Verificar se já moveu neste turno
+    if (moveuNoTurno[id]?.moveu) {
+        showToast('Este personagem já se moveu neste turno!', true);
+        return;
+    }
+    
+    // Verificar se é a vez correta
+    if (vezAtual !== (pos.tipo === 'pc' ? 'jogadores' : 'npcs')) {
+        showToast('Não é a vez deste personagem!', true);
+        return;
+    }
+    
     let alcance = tipo === 'correr' ? (pos.correr || 6) : (pos.andar || 6);
+    
+    // Registrar que vai mover
+    moveuNoTurno[id] = {
+        moveu: true,
+        tipo: tipo,
+        distanciaUsada: 0,
+        distanciaMax: alcance
+    };
+    
     personagemSelecionado = id;
     modoCombateAtual = 'movimento';
     highlightHex = [];
+    
     for (let dx = -alcance; dx <= alcance; dx++) {
         for (let dy = -alcance; dy <= alcance; dy++) {
             let newX = pos.hexX + dx, newY = pos.hexY + dy;
@@ -2534,8 +2611,16 @@ window.iniciarMovimento = function(id, tipo) {
             }
         }
     }
+    
     desenharMapa();
-    showToast(`Movimento ${tipo}: clique em um hexágono destacado`);
+    atualizarListaNPCs(); // Atualizar para desabilitar botões
+    if (personagemSelecionado === id) atualizarFichaCombate(id);
+    showToast(`Movimento ${tipo}: clique em um hexágono destacado para mover ${pos.nome} (até ${alcance}m)`);
+    
+    if (instrucaoPosicionamento) {
+        instrucaoPosicionamento.style.display = 'inline-block';
+        instrucaoPosicionamento.innerHTML = `👇 Movendo ${pos.nome}: clique em um hexágono destacado (até ${alcance}m)`;
+    }
 };
 
 function handleCanvasClick(e) {
@@ -2547,6 +2632,7 @@ function handleCanvasClick(e) {
     const mouseY = (e.clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
     if (hex.x >= 0 && hex.y >= 0) {
+        // Modo marcador (obstáculo)
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
@@ -2556,17 +2642,26 @@ function handleCanvasClick(e) {
             }
             return;
         }
+        
+        // Verificar se há personagem no hexágono
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
         if (personagemNoHex) {
             personagemSelecionado = personagemNoHex[0];
             atualizarFichaCombate(personagemSelecionado);
-        } else if (ehGM && npcSelecionadoParaPosicionar) {
+        } 
+        // Modo posicionamento de NPC (GM)
+        else if (ehGM && npcSelecionadoParaPosicionar) {
             moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
-        } else if (personagemSelecionado && modoCombateAtual === 'movimento') {
+        } 
+        // Modo movimento (personagem selecionado)
+        else if (personagemSelecionado && modoCombateAtual === 'movimento') {
             moverPersonagem(personagemSelecionado, hex.x, hex.y);
             modoCombateAtual = 'posicionamento';
             highlightHex = [];
             desenharMapa();
+            // Atualizar UI após movimento
+            atualizarListaNPCs();
+            if (personagemSelecionado) atualizarFichaCombate(personagemSelecionado);
         }
     }
 }
@@ -2645,18 +2740,42 @@ function renderizarMagiasNpc() {
 }
 
 // ============================================
-// FUNÇÃO CORRIGIDA: atualizarListaNPCs (com botão POSICIONAR SEMPRE VISÍVEL)
+// FUNÇÃO CORRIGIDA: atualizarListaNPCs (com botões POSICIONAR, ANDAR, CORRER - SEMPRE VISÍVEIS)
 // ============================================
 function atualizarListaNPCs() {
     let html = '';
-    Object.values(posicoes).filter(p => p.tipo === 'npc').forEach(npc => {
-        const estaPosicionado = npc.hexX !== undefined && npc.hexX !== null;
+    const npcsList = Object.values(posicoes).filter(p => p.tipo === 'npc');
+    
+    if (npcsList.length === 0) {
+        if(npcsContainer) npcsContainer.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum NPC adicionado</div>';
+        return;
+    }
+    
+    npcsList.forEach(npc => {
+        const estaPosicionado = npc.hexX !== undefined && npc.hexX !== null && npc.hexX !== null;
+        const jaMoveu = moveuNoTurno[npc.id]?.moveu || false;
+        
+        // Verifica se pode mover (apenas para habilitar/desabilitar, NÃO para ocultar)
+        const podeMover = combateAtivo && vezAtual === 'npcs' && !jaMoveu && estaPosicionado;
+        
+        // Determina cor e texto do botão Posicionar
+        const btnPosicionarBg = estaPosicionado ? 'var(--bg-primary)' : 'var(--gold)';
+        const btnPosicionarColor = estaPosicionado ? 'var(--gold)' : 'var(--bg-primary)';
+        const btnPosicionarTexto = estaPosicionado ? 'Reposicionar' : 'Posicionar';
+        
+        // Determina estilo dos botões de movimento
+        const btnMovimentoBg = podeMover ? 'var(--gold)' : 'var(--bg-primary)';
+        const btnMovimentoColor = podeMover ? 'var(--bg-primary)' : 'var(--gold)';
+        const btnMovimentoCursor = podeMover ? 'pointer' : 'not-allowed';
         
         html += `<div class="npc-card-simples" style="flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-glow);">
             <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="window.abrirDetalheNPC('${npc.id}')">
                 <div class="npc-nome-simples">
                     <i class="fas fa-skull"></i> <strong>${npc.nome}</strong>
                     ${estaPosicionado ? '<span style="font-size:0.7rem; color:#2ecc71; margin-left:8px;"><i class="fas fa-check-circle"></i> Posicionado</span>' : '<span style="font-size:0.7rem; color:#f39c12; margin-left:8px;"><i class="fas fa-map-pin"></i> Aguardando</span>'}
+                    ${jaMoveu ? '<span style="font-size:0.7rem; color:#ffaa00; margin-left:8px;"><i class="fas fa-hourglass-half"></i> Moveu</span>' : ''}
+                    ${!combateAtivo && estaPosicionado ? '<span style="font-size:0.7rem; color:#ffaa00; margin-left:8px;"><i class="fas fa-pause"></i> Combate inativo</span>' : ''}
+                    ${combateAtivo && vezAtual !== 'npcs' && estaPosicionado && !jaMoveu ? '<span style="font-size:0.7rem; color:#ffaa00; margin-left:8px;"><i class="fas fa-clock"></i> Aguardando vez</span>' : ''}
                 </div>
                 <div style="display: flex; align-items: center; gap: 10px;">
                     <div class="npc-status-simples">
@@ -2667,16 +2786,54 @@ function atualizarListaNPCs() {
                     </button>
                 </div>
             </div>
-            <button class="btn-posicionar-npc" onclick="window.selecionarNPCparaPosicionar('${npc.id}')" style="width:100%; background: ${estaPosicionado ? 'var(--bg-primary)' : 'var(--gold)'}; color: ${estaPosicionado ? 'var(--gold)' : 'var(--bg-primary)'}; border: 1px solid var(--gold); padding: 8px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 5px; transition: all 0.2s;">
-                <i class="fas fa-map-marker-alt"></i> ${estaPosicionado ? 'Reposicionar no Mapa' : 'Posicionar no Mapa'}
-            </button>
+            
+            <!-- Linha de informações de movimento -->
+            <div style="display: flex; gap: 15px; justify-content: space-between; font-size: 0.75rem; padding: 5px 0; border-top: 1px solid var(--border-glow);">
+                <span><i class="fas fa-shoe-prints" style="color: #2ecc71;"></i> Andar: ${npc.andar || 4}m</span>
+                <span><i class="fas fa-running" style="color: #f39c12;"></i> Correr: ${npc.correr || 8}m</span>
+                <span><i class="fas fa-shield-alt"></i> RD: ${npc.rd || 0}</span>
+            </div>
+            
+            <!-- BOTÕES: Posicionar, Andar e Correr (SEMPRE VISÍVEIS) -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
+                <!-- Botão POSICIONAR -->
+                <button class="btn-posicionar-npc" onclick="window.selecionarNPCparaPosicionar('${npc.id}')" style="flex:1; background: ${btnPosicionarBg}; color: ${btnPosicionarColor}; border: 1px solid var(--gold); padding: 10px 8px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                    <i class="fas fa-map-marker-alt"></i> ${btnPosicionarTexto}
+                </button>
+                
+                <!-- Botão ANDAR (SEMPRE VISÍVEL) -->
+                <button class="btn-movimento-andar" onclick="window.moverNPC('${npc.id}', 'andar')" 
+                        style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#2ecc71'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;"
+                        ${!podeMover ? 'disabled' : ''}>
+                    <i class="fas fa-shoe-prints"></i> Andar (${npc.andar || 4}m)
+                </button>
+                
+                <!-- Botão CORRER (SEMPRE VISÍVEL) -->
+                <button class="btn-movimento-correr" onclick="window.moverNPC('${npc.id}', 'correr')" 
+                        style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#f39c12'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;"
+                        ${!podeMover ? 'disabled' : ''}>
+                    <i class="fas fa-running"></i> Correr (${npc.correr || 8}m)
+                </button>
+            </div>
+            
+            <!-- Mensagem explicativa quando não pode mover -->
+            ${!podeMover && estaPosicionado ? `
+            <div style="font-size: 0.7rem; color: #ffaa00; text-align: center; margin-top: 5px; padding: 4px; background: rgba(255,170,0,0.1); border-radius: 6px;">
+                <i class="fas fa-info-circle"></i> 
+                ${!combateAtivo ? 'Inicie o combate para mover' : 
+                  vezAtual !== 'npcs' ? 'Aguardando vez dos NPCs' : 
+                  jaMoveu ? 'Já moveu neste turno' : 
+                  !estaPosicionado ? 'Posicione o NPC primeiro' : ''}
+            </div>
+            ` : ''}
         </div>`;
     });
-    if(npcsContainer) npcsContainer.innerHTML = html || '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum NPC adicionado</div>';
+    
+    if(npcsContainer) npcsContainer.innerHTML = html;
 }
 
 // ============================================
-// FUNÇÃO: selecionar NPC para posicionar (CORRIGIDA)
+// FUNÇÃO: selecionar NPC para posicionar
 // ============================================
 window.selecionarNPCparaPosicionar = function(id) {
     if (!ehGM) { 
@@ -2686,7 +2843,6 @@ window.selecionarNPCparaPosicionar = function(id) {
     const npc = posicoes[id];
     if (!npc) return;
     
-    // Permite reposicionar mesmo se já estiver posicionado
     npcSelecionadoParaPosicionar = id;
     modoCombateAtual = 'posicionamento';
     personagemSelecionado = null;
@@ -2702,18 +2858,73 @@ window.selecionarNPCparaPosicionar = function(id) {
         instrucaoPosicionamento.innerHTML = `👇 Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'RE' : ''}posicionar: ${npc.nome}`;
     }
     
-    // MUDANÇA: Se o combate não estiver ativo, ativa automaticamente
-    if (!combateAtivo) {
-        showToast(`Modo posicionamento ativado. Clique no mapa para posicionar ${npc.nome}`);
-        // Força o modo de posicionamento mesmo sem combate ativo
-        modoCombateAtual = 'posicionamento';
-    } else {
-        showToast(`Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'reposicionar' : 'posicionar'} ${npc.nome}`);
-    }
+    showToast(`Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'reposicionar' : 'posicionar'} ${npc.nome}`);
     
-    // Se o mapa não estiver visível, muda para modo combate
     if (modoCombateDiv && modoCombateDiv.style.display !== 'block') {
         if(btnModoCombate) btnModoCombate.click();
+    }
+};
+
+// ============================================
+// FUNÇÃO: mover NPC (Andar ou Correr)
+// ============================================
+window.moverNPC = function(id, tipoMovimento) {
+    const npc = posicoes[id];
+    if (!npc) return;
+    
+    if (!combateAtivo) {
+        showToast('O combate não está ativo!', true);
+        return;
+    }
+    
+    if (vezAtual !== 'npcs') {
+        showToast('Agora é a vez dos Jogadores!', true);
+        return;
+    }
+    
+    if (moveuNoTurno[id]?.moveu) {
+        showToast('Este NPC já se moveu neste turno!', true);
+        return;
+    }
+    
+    if (npc.hexX === undefined || npc.hexX === null) {
+        showToast('NPC não está posicionado no mapa!', true);
+        return;
+    }
+    
+    let alcance = tipoMovimento === 'correr' ? (npc.correr || 8) : (npc.andar || 4);
+    
+    // Registrar que moveu
+    moveuNoTurno[id] = {
+        moveu: true,
+        tipo: tipoMovimento,
+        distanciaUsada: 0,
+        distanciaMax: alcance
+    };
+    
+    // Ativar modo movimento no mapa
+    personagemSelecionado = id;
+    modoCombateAtual = 'movimento';
+    highlightHex = [];
+    
+    for (let dx = -alcance; dx <= alcance; dx++) {
+        for (let dy = -alcance; dy <= alcance; dy++) {
+            let newX = npc.hexX + dx, newY = npc.hexY + dy;
+            if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                if (!marcadores[`${newX}_${newY}`] && !Object.values(posicoes).some(p => p.hexX === newX && p.hexY === newY && p.id !== id)) {
+                    highlightHex.push({ x: newX, y: newY });
+                }
+            }
+        }
+    }
+    
+    desenharMapa();
+    atualizarListaNPCs();
+    showToast(`Movimento ${tipoMovimento}: clique em um hexágono destacado para mover ${npc.nome} (até ${alcance}m)`);
+    
+    if (instrucaoPosicionamento) {
+        instrucaoPosicionamento.style.display = 'inline-block';
+        instrucaoPosicionamento.innerHTML = `👇 Movendo ${npc.nome}: clique em um hexágono destacado (até ${alcance}m)`;
     }
 };
 
