@@ -2644,38 +2644,77 @@ function renderizarMagiasNpc() {
     });
 }
 
+// ============================================
+// FUNÇÃO CORRIGIDA: atualizarListaNPCs (com botão POSICIONAR SEMPRE VISÍVEL)
+// ============================================
 function atualizarListaNPCs() {
     let html = '';
     Object.values(posicoes).filter(p => p.tipo === 'npc').forEach(npc => {
         const estaPosicionado = npc.hexX !== undefined && npc.hexX !== null;
-        html += `<div class="npc-card-simples" onclick="window.abrirDetalheNPC('${npc.id}')">
-            <div class="npc-nome-simples"><i class="fas fa-skull"></i> ${npc.nome}</div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="npc-status-simples"><i class="fas fa-heart" style="color: #ff6b6b;"></i> ${npc.pv}/${npc.pvMax}</div>
-                <button class="btn-excluir-npc" onclick="event.stopPropagation(); window.excluirNPC('${npc.id}')" title="Excluir NPC"><i class="fas fa-trash"></i></button>
+        
+        html += `<div class="npc-card-simples" style="flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-glow);">
+            <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="window.abrirDetalheNPC('${npc.id}')">
+                <div class="npc-nome-simples">
+                    <i class="fas fa-skull"></i> <strong>${npc.nome}</strong>
+                    ${estaPosicionado ? '<span style="font-size:0.7rem; color:#2ecc71; margin-left:8px;"><i class="fas fa-check-circle"></i> Posicionado</span>' : '<span style="font-size:0.7rem; color:#f39c12; margin-left:8px;"><i class="fas fa-map-pin"></i> Aguardando</span>'}
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="npc-status-simples">
+                        <i class="fas fa-heart" style="color: #ff6b6b;"></i> ${npc.pv}/${npc.pvMax}
+                    </div>
+                    <button class="btn-excluir-npc" onclick="event.stopPropagation(); window.excluirNPC('${npc.id}')" title="Excluir NPC" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; padding: 5px 8px; border-radius: 6px; font-size: 14px;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             </div>
+            <button class="btn-posicionar-npc" onclick="window.selecionarNPCparaPosicionar('${npc.id}')" style="width:100%; background: ${estaPosicionado ? 'var(--bg-primary)' : 'var(--gold)'}; color: ${estaPosicionado ? 'var(--gold)' : 'var(--bg-primary)'}; border: 1px solid var(--gold); padding: 8px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 5px; transition: all 0.2s;">
+                <i class="fas fa-map-marker-alt"></i> ${estaPosicionado ? 'Reposicionar no Mapa' : 'Posicionar no Mapa'}
+            </button>
         </div>`;
-        if (ehGM && !estaPosicionado && combateAtivo) {
-            html += `<button class="btn-posicionar-npc" onclick="window.selecionarNPCparaPosicionar('${npc.id}')"><i class="fas fa-map-pin"></i> Posicionar ${npc.nome}</button>`;
-        }
     });
-    if(npcsContainer) npcsContainer.innerHTML = html || '<div style="color: var(--text-secondary); text-align: center;">Nenhum NPC adicionado</div>';
+    if(npcsContainer) npcsContainer.innerHTML = html || '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum NPC adicionado</div>';
 }
 
+// ============================================
+// FUNÇÃO: selecionar NPC para posicionar (CORRIGIDA)
+// ============================================
 window.selecionarNPCparaPosicionar = function(id) {
-    if (!ehGM) { showToast('Apenas o GM pode posicionar NPCs', true); return; }
+    if (!ehGM) { 
+        showToast('Apenas o GM pode posicionar NPCs', true); 
+        return; 
+    }
     const npc = posicoes[id];
     if (!npc) return;
-    if (npc.hexX !== undefined && npc.hexX !== null) { showToast('Este NPC já está posicionado!', true); return; }
+    
+    // Permite reposicionar mesmo se já estiver posicionado
     npcSelecionadoParaPosicionar = id;
     modoCombateAtual = 'posicionamento';
     personagemSelecionado = null;
-    if (modoMarcadorAtivo) { modoMarcadorAtivo = false; if(btnMarcador) btnMarcador.classList.remove('ativo'); if(modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate'; }
+    
+    if (modoMarcadorAtivo) { 
+        modoMarcadorAtivo = false; 
+        if(btnMarcador) btnMarcador.classList.remove('ativo'); 
+        if(modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate'; 
+    }
+    
     if(instrucaoPosicionamento) {
         instrucaoPosicionamento.style.display = 'inline-block';
-        instrucaoPosicionamento.innerHTML = `👇 Posicionando: ${npc.nome}`;
+        instrucaoPosicionamento.innerHTML = `👇 Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'RE' : ''}posicionar: ${npc.nome}`;
     }
-    showToast(`Clique no mapa para posicionar ${npc.nome}`);
+    
+    // MUDANÇA: Se o combate não estiver ativo, ativa automaticamente
+    if (!combateAtivo) {
+        showToast(`Modo posicionamento ativado. Clique no mapa para posicionar ${npc.nome}`);
+        // Força o modo de posicionamento mesmo sem combate ativo
+        modoCombateAtual = 'posicionamento';
+    } else {
+        showToast(`Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'reposicionar' : 'posicionar'} ${npc.nome}`);
+    }
+    
+    // Se o mapa não estiver visível, muda para modo combate
+    if (modoCombateDiv && modoCombateDiv.style.display !== 'block') {
+        if(btnModoCombate) btnModoCombate.click();
+    }
 };
 
 // ============================================
@@ -2828,20 +2867,33 @@ function renderizarPCs() {
 
 async function carregarPCs() {
     try {
-        const q = query(collection(db, "campanha_personagens"), where("campanha_id", "==", campanhaIdCustom), where("status", "==", "ativo"));
+        const q = query(
+            collection(db, "campanha_personagens"), 
+            where("campanha_id", "==", campanhaIdCustom), 
+            where("status", "==", "ativo")
+        );
         const querySnapshot = await getDocs(q);
         pcVinculados = [];
+        
         for (const doc of querySnapshot.docs) {
             const vinculo = { id: doc.id, ...doc.data() };
             try {
                 const personagemRef = doc(db, "personagens", vinculo.personagem_id);
                 const personagemSnap = await getDoc(personagemRef);
-                if (personagemSnap.exists()) vinculo.personagem = personagemSnap.data();
-            } catch(e) { console.warn(e); }
+                if (personagemSnap.exists()) {
+                    vinculo.personagem = personagemSnap.data();
+                }
+            } catch(e) { 
+                console.warn('Erro ao buscar personagem:', e); 
+            }
             pcVinculados.push(vinculo);
         }
+        
         renderizarPCs();
-    } catch(error) { console.error('Erro ao carregar PCs:', error); }
+    } catch(error) { 
+        console.error('Erro ao carregar PCs:', error); 
+        showToast('Erro ao carregar jogadores', true);
+    }
 }
 
 // ============================================
@@ -2882,61 +2934,130 @@ function iniciarListeners() {
 // ============================================
 async function carregarSessao() {
     const sessaoId = getSessaoIdFromUrl();
-    if (!sessaoId) { showToast('ID da sessão não encontrado!', true); setTimeout(() => window.location.href = 'dashboard-gm.html', 2000); return; }
+    if (!sessaoId) { 
+        showToast('ID da sessão não encontrado!', true); 
+        setTimeout(() => window.location.href = 'dashboard-gm.html', 2000); 
+        return; 
+    }
     showLoading();
     try {
         const sessaoRef = doc(db, "sessoes", sessaoId);
         const sessaoSnap = await getDoc(sessaoRef);
-        if (!sessaoSnap.exists()) { showToast('Sessão não encontrada!', true); setTimeout(() => window.location.href = 'dashboard-gm.html', 2000); return; }
+        if (!sessaoSnap.exists()) { 
+            showToast('Sessão não encontrada!', true); 
+            setTimeout(() => window.location.href = 'dashboard-gm.html', 2000); 
+            return; 
+        }
+        
         sessaoAtual = { id: sessaoSnap.id, ...sessaoSnap.data() };
         campanhaIdCustom = sessaoAtual.campanha_id_custom;
         if(sessaoTitulo) sessaoTitulo.textContent = sessaoAtual.titulo || 'Mesa do Mestre';
         ehGM = (sessaoAtual.gm_uid === currentUser.uid);
-        if (!ehGM) { window.location.href = 'dashboard-pc.html'; return; }
+        
+        if (!ehGM) { 
+            window.location.href = 'dashboard-pc.html'; 
+            return; 
+        }
+        
         await carregarPCs();
+        
+        // Carregar NPCs do Firestore
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
         npcsSnap.forEach(doc => {
             const npc = doc.data();
             posicoes[doc.id] = {
-                id: doc.id, nome: npc.nome, tipo: 'npc', cor: coresNPCs[i % coresNPCs.length],
-                pv: npc.recursos?.pv_atual || 20, pvMax: npc.recursos?.pv_max || 20,
-                pm: npc.recursos?.pm_atual || 5, pmMax: npc.recursos?.pm_max || 5,
-                pf: npc.recursos?.pf_atual || 10, pfMax: npc.recursos?.pf_max || 10,
-                esquiva: npc.defesas?.esquiva || 30, aparar: npc.defesas?.aparar || 0,
-                bloqueio: npc.defesas?.bloqueio || 0, andar: npc.movimento?.andar || 4,
-                correr: npc.movimento?.correr || 8, rd: npc.defesas?.rd || 0,
-                hexX: undefined, hexY: undefined
+                id: doc.id, 
+                nome: npc.nome, 
+                tipo: 'npc', 
+                cor: coresNPCs[i % coresNPCs.length],
+                pv: npc.recursos?.pv_atual || 20, 
+                pvMax: npc.recursos?.pv_max || 20,
+                pm: npc.recursos?.pm_atual || 5, 
+                pmMax: npc.recursos?.pm_max || 5,
+                pf: npc.recursos?.pf_atual || 10, 
+                pfMax: npc.recursos?.pf_max || 10,
+                esquiva: npc.defesas?.esquiva || 30, 
+                aparar: npc.defesas?.aparar || 0,
+                bloqueio: npc.defesas?.bloqueio || 0, 
+                andar: npc.movimento?.andar || 4,
+                correr: npc.movimento?.correr || 8, 
+                rd: npc.defesas?.rd || 0,
+                hexX: undefined, 
+                hexY: undefined
             };
             i++;
         });
-        unsubscribeMarcadores = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "marcadores"), (snap) => {
-            marcadores = {};
-            snap.forEach(d => marcadores[`${d.data().x}_${d.data().y}`] = d.data());
-            if (ctx) desenharMapa();
-        });
-        unsubscribePosicoes = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "posicoes"), (snap) => {
-            snap.docChanges().forEach(c => {
-                if (c.type === 'added' || c.type === 'modified') {
-                    if (posicoes[c.doc.id]) Object.assign(posicoes[c.doc.id], c.doc.data());
-                    else posicoes[c.doc.id] = { id: c.doc.id, ...c.doc.data() };
-                    if (posicoes[c.doc.id].hexX === null) posicoes[c.doc.id].hexX = undefined;
-                    if (posicoes[c.doc.id].hexY === null) posicoes[c.doc.id].hexY = undefined;
-                }
+        
+        // ============================================
+        // LISTENERS DO COMBATE (com tratamento de erro para evitar o erro do listener)
+        // ============================================
+        
+        // Listener para marcadores (obstáculos)
+        try {
+            unsubscribeMarcadores = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "marcadores"), (snap) => {
+                marcadores = {};
+                snap.forEach(d => marcadores[`${d.data().x}_${d.data().y}`] = d.data());
+                if (ctx) desenharMapa();
             });
-            if (ctx) desenharMapa();
-            atualizarListaNPCs();
-        });
-        unsubscribeCombate = onSnapshot(query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1)), (snap) => {
-            if (!snap.empty) { const c = snap.docs[0]; combateId = c.id; combateAtivo = true; turnoAtual = c.data().turno; vezAtual = c.data().vez; }
-            else { combateAtivo = false; combateId = null; }
-            atualizarUICombate();
-        });
+        } catch(e) { 
+            console.warn('Erro no listener marcadores:', e); 
+        }
+        
+        // Listener para posições dos personagens
+        try {
+            unsubscribePosicoes = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "posicoes"), (snap) => {
+                snap.docChanges().forEach(c => {
+                    if (c.type === 'added' || c.type === 'modified') {
+                        if (posicoes[c.doc.id]) {
+                            Object.assign(posicoes[c.doc.id], c.doc.data());
+                        } else {
+                            posicoes[c.doc.id] = { id: c.doc.id, ...c.doc.data() };
+                        }
+                        if (posicoes[c.doc.id].hexX === null) posicoes[c.doc.id].hexX = undefined;
+                        if (posicoes[c.doc.id].hexY === null) posicoes[c.doc.id].hexY = undefined;
+                    }
+                });
+                if (ctx) desenharMapa();
+                atualizarListaNPCs();
+            });
+        } catch(e) { 
+            console.warn('Erro no listener posicoes:', e); 
+        }
+        
+        // Listener para estado do combate
+        try {
+            unsubscribeCombate = onSnapshot(query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1)), (snap) => {
+                if (!snap.empty) { 
+                    const c = snap.docs[0]; 
+                    combateId = c.id; 
+                    combateAtivo = true; 
+                    turnoAtual = c.data().turno; 
+                    vezAtual = c.data().vez; 
+                } else { 
+                    combateAtivo = false; 
+                    combateId = null; 
+                }
+                atualizarUICombate();
+            });
+        } catch(e) { 
+            console.warn('Erro no listener combate:', e); 
+        }
+        
+        // Iniciar listeners de cenário e rolagens
         iniciarListeners();
+        
+        // Desenhar mapa e atualizar lista de NPCs
         if (ctx) desenharMapa();
         atualizarListaNPCs();
+        
         hideLoading();
-    } catch(error) { console.error(error); showToast('Erro ao carregar sessão: ' + error.message, true); hideLoading(); }
+        
+    } catch(error) { 
+        console.error(error); 
+        showToast('Erro ao carregar sessão: ' + error.message, true); 
+        hideLoading(); 
+    }
 }
 
 // ============================================
