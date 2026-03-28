@@ -2064,8 +2064,7 @@ const OFFSET_Y = 60;
                 }
             });
         }
-
-                   // ============================================
+// ============================================
 // FUNÇÕES DE MOVIMENTO DO JOGADOR (COMPLETO)
 // ============================================
 
@@ -2143,15 +2142,10 @@ function atualizarEstadoBotoes() {
     
     // ===== BOTÃO POSICIONAR =====
     if (btnPosicionarPC) {
-        // Regras:
-        // 1. Se NÃO está em combate -> SEMPRE habilitado
-        // 2. Se está em combate E NÃO está posicionado -> habilitado
-        // 3. Se está em combate E JÁ está posicionado -> desabilitado
         const deveDesabilitar = combateAtivo && estaPosicionado;
         btnPosicionarPC.disabled = deveDesabilitar;
         btnPosicionarPC.style.opacity = deveDesabilitar ? '0.5' : '1';
         
-        // Feedback visual do modo posicionamento
         if (modoPosicionamentoAtivo) {
             btnPosicionarPC.style.background = '#2ecc71';
             btnPosicionarPC.style.border = '2px solid var(--gold)';
@@ -2164,12 +2158,6 @@ function atualizarEstadoBotoes() {
     
     // ===== BOTÕES DE MOVIMENTO (ANDAR E CORRER) =====
     if (btnMoverAndar && btnMoverCorrer) {
-        // Condições para habilitar movimento:
-        // - Combate está ativo
-        // - É a vez dos jogadores
-        // - Personagem está posicionado
-        // - Não está em modo posicionamento
-        // - Não está já em modo movimento
         const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo;
         
         btnMoverAndar.disabled = !podeMoverFlag;
@@ -2177,7 +2165,6 @@ function atualizarEstadoBotoes() {
         btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
         btnMoverCorrer.style.opacity = podeMoverFlag ? '1' : '0.5';
         
-        // Feedback visual do modo movimento
         if (modoMovimentoAtivo && tipoMovimentoAtual === 'andar') {
             btnMoverAndar.style.background = '#2ecc71';
             btnMoverAndar.style.color = 'white';
@@ -2230,12 +2217,18 @@ function iniciarPosicionamento() {
         }
     }
     
+    // Verifica se personagem existe
+    if (!personagemAtual || !personagemAtual.id) {
+        showToast('Personagem não carregado!', true);
+        return;
+    }
+    
     // Resetar qualquer modo ativo
     resetarModoMovimento();
     
     // Ativar modo posicionamento
     modoPosicionamentoAtivo = true;
-    modoMovimentoAtivo = true;  // <--- LINHA ADICIONADA (essencial!)
+    modoMovimentoAtivo = true;
     tipoMovimentoAtual = 'posicionar';
     
     // Configurar cursor do canvas
@@ -2246,34 +2239,39 @@ function iniciarPosicionamento() {
     
     // Destacar todos os hexágonos vazios
     highlightHex = calcularTodosHexVazios();
+    
+    if (highlightHex.length === 0) {
+        showToast('❌ Não há espaços vazios no mapa para posicionar!', true);
+        modoPosicionamentoAtivo = false;
+        modoMovimentoAtivo = false;
+        return;
+    }
+    
     desenharMapa();
     
     // Atualizar interface
     atualizarEstadoBotoes();
     
     if (statusMovimento) {
-        statusMovimento.innerHTML = '📍 Modo posicionamento: clique em um hexágono verde';
+        statusMovimento.innerHTML = `📍 Modo posicionamento: ${highlightHex.length} espaços disponíveis`;
     }
     
-    showToast('🔰 Modo posicionamento ativado! Clique em um hexágono verde para posicionar seu personagem.');
+    showToast(`🔰 Modo posicionamento ativado! ${highlightHex.length} espaços disponíveis. Clique em um hexágono verde.`);
 }
 
 function iniciarMovimento(tipo) {
-    // Verificar se pode mover
     const pode = podeMover();
     if (!pode.pode) {
         showToast(pode.motivo, true);
         return;
     }
     
-    // Verificar se está posicionado
     const pos = posicoes[personagemAtual?.id];
     if (!pos || pos.hexX === undefined || pos.hexX === null) {
         showToast('Posicione seu personagem primeiro!', true);
         return;
     }
     
-    // Calcular alcance
     const desloc = calcularDeslocamento();
     const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
     
@@ -2282,24 +2280,19 @@ function iniciarMovimento(tipo) {
         return;
     }
     
-    // Resetar qualquer modo ativo
     resetarModoMovimento();
     
-    // Ativar modo movimento
     modoMovimentoAtivo = true;
     tipoMovimentoAtual = tipo;
     
-    // Configurar cursor
     if (canvas) {
         canvas.style.cursor = 'crosshair';
         canvas.classList.add('modo-movimento');
     }
     
-    // Destacar hexágonos alcançáveis
     highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
     desenharMapa();
     
-    // Atualizar interface
     atualizarEstadoBotoes();
     
     if (statusMovimento) {
@@ -2310,13 +2303,11 @@ function iniciarMovimento(tipo) {
 }
 
 async function moverPersonagem(personagemId, hexX, hexY) {
-    // Evitar múltiplos cliques
     if (estaProcessandoMovimento) {
         showToast('Aguarde, processando movimento...', true);
         return;
     }
     
-    // Validar se o hexágono está destacado
     const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
     if (!isValid) {
         showToast('❌ Clique apenas nos hexágonos destacados em verde!', true);
@@ -2327,7 +2318,6 @@ async function moverPersonagem(personagemId, hexX, hexY) {
     
     try {
         if (modoPosicionamentoAtivo) {
-            // POSICIONAMENTO (fora de combate ou primeiro posicionamento)
             const desloc = calcularDeslocamento();
             const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
             
@@ -2354,20 +2344,17 @@ async function moverPersonagem(personagemId, hexX, hexY) {
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
             
-            // Atualizar localmente
             if (!posicoes[personagemId]) posicoes[personagemId] = {};
             posicoes[personagemId].hexX = hexX;
             posicoes[personagemId].hexY = hexY;
             posicoes[personagemId].andar = desloc.andar;
             posicoes[personagemId].correr = desloc.correr;
             
-            // Resetar modo e atualizar
             resetarModoMovimento();
             desenharMapa();
             showToast(`✅ ${personagemAtual.nome} posicionado com sucesso em (${hexX}, ${hexY})!`);
             
         } else if (modoMovimentoAtivo) {
-            // MOVIMENTO EM COMBATE
             if (!combateAtivo) {
                 showToast('⚔️ Combate não está ativo!', true);
                 return;
@@ -2939,10 +2926,20 @@ async function moverPersonagem(personagemId, hexX, hexY) {
 // EVENTOS DO MAPA
 // ============================================
 function handleCanvasClick(clientX, clientY) {
-    // Verifica se está em MODO POSICIONAMENTO ou MODO MOVIMENTO
-    const emModoAtivo = modoPosicionamentoAtivo || modoMovimentoAtivo;
+    // Verifica se está em modo ativo
+    if (!modoPosicionamentoAtivo && !modoMovimentoAtivo) return;
     
-    if (!emModoAtivo) return;
+    // Verifica se personagem existe
+    if (!personagemAtual || !personagemAtual.id) {
+        showToast('Personagem não carregado!', true);
+        return;
+    }
+    
+    // Verifica se há hexágonos destacados
+    if (!highlightHex || highlightHex.length === 0) {
+        showToast('Nenhum espaço disponível para posicionar!', true);
+        return;
+    }
     
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -2951,14 +2948,21 @@ function handleCanvasClick(clientX, clientY) {
     const mouseY = (clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
     
-    if (hex.x >= 0 && hex.y >= 0 && personagemAtual) {
-        const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
-        if (isValid) {
-            moverPersonagem(personagemAtual.id, hex.x, hex.y);
-        } else {
-            showToast('Clique apenas nos hexágonos destacados!', true);
-        }
+    // Verifica se o hexágono é válido
+    if (hex.x === -1 || hex.y === -1) {
+        showToast('Clique dentro de um hexágono!', true);
+        return;
     }
+    
+    // Verifica se o hexágono está destacado
+    const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
+    if (!isValid) {
+        showToast(`❌ Posição (${hex.x},${hex.y}) não está disponível!`, true);
+        return;
+    }
+    
+    // Executa o movimento
+    moverPersonagem(personagemAtual.id, hex.x, hex.y);
 }
 
 if (canvas) {
