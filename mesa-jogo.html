@@ -3137,28 +3137,32 @@ function renderizarPCs() {
 async function carregarPCs() {
     try {
         const q = query(
-            collection(db, "campanha_personagens"), 
-            where("campanha_id", "==", campanhaIdCustom), 
-            where("status", "==", "ativo")
+            collection(db, "sessao_personagens"),
+            where("sessao_id", "==", sessaoAtual.id)
         );
+
         const querySnapshot = await getDocs(q);
         pcVinculados = [];
         
-        for (const doc of querySnapshot.docs) {
-            const vinculo = { id: doc.id, ...doc.data() };
+        for (const docSnap of querySnapshot.docs) {
+            const vinculo = { id: docSnap.id, ...docSnap.data() };
+
             try {
                 const personagemRef = doc(db, "personagens", vinculo.personagem_id);
                 const personagemSnap = await getDoc(personagemRef);
+
                 if (personagemSnap.exists()) {
                     vinculo.personagem = personagemSnap.data();
                 }
-            } catch(e) { 
+            } catch (e) { 
                 console.warn('Erro ao buscar personagem:', e); 
             }
+
             pcVinculados.push(vinculo);
         }
         
         renderizarPCs();
+
     } catch(error) { 
         console.error('Erro ao carregar PCs:', error); 
         showToast('Erro ao carregar jogadores', true);
