@@ -1601,7 +1601,7 @@ canvas.modo-movimento {
     </div>
 
    <script type="module">
-       // ============================================
+     // ============================================
 // IMPORTS FIREBASE
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -1625,7 +1625,8 @@ import {
     orderBy,
     limit,
     serverTimestamp,
-    arrayUnion
+    arrayUnion,
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
 // ============================================
@@ -1667,7 +1668,7 @@ const modoBtns = document.querySelectorAll('.modo-btn');
 
 // Elementos de combate
 const canvas = document.getElementById('mapaCanvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas ? canvas.getContext('2d') : null;
 const turnoDisplay = document.getElementById('turnoDisplay');
 const vezJogadores = document.getElementById('vezJogadores');
 const vezNPCs = document.getElementById('vezNPCs');
@@ -1727,58 +1728,6 @@ const btnMoverCorrer = document.getElementById('btnMoverCorrer');
 const statusMovimento = document.getElementById('statusMovimento');
 
 // ============================================
-// NOVOS ELEMENTOS - CRIAR BOTÃO DE FINALIZAR TURNO DINAMICAMENTE
-// ============================================
-let btnFinalizarTurno = null;
-
-function criarBotaoFinalizarTurno() {
-    // Verificar se já existe
-    if (document.getElementById('btnFinalizarTurno')) {
-        btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
-        return;
-    }
-    
-    // Criar botão dinamicamente
-    btnFinalizarTurno = document.createElement('button');
-    btnFinalizarTurno.id = 'btnFinalizarTurno';
-    btnFinalizarTurno.innerHTML = '<i class="fas fa-check-circle"></i> Finalizar Meu Turno';
-    btnFinalizarTurno.style.cssText = `
-        width: 100%;
-        background: linear-gradient(135deg, #27ae60, #2ecc71);
-        color: white;
-        border: none;
-        padding: 12px;
-        border-radius: 30px;
-        cursor: pointer;
-        font-weight: 600;
-        margin-top: 10px;
-        transition: all 0.3s;
-        display: none;
-    `;
-    
-    // Efeito hover via JS (já que não podemos editar CSS)
-    btnFinalizarTurno.addEventListener('mouseenter', () => {
-        if (!btnFinalizarTurno.disabled) {
-            btnFinalizarTurno.style.transform = 'translateY(-2px)';
-            btnFinalizarTurno.style.boxShadow = '0 4px 15px rgba(46, 204, 113, 0.4)';
-        }
-    });
-    btnFinalizarTurno.addEventListener('mouseleave', () => {
-        btnFinalizarTurno.style.transform = 'translateY(0)';
-        btnFinalizarTurno.style.boxShadow = 'none';
-    });
-    
-    // Inserir após os botões de movimento
-    const painelControle = document.querySelector('.painel-controle-pc');
-    if (painelControle) {
-        painelControle.appendChild(btnFinalizarTurno);
-    }
-    
-    // Adicionar evento de clique
-    btnFinalizarTurno.addEventListener('click', finalizarMeuTurno);
-}
-
-// ============================================
 // VARIÁVEIS GLOBAIS
 // ============================================
 let currentUser = null;
@@ -1808,9 +1757,10 @@ let modoPosicionamentoAtivo = false;
 let modoMovimentoAtivo = false;
 let tipoMovimentoAtual = null;
 
-// NOVO: Controle de turno do PC
+// Controle de turno do PC
 let meuTurnoFinalizado = false;
 let turnoAtualDoCombate = 0;
+let btnFinalizarTurno = null;
 
 // Configurações do mapa HEXAGONAL
 const HEX_RADIUS = 24;
@@ -1824,10 +1774,16 @@ const OFFSET_Y = 60;
 // ============================================
 // FUNÇÕES AUXILIARES
 // ============================================
-function showLoading() { loadingOverlay.classList.add('active'); }
-function hideLoading() { loadingOverlay.classList.remove('active'); }
+function showLoading() { 
+    if (loadingOverlay) loadingOverlay.classList.add('active'); 
+}
+
+function hideLoading() { 
+    if (loadingOverlay) loadingOverlay.classList.remove('active'); 
+}
 
 function showToast(msg, erro = false) {
+    if (!toast || !toastMessage) return;
     toastMessage.textContent = msg;
     toast.classList.add('show');
     if (erro) toast.classList.add('erro');
@@ -2183,7 +2139,127 @@ function calcularTodosHexVazios() {
 }
 
 // ============================================
-// FUNÇÃO MODIFICADA: Atualizar estado dos botões
+// BOTÃO FINALIZAR TURNO - CRIAR DINAMICAMENTE
+// ============================================
+function criarBotaoFinalizarTurno() {
+    if (document.getElementById('btnFinalizarTurno')) {
+        btnFinalizarTurno = document.getElementById('btnFinalizarTurno');
+        return;
+    }
+    
+    btnFinalizarTurno = document.createElement('button');
+    btnFinalizarTurno.id = 'btnFinalizarTurno';
+    btnFinalizarTurno.innerHTML = '<i class="fas fa-check-circle"></i> Finalizar Meu Turno';
+    btnFinalizarTurno.style.cssText = `
+        width: 100%;
+        background: linear-gradient(135deg, #27ae60, #2ecc71);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 10px;
+        transition: all 0.3s;
+        display: none;
+        font-family: 'Cinzel', serif;
+    `;
+    
+    btnFinalizarTurno.addEventListener('mouseenter', () => {
+        if (!btnFinalizarTurno.disabled) {
+            btnFinalizarTurno.style.transform = 'translateY(-2px)';
+            btnFinalizarTurno.style.boxShadow = '0 4px 15px rgba(46, 204, 113, 0.4)';
+        }
+    });
+    
+    btnFinalizarTurno.addEventListener('mouseleave', () => {
+        btnFinalizarTurno.style.transform = 'translateY(0)';
+        btnFinalizarTurno.style.boxShadow = 'none';
+    });
+    
+    btnFinalizarTurno.addEventListener('click', finalizarMeuTurno);
+    
+    const painelControle = document.querySelector('.painel-controle-pc');
+    if (painelControle) {
+        painelControle.appendChild(btnFinalizarTurno);
+    }
+}
+
+// ============================================
+// FUNÇÃO: FINALIZAR MEU TURNO
+// ============================================
+async function finalizarMeuTurno() {
+    if (!sessaoAtual || !personagemAtual || !combateAtivo) {
+        showToast('Não é possível finalizar o turno agora', true);
+        return;
+    }
+    
+    if (vezAtual !== 'jogadores') {
+        showToast('Não é sua vez!', true);
+        return;
+    }
+    
+    if (meuTurnoFinalizado) {
+        showToast('Você já finalizou seu turno!', true);
+        return;
+    }
+    
+    try {
+        const combatesQuery = query(
+            collection(db, "sessoes", sessaoAtual.id, "combates"),
+            where("ativo", "==", true),
+            limit(1)
+        );
+        const combatesSnap = await getDocs(combatesQuery);
+        
+        if (combatesSnap.empty) {
+            showToast('Combate não encontrado!', true);
+            return;
+        }
+        
+        const combateDoc = combatesSnap.docs[0];
+        const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateDoc.id);
+        const combateData = combateDoc.data();
+        
+        // Verifica se já está no array
+        const pcsFinalizaram = combateData.pcsFinalizaram || [];
+        if (pcsFinalizaram.includes(personagemAtual.id)) {
+            meuTurnoFinalizado = true;
+            atualizarEstadoBotoes();
+            return;
+        }
+        
+        // Adiciona ao array de finalizados
+        await updateDoc(combateRef, {
+            pcsFinalizaram: arrayUnion(personagemAtual.id),
+            ultimoPCTurno: personagemAtual.id,
+            ultimaAcao: serverTimestamp()
+        });
+        
+        meuTurnoFinalizado = true;
+        
+        // Desabilita botões de movimento
+        if (btnMoverAndar) btnMoverAndar.disabled = true;
+        if (btnMoverCorrer) btnMoverCorrer.disabled = true;
+        if (btnFinalizarTurno) {
+            btnFinalizarTurno.disabled = true;
+            btnFinalizarTurno.style.opacity = '0.5';
+            btnFinalizarTurno.innerHTML = '<i class="fas fa-check"></i> Turno Finalizado';
+        }
+        
+        resetarModoMovimento();
+        atualizarEstadoBotoes();
+        
+        showToast('✅ Turno finalizado! Aguardando outros jogadores...');
+        
+    } catch (error) {
+        console.error('Erro ao finalizar turno:', error);
+        showToast('Erro ao finalizar turno', true);
+    }
+}
+
+// ============================================
+// ATUALIZAR ESTADO DOS BOTÕES
 // ============================================
 function atualizarEstadoBotoes() {
     const pode = podeMover();
@@ -2202,11 +2278,9 @@ function atualizarEstadoBotoes() {
         correrValor = desloc.correr;
     }
     
-    // Atualizar valores nos botões
     if (btnMoverAndar) btnMoverAndar.innerHTML = `<i class="fas fa-shoe-prints"></i> Andar (${andarValor}m)`;
     if (btnMoverCorrer) btnMoverCorrer.innerHTML = `<i class="fas fa-running"></i> Correr (${correrValor}m)`;
     
-    // Botão Posicionar
     if (btnPosicionarPC) {
         const deveDesabilitar = combateAtivo && estaPosicionado;
         btnPosicionarPC.disabled = deveDesabilitar;
@@ -2221,7 +2295,6 @@ function atualizarEstadoBotoes() {
         }
     }
     
-    // Botões de Movimento
     if (btnMoverAndar && btnMoverCorrer) {
         const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo && !meuTurnoFinalizado;
         
@@ -2248,7 +2321,6 @@ function atualizarEstadoBotoes() {
         }
     }
     
-    // NOVO: Botão de Finalizar Turno
     if (btnFinalizarTurno) {
         const ehMinhaVez = combateAtivo && vezAtual === 'jogadores' && estaPosicionado;
         
@@ -2262,7 +2334,6 @@ function atualizarEstadoBotoes() {
         }
     }
     
-    // Status
     if (statusMovimento) {
         if (!combateAtivo) {
             statusMovimento.innerHTML = '⏳ Aguardando início do combate';
@@ -2295,68 +2366,8 @@ function atualizarEstadoBotoes() {
 }
 
 // ============================================
-// NOVA FUNÇÃO: Finalizar Meu Turno
+// FUNÇÕES DE MOVIMENTO
 // ============================================
-async function finalizarMeuTurno() {
-    if (!sessaoAtual || !personagemAtual || !combateAtivo) {
-        showToast('Não é possível finalizar o turno agora', true);
-        return;
-    }
-    
-    if (vezAtual !== 'jogadores') {
-        showToast('Não é sua vez!', true);
-        return;
-    }
-    
-    if (meuTurnoFinalizado) {
-        showToast('Você já finalizou seu turno!', true);
-        return;
-    }
-    
-    try {
-        // Buscar combate ativo
-        const combatesQuery = query(
-            collection(db, "sessoes", sessaoAtual.id, "combates"),
-            where("ativo", "==", true),
-            limit(1)
-        );
-        const combatesSnap = await getDocs(combatesQuery);
-        
-        if (combatesSnap.empty) {
-            showToast('Combate não encontrado!', true);
-            return;
-        }
-        
-        const combateDoc = combatesSnap.docs[0];
-        const combateRef = doc(db, "sessoes", sessaoAtual.id, "combates", combateDoc.id);
-        
-        // Adicionar meu ID ao array de PCs finalizados
-        await updateDoc(combateRef, {
-            pcsFinalizaram: arrayUnion(personagemAtual.id)
-        });
-        
-        meuTurnoFinalizado = true;
-        
-        // Desabilitar botões de movimento
-        if (btnMoverAndar) btnMoverAndar.disabled = true;
-        if (btnMoverCorrer) btnMoverCorrer.disabled = true;
-        if (btnFinalizarTurno) {
-            btnFinalizarTurno.disabled = true;
-            btnFinalizarTurno.style.opacity = '0.5';
-            btnFinalizarTurno.innerHTML = '<i class="fas fa-check"></i> Turno Finalizado';
-        }
-        
-        resetarModoMovimento();
-        atualizarEstadoBotoes();
-        
-        showToast('✅ Turno finalizado! Aguardando outros jogadores...');
-        
-    } catch (error) {
-        console.error('Erro ao finalizar turno:', error);
-        showToast('Erro ao finalizar turno', true);
-    }
-}
-
 function iniciarPosicionamento() {
     if (combateAtivo) {
         const pos = posicoes[personagemAtual?.id];
@@ -2764,7 +2775,7 @@ function iniciarListenerMarcadores() {
 }
 
 // ============================================
-// FUNÇÃO MODIFICADA: Listener de combate com reset de turno
+// LISTENER DE COMBATE - CORRIGIDO
 // ============================================
 function iniciarListenersCombate() {
     if (!sessaoAtual) return;
@@ -2783,7 +2794,7 @@ function iniciarListenersCombate() {
             vezAtual = dados.vez || 'jogadores';
             modoCombateAtivo = true;
             
-            // NOVO: Resetar meuTurnoFinalizado quando muda o turno
+            // Resetar meuTurnoFinalizado quando muda o turno
             if (turnoAtual !== turnoAnterior) {
                 meuTurnoFinalizado = false;
                 turnoAtualDoCombate = turnoAtual;
@@ -2932,202 +2943,205 @@ window.alterarRecurso = async function(tipo, valor) {
 // ============================================
 // ROLAGEM
 // ============================================
-btnRolarPericia.addEventListener('click', async () => {
-    const dezena = Math.floor(Math.random() * 10);
-    const unidade = Math.floor(Math.random() * 10);
-    
-    let resultadoBase = (dezena * 10) + unidade;
-    if (resultadoBase === 0) resultadoBase = 100;
-    
-    const mod = parseInt(modificadorPericia?.value) || 0;
-    const resultadoFinal = Math.min(100, Math.max(0, resultadoBase + mod));
-    
-    resultadoPercentual.textContent = resultadoFinal + '%';
+if (btnRolarPericia) {
+    btnRolarPericia.addEventListener('click', async () => {
+        const dezena = Math.floor(Math.random() * 10);
+        const unidade = Math.floor(Math.random() * 10);
+        
+        let resultadoBase = (dezena * 10) + unidade;
+        if (resultadoBase === 0) resultadoBase = 100;
+        
+        const mod = parseInt(modificadorPericia?.value) || 0;
+        const resultadoFinal = Math.min(100, Math.max(0, resultadoBase + mod));
+        
+        if (resultadoPercentual) resultadoPercentual.textContent = resultadoFinal + '%';
 
-    if (sessaoAtual) {
-        try {
-            await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                tipo: 'pericia',
+        if (sessaoAtual) {
+            try {
+                await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                    tipo: 'pericia',
+                    jogador: personagemAtual?.nome || 'Jogador',
+                    personagemId: personagemAtual?.id,
+                    dezena,
+                    unidade,
+                    resultadoBase,
+                    modificador: mod,
+                    resultado: resultadoFinal,
+                    visibilidade: 'publico',
+                    timestamp: serverTimestamp()
+                });
+            } catch (error) {
+                console.error('Erro ao salvar rolagem:', error);
+            }
+        }
+    });
+}
+
+if (btnRolarDano) {
+    btnRolarDano.addEventListener('click', async () => {
+        const qtd = parseInt(qtdDadosDano?.value) || 1;
+        const mod = parseInt(modificadorDano?.value) || 0;
+        
+        const dados = [];
+        let soma = 0;
+        
+        for (let i = 0; i < qtd; i++) {
+            const valor = Math.floor(Math.random() * 8) + 1;
+            dados.push(valor);
+            soma += valor;
+        }
+        
+        const total = soma + mod;
+        if (resultadoDano) resultadoDano.textContent = total;
+
+        if (sessaoAtual) {
+            try {
+                await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                    tipo: 'dano',
+                    jogador: personagemAtual?.nome || 'Jogador',
+                    personagemId: personagemAtual?.id,
+                    qtdDados: qtd,
+                    dados,
+                    soma,
+                    modificador: mod,
+                    total,
+                    visibilidade: 'publico',
+                    timestamp: serverTimestamp()
+                });
+            } catch (error) {
+                console.error('Erro ao salvar rolagem:', error);
+            }
+        }
+    });
+}
+
+// ============================================
+// SISTEMA DE CRÍTICOS
+// ============================================
+const tabelas = {
+    'ful-ataque': [
+        "DANO DUPLICADO + IGNORA RD COMPLETAMENTE.",
+        "DANO DUPLICADO.",
+        "DANO DUPLICADO + IGNORA RD. Se o oponente tentou Aparar, sua arma cai a 1d-2m de distância.",
+        "DANO DUPLICADO. O oponente sofre -15% em sua próxima ação.",
+        "DANO IGNORA RD. O oponente deve fazer um Teste de DX para manter o equilíbrio; caso falhe, sofre -15% em suas ações no turno seguinte.",
+        "DANO DUPLICADO. O oponente deve fazer um Teste de VIGOR para evitar ficar atordoado por 1 turno.",
+        "DANO DUPLICADO. O impacto é tão forte que desestabiliza o oponente completamente.",
+        "DANO NORMAL, mas IGNORA RD. O oponente deve fazer um Teste de IQ para evitar paralisia (não pode se mover ou atacar por 1 turno).",
+        "DANO DUPLICADO. Um golpe devastador que causa dano máximo.",
+        "DANO DUPLICADO. O oponente deve fazer um Teste de VIGOR; caso falhe, sofre -15% em todas as ações no próximo turno."
+    ],
+    'ful-defesa': [
+        "Contra-ataque (inimigo -10% defesa ativa)",
+        "Próximo ataque +15% NH de Ataque",
+        "Ataque com dano duplicado no próximo turno",
+        "Arma do inimigo cai 1d-2m",
+        "Teste DX -10% p/ não cair (se desequilibra)",
+        "Adversário -15% no próximo ataque",
+        "Contra-ataque com +10% no NH de Ataque",
+        "Atacante -15% nas defesas ativas no próximo turno",
+        "Inimigo -1d dano no próximo ataque",
+        "Contra-ataque com dano duplicado"
+    ], 
+    'ful-magia': [
+        "A magia custa metade do PM (arredondado para baixo). Mínimo 1 PM.",
+        "Ignora completamente RD e qualquer resistência mágica do alvo.",
+        "Se for magia de projétil ou área, o dano é dobrado. Se for cura/buff, o efeito é dobrado.",
+        "Todos os redutores de resistência do alvo são duplicados.",
+        "Aumenta o efeito da magia em 50% (dano x1.5, cura x1.5, duração x1.5, área x1.5).",
+        "Duplica o efeito completo da magia (dano x2, cura x2, duração x2, área x2).",
+        "Área de efeito dobra de tamanho OU número de alvos dobra.",
+        "Além do efeito normal, causa 1d8 de dano extra (ignora RD) OU cura extra 1d8.",
+        "Recebe +15% de bônus na próxima magia que lançar.",
+        "Se for magia de dano, causa atordoamento por 1 turno. Se for magia de debuff, o redutor de resistência é dobrado."
+    ],
+    'fal-ataque': [
+        "Arma cai 1d-2m",
+        "Cai e perde 1d-3 dano (sem RD)",
+        "Desequilibrado: -15% defesas ativas",
+        "Perde 1 PF (esforço mal executado)",
+        "Próximo turno: -10% habilidade ataque",
+        "Oponente +15% próximo ataque",
+        "Auto-machuca: 1d-1 (sem RD)",
+        "Teste DX -5% ou sem ação próximo turno",
+        "Contra-ataque (+15% nele / -10% sua defesa)",
+        "Teste DX -10% ou perde 1 turno (defesa+ataque)"
+    ],
+    'fal-defesa': [
+        "Se desequilibra e terá -15% próximo ataque",
+        "Teste DX -10%: cai, perde turno ataque, -10% defesas",
+        "Ataque dano Duplicado",
+        "Se bloqueou: escudo sofre o dobro do PV (sem RD) / Se aparou: arma cai 1d-2m",
+        "Perde 1 PF (esforço)",
+        "Se desequilibra e o inimigo terá +15% próximo ataque",
+        "Recebe dano sem RD",
+        "-15% próxima defesa ativa e ataque",
+        "Teste Vigor p/ evitar atordoamento",
+        "Dano Duplicado + Teste DX p/ não cair"
+    ],
+    'fal-magia': [
+        "Gasta o dobro de PM (se não tiver PM suficiente, sofre 1d8 de dano por PM faltante).",
+        "Alvo ganha +15% de bônus em resistências mágicas (VIGOR, IQ) por 2 rodadas.",
+        "Se era dano, cura o alvo em 1d8. Se era cura, causa dano em 1d8. Se era debuff, vira buff temporário (+10% em vez de -10%). Se era buff, o efeito é aplicado no conjurador com sinal invertido.",
+        "A magia explode descontroladamente. Causa 1d8 de dano em área de 2m (inclui conjurador e aliados próximos).",
+        "Sofre 2d-1 de dano mental (ignora RD) e fica confuso por 1 turno (ações têm -10% de chance).",
+        "Perde 1d-2 PM (mínimo 1) permanentemente até próximo descanso.",
+        "Perde o dobro de PM gasto na magia.",
+        "Todas as magias do conjurador têm -15% de chance de sucesso por 1d3 rodadas.",
+        "Criaturas num raio de 30m são atraídas pelo surto mágico, ganhando +10% em testes contra o grupo na próxima rodada.",
+        "O conjurador fica atordoado por 1d-2 turnos (mínimo 1 turno)."
+    ]
+};
+
+tabsCritico.forEach(tab => {
+    tab.addEventListener('click', () => {
+        const tabId = tab.dataset.tab;
+        if (!tabId) return;
+        
+        tabsCritico.forEach(t => t.classList.remove('ativa'));
+        tab.classList.add('ativa');
+        
+        tabelasCritico.forEach(tabela => tabela.classList.remove('ativa'));
+        const targetTable = document.getElementById(`tabela-${tabId}`);
+        if (targetTable) targetTable.classList.add('ativa');
+        
+        tabelaAtual = tabId;
+        if (resultadoCritico) resultadoCritico.style.display = 'none';
+    });
+});
+
+if (btnRolarCritico) {
+    btnRolarCritico.addEventListener('click', () => {
+        const resultado = Math.floor(Math.random() * 10) + 1;
+        const texto = tabelas[tabelaAtual][resultado - 1];
+        
+        if (resultadoCriticoNumero) resultadoCriticoNumero.textContent = resultado;
+        if (resultadoCriticoTexto) resultadoCriticoTexto.textContent = texto;
+        if (resultadoCritico) resultadoCritico.style.display = 'block';
+        
+        if (sessaoAtual) {
+            let nomeTabela = '';
+            if (tabelaAtual === 'ful-ataque') nomeTabela = 'Fulminante Ataque';
+            else if (tabelaAtual === 'ful-defesa') nomeTabela = 'Fulminante Defesa';
+            else if (tabelaAtual === 'ful-magia') nomeTabela = 'Fulminante Magia';
+            else if (tabelaAtual === 'fal-ataque') nomeTabela = 'Falha Ataque';
+            else if (tabelaAtual === 'fal-defesa') nomeTabela = 'Falha Defesa';
+            else if (tabelaAtual === 'fal-magia') nomeTabela = 'Falha Magia';
+            
+            addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                tipo: 'critico',
+                tabela: nomeTabela,
+                resultado: resultado,
+                texto: texto,
                 jogador: personagemAtual?.nome || 'Jogador',
-                personagemId: personagemAtual?.id,
-                dezena,
-                unidade,
-                resultadoBase,
-                modificador: mod,
-                resultado: resultadoFinal,
                 visibilidade: 'publico',
                 timestamp: serverTimestamp()
             });
-        } catch (error) {
-            console.error('Erro ao salvar rolagem:', error);
         }
-    }
-});
+    });
+}
 
-btnRolarDano.addEventListener('click', async () => {
-    const qtd = parseInt(qtdDadosDano.value) || 1;
-    const mod = parseInt(modificadorDano.value) || 0;
-    
-    const dados = [];
-    let soma = 0;
-    
-    for (let i = 0; i < qtd; i++) {
-        const valor = Math.floor(Math.random() * 8) + 1;
-        dados.push(valor);
-        soma += valor;
-    }
-    
-    const total = soma + mod;
-    resultadoDano.textContent = total;
-
-    if (sessaoAtual) {
-        try {
-            await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                tipo: 'dano',
-                jogador: personagemAtual?.nome || 'Jogador',
-                personagemId: personagemAtual?.id,
-                qtdDados: qtd,
-                dados,
-                soma,
-                modificador: mod,
-                total,
-                visibilidade: 'publico',
-                timestamp: serverTimestamp()
-            });
-        } catch (error) {
-            console.error('Erro ao salvar rolagem:', error);
-        }
-    }
-});
-
-
-        // ============================================
-        // SISTEMA DE CRÍTICOS
-        // ============================================
-        const tabelas = {
-            'ful-ataque': [
-                "DANO DUPLICADO + IGNORA RD COMPLETAMENTE.",
-                "DANO DUPLICADO.",
-                "DANO DUPLICADO + IGNORA RD. Se o oponente tentou Aparar, sua arma cai a 1d-2m de distância.",
-                "DANO DUPLICADO. O oponente sofre -15% em sua próxima ação.",
-                "DANO IGNORA RD. O oponente deve fazer um Teste de DX para manter o equilíbrio; caso falhe, sofre -15% em suas ações no turno seguinte.",
-                "DANO DUPLICADO. O oponente deve fazer um Teste de VIGOR para evitar ficar atordoado por 1 turno.",
-                "DANO DUPLICADO. O impacto é tão forte que desestabiliza o oponente completamente.",
-                "DANO NORMAL, mas IGNORA RD. O oponente deve fazer um Teste de IQ para evitar paralisia (não pode se mover ou atacar por 1 turno).",
-                "DANO DUPLICADO. Um golpe devastador que causa dano máximo.",
-                "DANO DUPLICADO. O oponente deve fazer um Teste de VIGOR; caso falhe, sofre -15% em todas as ações no próximo turno."
-            ],
-            'ful-defesa': [
-                "Contra-ataque (inimigo -10% defesa ativa)",
-                "Próximo ataque +15% NH de Ataque",
-                "Ataque com dano duplicado no próximo turno",
-                "Arma do inimigo cai 1d-2m",
-                "Teste DX -10% p/ não cair (se desequilibra)",
-                "Adversário -15% no próximo ataque",
-                "Contra-ataque com +10% no NH de Ataque",
-                "Atacante -15% nas defesas ativas no próximo turno",
-                "Inimigo -1d dano no próximo ataque",
-                "Contra-ataque com dano duplicado"
-            ], 
-            'ful-magia': [
-                "A magia custa metade do PM (arredondado para baixo). Mínimo 1 PM.",
-                "Ignora completamente RD e qualquer resistência mágica do alvo.",
-                "Se for magia de projétil ou área, o dano é dobrado. Se for cura/buff, o efeito é dobrado.",
-                "Todos os redutores de resistência do alvo são duplicados.",
-                "Aumenta o efeito da magia em 50% (dano x1.5, cura x1.5, duração x1.5, área x1.5).",
-                "Duplica o efeito completo da magia (dano x2, cura x2, duração x2, área x2).",
-                "Área de efeito dobra de tamanho OU número de alvos dobra.",
-                "Além do efeito normal, causa 1d8 de dano extra (ignora RD) OU cura extra 1d8.",
-                "Recebe +15% de bônus na próxima magia que lançar.",
-                "Se for magia de dano, causa atordoamento por 1 turno. Se for magia de debuff, o redutor de resistência é dobrado."
-            ],
-            'fal-ataque': [
-                "Arma cai 1d-2m",
-                "Cai e perde 1d-3 dano (sem RD)",
-                "Desequilibrado: -15% defesas ativas",
-                "Perde 1 PF (esforço mal executado)",
-                "Próximo turno: -10% habilidade ataque",
-                "Oponente +15% próximo ataque",
-                "Auto-machuca: 1d-1 (sem RD)",
-                "Teste DX -5% ou sem ação próximo turno",
-                "Contra-ataque (+15% nele / -10% sua defesa)",
-                "Teste DX -10% ou perde 1 turno (defesa+ataque)"
-            ],
-            'fal-defesa': [
-                "Se desequilibra e terá -15% próximo ataque",
-                "Teste DX -10%: cai, perde turno ataque, -10% defesas",
-                "Ataque dano Duplicado",
-                "Se bloqueou: escudo sofre o dobro do PV (sem RD) / Se aparou: arma cai 1d-2m",
-                "Perde 1 PF (esforço)",
-                "Se desequilibra e o inimigo terá +15% próximo ataque",
-                "Recebe dano sem RD",
-                "-15% próxima defesa ativa e ataque",
-                "Teste Vigor p/ evitar atordoamento",
-                "Dano Duplicado + Teste DX p/ não cair"
-            ],
-            'fal-magia': [
-                "Gasta o dobro de PM (se não tiver PM suficiente, sofre 1d8 de dano por PM faltante).",
-                "Alvo ganha +15% de bônus em resistências mágicas (VIGOR, IQ) por 2 rodadas.",
-                "Se era dano, cura o alvo em 1d8. Se era cura, causa dano em 1d8. Se era debuff, vira buff temporário (+10% em vez de -10%). Se era buff, o efeito é aplicado no conjurador com sinal invertido.",
-                "A magia explode descontroladamente. Causa 1d8 de dano em área de 2m (inclui conjurador e aliados próximos).",
-                "Sofre 2d-1 de dano mental (ignora RD) e fica confuso por 1 turno (ações têm -10% de chance).",
-                "Perde 1d-2 PM (mínimo 1) permanentemente até próximo descanso.",
-                "Perde o dobro de PM gasto na magia.",
-                "Todas as magias do conjurador têm -15% de chance de sucesso por 1d3 rodadas.",
-                "Criaturas num raio de 30m são atraídas pelo surto mágico, ganhando +10% em testes contra o grupo na próxima rodada.",
-                "O conjurador fica atordoado por 1d-2 turnos (mínimo 1 turno)."
-            ]
-        };
-
-        tabsCritico.forEach(tab => {
-            tab.addEventListener('click', () => {
-                const tabId = tab.dataset.tab;
-                if (!tabId) return;
-                
-                tabsCritico.forEach(t => t.classList.remove('ativa'));
-                tab.classList.add('ativa');
-                
-                tabelasCritico.forEach(tabela => tabela.classList.remove('ativa'));
-                const targetTable = document.getElementById(`tabela-${tabId}`);
-                if (targetTable) targetTable.classList.add('ativa');
-                
-                tabelaAtual = tabId;
-                if (resultadoCritico) resultadoCritico.style.display = 'none';
-            });
-        });
-
-        if (btnRolarCritico) {
-            btnRolarCritico.addEventListener('click', () => {
-                const resultado = Math.floor(Math.random() * 10) + 1;
-                const texto = tabelas[tabelaAtual][resultado - 1];
-                
-                if (resultadoCriticoNumero) resultadoCriticoNumero.textContent = resultado;
-                if (resultadoCriticoTexto) resultadoCriticoTexto.textContent = texto;
-                if (resultadoCritico) resultadoCritico.style.display = 'block';
-                
-                if (sessaoAtual) {
-                    let nomeTabela = '';
-                    if (tabelaAtual === 'ful-ataque') nomeTabela = 'Fulminante Ataque';
-                    else if (tabelaAtual === 'ful-defesa') nomeTabela = 'Fulminante Defesa';
-                    else if (tabelaAtual === 'ful-magia') nomeTabela = 'Fulminante Magia';
-                    else if (tabelaAtual === 'fal-ataque') nomeTabela = 'Falha Ataque';
-                    else if (tabelaAtual === 'fal-defesa') nomeTabela = 'Falha Defesa';
-                    else if (tabelaAtual === 'fal-magia') nomeTabela = 'Falha Magia';
-                    
-                    addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                        tipo: 'critico',
-                        tabela: nomeTabela,
-                        resultado: resultado,
-                        texto: texto,
-                        jogador: personagemAtual?.nome || 'Jogador',
-                        visibilidade: 'publico',
-                        timestamp: serverTimestamp()
-                    });
-                }
-            });
-        }
-
-      // ============================================
+// ============================================
 // EVENTOS DO MAPA
 // ============================================
 function handleCanvasClick(canvasX, canvasY) {
@@ -3160,7 +3174,6 @@ function handleCanvasClick(canvasX, canvasY) {
 }
 
 if (canvas) {
-    // ✅ CORRIGIDO: Extrai coordenadas do evento de click
     canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -3170,7 +3183,6 @@ if (canvas) {
         handleCanvasClick(canvasX, canvasY);
     });
     
-    // Touch permanece igual (já estava correto!)
     canvas.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
             const rect = canvas.getBoundingClientRect();
@@ -3183,20 +3195,20 @@ if (canvas) {
     }, { passive: true });
 }
 
-        // ============================================
-        // EVENTOS DOS BOTÕES
-        // ============================================
-        if (btnPosicionarPC) {
-            btnPosicionarPC.addEventListener('click', iniciarPosicionamento);
-        }
-        if (btnMoverAndar) {
-            btnMoverAndar.addEventListener('click', () => iniciarMovimento('andar'));
-        }
-        if (btnMoverCorrer) {
-            btnMoverCorrer.addEventListener('click', () => iniciarMovimento('correr'));
-        }
+// ============================================
+// EVENTOS DOS BOTÕES
+// ============================================
+if (btnPosicionarPC) {
+    btnPosicionarPC.addEventListener('click', iniciarPosicionamento);
+}
+if (btnMoverAndar) {
+    btnMoverAndar.addEventListener('click', () => iniciarMovimento('andar'));
+}
+if (btnMoverCorrer) {
+    btnMoverCorrer.addEventListener('click', () => iniciarMovimento('correr'));
+}
 
-       // ============================================
+// ============================================
 // CARREGAR SESSÃO
 // ============================================
 async function carregarVinculoEPersonagem() {
@@ -3302,9 +3314,7 @@ async function carregarSessao() {
     showLoading();
 
     try {
-        // ============================================
-        // CORREÇÃO: Criar botão de finalizar turno antes de tudo
-        // ============================================
+        // Criar botão de finalizar turno ANTES de tudo
         criarBotaoFinalizarTurno();
 
         const sessaoRef = doc(db, "sessoes", sessaoId);
@@ -3333,9 +3343,7 @@ async function carregarSessao() {
 
         renderizarFichaResumida();
 
-        // ============================================
-        // CORREÇÃO: Aguarda sessaoAtual estar definido
-        // ============================================
+        // Aguarda sessaoAtual estar definido
         setTimeout(() => {
             if (sessaoAtual && sessaoAtual.id) {
                 iniciarListeners();
@@ -3357,13 +3365,15 @@ async function carregarSessao() {
     }
 }
 
-        // ============================================
+// ============================================
 // INICIALIZAÇÃO
 // ============================================
-btnSair.addEventListener('click', async () => {
-    await signOut(auth);
-    window.location.href = 'index.html';
-});
+if (btnSair) {
+    btnSair.addEventListener('click', async () => {
+        await signOut(auth);
+        window.location.href = 'index.html';
+    });
+}
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -3375,9 +3385,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.addEventListener('beforeunload', () => {
-    if (unsubscribePosicoes) unsubscribePosicoes();
-    if (unsubscribeCombate) unsubscribeCombate();
-    if (unsubscribeMarcadores) unsubscribeMarcadores();
+    pararTodosListeners();
 });
     </script>
 </body>
