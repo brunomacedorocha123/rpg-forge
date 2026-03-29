@@ -2210,15 +2210,32 @@ function atualizarEstadoBotoes() {
     const pode = podeMover();
     const pos = posicoes[personagemAtual?.id];
     const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexX >= 0;
-    const desloc = calcularDeslocamento();
+    
+    // 🔥 CORREÇÃO: Pega o valor salvo no Firestore (que está correto)
+    let andarValor = 0;
+    let correrValor = 0;
+    
+    if (pos && pos.andar !== undefined && pos.correr !== undefined) {
+        // Usa o valor do Firestore (já calculado e correto)
+        andarValor = pos.andar;
+        correrValor = pos.correr;
+        console.log('📦 Usando valor do Firestore:', { andarValor, correrValor });
+    } else {
+        // Fallback: calcula
+        const desloc = calcularDeslocamento();
+        andarValor = desloc.andar;
+        correrValor = desloc.correr;
+        console.log('🧮 Calculando deslocamento:', { andarValor, correrValor });
+    }
     
     // ✅ NOVO: Calcula movimento restante no turno
     const movimentoRestante = (turnoDoUltimoMovimento === turnoAtual) 
         ? Math.max(0, maxMovimentoTurno - movimentoUsadoNoTurno)
-        : desloc.andar;
+        : andarValor;
     
-    if (valorAndarSpan) valorAndarSpan.textContent = Math.min(desloc.andar, movimentoRestante);
-    if (valorCorrerSpan) valorCorrerSpan.textContent = Math.min(desloc.correr, movimentoRestante);
+    // 🔥 ATUALIZA O BOTÃO COM O VALOR CORRETO
+    if (valorAndarSpan) valorAndarSpan.textContent = Math.min(andarValor, movimentoRestante);
+    if (valorCorrerSpan) valorCorrerSpan.textContent = Math.min(correrValor, movimentoRestante);
     
     if (btnPosicionarPC) {
         const deveDesabilitar = combateAtivo && estaPosicionado;
@@ -2286,18 +2303,18 @@ function atualizarEstadoBotoes() {
         } else {
             const restante = (turnoDoUltimoMovimento === turnoAtual) 
                 ? maxMovimentoTurno - movimentoUsadoNoTurno 
-                : desloc.andar;
+                : andarValor;
             statusMovimento.innerHTML = `✅ Pronto: ${restante}m disponíveis neste turno`;
             statusMovimento.style.background = 'rgba(46, 204, 113, 0.1)';
         }
     }
     
     // ============================================
-    // CORREÇÃO: Garante que os valores nos botões estão corretos
+    // CORREÇÃO: Garante que os valores no Firestore estão corretos
     // ============================================
     if (personagemAtual && posicoes[personagemAtual.id]) {
-        posicoes[personagemAtual.id].andar = desloc.andar;
-        posicoes[personagemAtual.id].correr = desloc.correr;
+        posicoes[personagemAtual.id].andar = andarValor;
+        posicoes[personagemAtual.id].correr = correrValor;
     }
 }
 
