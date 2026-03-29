@@ -1939,9 +1939,10 @@ const OFFSET_Y = 60;
             return atributoBase + bonus;
         }
 
-       // ============================================
+     // ============================================
 // FUNÇÕES DO MAPA HEXAGONAL (CORRIGIDAS)
 // ============================================
+
 function hexToPixel(hexX, hexY) {
     const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
     const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
@@ -1949,26 +1950,15 @@ function hexToPixel(hexX, hexY) {
 }
 
 function pixelToHex(pixelX, pixelY) {
-    // Percorre todos os hexágonos e encontra o mais próximo
-    let bestHex = { x: -1, y: -1 };
-    let bestDist = HEX_RADIUS;
-    
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const pixel = hexToPixel(x, y);
-            const dx = pixelX - pixel.x;
-            const dy = pixelY - pixel.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestHex = { x, y };
+            const dx = Math.abs(pixelX - pixel.x);
+            const dy = Math.abs(pixelY - pixel.y);
+            if (dx < HEX_RADIUS && dy < HEX_RADIUS) {
+                return { x, y };
             }
         }
-    }
-    
-    // Só retorna se a distância for menor que o raio do hexágono
-    if (bestDist < HEX_RADIUS) {
-        return bestHex;
     }
     return { x: -1, y: -1 };
 }
@@ -2120,10 +2110,13 @@ function calcularHexAlcance(hexX, hexY, alcance) {
 
 function calcularTodosHexVazios() {
     const hexes = [];
+    const posicoesAtuais = Object.values(posicoes);
+    
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const temObstaculo = marcadores[`${x}_${y}`];
-            const ocupado = Object.values(posicoes).some(p => p.hexX === x && p.hexY === y);
+            const ocupado = posicoesAtuais.some(p => p.hexX === x && p.hexY === y);
+            
             if (!ocupado && !temObstaculo) {
                 hexes.push({ x, y });
             }
@@ -2138,11 +2131,9 @@ function atualizarEstadoBotoes() {
     const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexX >= 0;
     const desloc = calcularDeslocamento();
     
-    // Atualizar valores de movimento na interface
     if (valorAndarSpan) valorAndarSpan.textContent = desloc.andar;
     if (valorCorrerSpan) valorCorrerSpan.textContent = desloc.correr;
     
-    // ===== BOTÃO POSICIONAR =====
     if (btnPosicionarPC) {
         const deveDesabilitar = combateAtivo && estaPosicionado;
         btnPosicionarPC.disabled = deveDesabilitar;
@@ -2158,7 +2149,6 @@ function atualizarEstadoBotoes() {
         }
     }
     
-    // ===== BOTÕES DE MOVIMENTO (ANDAR E CORRER) =====
     if (btnMoverAndar && btnMoverCorrer) {
         const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo;
         
@@ -2185,7 +2175,6 @@ function atualizarEstadoBotoes() {
         }
     }
     
-    // ===== STATUS DE MOVIMENTO =====
     if (statusMovimento) {
         if (!combateAtivo) {
             statusMovimento.innerHTML = '⏳ Aguardando início do combate';
@@ -2210,55 +2199,47 @@ function atualizarEstadoBotoes() {
 }
 
 function iniciarPosicionamento() {
-    // Verificar se já está posicionado em combate
     if (combateAtivo) {
         const pos = posicoes[personagemAtual?.id];
         if (pos && pos.hexX !== undefined && pos.hexX !== null) {
-            showToast('Personagem já está posicionado! Para reposicionar, peça ao mestre.', true);
+            showToast('Personagem já está posicionado!', true);
             return;
         }
     }
     
-    // Verifica se personagem existe
     if (!personagemAtual || !personagemAtual.id) {
         showToast('Personagem não carregado!', true);
         return;
     }
     
-    // Resetar qualquer modo ativo
     resetarModoMovimento();
     
-    // Ativar modo posicionamento
     modoPosicionamentoAtivo = true;
     modoMovimentoAtivo = true;
     tipoMovimentoAtual = 'posicionar';
     
-    // Configurar cursor do canvas
     if (canvas) {
         canvas.style.cursor = 'crosshair';
         canvas.classList.add('modo-movimento');
     }
     
-    // Destacar todos os hexágonos vazios
     highlightHex = calcularTodosHexVazios();
     
     if (highlightHex.length === 0) {
-        showToast('❌ Não há espaços vazios no mapa para posicionar!', true);
+        showToast('❌ Não há espaços vazios no mapa!', true);
         modoPosicionamentoAtivo = false;
         modoMovimentoAtivo = false;
         return;
     }
     
     desenharMapa();
-    
-    // Atualizar interface
     atualizarEstadoBotoes();
     
     if (statusMovimento) {
         statusMovimento.innerHTML = `📍 Modo posicionamento: ${highlightHex.length} espaços disponíveis`;
     }
     
-    showToast(`🔰 Modo posicionamento ativado! ${highlightHex.length} espaços disponíveis. Clique em um hexágono verde.`);
+    showToast(`🔰 Clique em um hexágono verde para posicionar`);
 }
 
 function iniciarMovimento(tipo) {
@@ -2278,7 +2259,7 @@ function iniciarMovimento(tipo) {
     const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
     
     if (alcance <= 0) {
-        showToast(`Você não tem ${tipo} suficiente para se mover!`, true);
+        showToast(`Você não tem ${tipo} suficiente!`, true);
         return;
     }
     
@@ -2294,25 +2275,24 @@ function iniciarMovimento(tipo) {
     
     highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
     desenharMapa();
-    
     atualizarEstadoBotoes();
     
     if (statusMovimento) {
         statusMovimento.innerHTML = `🎯 Modo ${tipo}: clique em um hexágono verde (até ${alcance}m)`;
     }
     
-    showToast(`🏃 Modo ${tipo} ativado! Clique em um hexágono verde para se mover (até ${alcance}m).`);
+    showToast(`🏃 Modo ${tipo} ativado!`);
 }
 
 async function moverPersonagem(personagemId, hexX, hexY) {
     if (estaProcessandoMovimento) {
-        showToast('Aguarde, processando movimento...', true);
+        showToast('Aguarde...', true);
         return;
     }
     
     const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
     if (!isValid) {
-        showToast('❌ Clique apenas nos hexágonos destacados em verde!', true);
+        showToast('❌ Clique apenas nos hexágonos verdes!', true);
         return;
     }
     
@@ -2354,7 +2334,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             
             resetarModoMovimento();
             desenharMapa();
-            showToast(`✅ ${personagemAtual.nome} posicionado com sucesso em (${hexX}, ${hexY})!`);
+            showToast(`✅ ${personagemAtual.nome} posicionado!`);
             
         } else if (modoMovimentoAtivo) {
             if (!combateAtivo) {
@@ -2379,12 +2359,12 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             
             resetarModoMovimento();
             desenharMapa();
-            showToast(`🏃 ${personagemAtual.nome} movido para (${hexX}, ${hexY})!`);
+            showToast(`🏃 ${personagemAtual.nome} movido!`);
         }
         
     } catch (error) {
-        console.error('Erro ao mover personagem:', error);
-        showToast('❌ Erro ao mover personagem. Tente novamente.', true);
+        console.error('Erro:', error);
+        showToast('❌ Erro ao mover personagem', true);
     } finally {
         estaProcessandoMovimento = false;
     }
@@ -3004,7 +2984,7 @@ function iniciarListeners() {
             });
         }
 
-     // ============================================
+    // ============================================
 // EVENTOS DO MAPA
 // ============================================
 function handleCanvasClick(clientX, clientY) {
@@ -3015,19 +2995,28 @@ function handleCanvasClick(clientX, clientY) {
         return;
     }
     
-    if (!highlightHex || highlightHex.length === 0) return;
+    if (!highlightHex || highlightHex.length === 0) {
+        showToast('Nenhum espaço disponível!', true);
+        return;
+    }
     
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const mouseX = (clientX - rect.left) * scaleX;
-    const mouseY = (clientY - rect.top) * scaleY;
-    const hex = pixelToHex(mouseX, mouseY);
+    const canvasX = (clientX - rect.left) * scaleX;
+    const canvasY = (clientY - rect.top) * scaleY;
+    const hex = pixelToHex(canvasX, canvasY);
     
-    if (hex.x === -1 || hex.y === -1) return;
+    if (hex.x === -1 || hex.y === -1) {
+        showToast('Clique dentro de um hexágono!', true);
+        return;
+    }
     
     const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
-    if (!isValid) return;
+    if (!isValid) {
+        showToast(`Posição (${hex.x},${hex.y}) não disponível`, true);
+        return;
+    }
     
     moverPersonagem(personagemAtual.id, hex.x, hex.y);
 }
