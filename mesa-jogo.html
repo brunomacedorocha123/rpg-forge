@@ -3281,21 +3281,48 @@ async function carregarSessao() {
 }
 
 // ============================================
-// EVENTOS DOS BOTÕES DE MODO
+// EVENTOS DOS BOTÕES DE MODO (CORRIGIDO - SALVA NO FIREBASE)
 // ============================================
 if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
-    btnModoNarrativo.addEventListener('click', () => {
+    btnModoNarrativo.addEventListener('click', async () => {
         btnModoNarrativo.classList.add('ativo');
         btnModoCombate.classList.remove('ativo');
         modoNarrativoDiv.style.display = 'block';
         modoCombateDiv.style.display = 'none';
+        
+        // ✅ SALVA NO FIREBASE para o jogador receber
+        if (sessaoAtual) {
+            try {
+                await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
+                    modoVisualizacao: 'narrativo',
+                    atualizadoEm: serverTimestamp()
+                });
+                showToast('Modo narrativo ativado - Jogadores notificados');
+            } catch (error) {
+                console.error('Erro ao salvar modo:', error);
+            }
+        }
     });
-    btnModoCombate.addEventListener('click', () => {
+    
+    btnModoCombate.addEventListener('click', async () => {
         btnModoCombate.classList.add('ativo');
         btnModoNarrativo.classList.remove('ativo');
         modoNarrativoDiv.style.display = 'none';
         modoCombateDiv.style.display = 'block';
         setTimeout(() => { if (ctx) desenharMapa(); }, 100);
+        
+        // ✅ SALVA NO FIREBASE para o jogador receber
+        if (sessaoAtual) {
+            try {
+                await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
+                    modoVisualizacao: 'combate',
+                    atualizadoEm: serverTimestamp()
+                });
+                showToast('Modo combate ativado - Jogadores notificados');
+            } catch (error) {
+                console.error('Erro ao salvar modo:', error);
+            }
+        }
     });
 }
 
@@ -3317,7 +3344,6 @@ if (btnMarcador) {
 }
 if (canvas) canvas.addEventListener('click', handleCanvasClick);
 if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
-
 // ============================================
 // EVENTOS DE NAVEGAÇÃO
 // ============================================
