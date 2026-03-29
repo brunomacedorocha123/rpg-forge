@@ -1950,17 +1950,27 @@ function hexToPixel(hexX, hexY) {
 }
 
 function pixelToHex(pixelX, pixelY) {
+    let melhorHex = { x: -1, y: -1 };
+    let menorDistancia = Infinity;
+    
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const pixel = hexToPixel(x, y);
-            const dx = Math.abs(pixelX - pixel.x);
-            const dy = Math.abs(pixelY - pixel.y);
-            if (dx < HEX_RADIUS && dy < HEX_RADIUS) {
-                return { x, y };
+            
+            // ✅ CORRIGIDO: Distância euclidiana (círculo real)
+            const distancia = Math.sqrt(
+                Math.pow(pixelX - pixel.x, 2) + 
+                Math.pow(pixelY - pixel.y, 2)
+            );
+            
+            // Se está dentro do raio do hexágono e é o mais próximo
+            if (distancia < HEX_RADIUS && distancia < menorDistancia) {
+                menorDistancia = distancia;
+                melhorHex = { x, y };
             }
         }
     }
-    return { x: -1, y: -1 };
+    return melhorHex;
 }
 
 function desenharHexagono(ctx, x, y, destaque = null) {
@@ -2984,10 +2994,10 @@ function iniciarListeners() {
             });
         }
 
-    // ============================================
+   // ============================================
 // EVENTOS DO MAPA
 // ============================================
-function handleCanvasClick(clientX, clientY) {
+function handleCanvasClick(canvasX, canvasY) {
     if (!modoPosicionamentoAtivo && !modoMovimentoAtivo) return;
     
     if (!personagemAtual || !personagemAtual.id) {
@@ -3000,11 +3010,6 @@ function handleCanvasClick(clientX, clientY) {
         return;
     }
     
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const canvasX = (clientX - rect.left) * scaleX;
-    const canvasY = (clientY - rect.top) * scaleY;
     const hex = pixelToHex(canvasX, canvasY);
     
     if (hex.x === -1 || hex.y === -1) {
@@ -3022,9 +3027,26 @@ function handleCanvasClick(clientX, clientY) {
 }
 
 if (canvas) {
-    canvas.addEventListener('click', handleCanvasClick);
+    // ✅ CORRIGIDO: Extrai coordenadas do evento de click
+    canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+        handleCanvasClick(canvasX, canvasY);
+    });
+    
+    // Touch permanece igual (já estava correto!)
     canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) handleCanvasClick(e.touches[0].clientX, e.touches[0].clientY);
+        if (e.touches.length === 1) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const canvasX = (e.touches[0].clientX - rect.left) * scaleX;
+            const canvasY = (e.touches[0].clientY - rect.top) * scaleY;
+            handleCanvasClick(canvasX, canvasY);
+        }
     }, { passive: true });
 }
 
