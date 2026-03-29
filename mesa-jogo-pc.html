@@ -2526,7 +2526,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             jogadoresContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum jogador na mesa</div>';
         }
 
-        // ============================================
+      // ============================================
 // LISTENERS DO FIRESTORE
 // ============================================
 
@@ -2557,66 +2557,66 @@ function iniciarListenerMarcadores() {
 function iniciarListenersCombate() {
     if (!sessaoAtual) return;
     
-   // ===== LISTENER DE COMBATE =====
-if (unsubscribeCombate) {
-    unsubscribeCombate();
-    unsubscribeCombate = null;
-}
+    // ===== LISTENER DE COMBATE =====
+    if (unsubscribeCombate) {
+        unsubscribeCombate();
+        unsubscribeCombate = null;
+    }
 
-const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
+    const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
 
-unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
-    if (!snapshot.empty) {
-        const combate = snapshot.docs[0];
-        const dados = combate.data();
-        const estavaInativo = !combateAtivo;
-        
-        // ✅ NOVO: Detecta mudança de turno para resetar movimento
-        const novoTurno = dados.turno || 1;
-        if (novoTurno !== turnoAtual && turnoAtual !== 1) {
-            // Turno mudou! Reseta o controle de movimento
+    unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
+        if (!snapshot.empty) {
+            const combate = snapshot.docs[0];
+            const dados = combate.data();
+            const estavaInativo = !combateAtivo;
+            
+            // ✅ Detecta mudança de turno para resetar movimento
+            const novoTurno = dados.turno || 1;
+            if (novoTurno !== turnoAtual && turnoAtual !== 1) {
+                // Turno mudou! Reseta o controle de movimento
+                movimentoUsadoNoTurno = 0;
+                turnoDoUltimoMovimento = 0;
+                maxMovimentoTurno = 0;
+                console.log(`🔄 Novo turno ${novoTurno}! Movimento resetado.`);
+            }
+            
+            combateAtivo = true;
+            turnoAtual = novoTurno;
+            vezAtual = dados.vez || 'jogadores';
+            modoCombateAtivo = true;
+            
+            // Se o combate acabou de iniciar, força atualização
+            if (estavaInativo) {
+                setTimeout(() => {
+                    if (ctx) desenharMapa();
+                    atualizarEstadoBotoes();
+                }, 100);
+            }
+        } else {
+            combateAtivo = false;
+            modoCombateAtivo = false;
+            // Reseta quando combate termina
             movimentoUsadoNoTurno = 0;
             turnoDoUltimoMovimento = 0;
             maxMovimentoTurno = 0;
-            console.log(`🔄 Novo turno ${novoTurno}! Movimento resetado.`);
+            resetarModoMovimento();
         }
         
-        combateAtivo = true;
-        turnoAtual = novoTurno;
-        vezAtual = dados.vez || 'jogadores';
-        modoCombateAtivo = true;
+        if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
+        if (vezJogadores && vezNPCs) {
+            if (vezAtual === 'jogadores') {
+                vezJogadores.classList.add('ativo');
+                vezNPCs.classList.remove('ativo');
+            } else {
+                vezJogadores.classList.remove('ativo');
+                vezNPCs.classList.add('ativo');
+            }
+        }
+        if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
         
-        // Se o combate acabou de iniciar, força atualização
-        if (estavaInativo) {
-            setTimeout(() => {
-                if (ctx) desenharMapa();
-                atualizarEstadoBotoes();
-            }, 100);
-        }
-    } else {
-        combateAtivo = false;
-        modoCombateAtivo = false;
-        // ✅ NOVO: Reseta quando combate termina
-        movimentoUsadoNoTurno = 0;
-        turnoDoUltimoMovimento = 0;
-        maxMovimentoTurno = 0;
-        resetarModoMovimento();
-    }
-    
-    if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
-    if (vezJogadores && vezNPCs) {
-        if (vezAtual === 'jogadores') {
-            vezJogadores.classList.add('ativo');
-            vezNPCs.classList.remove('ativo');
-        } else {
-            vezJogadores.classList.remove('ativo');
-            vezNPCs.classList.add('ativo');
-        }
-    }
-    if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
-    
-    atualizarEstadoBotoes();
-});
+        atualizarEstadoBotoes();
+    });
     
     // ===== LISTENER DE POSIÇÕES (SINCRONIA EM TEMPO REAL) =====
     if (unsubscribePosicoes) {
@@ -2677,7 +2677,7 @@ unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
 function iniciarListeners() {
     if (!sessaoAtual) return;
 
-    // Listener da sessão (cenário e modo)
+    // ✅ CORRIGIDO: Listener da sessão (cenário e modo) - SEMPRE atualiza
     onSnapshot(doc(db, "sessoes", sessaoAtual.id), (docSnap) => {
         if (docSnap.exists()) {
             const dados = docSnap.data();
@@ -2696,38 +2696,37 @@ function iniciarListeners() {
                 }
             }
             
-            // Atualiza modo de visualização
-            if (dados.modoVisualizacao) {
-                const novoModo = dados.modoVisualizacao;
-                if (novoModo !== modoVisualizacao) {
-                    modoVisualizacao = novoModo;
-                    
-                    if (modoVisualizacao === 'combate') {
-                        modoNarrativo.style.display = 'none';
-                        modoCombate.style.display = 'block';
-                        modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'combate'));
-                        
-                        // Só inicia listeners de combate se ainda não existirem
-                        if (!unsubscribeMarcadores && !unsubscribePosicoes && !unsubscribeCombate) {
-                            iniciarListenerMarcadores();
-                            iniciarListenersCombate();
-                        } else {
-                            // Se já existem, apenas força redesenho
-                            if (ctx) desenharMapa();
-                        }
-                    } else {
-                        modoNarrativo.style.display = 'block';
-                        modoCombate.style.display = 'none';
-                        modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo'));
-                        resetarModoMovimento();
-                        
-                        // Limpa listeners de combate quando sai do modo
-                        if (unsubscribePosicoes) { unsubscribePosicoes(); unsubscribePosicoes = null; }
-                        if (unsubscribeCombate) { unsubscribeCombate(); unsubscribeCombate = null; }
-                        if (unsubscribeMarcadores) { unsubscribeMarcadores(); unsubscribeMarcadores = null; }
-                    }
+            // ✅ CORRIGIDO: Sempre atualiza o modo baseado no Firebase (remove o "if" que bloqueava)
+            const novoModo = dados.modoVisualizacao || 'narrativo';
+            
+            // Sempre atualiza a UI baseado no modo do Firebase
+            if (novoModo === 'combate') {
+                modoNarrativo.style.display = 'none';
+                modoCombate.style.display = 'block';
+                modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'combate'));
+                
+                // Inicia listeners de combate se necessário
+                if (!unsubscribeMarcadores && !unsubscribePosicoes && !unsubscribeCombate) {
+                    iniciarListenerMarcadores();
+                    iniciarListenersCombate();
+                } else {
+                    if (ctx) desenharMapa();
                 }
+            } else {
+                // Modo narrativo
+                modoNarrativo.style.display = 'block';
+                modoCombate.style.display = 'none';
+                modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo'));
+                resetarModoMovimento();
+                
+                // Limpa listeners de combate quando sai do modo
+                if (unsubscribePosicoes) { unsubscribePosicoes(); unsubscribePosicoes = null; }
+                if (unsubscribeCombate) { unsubscribeCombate(); unsubscribeCombate = null; }
+                if (unsubscribeMarcadores) { unsubscribeMarcadores(); unsubscribeMarcadores = null; }
             }
+            
+            // Atualiza variável global no final
+            modoVisualizacao = novoModo;
         }
     });
 
