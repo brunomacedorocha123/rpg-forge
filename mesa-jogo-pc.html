@@ -1729,7 +1729,7 @@ canvas.modo-movimento {
         const valorCorrerSpan = document.getElementById('valorCorrer');
         const statusMovimento = document.getElementById('statusMovimento');
 
-        // ============================================
+      // ============================================
 // VARIÁVEIS GLOBAIS (COMPLETO E CORRIGIDO)
 // ============================================
 
@@ -1757,9 +1757,14 @@ let unsubscribeCombate = null;
 let unsubscribeMarcadores = null;
 
 // ===== VARIÁVEIS DE MOVIMENTO (ESSENCIAIS PARA O POSICIONAMENTO) =====
-let modoPosicionamentoAtivo = false;     // Controla se está em modo de posicionamento
-let modoMovimentoAtivo = false;          // Controla se está em modo de movimento
-let tipoMovimentoAtual = null;           // 'andar' ou 'correr'
+let modoPosicionamentoAtivo = false;
+let modoMovimentoAtivo = false;
+let tipoMovimentoAtual = null;
+
+// ✅ NOVO: Controle de movimento por turno
+let movimentoUsadoNoTurno = 0;        // Metros já andados no turno atual
+let turnoDoUltimoMovimento = 0;       // Para detectar mudança de turno
+let maxMovimentoTurno = 0;            // Máximo permitido (andar ou correr)
 
 // Configurações do mapa HEXAGONAL
 const HEX_RADIUS = 24;
@@ -2067,7 +2072,7 @@ function desenharMapa() {
     });
 }
 // ============================================
-// FUNÇÕES DE MOVIMENTO DO JOGADOR (COMPLETO)
+// FUNÇÕES DE MOVIMENTO DO PERSONAGEM (COMPLETO)
 // ============================================
 
 function resetarModoMovimento() {
@@ -2088,10 +2093,17 @@ function resetarModoMovimento() {
 function podeMover() {
     if (!combateAtivo) return { pode: false, motivo: 'Combate não iniciado' };
     if (vezAtual !== 'jogadores') return { pode: false, motivo: 'Não é sua vez' };
+    
     const pos = posicoes[personagemAtual?.id];
     if (!pos || pos.hexX === undefined || pos.hexX === null) {
         return { pode: false, motivo: 'Posicione seu personagem primeiro' };
     }
+    
+    // ✅ NOVO: Verifica se já usou movimento no turno
+    if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno >= maxMovimentoTurno) {
+        return { pode: false, motivo: 'Movimento do turno já esgotado' };
+    }
+    
     return { pode: true, motivo: '' };
 }
 
@@ -2141,8 +2153,13 @@ function atualizarEstadoBotoes() {
     const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexX >= 0;
     const desloc = calcularDeslocamento();
     
-    if (valorAndarSpan) valorAndarSpan.textContent = desloc.andar;
-    if (valorCorrerSpan) valorCorrerSpan.textContent = desloc.correr;
+    // ✅ NOVO: Calcula movimento restante no turno
+    const movimentoRestante = (turnoDoUltimoMovimento === turnoAtual) 
+        ? Math.max(0, maxMovimentoTurno - movimentoUsadoNoTurno)
+        : desloc.andar;
+    
+    if (valorAndarSpan) valorAndarSpan.textContent = Math.min(desloc.andar, movimentoRestante);
+    if (valorCorrerSpan) valorCorrerSpan.textContent = Math.min(desloc.correr, movimentoRestante);
     
     if (btnPosicionarPC) {
         const deveDesabilitar = combateAtivo && estaPosicionado;
@@ -2160,10 +2177,12 @@ function atualizarEstadoBotoes() {
     }
     
     if (btnMoverAndar && btnMoverCorrer) {
-        const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo;
+        // ✅ NOVO: Bloqueia se já moveu no turno
+        const jaMoveuNoTurno = (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0);
+        const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo && !jaMoveuNoTurno;
         
-        btnMoverAndar.disabled = !podeMoverFlag;
-        btnMoverCorrer.disabled = !podeMoverFlag;
+        btnMoverAndar.disabled = !podeMoverFlag || jaMoveuNoTurno;
+        btnMoverCorrer.disabled = !podeMoverFlag || jaMoveuNoTurno;
         btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
         btnMoverCorrer.style.opacity = podeMoverFlag ? '1' : '0.5';
         
@@ -2195,14 +2214,22 @@ function atualizarEstadoBotoes() {
         } else if (!estaPosicionado) {
             statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
             statusMovimento.style.background = 'rgba(255, 100, 100, 0.2)';
+        // ✅ NOVO: Mostra quando já moveu no turno
+        } else if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
+            statusMovimento.innerHTML = `✅ Já se moveu ${movimentoUsadoNoTurno}m neste turno. Aguarde o próximo.`;
+            statusMovimento.style.background = 'rgba(100, 100, 100, 0.3)';
         } else if (modoPosicionamentoAtivo) {
-            statusMovimento.innerHTML = '📍 Modo posicionamento: clique no mapa verde para posicionar';
+            statusMovimento.innerHTML = `📍 Modo posicionamento: clique no mapa verde`;
             statusMovimento.style.background = 'rgba(46, 204, 113, 0.2)';
         } else if (modoMovimentoAtivo) {
-            statusMovimento.innerHTML = `🎯 Modo movimento: clique no mapa verde para ${tipoMovimentoAtual === 'andar' ? `andar (até ${desloc.andar}m)` : `correr (até ${desloc.correr}m)`}`;
+            const restante = maxMovimentoTurno - movimentoUsadoNoTurno;
+            statusMovimento.innerHTML = `🎯 Modo ${tipoMovimentoAtual}: ${restante}m restantes`;
             statusMovimento.style.background = 'rgba(46, 204, 113, 0.2)';
         } else {
-            statusMovimento.innerHTML = '✅ Pronto para agir';
+            const restante = (turnoDoUltimoMovimento === turnoAtual) 
+                ? maxMovimentoTurno - movimentoUsadoNoTurno 
+                : desloc.andar;
+            statusMovimento.innerHTML = `✅ Pronto: ${restante}m disponíveis neste turno`;
             statusMovimento.style.background = 'rgba(46, 204, 113, 0.1)';
         }
     }
@@ -2245,10 +2272,6 @@ function iniciarPosicionamento() {
     desenharMapa();
     atualizarEstadoBotoes();
     
-    if (statusMovimento) {
-        statusMovimento.innerHTML = `📍 Modo posicionamento: ${highlightHex.length} espaços disponíveis`;
-    }
-    
     showToast(`🔰 Clique em um hexágono verde para posicionar`);
 }
 
@@ -2268,10 +2291,19 @@ function iniciarMovimento(tipo) {
     const desloc = calcularDeslocamento();
     const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
     
+    // ✅ NOVO: Verifica se já usou movimento neste turno
+    if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
+        showToast(`Você já se moveu ${movimentoUsadoNoTurno}m neste turno!`, true);
+        return;
+    }
+    
     if (alcance <= 0) {
         showToast(`Você não tem ${tipo} suficiente!`, true);
         return;
     }
+    
+    // ✅ NOVO: Define o máximo para este turno
+    maxMovimentoTurno = alcance;
     
     resetarModoMovimento();
     
@@ -2287,11 +2319,7 @@ function iniciarMovimento(tipo) {
     desenharMapa();
     atualizarEstadoBotoes();
     
-    if (statusMovimento) {
-        statusMovimento.innerHTML = `🎯 Modo ${tipo}: clique em um hexágono verde (até ${alcance}m)`;
-    }
-    
-    showToast(`🏃 Modo ${tipo} ativado!`);
+    showToast(`🏃 Modo ${tipo} ativado! Máx: ${alcance}m`);
 }
 
 async function moverPersonagem(personagemId, hexX, hexY) {
@@ -2357,6 +2385,15 @@ async function moverPersonagem(personagemId, hexX, hexY) {
                 return;
             }
             
+            // ✅ NOVO: Verifica se já moveu neste turno
+            if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
+                showToast(`Você já se moveu neste turno!`, true);
+                return;
+            }
+            
+            const pos = posicoes[personagemAtual?.id];
+            const distanciaHex = Math.max(Math.abs(hexX - pos.hexX), Math.abs(hexY - pos.hexY));
+            
             const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
             await updateDoc(posRef, { 
                 hexX: hexX, 
@@ -2367,9 +2404,15 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             posicoes[personagemId].hexX = hexX;
             posicoes[personagemId].hexY = hexY;
             
+            // ✅ NOVO: Registra o movimento no turno atual
+            movimentoUsadoNoTurno = distanciaHex; // ou maxMovimentoTurno se quiser registrar o total
+            turnoDoUltimoMovimento = turnoAtual;
+            
             resetarModoMovimento();
             desenharMapa();
-            showToast(`🏃 ${personagemAtual.nome} movido!`);
+            atualizarEstadoBotoes(); // Atualiza para bloquear botões
+            
+            showToast(`🏃 ${personagemAtual.nome} moveu ${distanciaHex}m! Movimento do turno usado.`);
         }
         
     } catch (error) {
@@ -2514,50 +2557,66 @@ function iniciarListenerMarcadores() {
 function iniciarListenersCombate() {
     if (!sessaoAtual) return;
     
-    // ===== LISTENER DE COMBATE =====
-    if (unsubscribeCombate) {
-        unsubscribeCombate();
-        unsubscribeCombate = null;
+   // ===== LISTENER DE COMBATE =====
+if (unsubscribeCombate) {
+    unsubscribeCombate();
+    unsubscribeCombate = null;
+}
+
+const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
+
+unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
+    if (!snapshot.empty) {
+        const combate = snapshot.docs[0];
+        const dados = combate.data();
+        const estavaInativo = !combateAtivo;
+        
+        // ✅ NOVO: Detecta mudança de turno para resetar movimento
+        const novoTurno = dados.turno || 1;
+        if (novoTurno !== turnoAtual && turnoAtual !== 1) {
+            // Turno mudou! Reseta o controle de movimento
+            movimentoUsadoNoTurno = 0;
+            turnoDoUltimoMovimento = 0;
+            maxMovimentoTurno = 0;
+            console.log(`🔄 Novo turno ${novoTurno}! Movimento resetado.`);
+        }
+        
+        combateAtivo = true;
+        turnoAtual = novoTurno;
+        vezAtual = dados.vez || 'jogadores';
+        modoCombateAtivo = true;
+        
+        // Se o combate acabou de iniciar, força atualização
+        if (estavaInativo) {
+            setTimeout(() => {
+                if (ctx) desenharMapa();
+                atualizarEstadoBotoes();
+            }, 100);
+        }
+    } else {
+        combateAtivo = false;
+        modoCombateAtivo = false;
+        // ✅ NOVO: Reseta quando combate termina
+        movimentoUsadoNoTurno = 0;
+        turnoDoUltimoMovimento = 0;
+        maxMovimentoTurno = 0;
+        resetarModoMovimento();
     }
     
-    const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
-    
-    unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
-        if (!snapshot.empty) {
-            const combate = snapshot.docs[0];
-            const estavaInativo = !combateAtivo;
-            combateAtivo = true;
-            turnoAtual = combate.data().turno || 1;
-            vezAtual = combate.data().vez || 'jogadores';
-            modoCombateAtivo = true;
-            
-            // Se o combate acabou de iniciar, força atualização
-            if (estavaInativo) {
-                setTimeout(() => {
-                    if (ctx) desenharMapa();
-                    atualizarEstadoBotoes();
-                }, 100);
-            }
+    if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
+    if (vezJogadores && vezNPCs) {
+        if (vezAtual === 'jogadores') {
+            vezJogadores.classList.add('ativo');
+            vezNPCs.classList.remove('ativo');
         } else {
-            combateAtivo = false;
-            modoCombateAtivo = false;
-            resetarModoMovimento();
+            vezJogadores.classList.remove('ativo');
+            vezNPCs.classList.add('ativo');
         }
-        
-        if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
-        if (vezJogadores && vezNPCs) {
-            if (vezAtual === 'jogadores') {
-                vezJogadores.classList.add('ativo');
-                vezNPCs.classList.remove('ativo');
-            } else {
-                vezJogadores.classList.remove('ativo');
-                vezNPCs.classList.add('ativo');
-            }
-        }
-        if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
-        
-        atualizarEstadoBotoes();
-    });
+    }
+    if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
+    
+    atualizarEstadoBotoes();
+});
     
     // ===== LISTENER DE POSIÇÕES (SINCRONIA EM TEMPO REAL) =====
     if (unsubscribePosicoes) {
