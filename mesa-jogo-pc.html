@@ -2526,11 +2526,10 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             jogadoresContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum jogador na mesa</div>';
         }
 
-     // ============================================
-// LISTENERS DO FIRESTORE (VERSÃO COMPLETAMENTE CORRIGIDA)
+    // ============================================
+// LISTENERS DO FIRESTORE - VERSÃO FUNCIONAL
 // ============================================
 
-// Variáveis para controle de listener ativo
 let unsubscribeSessao = null;
 let unsubscribeMarcadoresGlobal = null;
 let unsubscribePosicoesGlobal = null;
@@ -2538,160 +2537,67 @@ let unsubscribeCombateGlobal = null;
 let unsubscribeRolagens = null;
 let unsubscribeNPCs = null;
 
-/**
- * FUNÇÃO PRINCIPAL: INICIA TODOS OS LISTENERS
- * DEVE SER CHAMADA APENAS APÓS sessaoAtual ESTAR DEFINIDO
- */
 function iniciarListeners() {
     if (!sessaoAtual || !sessaoAtual.id) {
-        console.error('❌ iniciarListeners: sessaoAtual não está definida');
+        setTimeout(() => {
+            if (sessaoAtual && sessaoAtual.id) iniciarListeners();
+        }, 500);
         return;
     }
 
-    console.log('🎧 Iniciando listeners do Firestore para sessão:', sessaoAtual.id);
-
-    // ============================================
-    // 1. LISTENER DA SESSÃO (MODO E CENÁRIO) - MAIS IMPORTANTE!
-    // ============================================
-    if (unsubscribeSessao) {
-        unsubscribeSessao();
-        unsubscribeSessao = null;
-    }
-
+    // Listener da sessão (MODO e CENÁRIO)
+    if (unsubscribeSessao) unsubscribeSessao();
     const sessaoRef = doc(db, "sessoes", sessaoAtual.id);
     
-    unsubscribeSessao = onSnapshot(sessaoRef, { source: 'server' }, (docSnap) => {
-        if (!docSnap.exists()) {
-            console.warn('⚠️ Sessão não encontrada no Firestore');
-            return;
-        }
-        
+    unsubscribeSessao = onSnapshot(sessaoRef, (docSnap) => {
+        if (!docSnap.exists()) return;
         const dados = docSnap.data();
-        console.log('📡 [SESSÃO] Atualização recebida:', {
-            modo: dados.modoVisualizacao,
-            temCena: !!dados.cena_atual,
-            timestamp: new Date().toISOString()
-        });
+        const modoFirebase = dados.modoVisualizacao || 'narrativo';
         
-        // ===== ATUALIZA CENÁRIO =====
+        // Atualiza cenário
         if (dados.cena_atual) {
-            // Descrição
             if (dados.cena_atual.descricao !== undefined && cenarioDescricao) {
-                const novaDescricao = dados.cena_atual.descricao || '';
-                if (cenarioDescricao.value !== novaDescricao) {
-                    cenarioDescricao.value = novaDescricao;
-                    console.log('📝 Descrição do cenário atualizada');
-                }
+                cenarioDescricao.value = dados.cena_atual.descricao || '';
             }
-            
-            // Imagem
             if (cenarioImagem) {
                 if (dados.cena_atual.imagemBase64) {
                     cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemBase64}" alt="Cena">`;
-                    console.log('🖼️ Imagem do cenário atualizada (Base64)');
                 } else if (dados.cena_atual.imagemUrl) {
                     cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemUrl}" alt="Cena">`;
-                    console.log('🖼️ Imagem do cenário atualizada (URL)');
                 } else {
                     cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
                 }
             }
         }
         
-        // ===== SINCRONIZA MODO DE VISUALIZAÇÃO (MAIS IMPORTANTE!) =====
-        const novoModo = dados.modoVisualizacao || 'narrativo';
-        
-        // Verifica se o modo realmente mudou
-        if (modoVisualizacao !== novoModo) {
-            console.log(`🔄 MODO ALTERADO: ${modoVisualizacao} -> ${novoModo}`);
-            
-            // Mostra toast para o jogador
-            if (novoModo === 'combate') {
-                showToast('⚔️ Mestre mudou para MODO COMBATE!', false);
+        // Sincroniza modo
+        if (modoVisualizacao !== modoFirebase) {
+            if (modoFirebase === 'combate') {
+                modoNarrativo.style.display = 'none';
+                modoCombate.style.display = 'block';
+                modoBtns.forEach(btn => {
+                    btn.classList.toggle('ativa', btn.dataset.modo === 'combate');
+                });
+                iniciarListenerMarcadores();
+                iniciarListenersCombate();
+                if (ctx) setTimeout(() => desenharMapa(), 50);
             } else {
-                showToast('📖 Mestre mudou para MODO NARRATIVO!', false);
-            }
-            
-            // Atualiza UI baseado no novo modo
-            if (novoModo === 'combate') {
-                // Ativa modo combate
-                if (modoNarrativo) modoNarrativo.style.display = 'none';
-                if (modoCombate) modoCombate.style.display = 'block';
-                
-                // Atualiza os botões de toggle visualmente
-                if (modoBtns) {
-                    modoBtns.forEach(btn => {
-                        if (btn.dataset.modo === 'combate') {
-                            btn.classList.add('ativa');
-                        } else {
-                            btn.classList.remove('ativa');
-                        }
-                    });
-                }
-                
-                // Inicia listeners de combate se necessário
-                if (!unsubscribePosicoesGlobal && !unsubscribeCombateGlobal && !unsubscribeMarcadoresGlobal) {
-                    iniciarListenersCombate();
-                } else if (ctx) {
-                    setTimeout(() => desenharMapa(), 100);
-                }
-                
-            } else {
-                // Ativa modo narrativo
-                if (modoNarrativo) modoNarrativo.style.display = 'block';
-                if (modoCombate) modoCombate.style.display = 'none';
-                
-                // Atualiza os botões de toggle visualmente
-                if (modoBtns) {
-                    modoBtns.forEach(btn => {
-                        if (btn.dataset.modo === 'narrativo') {
-                            btn.classList.add('ativa');
-                        } else {
-                            btn.classList.remove('ativa');
-                        }
-                    });
-                }
-                
-                // Reseta modo de movimento
+                modoNarrativo.style.display = 'block';
+                modoCombate.style.display = 'none';
+                modoBtns.forEach(btn => {
+                    btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo');
+                });
                 resetarModoMovimento();
-                
-                // Limpa listeners de combate para economizar recursos
-                if (unsubscribePosicoesGlobal) { 
-                    unsubscribePosicoesGlobal(); 
-                    unsubscribePosicoesGlobal = null; 
-                }
-                if (unsubscribeCombateGlobal) { 
-                    unsubscribeCombateGlobal(); 
-                    unsubscribeCombateGlobal = null; 
-                }
-                if (unsubscribeMarcadoresGlobal) { 
-                    unsubscribeMarcadoresGlobal(); 
-                    unsubscribeMarcadoresGlobal = null; 
-                }
+                if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
+                if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
+                if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
             }
-            
-            // Atualiza variável global
-            modoVisualizacao = novoModo;
-            
-            // Força re-renderização se necessário
-            if (ctx && novoModo === 'combate') {
-                setTimeout(() => desenharMapa(), 50);
-            }
+            modoVisualizacao = modoFirebase;
         }
-        
-    }, (error) => {
-        console.error('❌ Erro no listener da sessão:', error);
-        showToast('Erro ao sincronizar com a mesa do mestre', true);
     });
-    
-    // ============================================
-    // 2. LISTENER DE ROLAGENS (LOG PÚBLICO)
-    // ============================================
-    if (unsubscribeRolagens) {
-        unsubscribeRolagens();
-        unsubscribeRolagens = null;
-    }
-    
+
+    // Listener de rolagens
+    if (unsubscribeRolagens) unsubscribeRolagens();
     const rolagensQuery = query(
         collection(db, "sessoes", sessaoAtual.id, "rolagens"),
         where("visibilidade", "==", "publico"),
@@ -2703,23 +2609,10 @@ function iniciarListeners() {
         let logHtml = '';
         snapshot.forEach(docSnap => {
             const r = docSnap.data();
-            
             if (r.tipo === 'pericia') {
-                logHtml += `
-                    <div class="log-item">
-                        <span class="icone">🎲</span>
-                        <span class="jogador">${r.jogador || 'Alguém'}:</span>
-                        Perícia ${r.resultado}% (base ${r.resultadoBase}%)
-                    </div>
-                `;
+                logHtml += `<div class="log-item"><span class="icone">🎲</span><span class="jogador">${r.jogador || 'Alguém'}:</span> Perícia ${r.resultado}%</div>`;
             } else if (r.tipo === 'dano') {
-                logHtml += `
-                    <div class="log-item">
-                        <span class="icone">💥</span>
-                        <span class="jogador">${r.jogador || 'Alguém'}:</span>
-                        Dano ${r.total} (${r.dados?.join('+')} = ${r.soma} ${r.modificador > 0 ? '+' : ''}${r.modificador})
-                    </div>
-                `;
+                logHtml += `<div class="log-item"><span class="icone">💥</span><span class="jogador">${r.jogador || 'Alguém'}:</span> Dano ${r.total}</div>`;
             } else if (r.tipo === 'critico') {
                 let nomeTabela = '';
                 if (r.tabela === 'ful-ataque') nomeTabela = 'Fulminante Ataque';
@@ -2728,32 +2621,14 @@ function iniciarListeners() {
                 else if (r.tabela === 'fal-ataque') nomeTabela = 'Falha Ataque';
                 else if (r.tabela === 'fal-defesa') nomeTabela = 'Falha Defesa';
                 else if (r.tabela === 'fal-magia') nomeTabela = 'Falha Magia';
-                
-                logHtml += `
-                    <div class="log-item">
-                        <span class="icone">⚡</span>
-                        <span class="jogador">${r.jogador || 'Alguém'}:</span>
-                        [${nomeTabela}] ${r.resultado} - ${r.texto}
-                    </div>
-                `;
+                logHtml += `<div class="log-item"><span class="icone">⚡</span><span class="jogador">${r.jogador || 'Alguém'}:</span> [${nomeTabela}] ${r.resultado} - ${r.texto}</div>`;
             }
         });
-        
-        if (logContainer) {
-            logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
-        }
-    }, (error) => {
-        console.error('❌ Erro no listener de rolagens:', error);
+        if (logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
     });
-    
-    // ============================================
-    // 3. LISTENER DE NPCs NA CENA
-    // ============================================
-    if (unsubscribeNPCs) {
-        unsubscribeNPCs();
-        unsubscribeNPCs = null;
-    }
-    
+
+    // Listener de NPCs
+    if (unsubscribeNPCs) unsubscribeNPCs();
     const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
     
     unsubscribeNPCs = onSnapshot(npcsQuery, (snapshot) => {
@@ -2762,105 +2637,45 @@ function iniciarListeners() {
             const npc = docSnap.data();
             const pvAtual = npc.recursos?.pv_atual ?? '?';
             const pvMax = npc.recursos?.pv_max ?? '?';
-            
-            html += `
-                <div class="npc-cena-item">
-                    <span class="npc-cena-nome">${npc.nome || '?'}</span>
-                    <span class="npc-cena-pv">PV: ${pvAtual}/${pvMax}</span>
-                </div>
-            `;
+            html += `<div class="npc-cena-item"><span class="npc-cena-nome">${npc.nome || '?'}</span><span class="npc-cena-pv">PV: ${pvAtual}/${pvMax}</span></div>`;
         });
-        
-        if (npcsCenaContainer) {
-            npcsCenaContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum NPC na cena</div>';
-        }
-    }, (error) => {
-        console.error('❌ Erro no listener de NPCs:', error);
+        if (npcsCenaContainer) npcsCenaContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum NPC na cena</div>';
     });
-    
-    console.log('✅ Todos os listeners da sessão foram iniciados');
 }
 
-// ============================================
-// LISTENER DE MARCADORES (OBSTÁCULOS)
-// ============================================
 function iniciarListenerMarcadores() {
-    if (!sessaoAtual) {
-        console.warn('⚠️ iniciarListenerMarcadores: sessaoAtual não definida');
-        return;
-    }
-    
-    // Limpa listener existente antes de criar novo
-    if (unsubscribeMarcadoresGlobal) {
-        unsubscribeMarcadoresGlobal();
-        unsubscribeMarcadoresGlobal = null;
-    }
+    if (!sessaoAtual) return;
+    if (unsubscribeMarcadoresGlobal) unsubscribeMarcadoresGlobal();
     
     const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-    
     unsubscribeMarcadoresGlobal = onSnapshot(marcadoresRef, (snapshot) => {
         const novosMarcadores = {};
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
             novosMarcadores[`${data.x}_${data.y}`] = { id: docSnap.id, x: data.x, y: data.y };
         });
-        
         marcadores = novosMarcadores;
-        
-        if (ctx && modoVisualizacao === 'combate') {
-            desenharMapa();
-        }
-    }, (error) => {
-        console.error('❌ Erro no listener de marcadores:', error);
+        if (ctx && modoVisualizacao === 'combate') desenharMapa();
     });
-    
-    console.log('🎯 Listener de marcadores iniciado');
 }
 
-// ============================================
-// LISTENER DE COMBATE (ESTADO DO COMBATE)
-// ============================================
 function iniciarListenersCombate() {
-    if (!sessaoAtual) {
-        console.warn('⚠️ iniciarListenersCombate: sessaoAtual não definida');
-        return;
-    }
+    if (!sessaoAtual) return;
     
-    console.log('⚔️ Iniciando listeners de combate...');
+    // Listener de combate
+    if (unsubscribeCombateGlobal) unsubscribeCombateGlobal();
+    const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
     
-    // ===== LISTENER DE COMBATE (estado geral) =====
-    if (unsubscribeCombateGlobal) {
-        unsubscribeCombateGlobal();
-        unsubscribeCombateGlobal = null;
-    }
-
-    const combatesQuery = query(
-        collection(db, "sessoes", sessaoAtual.id, "combates"), 
-        where("ativo", "==", true), 
-        limit(1)
-    );
-
     unsubscribeCombateGlobal = onSnapshot(combatesQuery, (snapshot) => {
         if (!snapshot.empty) {
-            const combate = snapshot.docs[0];
-            const dados = combate.data();
+            const dados = snapshot.docs[0].data();
             const estavaInativo = !combateAtivo;
-            
-            console.log('📡 [COMBATE] Atualização:', {
-                turno: dados.turno,
-                vez: dados.vez,
-                ativo: dados.ativo
-            });
-            
-            // Detecta mudança de turno para resetar movimento
             const novoTurno = dados.turno || 1;
+            
             if (novoTurno !== turnoAtual && turnoAtual !== 1) {
-                // Turno mudou! Reseta o controle de movimento
                 movimentoUsadoNoTurno = 0;
                 turnoDoUltimoMovimento = 0;
                 maxMovimentoTurno = 0;
-                console.log(`🔄 Novo turno ${novoTurno}! Movimento resetado.`);
-                showToast(`🔄 Turno ${novoTurno} iniciado! Movimento resetado.`, false);
             }
             
             combateAtivo = true;
@@ -2868,23 +2683,15 @@ function iniciarListenersCombate() {
             vezAtual = dados.vez || 'jogadores';
             modoCombateAtivo = true;
             
-            // Se o combate acabou de iniciar, força atualização
             if (estavaInativo) {
-                console.log('⚔️ Combate iniciado!');
-                showToast('⚔️ COMBATE INICIADO!', false);
                 setTimeout(() => {
                     if (ctx) desenharMapa();
                     atualizarEstadoBotoes();
                 }, 100);
             }
         } else {
-            if (combateAtivo) {
-                console.log('🏁 Combate encerrado');
-                showToast('🏁 Combate encerrado pelo mestre', false);
-            }
             combateAtivo = false;
             modoCombateAtivo = false;
-            // Reseta quando combate termina
             movimentoUsadoNoTurno = 0;
             turnoDoUltimoMovimento = 0;
             maxMovimentoTurno = 0;
@@ -2901,22 +2708,12 @@ function iniciarListenersCombate() {
                 vezNPCs.classList.add('ativo');
             }
         }
-        if (modoAtualCombate) {
-            modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
-        }
-        
+        if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
         atualizarEstadoBotoes();
-        
-    }, (error) => {
-        console.error('❌ Erro no listener de combate:', error);
     });
     
-    // ===== LISTENER DE POSIÇÕES (SINCRONIA EM TEMPO REAL) =====
-    if (unsubscribePosicoesGlobal) {
-        unsubscribePosicoesGlobal();
-        unsubscribePosicoesGlobal = null;
-    }
-    
+    // Listener de posições
+    if (unsubscribePosicoesGlobal) unsubscribePosicoesGlobal();
     const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
     
     unsubscribePosicoesGlobal = onSnapshot(posicoesRef, (snapshot) => {
@@ -2927,23 +2724,15 @@ function iniciarListenersCombate() {
             const data = change.doc.data();
             
             if (change.type === "added" || change.type === "modified") {
-                // Verifica se houve mudança real na posição
                 const posExistente = posicoes[id];
-                const mudouPosicao = posExistente && (
-                    posExistente.hexX !== data.hexX || 
-                    posExistente.hexY !== data.hexY
-                );
+                const mudouPosicao = posExistente && (posExistente.hexX !== data.hexX || posExistente.hexY !== data.hexY);
                 
                 if (!posicoes[id]) {
                     posicoes[id] = { id, ...data };
                     precisaRedesenhar = true;
-                    console.log(`➕ Personagem ${data.nome || id} adicionado ao mapa`);
                 } else {
                     Object.assign(posicoes[id], data);
-                    if (mudouPosicao) {
-                        precisaRedesenhar = true;
-                        console.log(`📍 ${data.nome || id} moveu para (${data.hexX}, ${data.hexY})`);
-                    }
+                    if (mudouPosicao) precisaRedesenhar = true;
                 }
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
@@ -2951,10 +2740,8 @@ function iniciarListenersCombate() {
             }
             
             if (change.type === "removed") {
-                const nomeRemovido = posicoes[id]?.nome || id;
                 delete posicoes[id];
                 precisaRedesenhar = true;
-                console.log(`❌ Personagem ${nomeRemovido} removido do mapa`);
             }
         });
         
@@ -2962,7 +2749,6 @@ function iniciarListenersCombate() {
             desenharMapa();
         }
         
-        // Atualiza deslocamento do personagem atual
         if (personagemAtual && posicoes[personagemAtual.id]) {
             const desloc = calcularDeslocamento();
             posicoes[personagemAtual.id].andar = desloc.andar;
@@ -2970,87 +2756,17 @@ function iniciarListenersCombate() {
         }
         
         atualizarEstadoBotoes();
-        
-    }, (error) => {
-        console.error('❌ Erro no listener de posições:', error);
     });
-    
-    console.log('✅ Listeners de combate iniciados (posições + estado)');
 }
 
-// ============================================
-// FUNÇÃO PARA PARAR TODOS OS LISTENERS (LIMPEZA)
-// ============================================
 function pararTodosListeners() {
-    console.log('🛑 Parando todos os listeners...');
-    
-    if (unsubscribeSessao) {
-        unsubscribeSessao();
-        unsubscribeSessao = null;
-    }
-    if (unsubscribeMarcadoresGlobal) {
-        unsubscribeMarcadoresGlobal();
-        unsubscribeMarcadoresGlobal = null;
-    }
-    if (unsubscribePosicoesGlobal) {
-        unsubscribePosicoesGlobal();
-        unsubscribePosicoesGlobal = null;
-    }
-    if (unsubscribeCombateGlobal) {
-        unsubscribeCombateGlobal();
-        unsubscribeCombateGlobal = null;
-    }
-    if (unsubscribeRolagens) {
-        unsubscribeRolagens();
-        unsubscribeRolagens = null;
-    }
-    if (unsubscribeNPCs) {
-        unsubscribeNPCs();
-        unsubscribeNPCs = null;
-    }
-    
-    console.log('✅ Todos os listeners parados');
+    if (unsubscribeSessao) { unsubscribeSessao(); unsubscribeSessao = null; }
+    if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
+    if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
+    if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
+    if (unsubscribeRolagens) { unsubscribeRolagens(); unsubscribeRolagens = null; }
+    if (unsubscribeNPCs) { unsubscribeNPCs(); unsubscribeNPCs = null; }
 }
-
-// ============================================
-// FUNÇÃO PARA RECONECTAR LISTENERS (ÚTIL EM CASO DE ERRO)
-// ============================================
-function reconectarListeners() {
-    console.log('🔄 Reconectando listeners...');
-    pararTodosListeners();
-    if (sessaoAtual && sessaoAtual.id) {
-        iniciarListeners();
-    } else {
-        console.warn('⚠️ Não foi possível reconectar: sessaoAtual não definida');
-    }
-}
-
-// ============================================
-// SOBRESCREVER O LISTENER ORIGINAL DO CARREGAMENTO DA SESSÃO
-// ============================================
-// NOTA: No carregamento da sessão, após definir sessaoAtual, chame:
-// iniciarListeners();
-
-// Para debug, exponha funções no window (opcional)
-window.debugListeners = {
-    parar: pararTodosListeners,
-    reconectar: reconectarListeners,
-    status: () => ({
-        sessao: !!sessaoAtual,
-        modo: modoVisualizacao,
-        combateAtivo: combateAtivo,
-        turno: turnoAtual,
-        vez: vezAtual,
-        listeners: {
-            sessao: !!unsubscribeSessao,
-            marcadores: !!unsubscribeMarcadoresGlobal,
-            posicoes: !!unsubscribePosicoesGlobal,
-            combate: !!unsubscribeCombateGlobal,
-            rolagens: !!unsubscribeRolagens,
-            npcs: !!unsubscribeNPCs
-        }
-    })
-};
 
         // ============================================
         // FUNÇÕES DE AÇÃO
@@ -3373,170 +3089,184 @@ if (canvas) {
             btnMoverCorrer.addEventListener('click', () => iniciarMovimento('correr'));
         }
 
-        // ============================================
-        // CARREGAR SESSÃO
-        // ============================================
-        async function carregarVinculoEPersonagem() {
-            if (!currentUser || !campanhaId) return null;
+       // ============================================
+// CARREGAR SESSÃO
+// ============================================
+async function carregarVinculoEPersonagem() {
+    if (!currentUser || !campanhaId) return null;
 
-            try {
-                const vinculosQuery = query(
-                    collection(db, "campanha_personagens"),
-                    where("campanha_id", "==", campanhaId),
-                    where("jogador_uid", "==", currentUser.uid),
-                    where("status", "==", "ativo")
-                );
-                
-                const vinculosSnap = await getDocs(vinculosQuery);
-                
-                if (vinculosSnap.empty) {
-                    showToast('Você não tem personagem vinculado a esta campanha!', true);
-                    setTimeout(() => window.location.href = 'campanhas.html', 2000);
-                    return null;
-                }
-
-                vinculoAtual = {
-                    id: vinculosSnap.docs[0].id,
-                    ...vinculosSnap.docs[0].data()
-                };
-
-                const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
-                const personagemSnap = await getDoc(personagemRef);
-                
-                if (!personagemSnap.exists()) {
-                    showToast('Personagem não encontrado!', true);
-                    return null;
-                }
-
-                personagemAtual = {
-                    id: personagemSnap.id,
-                    ...personagemSnap.data()
-                };
-
-                if (!personagemAtual.statusCombate) {
-                    personagemAtual.statusCombate = {
-                        vidaAtual: calcularPV(),
-                        vidaMax: calcularPV(),
-                        manaAtual: calcularPM(),
-                        manaMax: calcularPM(),
-                        fadigaAtual: calcularPF(),
-                        fadigaMax: calcularPF()
-                    };
-                }
-
-                return personagemAtual;
-
-            } catch (error) {
-                console.error('Erro ao carregar vínculo:', error);
-                showToast('Erro ao carregar personagem', true);
-                return null;
-            }
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaId),
+            where("jogador_uid", "==", currentUser.uid),
+            where("status", "==", "ativo")
+        );
+        
+        const vinculosSnap = await getDocs(vinculosQuery);
+        
+        if (vinculosSnap.empty) {
+            showToast('Você não tem personagem vinculado a esta campanha!', true);
+            setTimeout(() => window.location.href = 'campanhas.html', 2000);
+            return null;
         }
 
-        async function carregarTodosJogadores() {
-            if (!campanhaId) return;
+        vinculoAtual = {
+            id: vinculosSnap.docs[0].id,
+            ...vinculosSnap.docs[0].data()
+        };
 
-            try {
-                const vinculosQuery = query(
-                    collection(db, "campanha_personagens"),
-                    where("campanha_id", "==", campanhaId),
-                    where("status", "==", "ativo")
-                );
-                
-                const vinculosSnap = await getDocs(vinculosQuery);
-                todosJogadores = [];
-
-                for (const docSnap of vinculosSnap.docs) {
-                    const vinculo = docSnap.data();
-                    
-                    const personagemRef = doc(db, "personagens", vinculo.personagem_id);
-                    const personagemSnap = await getDoc(personagemRef);
-                    
-                    todosJogadores.push({
-                        id: docSnap.id,
-                        ...vinculo,
-                        personagem: personagemSnap.exists() ? personagemSnap.data() : null
-                    });
-                }
-
-                renderizarJogadores();
-
-            } catch (error) {
-                console.error('Erro ao carregar jogadores:', error);
-            }
+        const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
+        const personagemSnap = await getDoc(personagemRef);
+        
+        if (!personagemSnap.exists()) {
+            showToast('Personagem não encontrado!', true);
+            return null;
         }
 
-        async function carregarSessao() {
-            const { sessaoId, campanhaId: campanhaIdParam } = getParamsFromUrl();
+        personagemAtual = {
+            id: personagemSnap.id,
+            ...personagemSnap.data()
+        };
+
+        if (!personagemAtual.statusCombate) {
+            personagemAtual.statusCombate = {
+                vidaAtual: calcularPV(),
+                vidaMax: calcularPV(),
+                manaAtual: calcularPM(),
+                manaMax: calcularPM(),
+                fadigaAtual: calcularPF(),
+                fadigaMax: calcularPF()
+            };
+        }
+
+        return personagemAtual;
+
+    } catch (error) {
+        console.error('Erro ao carregar vínculo:', error);
+        showToast('Erro ao carregar personagem', true);
+        return null;
+    }
+}
+
+async function carregarTodosJogadores() {
+    if (!campanhaId) return;
+
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("campanha_id", "==", campanhaId),
+            where("status", "==", "ativo")
+        );
+        
+        const vinculosSnap = await getDocs(vinculosQuery);
+        todosJogadores = [];
+
+        for (const docSnap of vinculosSnap.docs) {
+            const vinculo = docSnap.data();
             
-            if (!sessaoId || !campanhaIdParam) {
-                showToast('Parâmetros da sessão não encontrados!', true);
-                setTimeout(() => window.location.href = 'campanhas.html', 2000);
-                return;
-            }
-
-            campanhaId = campanhaIdParam;
-            showLoading();
-
-            try {
-                const sessaoRef = doc(db, "sessoes", sessaoId);
-                const sessaoSnap = await getDoc(sessaoRef);
-                
-                if (!sessaoSnap.exists()) {
-                    showToast('Sessão não encontrada!', true);
-                    setTimeout(() => window.location.href = 'campanhas.html', 2000);
-                    return;
-                }
-
-                sessaoAtual = {
-                    id: sessaoSnap.id,
-                    ...sessaoSnap.data()
-                };
-
-                sessaoTitulo.textContent = sessaoAtual.titulo || 'Mesa do Jogador';
-
-                await carregarVinculoEPersonagem();
-                
-                if (!personagemAtual) {
-                    return;
-                }
-
-                await carregarTodosJogadores();
-
-                renderizarFichaResumida();
-
-                iniciarListeners();
-
-            } catch (error) {
-                console.error('Erro ao carregar sessão:', error);
-                showToast('Erro ao carregar sessão', true);
-            } finally {
-                hideLoading();
-            }
+            const personagemRef = doc(db, "personagens", vinculo.personagem_id);
+            const personagemSnap = await getDoc(personagemRef);
+            
+            todosJogadores.push({
+                id: docSnap.id,
+                ...vinculo,
+                personagem: personagemSnap.exists() ? personagemSnap.data() : null
+            });
         }
 
-        // ============================================
-        // INICIALIZAÇÃO
-        // ============================================
-        btnSair.addEventListener('click', async () => {
-            await signOut(auth);
-            window.location.href = 'index.html';
-        });
+        renderizarJogadores();
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                await carregarSessao();
+    } catch (error) {
+        console.error('Erro ao carregar jogadores:', error);
+    }
+}
+
+async function carregarSessao() {
+    const { sessaoId, campanhaId: campanhaIdParam } = getParamsFromUrl();
+    
+    if (!sessaoId || !campanhaIdParam) {
+        showToast('Parâmetros da sessão não encontrados!', true);
+        setTimeout(() => window.location.href = 'campanhas.html', 2000);
+        return;
+    }
+
+    campanhaId = campanhaIdParam;
+    showLoading();
+
+    try {
+        const sessaoRef = doc(db, "sessoes", sessaoId);
+        const sessaoSnap = await getDoc(sessaoRef);
+        
+        if (!sessaoSnap.exists()) {
+            showToast('Sessão não encontrada!', true);
+            setTimeout(() => window.location.href = 'campanhas.html', 2000);
+            return;
+        }
+
+        sessaoAtual = {
+            id: sessaoSnap.id,
+            ...sessaoSnap.data()
+        };
+
+        sessaoTitulo.textContent = sessaoAtual.titulo || 'Mesa do Jogador';
+
+        await carregarVinculoEPersonagem();
+        
+        if (!personagemAtual) {
+            return;
+        }
+
+        await carregarTodosJogadores();
+
+        renderizarFichaResumida();
+
+        // ============================================
+        // CORREÇÃO: Aguarda sessaoAtual estar definido
+        // ============================================
+        setTimeout(() => {
+            if (sessaoAtual && sessaoAtual.id) {
+                iniciarListeners();
             } else {
-                window.location.href = 'index.html';
+                const checkInterval = setInterval(() => {
+                    if (sessaoAtual && sessaoAtual.id) {
+                        clearInterval(checkInterval);
+                        iniciarListeners();
+                    }
+                }, 200);
             }
-        });
+        }, 100);
 
-        window.addEventListener('beforeunload', () => {
-            if (unsubscribePosicoes) unsubscribePosicoes();
-            if (unsubscribeCombate) unsubscribeCombate();
-            if (unsubscribeMarcadores) unsubscribeMarcadores();
-        });
+    } catch (error) {
+        console.error('Erro ao carregar sessão:', error);
+        showToast('Erro ao carregar sessão', true);
+    } finally {
+        hideLoading();
+    }
+}
+
+        // ============================================
+// INICIALIZAÇÃO
+// ============================================
+btnSair.addEventListener('click', async () => {
+    await signOut(auth);
+    window.location.href = 'index.html';
+});
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        currentUser = user;
+        await carregarSessao();
+    } else {
+        window.location.href = 'index.html';
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    if (unsubscribePosicoes) unsubscribePosicoes();
+    if (unsubscribeCombate) unsubscribeCombate();
+    if (unsubscribeMarcadores) unsubscribeMarcadores();
+});
     </script>
 </body>
 </html>
