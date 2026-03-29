@@ -2526,211 +2526,172 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             jogadoresContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum jogador na mesa</div>';
         }
 
-      // ============================================
-// LISTENERS DO FIRESTORE
+     // ============================================
+// LISTENERS DO FIRESTORE (VERSÃO COMPLETAMENTE CORRIGIDA)
 // ============================================
 
-function iniciarListenerMarcadores() {
-    if (!sessaoAtual) return;
-    
-    // Limpa listener existente antes de criar novo
-    if (unsubscribeMarcadores) {
-        unsubscribeMarcadores();
-        unsubscribeMarcadores = null;
-    }
-    
-    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-    
-    unsubscribeMarcadores = onSnapshot(marcadoresRef, (snapshot) => {
-        const novosMarcadores = {};
-        snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            novosMarcadores[`${data.x}_${data.y}`] = { id: docSnap.id, x: data.x, y: data.y };
-        });
-        
-        marcadores = novosMarcadores;
-        
-        if (ctx) desenharMapa();
-    });
-}
+// Variáveis para controle de listener ativo
+let unsubscribeSessao = null;
+let unsubscribeMarcadoresGlobal = null;
+let unsubscribePosicoesGlobal = null;
+let unsubscribeCombateGlobal = null;
+let unsubscribeRolagens = null;
+let unsubscribeNPCs = null;
 
-function iniciarListenersCombate() {
-    if (!sessaoAtual) return;
-    
-    // ===== LISTENER DE COMBATE =====
-    if (unsubscribeCombate) {
-        unsubscribeCombate();
-        unsubscribeCombate = null;
-    }
-
-    const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
-
-    unsubscribeCombate = onSnapshot(combatesQuery, (snapshot) => {
-        if (!snapshot.empty) {
-            const combate = snapshot.docs[0];
-            const dados = combate.data();
-            const estavaInativo = !combateAtivo;
-            
-            // ✅ Detecta mudança de turno para resetar movimento
-            const novoTurno = dados.turno || 1;
-            if (novoTurno !== turnoAtual && turnoAtual !== 1) {
-                // Turno mudou! Reseta o controle de movimento
-                movimentoUsadoNoTurno = 0;
-                turnoDoUltimoMovimento = 0;
-                maxMovimentoTurno = 0;
-                console.log(`🔄 Novo turno ${novoTurno}! Movimento resetado.`);
-            }
-            
-            combateAtivo = true;
-            turnoAtual = novoTurno;
-            vezAtual = dados.vez || 'jogadores';
-            modoCombateAtivo = true;
-            
-            // Se o combate acabou de iniciar, força atualização
-            if (estavaInativo) {
-                setTimeout(() => {
-                    if (ctx) desenharMapa();
-                    atualizarEstadoBotoes();
-                }, 100);
-            }
-        } else {
-            combateAtivo = false;
-            modoCombateAtivo = false;
-            // Reseta quando combate termina
-            movimentoUsadoNoTurno = 0;
-            turnoDoUltimoMovimento = 0;
-            maxMovimentoTurno = 0;
-            resetarModoMovimento();
-        }
-        
-        if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
-        if (vezJogadores && vezNPCs) {
-            if (vezAtual === 'jogadores') {
-                vezJogadores.classList.add('ativo');
-                vezNPCs.classList.remove('ativo');
-            } else {
-                vezJogadores.classList.remove('ativo');
-                vezNPCs.classList.add('ativo');
-            }
-        }
-        if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
-        
-        atualizarEstadoBotoes();
-    });
-    
-    // ===== LISTENER DE POSIÇÕES (SINCRONIA EM TEMPO REAL) =====
-    if (unsubscribePosicoes) {
-        unsubscribePosicoes();
-        unsubscribePosicoes = null;
-    }
-    
-    const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
-    
-    unsubscribePosicoes = onSnapshot(posicoesRef, (snapshot) => {
-        let precisaRedesenhar = false;
-        
-        snapshot.docChanges().forEach((change) => {
-            const id = change.doc.id;
-            const data = change.doc.data();
-            
-            if (change.type === "added" || change.type === "modified") {
-                // Verifica se houve mudança real na posição
-                const posExistente = posicoes[id];
-                const mudouPosicao = posExistente && (
-                    posExistente.hexX !== data.hexX || 
-                    posExistente.hexY !== data.hexY
-                );
-                
-                if (!posicoes[id]) {
-                    posicoes[id] = { id, ...data };
-                    precisaRedesenhar = true;
-                } else {
-                    Object.assign(posicoes[id], data);
-                    if (mudouPosicao) precisaRedesenhar = true;
-                }
-                
-                if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
-                if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
-            }
-            
-            if (change.type === "removed") {
-                delete posicoes[id];
-                precisaRedesenhar = true;
-            }
-        });
-        
-        if (precisaRedesenhar && ctx) {
-            desenharMapa();
-        }
-        
-        // Atualiza deslocamento do personagem atual
-        if (personagemAtual && posicoes[personagemAtual.id]) {
-            const desloc = calcularDeslocamento();
-            posicoes[personagemAtual.id].andar = desloc.andar;
-            posicoes[personagemAtual.id].correr = desloc.correr;
-        }
-        
-        atualizarEstadoBotoes();
-    });
-}
-
+/**
+ * FUNÇÃO PRINCIPAL: INICIA TODOS OS LISTENERS
+ * DEVE SER CHAMADA APENAS APÓS sessaoAtual ESTAR DEFINIDO
+ */
 function iniciarListeners() {
-    if (!sessaoAtual) return;
+    if (!sessaoAtual || !sessaoAtual.id) {
+        console.error('❌ iniciarListeners: sessaoAtual não está definida');
+        return;
+    }
 
-    // ✅ CORRIGIDO: Listener da sessão (cenário e modo) - SEMPRE atualiza
-    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (docSnap) => {
-        if (docSnap.exists()) {
-            const dados = docSnap.data();
-            
-            // Atualiza cenário
-            if (dados.cena_atual) {
-                if (dados.cena_atual.descricao !== undefined) {
-                    cenarioDescricao.value = dados.cena_atual.descricao || '';
+    console.log('🎧 Iniciando listeners do Firestore para sessão:', sessaoAtual.id);
+
+    // ============================================
+    // 1. LISTENER DA SESSÃO (MODO E CENÁRIO) - MAIS IMPORTANTE!
+    // ============================================
+    if (unsubscribeSessao) {
+        unsubscribeSessao();
+        unsubscribeSessao = null;
+    }
+
+    const sessaoRef = doc(db, "sessoes", sessaoAtual.id);
+    
+    unsubscribeSessao = onSnapshot(sessaoRef, { source: 'server' }, (docSnap) => {
+        if (!docSnap.exists()) {
+            console.warn('⚠️ Sessão não encontrada no Firestore');
+            return;
+        }
+        
+        const dados = docSnap.data();
+        console.log('📡 [SESSÃO] Atualização recebida:', {
+            modo: dados.modoVisualizacao,
+            temCena: !!dados.cena_atual,
+            timestamp: new Date().toISOString()
+        });
+        
+        // ===== ATUALIZA CENÁRIO =====
+        if (dados.cena_atual) {
+            // Descrição
+            if (dados.cena_atual.descricao !== undefined && cenarioDescricao) {
+                const novaDescricao = dados.cena_atual.descricao || '';
+                if (cenarioDescricao.value !== novaDescricao) {
+                    cenarioDescricao.value = novaDescricao;
+                    console.log('📝 Descrição do cenário atualizada');
                 }
+            }
+            
+            // Imagem
+            if (cenarioImagem) {
                 if (dados.cena_atual.imagemBase64) {
                     cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemBase64}" alt="Cena">`;
+                    console.log('🖼️ Imagem do cenário atualizada (Base64)');
                 } else if (dados.cena_atual.imagemUrl) {
                     cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemUrl}" alt="Cena">`;
+                    console.log('🖼️ Imagem do cenário atualizada (URL)');
                 } else {
                     cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
                 }
             }
+        }
+        
+        // ===== SINCRONIZA MODO DE VISUALIZAÇÃO (MAIS IMPORTANTE!) =====
+        const novoModo = dados.modoVisualizacao || 'narrativo';
+        
+        // Verifica se o modo realmente mudou
+        if (modoVisualizacao !== novoModo) {
+            console.log(`🔄 MODO ALTERADO: ${modoVisualizacao} -> ${novoModo}`);
             
-            // ✅ CORRIGIDO: Sempre atualiza o modo baseado no Firebase (remove o "if" que bloqueava)
-            const novoModo = dados.modoVisualizacao || 'narrativo';
-            
-            // Sempre atualiza a UI baseado no modo do Firebase
+            // Mostra toast para o jogador
             if (novoModo === 'combate') {
-                modoNarrativo.style.display = 'none';
-                modoCombate.style.display = 'block';
-                modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'combate'));
-                
-                // Inicia listeners de combate se necessário
-                if (!unsubscribeMarcadores && !unsubscribePosicoes && !unsubscribeCombate) {
-                    iniciarListenerMarcadores();
-                    iniciarListenersCombate();
-                } else {
-                    if (ctx) desenharMapa();
-                }
+                showToast('⚔️ Mestre mudou para MODO COMBATE!', false);
             } else {
-                // Modo narrativo
-                modoNarrativo.style.display = 'block';
-                modoCombate.style.display = 'none';
-                modoBtns.forEach(btn => btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo'));
-                resetarModoMovimento();
-                
-                // Limpa listeners de combate quando sai do modo
-                if (unsubscribePosicoes) { unsubscribePosicoes(); unsubscribePosicoes = null; }
-                if (unsubscribeCombate) { unsubscribeCombate(); unsubscribeCombate = null; }
-                if (unsubscribeMarcadores) { unsubscribeMarcadores(); unsubscribeMarcadores = null; }
+                showToast('📖 Mestre mudou para MODO NARRATIVO!', false);
             }
             
-            // Atualiza variável global no final
+            // Atualiza UI baseado no novo modo
+            if (novoModo === 'combate') {
+                // Ativa modo combate
+                if (modoNarrativo) modoNarrativo.style.display = 'none';
+                if (modoCombate) modoCombate.style.display = 'block';
+                
+                // Atualiza os botões de toggle visualmente
+                if (modoBtns) {
+                    modoBtns.forEach(btn => {
+                        if (btn.dataset.modo === 'combate') {
+                            btn.classList.add('ativa');
+                        } else {
+                            btn.classList.remove('ativa');
+                        }
+                    });
+                }
+                
+                // Inicia listeners de combate se necessário
+                if (!unsubscribePosicoesGlobal && !unsubscribeCombateGlobal && !unsubscribeMarcadoresGlobal) {
+                    iniciarListenersCombate();
+                } else if (ctx) {
+                    setTimeout(() => desenharMapa(), 100);
+                }
+                
+            } else {
+                // Ativa modo narrativo
+                if (modoNarrativo) modoNarrativo.style.display = 'block';
+                if (modoCombate) modoCombate.style.display = 'none';
+                
+                // Atualiza os botões de toggle visualmente
+                if (modoBtns) {
+                    modoBtns.forEach(btn => {
+                        if (btn.dataset.modo === 'narrativo') {
+                            btn.classList.add('ativa');
+                        } else {
+                            btn.classList.remove('ativa');
+                        }
+                    });
+                }
+                
+                // Reseta modo de movimento
+                resetarModoMovimento();
+                
+                // Limpa listeners de combate para economizar recursos
+                if (unsubscribePosicoesGlobal) { 
+                    unsubscribePosicoesGlobal(); 
+                    unsubscribePosicoesGlobal = null; 
+                }
+                if (unsubscribeCombateGlobal) { 
+                    unsubscribeCombateGlobal(); 
+                    unsubscribeCombateGlobal = null; 
+                }
+                if (unsubscribeMarcadoresGlobal) { 
+                    unsubscribeMarcadoresGlobal(); 
+                    unsubscribeMarcadoresGlobal = null; 
+                }
+            }
+            
+            // Atualiza variável global
             modoVisualizacao = novoModo;
+            
+            // Força re-renderização se necessário
+            if (ctx && novoModo === 'combate') {
+                setTimeout(() => desenharMapa(), 50);
+            }
         }
+        
+    }, (error) => {
+        console.error('❌ Erro no listener da sessão:', error);
+        showToast('Erro ao sincronizar com a mesa do mestre', true);
     });
-
-    // Listener de rolagens (log)
+    
+    // ============================================
+    // 2. LISTENER DE ROLAGENS (LOG PÚBLICO)
+    // ============================================
+    if (unsubscribeRolagens) {
+        unsubscribeRolagens();
+        unsubscribeRolagens = null;
+    }
+    
     const rolagensQuery = query(
         collection(db, "sessoes", sessaoAtual.id, "rolagens"),
         where("visibilidade", "==", "publico"),
@@ -2738,7 +2699,7 @@ function iniciarListeners() {
         limit(50)
     );
     
-    onSnapshot(rolagensQuery, (snapshot) => {
+    unsubscribeRolagens = onSnapshot(rolagensQuery, (snapshot) => {
         let logHtml = '';
         snapshot.forEach(docSnap => {
             const r = docSnap.data();
@@ -2777,12 +2738,25 @@ function iniciarListeners() {
                 `;
             }
         });
-        logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
+        
+        if (logContainer) {
+            logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
+        }
+    }, (error) => {
+        console.error('❌ Erro no listener de rolagens:', error);
     });
-
-    // Listener de NPCs na cena
+    
+    // ============================================
+    // 3. LISTENER DE NPCs NA CENA
+    // ============================================
+    if (unsubscribeNPCs) {
+        unsubscribeNPCs();
+        unsubscribeNPCs = null;
+    }
+    
     const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
-    onSnapshot(npcsQuery, (snapshot) => {
+    
+    unsubscribeNPCs = onSnapshot(npcsQuery, (snapshot) => {
         let html = '';
         snapshot.forEach(docSnap => {
             const npc = docSnap.data();
@@ -2796,9 +2770,287 @@ function iniciarListeners() {
                 </div>
             `;
         });
-        npcsCenaContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum NPC na cena</div>';
+        
+        if (npcsCenaContainer) {
+            npcsCenaContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum NPC na cena</div>';
+        }
+    }, (error) => {
+        console.error('❌ Erro no listener de NPCs:', error);
     });
+    
+    console.log('✅ Todos os listeners da sessão foram iniciados');
 }
+
+// ============================================
+// LISTENER DE MARCADORES (OBSTÁCULOS)
+// ============================================
+function iniciarListenerMarcadores() {
+    if (!sessaoAtual) {
+        console.warn('⚠️ iniciarListenerMarcadores: sessaoAtual não definida');
+        return;
+    }
+    
+    // Limpa listener existente antes de criar novo
+    if (unsubscribeMarcadoresGlobal) {
+        unsubscribeMarcadoresGlobal();
+        unsubscribeMarcadoresGlobal = null;
+    }
+    
+    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
+    
+    unsubscribeMarcadoresGlobal = onSnapshot(marcadoresRef, (snapshot) => {
+        const novosMarcadores = {};
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            novosMarcadores[`${data.x}_${data.y}`] = { id: docSnap.id, x: data.x, y: data.y };
+        });
+        
+        marcadores = novosMarcadores;
+        
+        if (ctx && modoVisualizacao === 'combate') {
+            desenharMapa();
+        }
+    }, (error) => {
+        console.error('❌ Erro no listener de marcadores:', error);
+    });
+    
+    console.log('🎯 Listener de marcadores iniciado');
+}
+
+// ============================================
+// LISTENER DE COMBATE (ESTADO DO COMBATE)
+// ============================================
+function iniciarListenersCombate() {
+    if (!sessaoAtual) {
+        console.warn('⚠️ iniciarListenersCombate: sessaoAtual não definida');
+        return;
+    }
+    
+    console.log('⚔️ Iniciando listeners de combate...');
+    
+    // ===== LISTENER DE COMBATE (estado geral) =====
+    if (unsubscribeCombateGlobal) {
+        unsubscribeCombateGlobal();
+        unsubscribeCombateGlobal = null;
+    }
+
+    const combatesQuery = query(
+        collection(db, "sessoes", sessaoAtual.id, "combates"), 
+        where("ativo", "==", true), 
+        limit(1)
+    );
+
+    unsubscribeCombateGlobal = onSnapshot(combatesQuery, (snapshot) => {
+        if (!snapshot.empty) {
+            const combate = snapshot.docs[0];
+            const dados = combate.data();
+            const estavaInativo = !combateAtivo;
+            
+            console.log('📡 [COMBATE] Atualização:', {
+                turno: dados.turno,
+                vez: dados.vez,
+                ativo: dados.ativo
+            });
+            
+            // Detecta mudança de turno para resetar movimento
+            const novoTurno = dados.turno || 1;
+            if (novoTurno !== turnoAtual && turnoAtual !== 1) {
+                // Turno mudou! Reseta o controle de movimento
+                movimentoUsadoNoTurno = 0;
+                turnoDoUltimoMovimento = 0;
+                maxMovimentoTurno = 0;
+                console.log(`🔄 Novo turno ${novoTurno}! Movimento resetado.`);
+                showToast(`🔄 Turno ${novoTurno} iniciado! Movimento resetado.`, false);
+            }
+            
+            combateAtivo = true;
+            turnoAtual = novoTurno;
+            vezAtual = dados.vez || 'jogadores';
+            modoCombateAtivo = true;
+            
+            // Se o combate acabou de iniciar, força atualização
+            if (estavaInativo) {
+                console.log('⚔️ Combate iniciado!');
+                showToast('⚔️ COMBATE INICIADO!', false);
+                setTimeout(() => {
+                    if (ctx) desenharMapa();
+                    atualizarEstadoBotoes();
+                }, 100);
+            }
+        } else {
+            if (combateAtivo) {
+                console.log('🏁 Combate encerrado');
+                showToast('🏁 Combate encerrado pelo mestre', false);
+            }
+            combateAtivo = false;
+            modoCombateAtivo = false;
+            // Reseta quando combate termina
+            movimentoUsadoNoTurno = 0;
+            turnoDoUltimoMovimento = 0;
+            maxMovimentoTurno = 0;
+            resetarModoMovimento();
+        }
+        
+        if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
+        if (vezJogadores && vezNPCs) {
+            if (vezAtual === 'jogadores') {
+                vezJogadores.classList.add('ativo');
+                vezNPCs.classList.remove('ativo');
+            } else {
+                vezJogadores.classList.remove('ativo');
+                vezNPCs.classList.add('ativo');
+            }
+        }
+        if (modoAtualCombate) {
+            modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
+        }
+        
+        atualizarEstadoBotoes();
+        
+    }, (error) => {
+        console.error('❌ Erro no listener de combate:', error);
+    });
+    
+    // ===== LISTENER DE POSIÇÕES (SINCRONIA EM TEMPO REAL) =====
+    if (unsubscribePosicoesGlobal) {
+        unsubscribePosicoesGlobal();
+        unsubscribePosicoesGlobal = null;
+    }
+    
+    const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
+    
+    unsubscribePosicoesGlobal = onSnapshot(posicoesRef, (snapshot) => {
+        let precisaRedesenhar = false;
+        
+        snapshot.docChanges().forEach((change) => {
+            const id = change.doc.id;
+            const data = change.doc.data();
+            
+            if (change.type === "added" || change.type === "modified") {
+                // Verifica se houve mudança real na posição
+                const posExistente = posicoes[id];
+                const mudouPosicao = posExistente && (
+                    posExistente.hexX !== data.hexX || 
+                    posExistente.hexY !== data.hexY
+                );
+                
+                if (!posicoes[id]) {
+                    posicoes[id] = { id, ...data };
+                    precisaRedesenhar = true;
+                    console.log(`➕ Personagem ${data.nome || id} adicionado ao mapa`);
+                } else {
+                    Object.assign(posicoes[id], data);
+                    if (mudouPosicao) {
+                        precisaRedesenhar = true;
+                        console.log(`📍 ${data.nome || id} moveu para (${data.hexX}, ${data.hexY})`);
+                    }
+                }
+                
+                if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
+                if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+            }
+            
+            if (change.type === "removed") {
+                const nomeRemovido = posicoes[id]?.nome || id;
+                delete posicoes[id];
+                precisaRedesenhar = true;
+                console.log(`❌ Personagem ${nomeRemovido} removido do mapa`);
+            }
+        });
+        
+        if (precisaRedesenhar && ctx && modoVisualizacao === 'combate') {
+            desenharMapa();
+        }
+        
+        // Atualiza deslocamento do personagem atual
+        if (personagemAtual && posicoes[personagemAtual.id]) {
+            const desloc = calcularDeslocamento();
+            posicoes[personagemAtual.id].andar = desloc.andar;
+            posicoes[personagemAtual.id].correr = desloc.correr;
+        }
+        
+        atualizarEstadoBotoes();
+        
+    }, (error) => {
+        console.error('❌ Erro no listener de posições:', error);
+    });
+    
+    console.log('✅ Listeners de combate iniciados (posições + estado)');
+}
+
+// ============================================
+// FUNÇÃO PARA PARAR TODOS OS LISTENERS (LIMPEZA)
+// ============================================
+function pararTodosListeners() {
+    console.log('🛑 Parando todos os listeners...');
+    
+    if (unsubscribeSessao) {
+        unsubscribeSessao();
+        unsubscribeSessao = null;
+    }
+    if (unsubscribeMarcadoresGlobal) {
+        unsubscribeMarcadoresGlobal();
+        unsubscribeMarcadoresGlobal = null;
+    }
+    if (unsubscribePosicoesGlobal) {
+        unsubscribePosicoesGlobal();
+        unsubscribePosicoesGlobal = null;
+    }
+    if (unsubscribeCombateGlobal) {
+        unsubscribeCombateGlobal();
+        unsubscribeCombateGlobal = null;
+    }
+    if (unsubscribeRolagens) {
+        unsubscribeRolagens();
+        unsubscribeRolagens = null;
+    }
+    if (unsubscribeNPCs) {
+        unsubscribeNPCs();
+        unsubscribeNPCs = null;
+    }
+    
+    console.log('✅ Todos os listeners parados');
+}
+
+// ============================================
+// FUNÇÃO PARA RECONECTAR LISTENERS (ÚTIL EM CASO DE ERRO)
+// ============================================
+function reconectarListeners() {
+    console.log('🔄 Reconectando listeners...');
+    pararTodosListeners();
+    if (sessaoAtual && sessaoAtual.id) {
+        iniciarListeners();
+    } else {
+        console.warn('⚠️ Não foi possível reconectar: sessaoAtual não definida');
+    }
+}
+
+// ============================================
+// SOBRESCREVER O LISTENER ORIGINAL DO CARREGAMENTO DA SESSÃO
+// ============================================
+// NOTA: No carregamento da sessão, após definir sessaoAtual, chame:
+// iniciarListeners();
+
+// Para debug, exponha funções no window (opcional)
+window.debugListeners = {
+    parar: pararTodosListeners,
+    reconectar: reconectarListeners,
+    status: () => ({
+        sessao: !!sessaoAtual,
+        modo: modoVisualizacao,
+        combateAtivo: combateAtivo,
+        turno: turnoAtual,
+        vez: vezAtual,
+        listeners: {
+            sessao: !!unsubscribeSessao,
+            marcadores: !!unsubscribeMarcadoresGlobal,
+            posicoes: !!unsubscribePosicoesGlobal,
+            combate: !!unsubscribeCombateGlobal,
+            rolagens: !!unsubscribeRolagens,
+            npcs: !!unsubscribeNPCs
+        }
+    })
+};
 
         // ============================================
         // FUNÇÕES DE AÇÃO
