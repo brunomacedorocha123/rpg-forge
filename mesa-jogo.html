@@ -3235,35 +3235,42 @@ async function carregarPCs() {
     } 
 }
 // ============================================
-// FUNÇÕES DE LISTENERS
+// FUNÇÕES DE LISTENERS - VERSÃO CORRETA E FUNCIONAL
 // ============================================
 function iniciarListeners() {
     if (!sessaoAtual) return;
     
-    // ✅ CORRIGIDO: mudar 'doc' para 'docSnapshot'
-    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (docSnapshot) => {
-        if (docSnapshot.exists() && docSnapshot.data().cena_atual) {
-            if (docSnapshot.data().cena_atual.descricao !== undefined && cenarioDescricao) 
-                cenarioDescricao.value = docSnapshot.data().cena_atual.descricao;
-            if (docSnapshot.data().cena_atual.imagemBase64 && cenarioImagem) 
-                cenarioImagem.innerHTML = `<img src="${docSnapshot.data().cena_atual.imagemBase64}" alt="Cena">`;
-            else if (docSnapshot.data().cena_atual.imagemUrl && cenarioImagem) 
-                cenarioImagem.innerHTML = `<img src="${docSnapshot.data().cena_atual.imagemUrl}" alt="Cena">`;
-            else if(cenarioImagem) 
+    // Listener do cenário - CORRETO
+    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (snapshotDoc) => {
+        if (snapshotDoc.exists() && snapshotDoc.data().cena_atual) {
+            if (snapshotDoc.data().cena_atual.descricao !== undefined && cenarioDescricao) {
+                cenarioDescricao.value = snapshotDoc.data().cena_atual.descricao;
+            }
+            if (snapshotDoc.data().cena_atual.imagemBase64 && cenarioImagem) {
+                cenarioImagem.innerHTML = `<img src="${snapshotDoc.data().cena_atual.imagemBase64}" alt="Cena">`;
+            } else if (snapshotDoc.data().cena_atual.imagemUrl && cenarioImagem) {
+                cenarioImagem.innerHTML = `<img src="${snapshotDoc.data().cena_atual.imagemUrl}" alt="Cena">`;
+            } else if(cenarioImagem) {
                 cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
+            }
         }
     });
     
-    const rolagensQuery = query(collection(db, "sessoes", sessaoAtual.id, "rolagens"), orderBy("timestamp", "desc"), limit(30));
+    // Listener de rolagens - CORRETO
+    const rolagensQuery = query(
+        collection(db, "sessoes", sessaoAtual.id, "rolagens"), 
+        orderBy("timestamp", "desc"), 
+        limit(30)
+    );
     
-    // ✅ CORRIGIDO: mudar 'doc' para 'documento' no forEach
     onSnapshot(rolagensQuery, (snapshot) => {
         let logHtml = '';
-        snapshot.forEach(documento => {
-            const r = documento.data();
+        snapshot.forEach((docRolagem) => {
+            const r = docRolagem.data();
             const icone = r.visibilidade === 'secreto' ? '🔒' : '🌍';
             const classe = r.visibilidade === 'secreto' ? 'secreto' : 'publico';
             const nomeQuemRolou = r.jogador || 'Mestre';
+            
             if (r.tipo === 'pericia') {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">${icone}</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> Perícia ${r.resultado}%</div>`;
             } else if (r.tipo === 'dano') {
@@ -3274,10 +3281,11 @@ function iniciarListeners() {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">⚔️</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> ${r.mensagem}</div>`;
             }
         });
-        if(logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
+        if(logContainer) {
+            logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
+        }
     });
 }
-
 // ============================================
 // FUNÇÃO CORRIGIDA: carregarPCs
 // ============================================
