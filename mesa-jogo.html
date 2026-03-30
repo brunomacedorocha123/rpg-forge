@@ -2597,7 +2597,7 @@ async function encerrarCombate() {
         const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
         const posicoesSnap = await getDocs(posicoesRef);
         const batch = writeBatch(db);
-        posicoesSnap.docs.forEach(docSnap => batch.delete(docSnap.ref));
+        posicoesSnap.docs.forEach(documento => batch.delete(documento.ref));
         await batch.commit();
         combateAtivo = false;
         combateId = null;
@@ -3063,7 +3063,7 @@ window.handleRecursoDetalheClick = function(e) {
 };
 
 // ============================================
-// FUNÇÕES DE PCs
+// FUNÇÕES DE PCs (CORRIGIDA)
 // ============================================
 function renderizarPCs() {
     if (pcVinculados.length === 0) {
@@ -3089,22 +3089,23 @@ function renderizarPCs() {
 
 async function carregarPCs() { 
     try { 
-        const q = query(collection(db, "campanha_personagens"), where("campanha_id", "==", campanhaIdCustom), where("status", "==", "ativo")); 
+        const q = query(collection(db, "campanha_personagens"), 
+                        where("campanha_id", "==", campanhaIdCustom), 
+                        where("status", "==", "ativo")); 
         const querySnapshot = await getDocs(q); 
         pcVinculados = []; 
-        for (const doc of querySnapshot.docs) { 
-            const vinculo = { id: doc.id, ...doc.data() }; 
-            try { 
-                const personagemRef = doc(db, "personagens", vinculo.personagem_id); 
-                const personagemSnap = await getDoc(personagemRef); 
-                if (personagemSnap.exists()) { 
-                    vinculo.personagem = personagemSnap.data(); 
-                } 
-            } catch(e) { 
-                console.warn('Erro ao buscar personagem:', e); 
-            } 
+        querySnapshot.forEach((documento) => { 
+            const data = documento.data();
+            const vinculo = { 
+                id: documento.id, 
+                personagem_id: data.personagem_id,
+                personagem_nome: data.personagem_nome || '?',
+                jogador_nick: data.jogador_nick || 'Jogador',
+                jogador_uid: data.jogador_uid,
+                status: data.status
+            }; 
             pcVinculados.push(vinculo); 
-        } 
+        }); 
         renderizarPCs(); 
     } catch(error) { 
         console.error('Erro ao carregar PCs:', error); 
@@ -3117,19 +3118,19 @@ async function carregarPCs() {
 // ============================================
 function iniciarListeners() {
     if (!sessaoAtual) return;
-    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (doc) => {
-        if (doc.exists() && doc.data().cena_atual) {
-            if (doc.data().cena_atual.descricao !== undefined && cenarioDescricao) cenarioDescricao.value = doc.data().cena_atual.descricao;
-            if (doc.data().cena_atual.imagemBase64 && cenarioImagem) cenarioImagem.innerHTML = `<img src="${doc.data().cena_atual.imagemBase64}" alt="Cena">`;
-            else if (doc.data().cena_atual.imagemUrl && cenarioImagem) cenarioImagem.innerHTML = `<img src="${doc.data().cena_atual.imagemUrl}" alt="Cena">`;
+    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (documento) => {
+        if (documento.exists() && documento.data().cena_atual) {
+            if (documento.data().cena_atual.descricao !== undefined && cenarioDescricao) cenarioDescricao.value = documento.data().cena_atual.descricao;
+            if (documento.data().cena_atual.imagemBase64 && cenarioImagem) cenarioImagem.innerHTML = `<img src="${documento.data().cena_atual.imagemBase64}" alt="Cena">`;
+            else if (documento.data().cena_atual.imagemUrl && cenarioImagem) cenarioImagem.innerHTML = `<img src="${documento.data().cena_atual.imagemUrl}" alt="Cena">`;
             else if(cenarioImagem) cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
         }
     });
     const rolagensQuery = query(collection(db, "sessoes", sessaoAtual.id, "rolagens"), orderBy("timestamp", "desc"), limit(30));
     onSnapshot(rolagensQuery, (snapshot) => {
         let logHtml = '';
-        snapshot.forEach(doc => {
-            const r = doc.data();
+        snapshot.forEach(documento => {
+            const r = documento.data();
             const icone = r.visibilidade === 'secreto' ? '🔒' : '🌍';
             const classe = r.visibilidade === 'secreto' ? 'secreto' : 'publico';
             const nomeQuemRolou = r.jogador || 'Mestre';
@@ -3175,10 +3176,10 @@ async function carregarSessao() {
         await carregarPCs();
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
-        npcsSnap.forEach(doc => {
-            const npc = doc.data();
-            posicoes[doc.id] = {
-                id: doc.id, 
+        npcsSnap.forEach(documento => {
+            const npc = documento.data();
+            posicoes[documento.id] = {
+                id: documento.id, 
                 nome: npc.nome, 
                 tipo: 'npc', 
                 cor: coresNPCs[i % coresNPCs.length],
@@ -3253,6 +3254,117 @@ async function carregarSessao() {
         showToast('Erro ao carregar sessão: ' + error.message, true); 
         hideLoading(); 
     }
+}
+
+// ============================================
+// FUNÇÕES AUXILIARES QUE FALTARAM
+// ============================================
+function resetarMovimentoTurno() {
+    moveuNoTurno = {};
+    console.log('Movimento resetado para o novo turno');
+}
+
+function hexToPixel(hexX, hexY) {
+    const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
+    const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
+    return { x, y };
+}
+
+function pixelToHex(pixelX, pixelY) {
+    for (let x = 0; x < MAPA_LARGURA; x++) {
+        let y = Math.round((pixelY - OFFSET_Y - (x % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2)) / HEX_VERTICAL_SPACING);
+        if (y >= 0 && y < MAPA_ALTURA) {
+            const pixel = hexToPixel(x, y);
+            if (Math.hypot(pixelX - pixel.x, pixelY - pixel.y) < HEX_RADIUS) return { x, y };
+        }
+    }
+    return { x: -1, y: -1 };
+}
+
+function desenharHexagono(x, y, destaque = null) {
+    const pontos = [];
+    for (let i = 0; i < 6; i++) {
+        const angulo = Math.PI / 6 + (i * Math.PI / 3);
+        pontos.push({ x: x + HEX_RADIUS * Math.cos(angulo), y: y + HEX_RADIUS * Math.sin(angulo) });
+    }
+    ctx.beginPath();
+    ctx.moveTo(pontos[0].x, pontos[0].y);
+    for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    if (destaque === 'move') { ctx.fillStyle = 'rgba(46, 204, 113, 0.3)'; ctx.fill(); }
+    else if (destaque === 'selected') { ctx.fillStyle = 'rgba(212, 175, 55, 0.3)'; ctx.fill(); }
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+}
+
+function desenharToken(x, y, personagem) {
+    ctx.beginPath();
+    ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
+    ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+    ctx.font = 'bold 10px "Inter", sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.shadowBlur = 4;
+    ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 8px "Inter", sans-serif';
+    ctx.fillStyle = '#ff6b6b';
+    ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+}
+
+function desenharMapa() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let x = 0; x < MAPA_LARGURA; x++) {
+        for (let y = 0; y < MAPA_ALTURA; y++) {
+            const pixel = hexToPixel(x, y);
+            let destaque = null;
+            if (highlightHex.some(h => h.x === x && h.y === y)) destaque = 'move';
+            desenharHexagono(pixel.x, pixel.y, destaque);
+        }
+    }
+    Object.values(marcadores).forEach(m => {
+        const pixel = hexToPixel(m.x, m.y);
+        ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
+        ctx.beginPath();
+        ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#8B4513';
+        ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
+        ctx.fillText('⬛', pixel.x, pixel.y);
+    });
+    Object.values(posicoes).forEach(pos => {
+        if (pos.hexX !== undefined && pos.hexX !== null) {
+            const pixel = hexToPixel(pos.hexX, pos.hexY);
+            desenharToken(pixel.x, pixel.y, pos);
+        }
+    });
+}
+
+function showLoading() { if(loadingOverlay) loadingOverlay.classList.add('active'); }
+function hideLoading() { if(loadingOverlay) loadingOverlay.classList.remove('active'); }
+
+function showToast(msg, erro = false) {
+    if(toastMessage) toastMessage.textContent = msg;
+    if(toast) toast.className = 'toast show' + (erro ? ' erro' : '');
+    setTimeout(() => { if(toast) toast.classList.remove('show'); }, 3000);
+}
+
+function getSessaoIdFromUrl() {
+    return new URLSearchParams(window.location.search).get('sessao');
 }
 
 // ============================================
