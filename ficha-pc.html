@@ -6954,12 +6954,23 @@ async function carregarPersonagem() {
             }
         });
 
+        // ========== CORREÇÃO: BUSCA DO VÍNCULO COM A CAMPANHA ==========
         try {
-            const vinculosQuery = query(
+            // Tenta buscar em campanha_personagens
+            let vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("personagem_id", "==", personagemId)
             );
-            const vinculosSnap = await getDocs(vinculosQuery);
+            let vinculosSnap = await getDocs(vinculosQuery);
+            
+            // Se não encontrar, tenta campanhaPersonagens
+            if (vinculosSnap.empty) {
+                vinculosQuery = query(
+                    collection(db, "campanhaPersonagens"),
+                    where("personagem_id", "==", personagemId)
+                );
+                vinculosSnap = await getDocs(vinculosQuery);
+            }
             
             if (!vinculosSnap.empty) {
                 const vinculo = vinculosSnap.docs[0].data();
@@ -6972,17 +6983,37 @@ async function carregarPersonagem() {
                         ...campanhaSnap.data()
                     };
                     
+                    // Corrige o link da campanha
+                    const linkCampanha = `campanha-pc.html?id=${campanhaAtual.id}`;
+                    
                     if (elements.breadcrumbCampanha) {
-                        elements.breadcrumbCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                        elements.breadcrumbCampanha.href = linkCampanha;
                         elements.breadcrumbCampanha.textContent = campanhaAtual.nome || 'Campanha';
                     }
                     if (elements.linkCampanha) {
-                        elements.linkCampanha.href = `campanha-pc.html?id=${campanhaAtual.id}`;
+                        elements.linkCampanha.href = linkCampanha;
                     }
+                }
+            } else {
+                // Se não encontrar vínculo, usa um link padrão para campanhas
+                if (elements.breadcrumbCampanha) {
+                    elements.breadcrumbCampanha.href = 'campanhas.html';
+                    elements.breadcrumbCampanha.textContent = 'Campanhas';
+                }
+                if (elements.linkCampanha) {
+                    elements.linkCampanha.href = 'campanhas.html';
                 }
             }
         } catch (vinculoError) {
             console.log('Erro ao buscar vínculo:', vinculoError);
+            // Fallback: redireciona para campanhas em caso de erro
+            if (elements.linkCampanha) {
+                elements.linkCampanha.href = 'campanhas.html';
+            }
+            if (elements.breadcrumbCampanha) {
+                elements.breadcrumbCampanha.href = 'campanhas.html';
+                elements.breadcrumbCampanha.textContent = 'Campanhas';
+            }
         }
 
         const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
