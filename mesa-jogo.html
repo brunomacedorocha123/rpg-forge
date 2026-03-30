@@ -1974,19 +1974,24 @@ body::before {
         </div>
     </div>
 
-    <!-- MODAL DE ESCOLHA DE INÍCIO DE COMBATE -->
-<div class="modal" id="modalEscolhaInicio">
-    <div class="modal-content" style="max-width: 400px; text-align: center;">
-        <h3><i class="fas fa-flag-checkered"></i> Quem começa o combate?</h3>
-        <div style="display: flex; gap: 15px; margin: 30px 0;">
-            <button class="btn-combate primario" id="btnJogadoresComecam" style="flex:1; padding: 15px;">
+    <!-- MODAL DE INICIAR COMBATE - QUEM COMEÇA? -->
+<div class="modal" id="modalIniciarCombate">
+    <div class="modal-content" style="max-width: 500px; text-align: center;">
+        <h3><i class="fas fa-dice-d20"></i> Iniciar Combate</h3>
+        <p style="margin: 20px 0; color: var(--text-primary); font-size: 1.1rem;">
+            Quem começa a ação?
+        </p>
+        <div style="display: flex; gap: 20px; justify-content: center; margin: 30px 0;">
+            <button id="btnPrimeiroJogadores" style="background: var(--blue-energy); border: none; color: white; padding: 15px 30px; border-radius: 50px; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: all 0.3s;">
                 <i class="fas fa-users"></i> Jogadores
             </button>
-            <button class="btn-combate" id="btnNPCsComecam" style="flex:1; padding: 15px;">
+            <button id="btnPrimeiroNPCs" style="background: #e74c3c; border: none; color: white; padding: 15px 30px; border-radius: 50px; cursor: pointer; font-weight: bold; font-size: 1.1rem; transition: all 0.3s;">
                 <i class="fas fa-skull"></i> NPCs
             </button>
         </div>
-        <button class="btn-fechar-modal" id="btnCancelarInicio">Cancelar</button>
+        <button id="btnCancelarIniciar" class="btn-fechar-modal" style="margin-top: 10px;">
+            <i class="fas fa-times"></i> Cancelar
+        </button>
     </div>
 </div>
     <!-- MODAL DE TABELAS -->
@@ -2270,20 +2275,12 @@ let modoMarcadorAtivo = false;
 let unsubscribePosicoes = null;
 let unsubscribeCombate = null;
 let unsubscribeMarcadores = null;
+let primeiroTurnoEscolhido = null;
 
 // ============================================
 // CONTROLE DE MOVIMENTO POR TURNO (NOVO)
 // ============================================
-// moveuNoTurno[personagemId] = { moveu: true/false, tipo: 'andar' ou 'correr', distanciaUsada: 0, distanciaMax: 0 }
 let moveuNoTurno = {};
-
-// ============================================
-// FUNÇÃO PARA RESETAR MOVIMENTO NO PRÓXIMO TURNO
-// ============================================
-function resetarMovimentoTurno() {
-    moveuNoTurno = {};
-    console.log('Movimento resetado para o novo turno');
-}
 
 // ============================================
 // TABELAS DE CRÍTICOS E FULMINANTES (COMPLETAS)
@@ -2362,8 +2359,6 @@ const tabelasCriticosCompletas = {
         "O conjurador fica atordoado por 1 turno."
     ]
 };
-
-
 
 // ============================================
 // FUNÇÕES AUXILIARES
@@ -2475,18 +2470,26 @@ function desenharMapa() {
 }
 
 // ============================================
+// FUNÇÃO PARA RESETAR MOVIMENTO NO PRÓXIMO TURNO
+// ============================================
+function resetarMovimentoTurno() {
+    moveuNoTurno = {};
+    console.log('Movimento resetado para o novo turno');
+}
+
+// ============================================
 // FUNÇÕES DE COMBATE
 // ============================================
-async function iniciarCombate() {
-    if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
+async function executarInicioCombate(primeiro) {
+    if (!ehGM) return;
     showLoading();
     try {
         combateAtivo = true;
         turnoAtual = 1;
-        vezAtual = 'jogadores';
+        vezAtual = primeiro;
         combateId = `combate_${Date.now()}`;
         await setDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), {
-            ativo: true, turno: 1, vez: 'jogadores', iniciado_em: serverTimestamp(), gm_uid: currentUser.uid
+            ativo: true, turno: 1, vez: primeiro, iniciado_em: serverTimestamp(), gm_uid: currentUser.uid
         });
         const batch = writeBatch(db);
         Object.entries(posicoes).forEach(([id, pos]) => {
@@ -2499,14 +2502,19 @@ async function iniciarCombate() {
             }, { merge: true });
         });
         await batch.commit();
-        
-        // Resetar movimento ao iniciar combate
         resetarMovimentoTurno();
-        
         atualizarUICombate();
-        atualizarListaNPCs(); // Atualizar lista para mostrar botões habilitados
-        showToast('Combate iniciado! Posicione os personagens.');
+        atualizarListaNPCs();
+        showToast(`Combate iniciado! ${primeiro === 'jogadores' ? 'Jogadores' : 'NPCs'} começam a ação.`);
+        const modalIniciar = document.getElementById('modalIniciarCombate');
+        if(modalIniciar) modalIniciar.classList.remove('active');
     } catch(e) { showToast('Erro ao iniciar: ' + e.message, true); } finally { hideLoading(); }
+}
+
+async function iniciarCombate() {
+    if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
+    const modalIniciar = document.getElementById('modalIniciarCombate');
+    if (modalIniciar) modalIniciar.classList.add('active');
 }
 
 async function moverPersonagem(id, hexX, hexY) {
@@ -2517,29 +2525,22 @@ async function moverPersonagem(id, hexX, hexY) {
     if (Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY && p.id !== id)) {
         showToast('Ocupado!', true); return;
     }
-    
-    // Calcular distância percorrida
     let distanciaPercorrida = 0;
     if (pos.hexX !== undefined && pos.hexX !== null) {
         distanciaPercorrida = Math.abs(pos.hexX - hexX) + Math.abs(pos.hexY - hexY);
     }
-    
     const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", id);
     await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
     posicoes[id].hexX = hexX;
     posicoes[id].hexY = hexY;
-    
-    // Atualizar movimento no turno se foi um movimento de combate
     if (moveuNoTurno[id]?.moveu && distanciaPercorrida > 0) {
         moveuNoTurno[id].distanciaUsada = distanciaPercorrida;
         showToast(`${posicoes[id].nome} moveu ${distanciaPercorrida}m de ${moveuNoTurno[id].distanciaMax}m`);
     }
-    
     if (npcSelecionadoParaPosicionar === id) { 
         npcSelecionadoParaPosicionar = null; 
         if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none'; 
     }
-    
     desenharMapa();
     atualizarListaNPCs();
     if (personagemSelecionado === id) atualizarFichaCombate(id);
@@ -2559,7 +2560,7 @@ async function avancarTurno() {
     }
     await updateDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), { turno: turnoAtual, vez: vezAtual });
     atualizarUICombate();
-    atualizarListaNPCs(); // Atualizar lista para habilitar/desabilitar botões
+    atualizarListaNPCs();
 }
 
 async function encerrarCombate() {
@@ -2575,10 +2576,7 @@ async function encerrarCombate() {
         combateAtivo = false;
         combateId = null;
         Object.keys(posicoes).forEach(id => { posicoes[id].hexX = undefined; posicoes[id].hexY = undefined; });
-        
-        // Resetar movimento ao encerrar combate
         resetarMovimentoTurno();
-        
         atualizarUICombate();
         desenharMapa();
         atualizarListaNPCs();
@@ -2603,7 +2601,6 @@ function atualizarFichaCombate(id) {
     if (!pos) return;
     const jaMoveu = moveuNoTurno[id]?.moveu || false;
     const podeMover = combateAtivo && vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs') && !jaMoveu && pos.hexX !== undefined && pos.hexX !== null;
-    
     const fichaHtml = `
         <div class="ficha-combate">
             <div class="ficha-header">
@@ -2640,33 +2637,24 @@ function atualizarFichaCombate(id) {
 window.iniciarMovimento = function(id, tipo) {
     const pos = posicoes[id];
     if (!pos || pos.hexX === undefined) { showToast('Personagem não posicionado!', true); return; }
-    
-    // Verificar se já moveu neste turno
     if (moveuNoTurno[id]?.moveu) {
         showToast('Este personagem já se moveu neste turno!', true);
         return;
     }
-    
-    // Verificar se é a vez correta
     if (vezAtual !== (pos.tipo === 'pc' ? 'jogadores' : 'npcs')) {
         showToast('Não é a vez deste personagem!', true);
         return;
     }
-    
     let alcance = tipo === 'correr' ? (pos.correr || 6) : (pos.andar || 6);
-    
-    // Registrar que vai mover
     moveuNoTurno[id] = {
         moveu: true,
         tipo: tipo,
         distanciaUsada: 0,
         distanciaMax: alcance
     };
-    
     personagemSelecionado = id;
     modoCombateAtual = 'movimento';
     highlightHex = [];
-    
     for (let dx = -alcance; dx <= alcance; dx++) {
         for (let dy = -alcance; dy <= alcance; dy++) {
             let newX = pos.hexX + dx, newY = pos.hexY + dy;
@@ -2677,12 +2665,10 @@ window.iniciarMovimento = function(id, tipo) {
             }
         }
     }
-    
     desenharMapa();
-    atualizarListaNPCs(); // Atualizar para desabilitar botões
+    atualizarListaNPCs();
     if (personagemSelecionado === id) atualizarFichaCombate(id);
     showToast(`Movimento ${tipo}: clique em um hexágono destacado para mover ${pos.nome} (até ${alcance}m)`);
-    
     if (instrucaoPosicionamento) {
         instrucaoPosicionamento.style.display = 'inline-block';
         instrucaoPosicionamento.innerHTML = `👇 Movendo ${pos.nome}: clique em um hexágono destacado (até ${alcance}m)`;
@@ -2698,7 +2684,6 @@ function handleCanvasClick(e) {
     const mouseY = (e.clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
     if (hex.x >= 0 && hex.y >= 0) {
-        // Modo marcador (obstáculo)
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
@@ -2708,24 +2693,19 @@ function handleCanvasClick(e) {
             }
             return;
         }
-        
-        // Verificar se há personagem no hexágono
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
         if (personagemNoHex) {
             personagemSelecionado = personagemNoHex[0];
             atualizarFichaCombate(personagemSelecionado);
         } 
-        // Modo posicionamento de NPC (GM)
         else if (ehGM && npcSelecionadoParaPosicionar) {
             moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
         } 
-        // Modo movimento (personagem selecionado)
         else if (personagemSelecionado && modoCombateAtual === 'movimento') {
             moverPersonagem(personagemSelecionado, hex.x, hex.y);
             modoCombateAtual = 'posicionamento';
             highlightHex = [];
             desenharMapa();
-            // Atualizar UI após movimento
             atualizarListaNPCs();
             if (personagemSelecionado) atualizarFichaCombate(personagemSelecionado);
         }
@@ -2805,35 +2785,23 @@ function renderizarMagiasNpc() {
     });
 }
 
-// ============================================
-// FUNÇÃO CORRIGIDA: atualizarListaNPCs (com botões POSICIONAR, ANDAR, CORRER - SEMPRE VISÍVEIS)
-// ============================================
 function atualizarListaNPCs() {
     let html = '';
     const npcsList = Object.values(posicoes).filter(p => p.tipo === 'npc');
-    
     if (npcsList.length === 0) {
         if(npcsContainer) npcsContainer.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Nenhum NPC adicionado</div>';
         return;
     }
-    
     npcsList.forEach(npc => {
         const estaPosicionado = npc.hexX !== undefined && npc.hexX !== null && npc.hexX !== null;
         const jaMoveu = moveuNoTurno[npc.id]?.moveu || false;
-        
-        // Verifica se pode mover (apenas para habilitar/desabilitar, NÃO para ocultar)
         const podeMover = combateAtivo && vezAtual === 'npcs' && !jaMoveu && estaPosicionado;
-        
-        // Determina cor e texto do botão Posicionar
         const btnPosicionarBg = estaPosicionado ? 'var(--bg-primary)' : 'var(--gold)';
         const btnPosicionarColor = estaPosicionado ? 'var(--gold)' : 'var(--bg-primary)';
         const btnPosicionarTexto = estaPosicionado ? 'Reposicionar' : 'Posicionar';
-        
-        // Determina estilo dos botões de movimento
         const btnMovimentoBg = podeMover ? 'var(--gold)' : 'var(--bg-primary)';
         const btnMovimentoColor = podeMover ? 'var(--bg-primary)' : 'var(--gold)';
         const btnMovimentoCursor = podeMover ? 'pointer' : 'not-allowed';
-        
         html += `<div class="npc-card-simples" style="flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-glow);">
             <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" onclick="window.abrirDetalheNPC('${npc.id}')">
                 <div class="npc-nome-simples">
@@ -2852,37 +2820,22 @@ function atualizarListaNPCs() {
                     </button>
                 </div>
             </div>
-            
-            <!-- Linha de informações de movimento -->
             <div style="display: flex; gap: 15px; justify-content: space-between; font-size: 0.75rem; padding: 5px 0; border-top: 1px solid var(--border-glow);">
                 <span><i class="fas fa-shoe-prints" style="color: #2ecc71;"></i> Andar: ${npc.andar || 4}m</span>
                 <span><i class="fas fa-running" style="color: #f39c12;"></i> Correr: ${npc.correr || 8}m</span>
                 <span><i class="fas fa-shield-alt"></i> RD: ${npc.rd || 0}</span>
             </div>
-            
-            <!-- BOTÕES: Posicionar, Andar e Correr (SEMPRE VISÍVEIS) -->
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
-                <!-- Botão POSICIONAR -->
                 <button class="btn-posicionar-npc" onclick="window.selecionarNPCparaPosicionar('${npc.id}')" style="flex:1; background: ${btnPosicionarBg}; color: ${btnPosicionarColor}; border: 1px solid var(--gold); padding: 10px 8px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
                     <i class="fas fa-map-marker-alt"></i> ${btnPosicionarTexto}
                 </button>
-                
-                <!-- Botão ANDAR (SEMPRE VISÍVEL) -->
-                <button class="btn-movimento-andar" onclick="window.moverNPC('${npc.id}', 'andar')" 
-                        style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#2ecc71'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;"
-                        ${!podeMover ? 'disabled' : ''}>
+                <button class="btn-movimento-andar" onclick="window.moverNPC('${npc.id}', 'andar')" style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#2ecc71'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;" ${!podeMover ? 'disabled' : ''}>
                     <i class="fas fa-shoe-prints"></i> Andar (${npc.andar || 4}m)
                 </button>
-                
-                <!-- Botão CORRER (SEMPRE VISÍVEL) -->
-                <button class="btn-movimento-correr" onclick="window.moverNPC('${npc.id}', 'correr')" 
-                        style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#f39c12'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;"
-                        ${!podeMover ? 'disabled' : ''}>
+                <button class="btn-movimento-correr" onclick="window.moverNPC('${npc.id}', 'correr')" style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#f39c12'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;" ${!podeMover ? 'disabled' : ''}>
                     <i class="fas fa-running"></i> Correr (${npc.correr || 8}m)
                 </button>
             </div>
-            
-            <!-- Mensagem explicativa quando não pode mover -->
             ${!podeMover && estaPosicionado ? `
             <div style="font-size: 0.7rem; color: #ffaa00; text-align: center; margin-top: 5px; padding: 4px; background: rgba(255,170,0,0.1); border-radius: 6px;">
                 <i class="fas fa-info-circle"></i> 
@@ -2894,13 +2847,9 @@ function atualizarListaNPCs() {
             ` : ''}
         </div>`;
     });
-    
     if(npcsContainer) npcsContainer.innerHTML = html;
 }
 
-// ============================================
-// FUNÇÃO: selecionar NPC para posicionar
-// ============================================
 window.selecionarNPCparaPosicionar = function(id) {
     if (!ehGM) { 
         showToast('Apenas o GM pode posicionar NPCs', true); 
@@ -2908,71 +2857,53 @@ window.selecionarNPCparaPosicionar = function(id) {
     }
     const npc = posicoes[id];
     if (!npc) return;
-    
     npcSelecionadoParaPosicionar = id;
     modoCombateAtual = 'posicionamento';
     personagemSelecionado = null;
-    
     if (modoMarcadorAtivo) { 
         modoMarcadorAtivo = false; 
         if(btnMarcador) btnMarcador.classList.remove('ativo'); 
         if(modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate'; 
     }
-    
     if(instrucaoPosicionamento) {
         instrucaoPosicionamento.style.display = 'inline-block';
         instrucaoPosicionamento.innerHTML = `👇 Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'RE' : ''}posicionar: ${npc.nome}`;
     }
-    
     showToast(`Clique no mapa para ${npc.hexX !== undefined && npc.hexX !== null ? 'reposicionar' : 'posicionar'} ${npc.nome}`);
-    
     if (modoCombateDiv && modoCombateDiv.style.display !== 'block') {
         if(btnModoCombate) btnModoCombate.click();
     }
 };
 
-// ============================================
-// FUNÇÃO: mover NPC (Andar ou Correr)
-// ============================================
 window.moverNPC = function(id, tipoMovimento) {
     const npc = posicoes[id];
     if (!npc) return;
-    
     if (!combateAtivo) {
         showToast('O combate não está ativo!', true);
         return;
     }
-    
     if (vezAtual !== 'npcs') {
         showToast('Agora é a vez dos Jogadores!', true);
         return;
     }
-    
     if (moveuNoTurno[id]?.moveu) {
         showToast('Este NPC já se moveu neste turno!', true);
         return;
     }
-    
     if (npc.hexX === undefined || npc.hexX === null) {
         showToast('NPC não está posicionado no mapa!', true);
         return;
     }
-    
     let alcance = tipoMovimento === 'correr' ? (npc.correr || 8) : (npc.andar || 4);
-    
-    // Registrar que moveu
     moveuNoTurno[id] = {
         moveu: true,
         tipo: tipoMovimento,
         distanciaUsada: 0,
         distanciaMax: alcance
     };
-    
-    // Ativar modo movimento no mapa
     personagemSelecionado = id;
     modoCombateAtual = 'movimento';
     highlightHex = [];
-    
     for (let dx = -alcance; dx <= alcance; dx++) {
         for (let dy = -alcance; dy <= alcance; dy++) {
             let newX = npc.hexX + dx, newY = npc.hexY + dy;
@@ -2983,50 +2914,31 @@ window.moverNPC = function(id, tipoMovimento) {
             }
         }
     }
-    
     desenharMapa();
     atualizarListaNPCs();
     showToast(`Movimento ${tipoMovimento}: clique em um hexágono destacado para mover ${npc.nome} (até ${alcance}m)`);
-    
     if (instrucaoPosicionamento) {
         instrucaoPosicionamento.style.display = 'inline-block';
         instrucaoPosicionamento.innerHTML = `👇 Movendo ${npc.nome}: clique em um hexágono destacado (até ${alcance}m)`;
     }
 };
 
-// ============================================
-// FUNÇÃO CORRIGIDA: EXCLUIR NPC (REMOVE DO ARRAY posicoes E DO FIRESTORE)
-// ============================================
 window.excluirNPC = async function(npcId, event) {
     if (event) event.stopPropagation();
     if (!confirm('Tem certeza que deseja excluir este NPC?')) return;
     try {
-        // 1. Excluir o NPC da coleção npcs
         await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "npcs", npcId));
-        
-        // 2. EXCLUIR TAMBÉM A POSIÇÃO NO FIRESTORE (LINHA ESSENCIAL QUE FALTAVA!)
         await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId));
-        
-        // 3. REMOVER TAMBÉM DO ARRAY local posicoes
         delete posicoes[npcId];
-        
-        // 4. ATUALIZAR A LISTA VISUALMENTE
         atualizarListaNPCs();
-        
-        // 5. SE O NPC EXCLUÍDO ERA O QUE ESTAVA SELECIONADO, LIMPAR SELEÇÃO
         if (personagemSelecionado === npcId) {
             personagemSelecionado = null;
         }
-        
-        // 6. SE O NPC EXCLUÍDO ERA O QUE ESTAVA SENDO POSICIONADO, LIMPAR
         if (npcSelecionadoParaPosicionar === npcId) {
             npcSelecionadoParaPosicionar = null;
             if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none';
         }
-        
-        // 7. REDESENHAR O MAPA
         if (ctx) desenharMapa();
-        
         showToast('NPC excluído com sucesso!');
     } catch(error) { 
         console.error(error);
@@ -3034,9 +2946,6 @@ window.excluirNPC = async function(npcId, event) {
     }
 };
 
-// ============================================
-// FUNÇÕES DE DETALHES DO NPC
-// ============================================
 window.abrirDetalheNPC = async function(npcId) {
     try {
         const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
@@ -3188,113 +3097,6 @@ function iniciarListeners() {
 }
 
 // ============================================
-// FUNÇÃO MODIFICADA: INICIAR COMBATE (COM ESCOLHA DE QUEM COMEÇA)
-// ============================================
-async function iniciarCombate() {
-    if (!ehGM) { 
-        showToast('Apenas o GM pode iniciar o combate', true); 
-        return; 
-    }
-    
-    // Mostrar modal de escolha
-    const modalEscolha = document.getElementById('modalEscolhaInicio');
-    if (modalEscolha) modalEscolha.classList.add('active');
-    
-    // Função para processar a escolha
-    const processarInicio = async (quemComeca) => {
-        modalEscolha.classList.remove('active');
-        showLoading();
-        
-        try {
-            combateAtivo = true;
-            turnoAtual = 1;
-            vezAtual = quemComeca;
-            combateId = `combate_${Date.now()}`;
-            
-            await setDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), {
-                ativo: true, 
-                turno: 1, 
-                vez: vezAtual,
-                quem_comecou: quemComeca,
-                iniciado_em: serverTimestamp(), 
-                gm_uid: currentUser.uid
-            });
-            
-            const batch = writeBatch(db);
-            Object.entries(posicoes).forEach(([id, pos]) => {
-                batch.set(doc(db, "sessoes", sessaoAtual.id, "posicoes", id), {
-                    personagemId: id, 
-                    nome: pos.nome, 
-                    tipo: pos.tipo, 
-                    cor: pos.cor,
-                    pv: pos.pv, 
-                    pvMax: pos.pvMax, 
-                    pm: pos.pm, 
-                    pmMax: pos.pmMax,
-                    pf: pos.pf, 
-                    pfMax: pos.pfMax, 
-                    esquiva: pos.esquiva, 
-                    aparar: pos.aparar,
-                    bloqueio: pos.bloqueio, 
-                    andar: pos.andar, 
-                    correr: pos.correr, 
-                    rd: pos.rd,
-                    hexX: pos.hexX, 
-                    hexY: pos.hexY, 
-                    atualizadoEm: serverTimestamp()
-                }, { merge: true });
-            });
-            await batch.commit();
-            
-            resetarMovimentoTurno();
-            atualizarUICombate();
-            atualizarListaNPCs();
-            
-            const quemTexto = vezAtual === 'jogadores' ? 'Jogadores' : 'NPCs';
-            await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                tipo: 'sistema',
-                mensagem: `⚔️ COMBATE INICIADO! ${quemTexto} começam a ação.`,
-                visibilidade: 'publico',
-                timestamp: serverTimestamp()
-            });
-            
-            showToast(`Combate iniciado! ${quemTexto} começam.`);
-            
-        } catch(e) { 
-            showToast('Erro ao iniciar: ' + e.message, true); 
-        } finally { 
-            hideLoading(); 
-        }
-    };
-    
-    // Configurar os botões do modal
-    const btnJogadores = document.getElementById('btnJogadoresComecam');
-    const btnNPCs = document.getElementById('btnNPCsComecam');
-    const btnCancelar = document.getElementById('btnCancelarInicio');
-    
-    if (btnJogadores) {
-        const novoBtn = btnJogadores.cloneNode(true);
-        btnJogadores.parentNode.replaceChild(novoBtn, btnJogadores);
-        novoBtn.onclick = () => processarInicio('jogadores');
-    }
-    
-    if (btnNPCs) {
-        const novoBtn = btnNPCs.cloneNode(true);
-        btnNPCs.parentNode.replaceChild(novoBtn, btnNPCs);
-        novoBtn.onclick = () => processarInicio('npcs');
-    }
-    
-    if (btnCancelar) {
-        const novoBtn = btnCancelar.cloneNode(true);
-        btnCancelar.parentNode.replaceChild(novoBtn, btnCancelar);
-        novoBtn.onclick = () => {
-            const modal = document.getElementById('modalEscolhaInicio');
-            if (modal) modal.classList.remove('active');
-        };
-    }
-}
-
-// ============================================
 // FUNÇÃO PRINCIPAL: CARREGAR SESSÃO
 // ============================================
 async function carregarSessao() {
@@ -3313,19 +3115,15 @@ async function carregarSessao() {
             setTimeout(() => window.location.href = 'dashboard-gm.html', 2000); 
             return; 
         }
-        
         sessaoAtual = { id: sessaoSnap.id, ...sessaoSnap.data() };
         campanhaIdCustom = sessaoAtual.campanha_id_custom;
         if(sessaoTitulo) sessaoTitulo.textContent = sessaoAtual.titulo || 'Mesa do Mestre';
         ehGM = (sessaoAtual.gm_uid === currentUser.uid);
-        
         if (!ehGM) { 
             window.location.href = 'dashboard-pc.html'; 
             return; 
         }
-        
         await carregarPCs();
-        
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
         npcsSnap.forEach(doc => {
@@ -3352,7 +3150,6 @@ async function carregarSessao() {
             };
             i++;
         });
-        
         try {
             unsubscribeMarcadores = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "marcadores"), (snap) => {
                 marcadores = {};
@@ -3362,7 +3159,6 @@ async function carregarSessao() {
         } catch(e) { 
             console.warn('Erro no listener marcadores:', e); 
         }
-        
         try {
             unsubscribePosicoes = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "posicoes"), (snap) => {
                 snap.docChanges().forEach(c => {
@@ -3382,7 +3178,6 @@ async function carregarSessao() {
         } catch(e) { 
             console.warn('Erro no listener posicoes:', e); 
         }
-        
         try {
             unsubscribeCombate = onSnapshot(query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1)), (snap) => {
                 if (!snap.empty) { 
@@ -3400,14 +3195,10 @@ async function carregarSessao() {
         } catch(e) { 
             console.warn('Erro no listener combate:', e); 
         }
-        
         iniciarListeners();
-        
         if (ctx) desenharMapa();
         atualizarListaNPCs();
-        
         hideLoading();
-        
     } catch(error) { 
         console.error(error); 
         showToast('Erro ao carregar sessão: ' + error.message, true); 
@@ -3416,7 +3207,7 @@ async function carregarSessao() {
 }
 
 // ============================================
-// EVENTOS DOS BOTÕES DE MODO (CORRIGIDO - SALVA NO FIREBASE)
+// EVENTOS DOS BOTÕES DE MODO
 // ============================================
 if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
     btnModoNarrativo.addEventListener('click', async () => {
@@ -3424,7 +3215,6 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
         btnModoCombate.classList.remove('ativo');
         modoNarrativoDiv.style.display = 'block';
         modoCombateDiv.style.display = 'none';
-        
         if (sessaoAtual) {
             try {
                 await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
@@ -3437,14 +3227,12 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
             }
         }
     });
-    
     btnModoCombate.addEventListener('click', async () => {
         btnModoCombate.classList.add('ativo');
         btnModoNarrativo.classList.remove('ativo');
         modoNarrativoDiv.style.display = 'none';
         modoCombateDiv.style.display = 'block';
         setTimeout(() => { if (ctx) desenharMapa(); }, 100);
-        
         if (sessaoAtual) {
             try {
                 await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
@@ -3475,6 +3263,30 @@ if (btnMarcador) {
         if (modoMarcadorAtivo && instrucaoPosicionamento) instrucaoPosicionamento.innerHTML = '👇 Clique para adicionar/remover obstáculo';
     });
 }
+
+// ============================================
+// EVENTOS DO MODAL DE INICIAR COMBATE
+// ============================================
+const modalIniciarCombate = document.getElementById('modalIniciarCombate');
+const btnPrimeiroJogadores = document.getElementById('btnPrimeiroJogadores');
+const btnPrimeiroNPCs = document.getElementById('btnPrimeiroNPCs');
+const btnCancelarIniciar = document.getElementById('btnCancelarIniciar');
+if (btnPrimeiroJogadores) {
+    btnPrimeiroJogadores.addEventListener('click', () => {
+        executarInicioCombate('jogadores');
+    });
+}
+if (btnPrimeiroNPCs) {
+    btnPrimeiroNPCs.addEventListener('click', () => {
+        executarInicioCombate('npcs');
+    });
+}
+if (btnCancelarIniciar) {
+    btnCancelarIniciar.addEventListener('click', () => {
+        if(modalIniciarCombate) modalIniciarCombate.classList.remove('active');
+    });
+}
+
 if (canvas) canvas.addEventListener('click', handleCanvasClick);
 if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
 
@@ -3583,10 +3395,6 @@ tabsCritico.forEach(tab => {
 // ============================================
 if (btnAddAtaque) btnAddAtaque.addEventListener('click', () => { ataquesArray.push({ nome: 'Novo Ataque', bonus: 0, dano: '1d8', alcance: 1 }); renderizarAtaques(); });
 if (btnAddMagiaNpc) btnAddMagiaNpc.addEventListener('click', () => { magiasArray.push({ nome: 'Nova Magia', nh: 50, efeito: 'Efeito da magia' }); renderizarMagiasNpc(); });
-
-// ============================================
-// FUNÇÃO CORRIGIDA: SALVAR NPC (ADICIONA AO ARRAY posicoes)
-// ============================================
 if (btnSalvarNpc) {
     btnSalvarNpc.addEventListener('click', async () => {
         if (!sessaoAtual) { alert('Sessão não carregada!'); return; }
@@ -3604,7 +3412,6 @@ if (btnSalvarNpc) {
         };
         try {
             const docRef = await addDoc(collection(db, "sessoes", sessaoAtual.id, "npcs"), npcData);
-            
             posicoes[docRef.id] = {
                 id: docRef.id,
                 nome: nome,
@@ -3625,9 +3432,7 @@ if (btnSalvarNpc) {
                 hexX: undefined,
                 hexY: undefined
             };
-            
             atualizarListaNPCs();
-            
             if(modalNpc) modalNpc.classList.remove('active');
             if(npcNome) npcNome.value = '';
             if(npcSt) npcSt.value = '10'; if(npcDx) npcDx.value = '10'; if(npcIq) npcIq.value = '10'; if(npcVigor) npcVigor.value = '10'; if(npcVt) npcVt.value = '10';
@@ -3636,7 +3441,6 @@ if (btnSalvarNpc) {
             if(npcAndar) npcAndar.value = '4'; if(npcCorrer) npcCorrer.value = '8';
             ataquesArray = []; magiasArray = [];
             renderizarAtaques(); renderizarMagiasNpc();
-            
             showToast('NPC criado com sucesso!');
         } catch(error) { console.error(error); alert('Erro ao salvar NPC: ' + error.message); }
     });
@@ -3697,9 +3501,11 @@ window.addEventListener('click', (e) => {
     const modalNpcDetalhe = document.getElementById('modalNpcDetalhe');
     const modalNpcEl = document.getElementById('modalNpc');
     const modalTabelasEl = document.getElementById('modalTabelas');
+    const modalIniciarEl = document.getElementById('modalIniciarCombate');
     if (e.target === modalNpcDetalhe && modalNpcDetalhe) modalNpcDetalhe.classList.remove('active');
     if (e.target === modalNpcEl && modalNpcEl) modalNpcEl.classList.remove('active');
     if (e.target === modalTabelasEl && modalTabelasEl) modalTabelasEl.classList.remove('active');
+    if (e.target === modalIniciarEl && modalIniciarEl) modalIniciarEl.classList.remove('active');
 });
 document.querySelectorAll('#modalNpcDetalhe .btn-recurso-npc').forEach(btn => {
     btn.removeEventListener('click', window.handleRecursoDetalheClick);
