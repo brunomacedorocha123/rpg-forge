@@ -3208,7 +3208,7 @@ async function iniciarCombate() {
         try {
             combateAtivo = true;
             turnoAtual = 1;
-            vezAtual = quemComeca; // 'jogadores' ou 'npcs'
+            vezAtual = quemComeca;
             combateId = `combate_${Date.now()}`;
             
             await setDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), {
@@ -3246,13 +3246,10 @@ async function iniciarCombate() {
             });
             await batch.commit();
             
-            // Resetar movimento ao iniciar combate
             resetarMovimentoTurno();
-            
             atualizarUICombate();
             atualizarListaNPCs();
             
-            // Adicionar log de início
             const quemTexto = vezAtual === 'jogadores' ? 'Jogadores' : 'NPCs';
             await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
                 tipo: 'sistema',
@@ -3275,25 +3272,25 @@ async function iniciarCombate() {
     const btnNPCs = document.getElementById('btnNPCsComecam');
     const btnCancelar = document.getElementById('btnCancelarInicio');
     
-    // Remover listeners antigos para evitar duplicação
     if (btnJogadores) {
-        const novaBtnJogadores = btnJogadores.cloneNode(true);
-        btnJogadores.parentNode.replaceChild(novaBtnJogadores, btnJogadores);
-        novaBtnJogadores.addEventListener('click', () => processarInicio('jogadores'));
+        const novoBtn = btnJogadores.cloneNode(true);
+        btnJogadores.parentNode.replaceChild(novoBtn, btnJogadores);
+        novoBtn.onclick = () => processarInicio('jogadores');
     }
     
     if (btnNPCs) {
-        const novaBtnNPCs = btnNPCs.cloneNode(true);
-        btnNPCs.parentNode.replaceChild(novaBtnNPCs, btnNPCs);
-        novaBtnNPCs.addEventListener('click', () => processarInicio('npcs'));
+        const novoBtn = btnNPCs.cloneNode(true);
+        btnNPCs.parentNode.replaceChild(novoBtn, btnNPCs);
+        novoBtn.onclick = () => processarInicio('npcs');
     }
     
     if (btnCancelar) {
-        const novaBtnCancelar = btnCancelar.cloneNode(true);
-        btnCancelar.parentNode.replaceChild(novaBtnCancelar, btnCancelar);
-        novaBtnCancelar.addEventListener('click', () => {
-            modalEscolha.classList.remove('active');
-        });
+        const novoBtn = btnCancelar.cloneNode(true);
+        btnCancelar.parentNode.replaceChild(novoBtn, btnCancelar);
+        novoBtn.onclick = () => {
+            const modal = document.getElementById('modalEscolhaInicio');
+            if (modal) modal.classList.remove('active');
+        };
     }
 }
 
@@ -3329,7 +3326,6 @@ async function carregarSessao() {
         
         await carregarPCs();
         
-        // Carregar NPCs do Firestore
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
         npcsSnap.forEach(doc => {
@@ -3357,11 +3353,6 @@ async function carregarSessao() {
             i++;
         });
         
-        // ============================================
-        // LISTENERS DO COMBATE (com tratamento de erro para evitar o erro do listener)
-        // ============================================
-        
-        // Listener para marcadores (obstáculos)
         try {
             unsubscribeMarcadores = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "marcadores"), (snap) => {
                 marcadores = {};
@@ -3372,7 +3363,6 @@ async function carregarSessao() {
             console.warn('Erro no listener marcadores:', e); 
         }
         
-        // Listener para posições dos personagens
         try {
             unsubscribePosicoes = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "posicoes"), (snap) => {
                 snap.docChanges().forEach(c => {
@@ -3393,7 +3383,6 @@ async function carregarSessao() {
             console.warn('Erro no listener posicoes:', e); 
         }
         
-        // Listener para estado do combate
         try {
             unsubscribeCombate = onSnapshot(query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1)), (snap) => {
                 if (!snap.empty) { 
@@ -3412,10 +3401,8 @@ async function carregarSessao() {
             console.warn('Erro no listener combate:', e); 
         }
         
-        // Iniciar listeners de cenário e rolagens
         iniciarListeners();
         
-        // Desenhar mapa e atualizar lista de NPCs
         if (ctx) desenharMapa();
         atualizarListaNPCs();
         
@@ -3438,7 +3425,6 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
         modoNarrativoDiv.style.display = 'block';
         modoCombateDiv.style.display = 'none';
         
-        // ✅ SALVA NO FIREBASE para o jogador receber
         if (sessaoAtual) {
             try {
                 await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
@@ -3459,7 +3445,6 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
         modoCombateDiv.style.display = 'block';
         setTimeout(() => { if (ctx) desenharMapa(); }, 100);
         
-        // ✅ SALVA NO FIREBASE para o jogador receber
         if (sessaoAtual) {
             try {
                 await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
@@ -3492,6 +3477,7 @@ if (btnMarcador) {
 }
 if (canvas) canvas.addEventListener('click', handleCanvasClick);
 if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
+
 // ============================================
 // EVENTOS DE NAVEGAÇÃO
 // ============================================
@@ -3619,7 +3605,6 @@ if (btnSalvarNpc) {
         try {
             const docRef = await addDoc(collection(db, "sessoes", sessaoAtual.id, "npcs"), npcData);
             
-            // ADICIONAR O NOVO NPC AO ARRAY posicoes IMEDIATAMENTE
             posicoes[docRef.id] = {
                 id: docRef.id,
                 nome: nome,
@@ -3641,7 +3626,6 @@ if (btnSalvarNpc) {
                 hexY: undefined
             };
             
-            // ATUALIZAR A LISTA VISUALMENTE
             atualizarListaNPCs();
             
             if(modalNpc) modalNpc.classList.remove('active');
