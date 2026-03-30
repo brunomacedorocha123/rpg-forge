@@ -3198,79 +3198,29 @@ function renderizarPCs() {
     });
 }
 
-async function carregarPCs() { 
-    try { 
-        const q = query( 
-            collection(db, "campanha_personagens"), 
-            where("campanha_id", "==", campanhaIdCustom), 
-            where("status", "==", "ativo") 
-        ); 
-        const querySnapshot = await getDocs(q); 
-        pcVinculados = []; 
-        
-        // ✅ CORRETO: mudar de 'doc' para 'documento'
-        for (const documento of querySnapshot.docs) {  
-            const vinculo = { 
-                id: documento.id, 
-                ...documento.data() 
-            }; 
-            
-            try { 
-                // ✅ 'doc' aqui é a função do Firebase, não a variável
-                const personagemRef = doc(db, "personagens", vinculo.personagem_id); 
-                const personagemSnap = await getDoc(personagemRef); 
-                if (personagemSnap.exists()) { 
-                    vinculo.personagem = personagemSnap.data(); 
-                } 
-            } catch(e) { 
-                console.warn('Erro ao buscar personagem:', e); 
-            } 
-            pcVinculados.push(vinculo); 
-        } 
-        
-        renderizarPCs(); 
-    } catch(error) { 
-        console.error('Erro ao carregar PCs:', error); 
-        showToast('Erro ao carregar jogadores', true); 
-    } 
-}
+async function carregarPCs() { try { const q = query( collection(db, "campanha_personagens"), where("campanha_id", "==", campanhaIdCustom), where("status", "==", "ativo") ); const querySnapshot = await getDocs(q); pcVinculados = []; for (const doc of querySnapshot.docs) { const vinculo = { id: doc.id, ...doc.data() }; try { const personagemRef = doc(db, "personagens", vinculo.personagem_id); const personagemSnap = await getDoc(personagemRef); if (personagemSnap.exists()) { vinculo.personagem = personagemSnap.data(); } } catch(e) { console.warn('Erro ao buscar personagem:', e); } pcVinculados.push(vinculo); } renderizarPCs(); } catch(error) { console.error('Erro ao carregar PCs:', error); showToast('Erro ao carregar jogadores', true); } }
+
 // ============================================
-// FUNÇÕES DE LISTENERS - VERSÃO CORRETA E FUNCIONAL
+// FUNÇÕES DE LISTENERS
 // ============================================
 function iniciarListeners() {
     if (!sessaoAtual) return;
-    
-    // Listener do cenário - CORRETO
-    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (snapshotDoc) => {
-        if (snapshotDoc.exists() && snapshotDoc.data().cena_atual) {
-            if (snapshotDoc.data().cena_atual.descricao !== undefined && cenarioDescricao) {
-                cenarioDescricao.value = snapshotDoc.data().cena_atual.descricao;
-            }
-            if (snapshotDoc.data().cena_atual.imagemBase64 && cenarioImagem) {
-                cenarioImagem.innerHTML = `<img src="${snapshotDoc.data().cena_atual.imagemBase64}" alt="Cena">`;
-            } else if (snapshotDoc.data().cena_atual.imagemUrl && cenarioImagem) {
-                cenarioImagem.innerHTML = `<img src="${snapshotDoc.data().cena_atual.imagemUrl}" alt="Cena">`;
-            } else if(cenarioImagem) {
-                cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
-            }
+    onSnapshot(doc(db, "sessoes", sessaoAtual.id), (doc) => {
+        if (doc.exists() && doc.data().cena_atual) {
+            if (doc.data().cena_atual.descricao !== undefined && cenarioDescricao) cenarioDescricao.value = doc.data().cena_atual.descricao;
+            if (doc.data().cena_atual.imagemBase64 && cenarioImagem) cenarioImagem.innerHTML = `<img src="${doc.data().cena_atual.imagemBase64}" alt="Cena">`;
+            else if (doc.data().cena_atual.imagemUrl && cenarioImagem) cenarioImagem.innerHTML = `<img src="${doc.data().cena_atual.imagemUrl}" alt="Cena">`;
+            else if(cenarioImagem) cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
         }
     });
-    
-    // Listener de rolagens - CORRETO
-    const rolagensQuery = query(
-        collection(db, "sessoes", sessaoAtual.id, "rolagens"), 
-        orderBy("timestamp", "desc"), 
-        limit(30)
-    );
-    
+    const rolagensQuery = query(collection(db, "sessoes", sessaoAtual.id, "rolagens"), orderBy("timestamp", "desc"), limit(30));
     onSnapshot(rolagensQuery, (snapshot) => {
         let logHtml = '';
-        snapshot.forEach((docRolagem) => {
-            const r = docRolagem.data();
+        snapshot.forEach(doc => {
+            const r = doc.data();
             const icone = r.visibilidade === 'secreto' ? '🔒' : '🌍';
             const classe = r.visibilidade === 'secreto' ? 'secreto' : 'publico';
             const nomeQuemRolou = r.jogador || 'Mestre';
-            
             if (r.tipo === 'pericia') {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">${icone}</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> Perícia ${r.resultado}%</div>`;
             } else if (r.tipo === 'dano') {
@@ -3281,52 +3231,12 @@ function iniciarListeners() {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">⚔️</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> ${r.mensagem}</div>`;
             }
         });
-        if(logContainer) {
-            logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
-        }
+        if(logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
     });
-}
-// ============================================
-// FUNÇÃO CORRIGIDA: carregarPCs
-// ============================================
-async function carregarPCs() { 
-    try { 
-        const q = query(
-            collection(db, "campanha_personagens"), 
-            where("campanha_id", "==", campanhaIdCustom), 
-            where("status", "==", "ativo")
-        ); 
-        const querySnapshot = await getDocs(q); 
-        pcVinculados = []; 
-        
-        // CORREÇÃO: 'doc' -> 'documento' para evitar conflito com a função doc() do Firestore
-        for (const documento of querySnapshot.docs) { 
-            const vinculo = { 
-                id: documento.id, 
-                ...documento.data() 
-            }; 
-            
-            try { 
-                const personagemRef = doc(db, "personagens", vinculo.personagem_id); 
-                const personagemSnap = await getDoc(personagemRef); 
-                if (personagemSnap.exists()) { 
-                    vinculo.personagem = personagemSnap.data(); 
-                } 
-            } catch(e) { 
-                console.warn('Erro ao buscar personagem:', e); 
-            } 
-            pcVinculados.push(vinculo); 
-        } 
-        
-        renderizarPCs(); 
-    } catch(error) { 
-        console.error('Erro ao carregar PCs:', error); 
-        showToast('Erro ao carregar jogadores', true); 
-    } 
 }
 
 // ============================================
-// FUNÇÃO PRINCIPAL: CARREGAR SESSÃO (CORRIGIDA)
+// FUNÇÃO PRINCIPAL: CARREGAR SESSÃO
 // ============================================
 async function carregarSessao() {
     const sessaoId = getSessaoIdFromUrl();
@@ -3359,11 +3269,10 @@ async function carregarSessao() {
         
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
-        // CORREÇÃO: 'doc' -> 'documento' para evitar conflito
-        npcsSnap.forEach(documento => {
-            const npc = documento.data();
-            posicoes[documento.id] = {
-                id: documento.id, 
+        npcsSnap.forEach(doc => {
+            const npc = doc.data();
+            posicoes[doc.id] = {
+                id: doc.id, 
                 nome: npc.nome, 
                 tipo: 'npc', 
                 cor: coresNPCs[i % coresNPCs.length],
@@ -3446,6 +3355,7 @@ async function carregarSessao() {
         hideLoading(); 
     }
 }
+
 // ============================================
 // EVENTOS DOS BOTÕES DE MODO
 // ============================================
