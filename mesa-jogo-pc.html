@@ -1602,7 +1602,7 @@ canvas.modo-movimento {
         </div>
     </div>
 
-   <script type="module">
+  <script type="module">
         // ============================================
         // IMPORTS FIREBASE
         // ============================================
@@ -1626,7 +1626,9 @@ canvas.modo-movimento {
             setDoc,
             orderBy,
             limit,
-            serverTimestamp
+            serverTimestamp,
+            deleteDoc,
+            writeBatch
         } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
         // ============================================
@@ -1668,7 +1670,7 @@ canvas.modo-movimento {
         
         // Elementos de combate
         const canvas = document.getElementById('mapaCanvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas?.getContext('2d');
         const turnoDisplay = document.getElementById('turnoDisplay');
         const vezJogadores = document.getElementById('vezJogadores');
         const vezNPCs = document.getElementById('vezNPCs');
@@ -1721,124 +1723,70 @@ canvas.modo-movimento {
         const npcsCenaContainer = document.getElementById('npcsCenaContainer');
         const logContainer = document.getElementById('logContainer');
 
-     // ============================================
-// ELEMENTOS DOS BOTÕES DE MOVIMENTO
-// ============================================
-const btnPosicionarPC = document.getElementById('btnPosicionarPC');
-const btnMoverAndar = document.getElementById('btnMoverAndar');
-const btnMoverCorrer = document.getElementById('btnMoverCorrer');
-const valorAndarSpan = document.getElementById('valorAndar');
-const valorCorrerSpan = document.getElementById('valorCorrer');
-const statusMovimento = document.getElementById('statusMovimento');
+        // Botões de movimento
+        const btnPosicionarPC = document.getElementById('btnPosicionarPC');
+        const btnMoverAndar = document.getElementById('btnMoverAndar');
+        const btnMoverCorrer = document.getElementById('btnMoverCorrer');
+        const statusMovimento = document.getElementById('statusMovimento');
+        const valorAndarSpan = document.getElementById('valorAndar');
+        const valorCorrerSpan = document.getElementById('valorCorrer');
 
-// ============================================
-// HABILITA BOTÕES DE MODO MANUAL NO PC
-// ============================================
-modoBtns.forEach(btn => {
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.style.cursor = 'pointer';
-    
-    btn.addEventListener('click', async () => {
-        const modo = btn.dataset.modo;
-        
-        if (modo === 'narrativo') {
-            modoNarrativo.style.display = 'block';
-            modoCombate.style.display = 'none';
-            
-            modoBtns.forEach(b => {
-                if (b.dataset.modo === 'narrativo') {
-                    b.classList.add('ativa');
-                } else {
-                    b.classList.remove('ativa');
-                }
-            });
-            
-            if (unsubscribePosicoes) { unsubscribePosicoes(); unsubscribePosicoes = null; }
-            if (unsubscribeCombate) { unsubscribeCombate(); unsubscribeCombate = null; }
-            if (unsubscribeMarcadores) { unsubscribeMarcadores(); unsubscribeMarcadores = null; }
-            
-            resetarModoMovimento();
-            showToast('🌄 Modo Narrativo ativado', false);
-            
-        } else if (modo === 'combate') {
-            modoNarrativo.style.display = 'none';
-            modoCombate.style.display = 'block';
-            
-            modoBtns.forEach(b => {
-                if (b.dataset.modo === 'combate') {
-                    b.classList.add('ativa');
-                } else {
-                    b.classList.remove('ativa');
-                }
-            });
-            
-            iniciarListenerMarcadores();
-            iniciarListenersCombate();
-            
-            setTimeout(() => {
-                if (ctx) desenharMapa();
-            }, 100);
-            
-            showToast('⚔️ Modo Combate ativado', false);
-        }
-        
-        modoVisualizacao = modo;
-    });
-});
-      // ============================================
-// VARIÁVEIS GLOBAIS (COMPLETO E CORRIGIDO)
-// ============================================
+        // ============================================
+        // 🔥 NOVAS VARIÁVEIS GLOBAIS PARA PARTICIPAÇÃO
+        // ============================================
+        let heartbeatInterval = null;
+        let participanteId = null;
+        let unsubscribeParticipantes = null;
 
-// Autenticação e Sessão
-let currentUser = null;
-let sessaoAtual = null;
-let campanhaId = null;
-let vinculoAtual = null;
-let personagemAtual = null;
-let todosJogadores = [];
-let tabelaAtual = 'ful-ataque';
+        // ============================================
+        // VARIÁVEIS GLOBAIS EXISTENTES
+        // ============================================
+        let currentUser = null;
+        let sessaoAtual = null;
+        let campanhaId = null;
+        let vinculoAtual = null;
+        let personagemAtual = null;
+        let todosJogadores = [];
+        let tabelaAtual = 'ful-ataque';
 
-// Variáveis do modo combate
-let posicoes = {};
-let marcadores = {};
-let turnoAtual = 1;
-let vezAtual = 'jogadores';
-let combateAtivo = false;
-let modoVisualizacao = 'narrativo';
-let modoCombateAtivo = false;
-let highlightHex = [];
-let estaProcessandoMovimento = false;
-let unsubscribePosicoes = null;
-let unsubscribeCombate = null;
-let unsubscribeMarcadores = null;
+        // Variáveis do modo combate
+        let posicoes = {};
+        let marcadores = {};
+        let turnoAtual = 1;
+        let vezAtual = 'jogadores';
+        let combateAtivo = false;
+        let modoVisualizacao = 'narrativo';
+        let highlightHex = [];
+        let estaProcessandoMovimento = false;
+        let unsubscribePosicoes = null;
+        let unsubscribeCombate = null;
+        let unsubscribeMarcadores = null;
 
-// ===== VARIÁVEIS DE MOVIMENTO (ESSENCIAIS PARA O POSICIONAMENTO) =====
-let modoPosicionamentoAtivo = false;
-let modoMovimentoAtivo = false;
-let tipoMovimentoAtual = null;
+        // Variáveis de movimento
+        let modoPosicionamentoAtivo = false;
+        let modoMovimentoAtivo = false;
+        let tipoMovimentoAtual = null;
+        let movimentoUsadoNoTurno = 0;
+        let turnoDoUltimoMovimento = 0;
+        let maxMovimentoTurno = 0;
 
-// ✅ NOVO: Controle de movimento por turno
-let movimentoUsadoNoTurno = 0;        // Metros já andados no turno atual
-let turnoDoUltimoMovimento = 0;       // Para detectar mudança de turno
-let maxMovimentoTurno = 0;            // Máximo permitido (andar ou correr)
-
-// Configurações do mapa HEXAGONAL
-const HEX_RADIUS = 24;
-const HEX_HORIZONTAL_SPACING = HEX_RADIUS * 1.5;
-const HEX_VERTICAL_SPACING = HEX_RADIUS * Math.sqrt(3);
-const MAPA_LARGURA = 20;
-const MAPA_ALTURA = 10;
-const OFFSET_X = 80;
-const OFFSET_Y = 60;
+        // Configurações do mapa HEXAGONAL
+        const HEX_RADIUS = 24;
+        const HEX_HORIZONTAL_SPACING = HEX_RADIUS * 1.5;
+        const HEX_VERTICAL_SPACING = HEX_RADIUS * Math.sqrt(3);
+        const MAPA_LARGURA = 20;
+        const MAPA_ALTURA = 10;
+        const OFFSET_X = 80;
+        const OFFSET_Y = 60;
 
         // ============================================
         // FUNÇÕES AUXILIARES
         // ============================================
-        function showLoading() { loadingOverlay.classList.add('active'); }
-        function hideLoading() { loadingOverlay.classList.remove('active'); }
+        function showLoading() { loadingOverlay?.classList.add('active'); }
+        function hideLoading() { loadingOverlay?.classList.remove('active'); }
 
         function showToast(msg, erro = false) {
+            if (!toastMessage) return;
             toastMessage.textContent = msg;
             toast.classList.add('show');
             if (erro) toast.classList.add('erro');
@@ -1855,7 +1803,122 @@ const OFFSET_Y = 60;
         }
 
         // ============================================
-        // FUNÇÕES DE CÁLCULO
+        // 🔥 FUNÇÕES DE PARTICIPAÇÃO AUTOMÁTICA 🔥
+        // ============================================
+        
+        async function entrarNaSessaoAutomaticamente() {
+            if (!currentUser || !sessaoAtual || !campanhaId || !personagemAtual) {
+                console.log('⏳ Aguardando dados para entrar na sessão...');
+                return false;
+            }
+            
+            try {
+                console.log('🎮 Entrando na sessão:', sessaoAtual.id);
+                
+                participanteId = `${currentUser.uid}_${sessaoAtual.id}`;
+                const participanteRef = doc(db, "sessao_participantes", participanteId);
+                
+                await setDoc(participanteRef, {
+                    sessao_id: sessaoAtual.id,
+                    jogador_uid: currentUser.uid,
+                    jogador_nick: currentUser.displayName || currentUser.email?.split('@')[0] || 'Jogador',
+                    personagem_id: personagemAtual.id,
+                    personagem_nome: personagemAtual.nome || 'Personagem',
+                    status: "online",
+                    conectado_em: serverTimestamp(),
+                    ultimo_ping: serverTimestamp(),
+                    last_active: serverTimestamp(),
+                    campanha_id: campanhaId
+                }, { merge: true });
+                
+                console.log('✅ Participante registrado na sessão!');
+                iniciarHeartbeat();
+                showToast(`✅ ${personagemAtual.nome} entrou na sessão!`);
+                return true;
+                
+            } catch (error) {
+                console.error('Erro ao entrar na sessão:', error);
+                return false;
+            }
+        }
+
+        function iniciarHeartbeat() {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            
+            heartbeatInterval = setInterval(async () => {
+                if (!participanteId || !sessaoAtual) return;
+                
+                try {
+                    const participanteRef = doc(db, "sessao_participantes", participanteId);
+                    await updateDoc(participanteRef, {
+                        ultimo_ping: serverTimestamp(),
+                        last_active: serverTimestamp(),
+                        status: "online"
+                    });
+                    console.log('💓 Heartbeat enviado');
+                } catch (error) {
+                    console.warn('Erro no heartbeat:', error);
+                }
+            }, 30000);
+        }
+
+        async function sairDaSessao() {
+            if (!participanteId) return;
+            
+            try {
+                const participanteRef = doc(db, "sessao_participantes", participanteId);
+                await updateDoc(participanteRef, {
+                    status: "offline",
+                    ultimo_ping: serverTimestamp()
+                });
+                console.log('👋 Jogador saiu da sessão');
+            } catch (error) {
+                console.warn('Erro ao sair da sessão:', error);
+            }
+            
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+            }
+        }
+
+        // ============================================
+        // 🔥 LISTENER DE PARTICIPANTES (EM TEMPO REAL)
+        // ============================================
+        
+        function iniciarListenerParticipantes() {
+            if (!sessaoAtual || !sessaoAtual.id) return;
+            
+            if (unsubscribeParticipantes) unsubscribeParticipantes();
+            
+            const participantesQuery = query(
+                collection(db, "sessao_participantes"),
+                where("sessao_id", "==", sessaoAtual.id),
+                where("status", "==", "online")
+            );
+            
+            unsubscribeParticipantes = onSnapshot(participantesQuery, (snapshot) => {
+                const participantes = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    participantes.push({
+                        id: doc.id,
+                        ...data
+                    });
+                });
+                
+                // Atualiza todosJogadores com os participantes online
+                todosJogadores = participantes;
+                renderizarJogadores();
+                
+                console.log(`👥 ${participantes.length} jogadores online`);
+            }, (error) => {
+                console.error('Erro no listener de participantes:', error);
+            });
+        }
+
+        // ============================================
+        // FUNÇÕES DE CÁLCULO (MANTIDAS)
         // ============================================
         function getSTFixo() { return 5 + (personagemAtual?.atributos?.st?.esferas || 0); }
         function getDXFixo() { return 5 + (personagemAtual?.atributos?.dx?.esferas || 0); }
@@ -1954,27 +2017,21 @@ const OFFSET_Y = 60;
             return Math.min(85, Math.max(0, bloqueio));
         }
 
-     function calcularDeslocamento() {
-    const soma = getDXFixo() + getVIGORFixo();
-    const andarBruto = soma * 0.1;
-    const correrBruto = soma * 0.3;
-    
-    function arredondar(valor) {
-        // Garante mínimo de 1
-        if (valor < 1 && valor > 0) {
-            return 1;
+        function calcularDeslocamento() {
+            const soma = getDXFixo() + getVIGORFixo();
+            const andarBruto = soma * 0.1;
+            const correrBruto = soma * 0.3;
+            
+            function arredondar(valor) {
+                if (valor < 1 && valor > 0) return 1;
+                const parteInteira = Math.floor(valor);
+                const parteDecimal = valor - parteInteira;
+                if (parteDecimal < 0.5) return parteInteira;
+                return parteInteira + 1;
+            }
+            
+            return { andar: arredondar(andarBruto), correr: arredondar(correrBruto) };
         }
-        const parteInteira = Math.floor(valor);
-        const parteDecimal = valor - parteInteira;
-        if (parteDecimal < 0.5) {
-            return parteInteira;
-        } else {
-            return parteInteira + 1;
-        }
-    }
-    
-    return { andar: arredondar(andarBruto), correr: arredondar(correrBruto) };
-}
 
         function calcularRD() {
             let rd = 0;
@@ -2005,508 +2062,460 @@ const OFFSET_Y = 60;
             return atributoBase + bonus;
         }
 
-     // ============================================
-// FUNÇÕES DO MAPA HEXAGONAL (CORRIGIDAS)
-// ============================================
+        // ============================================
+        // FUNÇÕES DO MAPA (MANTIDAS)
+        // ============================================
+        function hexToPixel(hexX, hexY) {
+            const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
+            const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
+            return { x, y };
+        }
 
-function hexToPixel(hexX, hexY) {
-    const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
-    const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
-    return { x, y };
-}
-
-function pixelToHex(pixelX, pixelY) {
-    let melhorHex = { x: -1, y: -1 };
-    let menorDistancia = Infinity;
-    
-    for (let x = 0; x < MAPA_LARGURA; x++) {
-        for (let y = 0; y < MAPA_ALTURA; y++) {
-            const pixel = hexToPixel(x, y);
+        function pixelToHex(pixelX, pixelY) {
+            let melhorHex = { x: -1, y: -1 };
+            let menorDistancia = Infinity;
             
-            // ✅ CORRIGIDO: Distância euclidiana (círculo real)
-            const distancia = Math.sqrt(
-                Math.pow(pixelX - pixel.x, 2) + 
-                Math.pow(pixelY - pixel.y, 2)
-            );
-            
-            // Se está dentro do raio do hexágono e é o mais próximo
-            if (distancia < HEX_RADIUS && distancia < menorDistancia) {
-                menorDistancia = distancia;
-                melhorHex = { x, y };
-            }
-        }
-    }
-    return melhorHex;
-}
-
-function desenharHexagono(ctx, x, y, destaque = null) {
-    const pontos = [];
-    for (let i = 0; i < 6; i++) {
-        const angulo = Math.PI / 6 + (i * Math.PI / 3);
-        pontos.push({ x: x + HEX_RADIUS * Math.cos(angulo), y: y + HEX_RADIUS * Math.sin(angulo) });
-    }
-    ctx.beginPath();
-    ctx.moveTo(pontos[0].x, pontos[0].y);
-    for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
-    ctx.closePath();
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
-    if (destaque === 'move') {
-        ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
-        ctx.fill();
-    } else if (destaque === 'selected') {
-        ctx.fillStyle = 'rgba(212, 175, 55, 0.3)';
-        ctx.fill();
-    }
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-}
-
-function desenharToken(ctx, x, y, personagem) {
-    const nomeToken = personagem?.nome || '?';
-    const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
-    
-    ctx.beginPath();
-    ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
-    ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 16px "Inter", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(personagem?.tipo === 'pc' ? '🧙' : '🧌', x, y);
-    ctx.font = 'bold 10px "Inter", sans-serif';
-    ctx.fillText(nomeAbreviado, x, y + 22);
-    ctx.font = 'bold 8px "Inter", sans-serif';
-    ctx.fillStyle = '#ff6b6b';
-    ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
-}
-
-function desenharMarcadores() {
-    Object.values(marcadores).forEach(m => {
-        const pixel = hexToPixel(m.x, m.y);
-        const pontos = [];
-        for (let i = 0; i < 6; i++) {
-            const angulo = Math.PI / 6 + (i * Math.PI / 3);
-            pontos.push({ x: pixel.x + HEX_RADIUS * Math.cos(angulo), y: pixel.y + HEX_RADIUS * Math.sin(angulo) });
-        }
-        ctx.beginPath();
-        ctx.moveTo(pontos[0].x, pontos[0].y);
-        for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
-        ctx.fill();
-        ctx.strokeStyle = '#8B4513';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
-        ctx.fillText('⬛', pixel.x, pixel.y);
-    });
-}
-
-function desenharMapa() {
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    for (let x = 0; x < MAPA_LARGURA; x++) {
-        for (let y = 0; y < MAPA_ALTURA; y++) {
-            const pixel = hexToPixel(x, y);
-            let destaque = null;
-            if (highlightHex.some(h => h.x === x && h.y === y)) destaque = 'move';
-            desenharHexagono(ctx, pixel.x, pixel.y, destaque);
-        }
-    }
-    desenharMarcadores();
-    
-    Object.values(posicoes).forEach(pos => {
-        if (pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexY !== undefined && pos.hexY !== null) {
-            const pixel = hexToPixel(pos.hexX, pos.hexY);
-            desenharToken(ctx, pixel.x, pixel.y, pos);
-        }
-    });
-}
-// ============================================
-// FUNÇÕES DE MOVIMENTO DO PERSONAGEM (COMPLETO)
-// ============================================
-
-function resetarModoMovimento() {
-    modoPosicionamentoAtivo = false;
-    modoMovimentoAtivo = false;
-    tipoMovimentoAtual = null;
-    highlightHex = [];
-    
-    if (canvas) {
-        canvas.style.cursor = 'default';
-        canvas.classList.remove('modo-movimento');
-    }
-    
-    if (ctx) desenharMapa();
-    atualizarEstadoBotoes();
-}
-
-function podeMover() {
-    if (!combateAtivo) return { pode: false, motivo: 'Combate não iniciado' };
-    if (vezAtual !== 'jogadores') return { pode: false, motivo: 'Não é sua vez' };
-    
-    const pos = posicoes[personagemAtual?.id];
-    if (!pos || pos.hexX === undefined || pos.hexX === null) {
-        return { pode: false, motivo: 'Posicione seu personagem primeiro' };
-    }
-    
-    // ✅ NOVO: Verifica se já usou movimento no turno
-    if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno >= maxMovimentoTurno) {
-        return { pode: false, motivo: 'Movimento do turno já esgotado' };
-    }
-    
-    return { pode: true, motivo: '' };
-}
-
-function calcularHexAlcance(hexX, hexY, alcance) {
-    const hexes = [];
-    for (let dx = -alcance; dx <= alcance; dx++) {
-        for (let dy = -alcance; dy <= alcance; dy++) {
-            const distancia = Math.max(Math.abs(dx), Math.abs(dy));
-            if (distancia <= alcance) {
-                const newX = hexX + dx;
-                const newY = hexY + dy;
-                if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
-                    const temObstaculo = marcadores[`${newX}_${newY}`];
-                    const ocupado = Object.values(posicoes).some(p => 
-                        p.hexX === newX && p.hexY === newY && p.id !== personagemAtual?.id
-                    );
-                    if (!ocupado && !temObstaculo) {
-                        hexes.push({ x: newX, y: newY });
+            for (let x = 0; x < MAPA_LARGURA; x++) {
+                for (let y = 0; y < MAPA_ALTURA; y++) {
+                    const pixel = hexToPixel(x, y);
+                    const distancia = Math.sqrt(Math.pow(pixelX - pixel.x, 2) + Math.pow(pixelY - pixel.y, 2));
+                    if (distancia < HEX_RADIUS && distancia < menorDistancia) {
+                        menorDistancia = distancia;
+                        melhorHex = { x, y };
                     }
                 }
             }
+            return melhorHex;
         }
-    }
-    return hexes;
-}
 
-function calcularTodosHexVazios() {
-    const hexes = [];
-    const posicoesAtuais = Object.values(posicoes);
-    
-    for (let x = 0; x < MAPA_LARGURA; x++) {
-        for (let y = 0; y < MAPA_ALTURA; y++) {
-            const temObstaculo = marcadores[`${x}_${y}`];
-            const ocupado = posicoesAtuais.some(p => p.hexX === x && p.hexY === y);
+        function desenharHexagono(ctx, x, y, destaque = null) {
+            const pontos = [];
+            for (let i = 0; i < 6; i++) {
+                const angulo = Math.PI / 6 + (i * Math.PI / 3);
+                pontos.push({ x: x + HEX_RADIUS * Math.cos(angulo), y: y + HEX_RADIUS * Math.sin(angulo) });
+            }
+            ctx.beginPath();
+            ctx.moveTo(pontos[0].x, pontos[0].y);
+            for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
+            ctx.closePath();
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            if (destaque === 'move') {
+                ctx.fillStyle = 'rgba(46, 204, 113, 0.3)';
+                ctx.fill();
+            } else if (destaque === 'selected') {
+                ctx.fillStyle = 'rgba(212, 175, 55, 0.3)';
+                ctx.fill();
+            }
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+
+        function desenharToken(ctx, x, y, personagem) {
+            const nomeToken = personagem?.nome || '?';
+            const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
             
-            if (!ocupado && !temObstaculo) {
-                hexes.push({ x, y });
+            ctx.beginPath();
+            ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px "Inter", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(personagem?.tipo === 'pc' ? '🧙' : '🧌', x, y);
+            ctx.font = 'bold 10px "Inter", sans-serif';
+            ctx.fillText(nomeAbreviado, x, y + 22);
+            ctx.font = 'bold 8px "Inter", sans-serif';
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
+        }
+
+        function desenharMarcadores() {
+            Object.values(marcadores).forEach(m => {
+                const pixel = hexToPixel(m.x, m.y);
+                ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
+                ctx.beginPath();
+                ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#8B4513';
+                ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
+                ctx.fillText('⬛', pixel.x, pixel.y);
+            });
+        }
+
+        function desenharMapa() {
+            if (!ctx) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let x = 0; x < MAPA_LARGURA; x++) {
+                for (let y = 0; y < MAPA_ALTURA; y++) {
+                    const pixel = hexToPixel(x, y);
+                    let destaque = null;
+                    if (highlightHex.some(h => h.x === x && h.y === y)) destaque = 'move';
+                    desenharHexagono(ctx, pixel.x, pixel.y, destaque);
+                }
+            }
+            desenharMarcadores();
+            
+            Object.values(posicoes).forEach(pos => {
+                if (pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexY !== undefined && pos.hexY !== null) {
+                    const pixel = hexToPixel(pos.hexX, pos.hexY);
+                    desenharToken(ctx, pixel.x, pixel.y, pos);
+                }
+            });
+        }
+
+        // ============================================
+        // FUNÇÕES DE MOVIMENTO (MANTIDAS)
+        // ============================================
+        function resetarModoMovimento() {
+            modoPosicionamentoAtivo = false;
+            modoMovimentoAtivo = false;
+            tipoMovimentoAtual = null;
+            highlightHex = [];
+            if (canvas) {
+                canvas.style.cursor = 'default';
+                canvas.classList.remove('modo-movimento');
+            }
+            if (ctx) desenharMapa();
+            atualizarEstadoBotoes();
+        }
+
+        function podeMover() {
+            if (!combateAtivo) return { pode: false, motivo: 'Combate não iniciado' };
+            if (vezAtual !== 'jogadores') return { pode: false, motivo: 'Não é sua vez' };
+            
+            const pos = posicoes[personagemAtual?.id];
+            if (!pos || pos.hexX === undefined || pos.hexX === null) {
+                return { pode: false, motivo: 'Posicione seu personagem primeiro' };
+            }
+            
+            if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno >= maxMovimentoTurno) {
+                return { pode: false, motivo: 'Movimento do turno já esgotado' };
+            }
+            
+            return { pode: true, motivo: '' };
+        }
+
+        function calcularHexAlcance(hexX, hexY, alcance) {
+            const hexes = [];
+            for (let dx = -alcance; dx <= alcance; dx++) {
+                for (let dy = -alcance; dy <= alcance; dy++) {
+                    const distancia = Math.max(Math.abs(dx), Math.abs(dy));
+                    if (distancia <= alcance) {
+                        const newX = hexX + dx;
+                        const newY = hexY + dy;
+                        if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
+                            const temObstaculo = marcadores[`${newX}_${newY}`];
+                            const ocupado = Object.values(posicoes).some(p => 
+                                p.hexX === newX && p.hexY === newY && p.id !== personagemAtual?.id
+                            );
+                            if (!ocupado && !temObstaculo) {
+                                hexes.push({ x: newX, y: newY });
+                            }
+                        }
+                    }
+                }
+            }
+            return hexes;
+        }
+
+        function calcularTodosHexVazios() {
+            const hexes = [];
+            const posicoesAtuais = Object.values(posicoes);
+            
+            for (let x = 0; x < MAPA_LARGURA; x++) {
+                for (let y = 0; y < MAPA_ALTURA; y++) {
+                    const temObstaculo = marcadores[`${x}_${y}`];
+                    const ocupado = posicoesAtuais.some(p => p.hexX === x && p.hexY === y);
+                    
+                    if (!ocupado && !temObstaculo) {
+                        hexes.push({ x, y });
+                    }
+                }
+            }
+            return hexes;
+        }
+
+        function atualizarEstadoBotoes() {
+            const pode = podeMover();
+            const pos = posicoes[personagemAtual?.id];
+            const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexX >= 0;
+            
+            let andarValor = 0;
+            let correrValor = 0;
+            
+            if (pos && pos.andar !== undefined && pos.correr !== undefined) {
+                andarValor = pos.andar;
+                correrValor = pos.correr;
+            } else {
+                const desloc = calcularDeslocamento();
+                andarValor = desloc.andar;
+                correrValor = desloc.correr;
+            }
+            
+            const movimentoRestante = (turnoDoUltimoMovimento === turnoAtual) 
+                ? Math.max(0, maxMovimentoTurno - movimentoUsadoNoTurno)
+                : andarValor;
+            
+            if (valorAndarSpan) valorAndarSpan.textContent = Math.min(andarValor, movimentoRestante);
+            if (valorCorrerSpan) valorCorrerSpan.textContent = Math.min(correrValor, movimentoRestante);
+            
+            if (btnPosicionarPC) {
+                const deveDesabilitar = combateAtivo && estaPosicionado;
+                btnPosicionarPC.disabled = deveDesabilitar;
+                btnPosicionarPC.style.opacity = deveDesabilitar ? '0.5' : '1';
+                
+                if (modoPosicionamentoAtivo) {
+                    btnPosicionarPC.style.background = '#2ecc71';
+                    btnPosicionarPC.innerHTML = '<i class="fas fa-check-circle"></i> Clique no mapa para posicionar';
+                } else {
+                    btnPosicionarPC.style.background = 'var(--gold)';
+                    btnPosicionarPC.innerHTML = '<i class="fas fa-map-pin"></i> Posicionar Personagem';
+                }
+            }
+            
+            if (btnMoverAndar && btnMoverCorrer) {
+                const jaMoveuNoTurno = (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0);
+                const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo && !jaMoveuNoTurno;
+                
+                btnMoverAndar.disabled = !podeMoverFlag || jaMoveuNoTurno;
+                btnMoverCorrer.disabled = !podeMoverFlag || jaMoveuNoTurno;
+                btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
+                btnMoverCorrer.style.opacity = podeMoverFlag ? '1' : '0.5';
+                
+                if (modoMovimentoAtivo && tipoMovimentoAtual === 'andar') {
+                    btnMoverAndar.style.background = '#2ecc71';
+                    btnMoverAndar.style.color = 'white';
+                    btnMoverCorrer.style.background = 'var(--bg-primary)';
+                    btnMoverCorrer.style.color = '#f39c12';
+                } else if (modoMovimentoAtivo && tipoMovimentoAtual === 'correr') {
+                    btnMoverCorrer.style.background = '#f39c12';
+                    btnMoverCorrer.style.color = 'white';
+                    btnMoverAndar.style.background = 'var(--bg-primary)';
+                    btnMoverAndar.style.color = '#2ecc71';
+                } else {
+                    btnMoverAndar.style.background = 'var(--bg-primary)';
+                    btnMoverAndar.style.color = '#2ecc71';
+                    btnMoverCorrer.style.background = 'var(--bg-primary)';
+                    btnMoverCorrer.style.color = '#f39c12';
+                }
+            }
+            
+            if (statusMovimento) {
+                if (!combateAtivo) {
+                    statusMovimento.innerHTML = '⏳ Aguardando início do combate';
+                } else if (vezAtual !== 'jogadores') {
+                    statusMovimento.innerHTML = '⌛ Aguardando sua vez';
+                } else if (!estaPosicionado) {
+                    statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
+                } else if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
+                    statusMovimento.innerHTML = `✅ Já se moveu ${movimentoUsadoNoTurno}m neste turno. Aguarde o próximo.`;
+                } else if (modoPosicionamentoAtivo) {
+                    statusMovimento.innerHTML = `📍 Modo posicionamento: clique no mapa verde`;
+                } else if (modoMovimentoAtivo) {
+                    const restante = maxMovimentoTurno - movimentoUsadoNoTurno;
+                    statusMovimento.innerHTML = `🎯 Modo ${tipoMovimentoAtual}: ${restante}m restantes`;
+                } else {
+                    const restante = (turnoDoUltimoMovimento === turnoAtual) 
+                        ? maxMovimentoTurno - movimentoUsadoNoTurno 
+                        : andarValor;
+                    statusMovimento.innerHTML = `✅ Pronto: ${restante}m disponíveis neste turno`;
+                }
+            }
+            
+            if (personagemAtual && posicoes[personagemAtual.id]) {
+                posicoes[personagemAtual.id].andar = andarValor;
+                posicoes[personagemAtual.id].correr = correrValor;
             }
         }
-    }
-    return hexes;
-}
 
-function atualizarEstadoBotoes() {
-    const pode = podeMover();
-    const pos = posicoes[personagemAtual?.id];
-    const estaPosicionado = pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexX >= 0;
-    
-    // 🔥 CORREÇÃO: Pega o valor salvo no Firestore (que está correto)
-    let andarValor = 0;
-    let correrValor = 0;
-    
-    if (pos && pos.andar !== undefined && pos.correr !== undefined) {
-        // Usa o valor do Firestore (já calculado e correto)
-        andarValor = pos.andar;
-        correrValor = pos.correr;
-        console.log('📦 Usando valor do Firestore:', { andarValor, correrValor });
-    } else {
-        // Fallback: calcula
-        const desloc = calcularDeslocamento();
-        andarValor = desloc.andar;
-        correrValor = desloc.correr;
-        console.log('🧮 Calculando deslocamento:', { andarValor, correrValor });
-    }
-    
-    // ✅ NOVO: Calcula movimento restante no turno
-    const movimentoRestante = (turnoDoUltimoMovimento === turnoAtual) 
-        ? Math.max(0, maxMovimentoTurno - movimentoUsadoNoTurno)
-        : andarValor;
-    
-    // 🔥 ATUALIZA O BOTÃO COM O VALOR CORRETO
-    if (valorAndarSpan) valorAndarSpan.textContent = Math.min(andarValor, movimentoRestante);
-    if (valorCorrerSpan) valorCorrerSpan.textContent = Math.min(correrValor, movimentoRestante);
-    
-    if (btnPosicionarPC) {
-        const deveDesabilitar = combateAtivo && estaPosicionado;
-        btnPosicionarPC.disabled = deveDesabilitar;
-        btnPosicionarPC.style.opacity = deveDesabilitar ? '0.5' : '1';
-        
-        if (modoPosicionamentoAtivo) {
-            btnPosicionarPC.style.background = '#2ecc71';
-            btnPosicionarPC.style.border = '2px solid var(--gold)';
-            btnPosicionarPC.innerHTML = '<i class="fas fa-check-circle"></i> Clique no mapa para posicionar';
-        } else {
-            btnPosicionarPC.style.background = 'var(--gold)';
-            btnPosicionarPC.innerHTML = '<i class="fas fa-map-pin"></i> Posicionar Personagem';
-        }
-    }
-    
-    if (btnMoverAndar && btnMoverCorrer) {
-        // ✅ NOVO: Bloqueia se já moveu no turno
-        const jaMoveuNoTurno = (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0);
-        const podeMoverFlag = pode.pode && estaPosicionado && !modoPosicionamentoAtivo && !jaMoveuNoTurno;
-        
-        btnMoverAndar.disabled = !podeMoverFlag || jaMoveuNoTurno;
-        btnMoverCorrer.disabled = !podeMoverFlag || jaMoveuNoTurno;
-        btnMoverAndar.style.opacity = podeMoverFlag ? '1' : '0.5';
-        btnMoverCorrer.style.opacity = podeMoverFlag ? '1' : '0.5';
-        
-        if (modoMovimentoAtivo && tipoMovimentoAtual === 'andar') {
-            btnMoverAndar.style.background = '#2ecc71';
-            btnMoverAndar.style.color = 'white';
-            btnMoverCorrer.style.background = 'var(--bg-primary)';
-            btnMoverCorrer.style.color = '#f39c12';
-        } else if (modoMovimentoAtivo && tipoMovimentoAtual === 'correr') {
-            btnMoverCorrer.style.background = '#f39c12';
-            btnMoverCorrer.style.color = 'white';
-            btnMoverAndar.style.background = 'var(--bg-primary)';
-            btnMoverAndar.style.color = '#2ecc71';
-        } else {
-            btnMoverAndar.style.background = 'var(--bg-primary)';
-            btnMoverAndar.style.color = '#2ecc71';
-            btnMoverCorrer.style.background = 'var(--bg-primary)';
-            btnMoverCorrer.style.color = '#f39c12';
-        }
-    }
-    
-    if (statusMovimento) {
-        if (!combateAtivo) {
-            statusMovimento.innerHTML = '⏳ Aguardando início do combate';
-            statusMovimento.style.background = 'rgba(255, 170, 0, 0.1)';
-        } else if (vezAtual !== 'jogadores') {
-            statusMovimento.innerHTML = '⌛ Aguardando sua vez';
-            statusMovimento.style.background = 'rgba(100, 100, 100, 0.2)';
-        } else if (!estaPosicionado) {
-            statusMovimento.innerHTML = '📍 Clique em "Posicionar Personagem" primeiro';
-            statusMovimento.style.background = 'rgba(255, 100, 100, 0.2)';
-        } else if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
-            statusMovimento.innerHTML = `✅ Já se moveu ${movimentoUsadoNoTurno}m neste turno. Aguarde o próximo.`;
-            statusMovimento.style.background = 'rgba(100, 100, 100, 0.3)';
-        } else if (modoPosicionamentoAtivo) {
-            statusMovimento.innerHTML = `📍 Modo posicionamento: clique no mapa verde`;
-            statusMovimento.style.background = 'rgba(46, 204, 113, 0.2)';
-        } else if (modoMovimentoAtivo) {
-            const restante = maxMovimentoTurno - movimentoUsadoNoTurno;
-            statusMovimento.innerHTML = `🎯 Modo ${tipoMovimentoAtual}: ${restante}m restantes`;
-            statusMovimento.style.background = 'rgba(46, 204, 113, 0.2)';
-        } else {
-            const restante = (turnoDoUltimoMovimento === turnoAtual) 
-                ? maxMovimentoTurno - movimentoUsadoNoTurno 
-                : andarValor;
-            statusMovimento.innerHTML = `✅ Pronto: ${restante}m disponíveis neste turno`;
-            statusMovimento.style.background = 'rgba(46, 204, 113, 0.1)';
-        }
-    }
-    
-    // ============================================
-    // CORREÇÃO: Garante que os valores no Firestore estão corretos
-    // ============================================
-    if (personagemAtual && posicoes[personagemAtual.id]) {
-        posicoes[personagemAtual.id].andar = andarValor;
-        posicoes[personagemAtual.id].correr = correrValor;
-    }
-}
-
-function iniciarPosicionamento() {
-    if (combateAtivo) {
-        const pos = posicoes[personagemAtual?.id];
-        if (pos && pos.hexX !== undefined && pos.hexX !== null) {
-            showToast('Personagem já está posicionado!', true);
-            return;
-        }
-    }
-    
-    if (!personagemAtual || !personagemAtual.id) {
-        showToast('Personagem não carregado!', true);
-        return;
-    }
-    
-    resetarModoMovimento();
-    
-    modoPosicionamentoAtivo = true;
-    modoMovimentoAtivo = true;
-    tipoMovimentoAtual = 'posicionar';
-    
-    if (canvas) {
-        canvas.style.cursor = 'crosshair';
-        canvas.classList.add('modo-movimento');
-    }
-    
-    highlightHex = calcularTodosHexVazios();
-    
-    if (highlightHex.length === 0) {
-        showToast('❌ Não há espaços vazios no mapa!', true);
-        modoPosicionamentoAtivo = false;
-        modoMovimentoAtivo = false;
-        return;
-    }
-    
-    desenharMapa();
-    atualizarEstadoBotoes();
-    
-    showToast(`🔰 Clique em um hexágono verde para posicionar`);
-}
-
-function iniciarMovimento(tipo) {
-    const pode = podeMover();
-    if (!pode.pode) {
-        showToast(pode.motivo, true);
-        return;
-    }
-    
-    const pos = posicoes[personagemAtual?.id];
-    if (!pos || pos.hexX === undefined || pos.hexX === null) {
-        showToast('Posicione seu personagem primeiro!', true);
-        return;
-    }
-    
-    const desloc = calcularDeslocamento();
-    const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
-    
-    // ✅ NOVO: Verifica se já usou movimento neste turno
-    if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
-        showToast(`Você já se moveu ${movimentoUsadoNoTurno}m neste turno!`, true);
-        return;
-    }
-    
-    if (alcance <= 0) {
-        showToast(`Você não tem ${tipo} suficiente!`, true);
-        return;
-    }
-    
-    // ✅ NOVO: Define o máximo para este turno
-    maxMovimentoTurno = alcance;
-    
-    resetarModoMovimento();
-    
-    modoMovimentoAtivo = true;
-    tipoMovimentoAtual = tipo;
-    
-    if (canvas) {
-        canvas.style.cursor = 'crosshair';
-        canvas.classList.add('modo-movimento');
-    }
-    
-    highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
-    desenharMapa();
-    atualizarEstadoBotoes();
-    
-    showToast(`🏃 Modo ${tipo} ativado! Máx: ${alcance}m`);
-}
-
-async function moverPersonagem(personagemId, hexX, hexY) {
-    if (estaProcessandoMovimento) {
-        showToast('Aguarde...', true);
-        return;
-    }
-    
-    const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
-    if (!isValid) {
-        showToast('❌ Clique apenas nos hexágonos verdes!', true);
-        return;
-    }
-    
-    estaProcessandoMovimento = true;
-    
-    try {
-        if (modoPosicionamentoAtivo) {
-            const desloc = calcularDeslocamento();
-            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+        function iniciarPosicionamento() {
+            if (combateAtivo) {
+                const pos = posicoes[personagemAtual?.id];
+                if (pos && pos.hexX !== undefined && pos.hexX !== null) {
+                    showToast('Personagem já está posicionado!', true);
+                    return;
+                }
+            }
             
-            await setDoc(posRef, {
-                personagemId: personagemId,
-                nome: personagemAtual.nome || 'Personagem',
-                tipo: 'pc',
-                cor: '#1E90FF',
-                jogadorUid: currentUser.uid,
-                pv: personagemAtual.statusCombate?.vidaAtual ?? calcularPV(),
-                pvMax: calcularPV(),
-                pm: personagemAtual.statusCombate?.manaAtual ?? calcularPM(),
-                pmMax: calcularPM(),
-                pf: personagemAtual.statusCombate?.fadigaAtual ?? calcularPF(),
-                pfMax: calcularPF(),
-                esquiva: calcularEsquiva(),
-                aparar: calcularAparar(),
-                bloqueio: calcularBloqueio(),
-                andar: desloc.andar,
-                correr: desloc.correr,
-                rd: calcularRD(),
-                hexX: hexX,
-                hexY: hexY,
-                atualizadoEm: serverTimestamp()
-            }, { merge: true });
-            
-            if (!posicoes[personagemId]) posicoes[personagemId] = {};
-            posicoes[personagemId].hexX = hexX;
-            posicoes[personagemId].hexY = hexY;
-            posicoes[personagemId].andar = desloc.andar;
-            posicoes[personagemId].correr = desloc.correr;
+            if (!personagemAtual || !personagemAtual.id) {
+                showToast('Personagem não carregado!', true);
+                return;
+            }
             
             resetarModoMovimento();
+            modoPosicionamentoAtivo = true;
+            modoMovimentoAtivo = true;
+            tipoMovimentoAtual = 'posicionar';
+            
+            if (canvas) {
+                canvas.style.cursor = 'crosshair';
+                canvas.classList.add('modo-movimento');
+            }
+            
+            highlightHex = calcularTodosHexVazios();
+            
+            if (highlightHex.length === 0) {
+                showToast('❌ Não há espaços vazios no mapa!', true);
+                modoPosicionamentoAtivo = false;
+                modoMovimentoAtivo = false;
+                return;
+            }
+            
             desenharMapa();
-            showToast(`✅ ${personagemAtual.nome} posicionado!`);
-            
-        } else if (modoMovimentoAtivo) {
-            if (!combateAtivo) {
-                showToast('⚔️ Combate não está ativo!', true);
-                return;
-            }
-            
-            if (vezAtual !== 'jogadores') {
-                showToast('⏰ Não é sua vez!', true);
-                return;
-            }
-            
-            // ✅ NOVO: Verifica se já moveu neste turno
-            if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
-                showToast(`Você já se moveu neste turno!`, true);
+            atualizarEstadoBotoes();
+            showToast(`🔰 Clique em um hexágono verde para posicionar`);
+        }
+
+        function iniciarMovimento(tipo) {
+            const pode = podeMover();
+            if (!pode.pode) {
+                showToast(pode.motivo, true);
                 return;
             }
             
             const pos = posicoes[personagemAtual?.id];
-            const distanciaHex = Math.max(Math.abs(hexX - pos.hexX), Math.abs(hexY - pos.hexY));
+            if (!pos || pos.hexX === undefined || pos.hexX === null) {
+                showToast('Posicione seu personagem primeiro!', true);
+                return;
+            }
             
-            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
-            await updateDoc(posRef, { 
-                hexX: hexX, 
-                hexY: hexY, 
-                atualizadoEm: serverTimestamp() 
-            });
+            const desloc = calcularDeslocamento();
+            const alcance = tipo === 'correr' ? desloc.correr : desloc.andar;
             
-            posicoes[personagemId].hexX = hexX;
-            posicoes[personagemId].hexY = hexY;
+            if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
+                showToast(`Você já se moveu ${movimentoUsadoNoTurno}m neste turno!`, true);
+                return;
+            }
             
-            // ✅ NOVO: Registra o movimento no turno atual
-            movimentoUsadoNoTurno = distanciaHex;
-            turnoDoUltimoMovimento = turnoAtual;
+            if (alcance <= 0) {
+                showToast(`Você não tem ${tipo} suficiente!`, true);
+                return;
+            }
+            
+            maxMovimentoTurno = alcance;
             
             resetarModoMovimento();
+            modoMovimentoAtivo = true;
+            tipoMovimentoAtual = tipo;
+            
+            if (canvas) {
+                canvas.style.cursor = 'crosshair';
+                canvas.classList.add('modo-movimento');
+            }
+            
+            highlightHex = calcularHexAlcance(pos.hexX, pos.hexY, alcance);
             desenharMapa();
             atualizarEstadoBotoes();
-            
-            showToast(`🏃 ${personagemAtual.nome} moveu ${distanciaHex}m! Movimento do turno usado.`);
+            showToast(`🏃 Modo ${tipo} ativado! Máx: ${alcance}m`);
         }
-        
-    } catch (error) {
-        console.error('Erro:', error);
-        showToast('❌ Erro ao mover personagem', true);
-    } finally {
-        estaProcessandoMovimento = false;
-    }
-}
+
+        async function moverPersonagem(personagemId, hexX, hexY) {
+            if (estaProcessandoMovimento) {
+                showToast('Aguarde...', true);
+                return;
+            }
+            
+            const isValid = highlightHex.some(h => h.x === hexX && h.y === hexY);
+            if (!isValid) {
+                showToast('❌ Clique apenas nos hexágonos verdes!', true);
+                return;
+            }
+            
+            estaProcessandoMovimento = true;
+            
+            try {
+                if (modoPosicionamentoAtivo) {
+                    const desloc = calcularDeslocamento();
+                    const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+                    
+                    await setDoc(posRef, {
+                        personagemId: personagemId,
+                        nome: personagemAtual.nome || 'Personagem',
+                        tipo: 'pc',
+                        cor: '#1E90FF',
+                        jogadorUid: currentUser.uid,
+                        pv: personagemAtual.statusCombate?.vidaAtual ?? calcularPV(),
+                        pvMax: calcularPV(),
+                        pm: personagemAtual.statusCombate?.manaAtual ?? calcularPM(),
+                        pmMax: calcularPM(),
+                        pf: personagemAtual.statusCombate?.fadigaAtual ?? calcularPF(),
+                        pfMax: calcularPF(),
+                        esquiva: calcularEsquiva(),
+                        aparar: calcularAparar(),
+                        bloqueio: calcularBloqueio(),
+                        andar: desloc.andar,
+                        correr: desloc.correr,
+                        rd: calcularRD(),
+                        hexX: hexX,
+                        hexY: hexY,
+                        atualizadoEm: serverTimestamp()
+                    }, { merge: true });
+                    
+                    if (!posicoes[personagemId]) posicoes[personagemId] = {};
+                    posicoes[personagemId].hexX = hexX;
+                    posicoes[personagemId].hexY = hexY;
+                    posicoes[personagemId].andar = desloc.andar;
+                    posicoes[personagemId].correr = desloc.correr;
+                    
+                    resetarModoMovimento();
+                    desenharMapa();
+                    showToast(`✅ ${personagemAtual.nome} posicionado!`);
+                    
+                } else if (modoMovimentoAtivo) {
+                    if (!combateAtivo) {
+                        showToast('⚔️ Combate não está ativo!', true);
+                        return;
+                    }
+                    
+                    if (vezAtual !== 'jogadores') {
+                        showToast('⏰ Não é sua vez!', true);
+                        return;
+                    }
+                    
+                    if (turnoDoUltimoMovimento === turnoAtual && movimentoUsadoNoTurno > 0) {
+                        showToast(`Você já se moveu neste turno!`, true);
+                        return;
+                    }
+                    
+                    const pos = posicoes[personagemAtual?.id];
+                    const distanciaHex = Math.max(Math.abs(hexX - pos.hexX), Math.abs(hexY - pos.hexY));
+                    
+                    const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemId);
+                    await updateDoc(posRef, { 
+                        hexX: hexX, 
+                        hexY: hexY, 
+                        atualizadoEm: serverTimestamp() 
+                    });
+                    
+                    posicoes[personagemId].hexX = hexX;
+                    posicoes[personagemId].hexY = hexY;
+                    
+                    movimentoUsadoNoTurno = distanciaHex;
+                    turnoDoUltimoMovimento = turnoAtual;
+                    
+                    resetarModoMovimento();
+                    desenharMapa();
+                    atualizarEstadoBotoes();
+                    showToast(`🏃 ${personagemAtual.nome} moveu ${distanciaHex}m!`);
+                }
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                showToast('❌ Erro ao mover personagem', true);
+            } finally {
+                estaProcessandoMovimento = false;
+            }
+        }
+
         // ============================================
         // FUNÇÕES DE UI
         // ============================================
@@ -2523,7 +2532,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             if (defesaAparar) defesaAparar.textContent = aparar;
             if (defesaBloqueio) defesaBloqueio.textContent = bloqueio;
             if (defesaRD) defesaRD.textContent = rd;
-            if (defesaDeslocamento) defesaDeslocamento.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
+            if (defesaDeslocamento) defesaDeslocamento.textContent = `${desloc.andar}m / ${desloc.correr}m`;
         }
 
         function renderizarFichaResumida() {
@@ -2596,7 +2605,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
 
             let html = '';
             todosJogadores.forEach(jogador => {
-                const ehVoce = jogador.jogador_uid === currentUser.uid;
+                const ehVoce = jogador.jogador_uid === currentUser?.uid;
                 html += `
                     <div class="jogador-card ${ehVoce ? 'vc' : ''}">
                         ${ehVoce ? '<div class="selo-vc">★</div>' : ''}
@@ -2610,247 +2619,241 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             jogadoresContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum jogador na mesa</div>';
         }
 
-    // ============================================
-// LISTENERS DO FIRESTORE - VERSÃO FUNCIONAL
-// ============================================
+        // ============================================
+        // LISTENERS DO FIRESTORE
+        // ============================================
+        let unsubscribeSessao = null;
+        let unsubscribeMarcadoresGlobal = null;
+        let unsubscribePosicoesGlobal = null;
+        let unsubscribeCombateGlobal = null;
+        let unsubscribeRolagens = null;
+        let unsubscribeNPCs = null;
 
-let unsubscribeSessao = null;
-let unsubscribeMarcadoresGlobal = null;
-let unsubscribePosicoesGlobal = null;
-let unsubscribeCombateGlobal = null;
-let unsubscribeRolagens = null;
-let unsubscribeNPCs = null;
-
-function iniciarListeners() {
-    if (!sessaoAtual || !sessaoAtual.id) {
-        setTimeout(() => {
-            if (sessaoAtual && sessaoAtual.id) iniciarListeners();
-        }, 500);
-        return;
-    }
-
-    // Listener da sessão (MODO e CENÁRIO)
-    if (unsubscribeSessao) unsubscribeSessao();
-    const sessaoRef = doc(db, "sessoes", sessaoAtual.id);
-    
-    unsubscribeSessao = onSnapshot(sessaoRef, (docSnap) => {
-        if (!docSnap.exists()) return;
-        const dados = docSnap.data();
-        const modoFirebase = dados.modoVisualizacao || 'narrativo';
-        
-        // Atualiza cenário
-        if (dados.cena_atual) {
-            if (dados.cena_atual.descricao !== undefined && cenarioDescricao) {
-                cenarioDescricao.value = dados.cena_atual.descricao || '';
-            }
-            if (cenarioImagem) {
-                if (dados.cena_atual.imagemBase64) {
-                    cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemBase64}" alt="Cena">`;
-                } else if (dados.cena_atual.imagemUrl) {
-                    cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemUrl}" alt="Cena">`;
-                } else {
-                    cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
-                }
-            }
-        }
-        
-        // Sincroniza modo
-        if (modoVisualizacao !== modoFirebase) {
-            if (modoFirebase === 'combate') {
-                modoNarrativo.style.display = 'none';
-                modoCombate.style.display = 'block';
-                modoBtns.forEach(btn => {
-                    btn.classList.toggle('ativa', btn.dataset.modo === 'combate');
-                });
-                iniciarListenerMarcadores();
-                iniciarListenersCombate();
-                if (ctx) setTimeout(() => desenharMapa(), 50);
-            } else {
-                modoNarrativo.style.display = 'block';
-                modoCombate.style.display = 'none';
-                modoBtns.forEach(btn => {
-                    btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo');
-                });
-                resetarModoMovimento();
-                if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
-                if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
-                if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
-            }
-            modoVisualizacao = modoFirebase;
-        }
-    });
-
-    // Listener de rolagens
-    if (unsubscribeRolagens) unsubscribeRolagens();
-    const rolagensQuery = query(
-        collection(db, "sessoes", sessaoAtual.id, "rolagens"),
-        where("visibilidade", "==", "publico"),
-        orderBy("timestamp", "desc"),
-        limit(50)
-    );
-    
-    unsubscribeRolagens = onSnapshot(rolagensQuery, (snapshot) => {
-        let logHtml = '';
-        snapshot.forEach(docSnap => {
-            const r = docSnap.data();
-            if (r.tipo === 'pericia') {
-                logHtml += `<div class="log-item"><span class="icone">🎲</span><span class="jogador">${r.jogador || 'Alguém'}:</span> Perícia ${r.resultado}%</div>`;
-            } else if (r.tipo === 'dano') {
-                logHtml += `<div class="log-item"><span class="icone">💥</span><span class="jogador">${r.jogador || 'Alguém'}:</span> Dano ${r.total}</div>`;
-            } else if (r.tipo === 'critico') {
-                let nomeTabela = '';
-                if (r.tabela === 'ful-ataque') nomeTabela = 'Fulminante Ataque';
-                else if (r.tabela === 'ful-defesa') nomeTabela = 'Fulminante Defesa';
-                else if (r.tabela === 'ful-magia') nomeTabela = 'Fulminante Magia';
-                else if (r.tabela === 'fal-ataque') nomeTabela = 'Falha Ataque';
-                else if (r.tabela === 'fal-defesa') nomeTabela = 'Falha Defesa';
-                else if (r.tabela === 'fal-magia') nomeTabela = 'Falha Magia';
-                logHtml += `<div class="log-item"><span class="icone">⚡</span><span class="jogador">${r.jogador || 'Alguém'}:</span> [${nomeTabela}] ${r.resultado} - ${r.texto}</div>`;
-            }
-        });
-        if (logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
-    });
-
-    // Listener de NPCs
-    if (unsubscribeNPCs) unsubscribeNPCs();
-    const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
-    
-    unsubscribeNPCs = onSnapshot(npcsQuery, (snapshot) => {
-        let html = '';
-        snapshot.forEach(docSnap => {
-            const npc = docSnap.data();
-            const pvAtual = npc.recursos?.pv_atual ?? '?';
-            const pvMax = npc.recursos?.pv_max ?? '?';
-            html += `<div class="npc-cena-item"><span class="npc-cena-nome">${npc.nome || '?'}</span><span class="npc-cena-pv">PV: ${pvAtual}/${pvMax}</span></div>`;
-        });
-        if (npcsCenaContainer) npcsCenaContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum NPC na cena</div>';
-    });
-}
-
-function iniciarListenerMarcadores() {
-    if (!sessaoAtual) return;
-    if (unsubscribeMarcadoresGlobal) unsubscribeMarcadoresGlobal();
-    
-    const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
-    unsubscribeMarcadoresGlobal = onSnapshot(marcadoresRef, (snapshot) => {
-        const novosMarcadores = {};
-        snapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            novosMarcadores[`${data.x}_${data.y}`] = { id: docSnap.id, x: data.x, y: data.y };
-        });
-        marcadores = novosMarcadores;
-        if (ctx && modoVisualizacao === 'combate') desenharMapa();
-    });
-}
-
-function iniciarListenersCombate() {
-    if (!sessaoAtual) return;
-    
-    // Listener de combate
-    if (unsubscribeCombateGlobal) unsubscribeCombateGlobal();
-    const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
-    
-    unsubscribeCombateGlobal = onSnapshot(combatesQuery, (snapshot) => {
-        if (!snapshot.empty) {
-            const dados = snapshot.docs[0].data();
-            const estavaInativo = !combateAtivo;
-            const novoTurno = dados.turno || 1;
-            
-            if (novoTurno !== turnoAtual && turnoAtual !== 1) {
-                movimentoUsadoNoTurno = 0;
-                turnoDoUltimoMovimento = 0;
-                maxMovimentoTurno = 0;
-            }
-            
-            combateAtivo = true;
-            turnoAtual = novoTurno;
-            vezAtual = dados.vez || 'jogadores';
-            modoCombateAtivo = true;
-            
-            if (estavaInativo) {
+        function iniciarListeners() {
+            if (!sessaoAtual || !sessaoAtual.id) {
                 setTimeout(() => {
-                    if (ctx) desenharMapa();
-                    atualizarEstadoBotoes();
-                }, 100);
+                    if (sessaoAtual && sessaoAtual.id) iniciarListeners();
+                }, 500);
+                return;
             }
-        } else {
-            combateAtivo = false;
-            modoCombateAtivo = false;
-            movimentoUsadoNoTurno = 0;
-            turnoDoUltimoMovimento = 0;
-            maxMovimentoTurno = 0;
-            resetarModoMovimento();
-        }
-        
-        if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
-        if (vezJogadores && vezNPCs) {
-            if (vezAtual === 'jogadores') {
-                vezJogadores.classList.add('ativo');
-                vezNPCs.classList.remove('ativo');
-            } else {
-                vezJogadores.classList.remove('ativo');
-                vezNPCs.classList.add('ativo');
-            }
-        }
-        if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
-        atualizarEstadoBotoes();
-    });
-    
-    // Listener de posições
-    if (unsubscribePosicoesGlobal) unsubscribePosicoesGlobal();
-    const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
-    
-    unsubscribePosicoesGlobal = onSnapshot(posicoesRef, (snapshot) => {
-        let precisaRedesenhar = false;
-        
-        snapshot.docChanges().forEach((change) => {
-            const id = change.doc.id;
-            const data = change.doc.data();
+
+            // Listener da sessão
+            if (unsubscribeSessao) unsubscribeSessao();
+            const sessaoRef = doc(db, "sessoes", sessaoAtual.id);
             
-            if (change.type === "added" || change.type === "modified") {
-                const posExistente = posicoes[id];
-                const mudouPosicao = posExistente && (posExistente.hexX !== data.hexX || posExistente.hexY !== data.hexY);
+            unsubscribeSessao = onSnapshot(sessaoRef, (docSnap) => {
+                if (!docSnap.exists()) return;
+                const dados = docSnap.data();
+                const modoFirebase = dados.modoVisualizacao || 'narrativo';
                 
-                if (!posicoes[id]) {
-                    posicoes[id] = { id, ...data };
-                    precisaRedesenhar = true;
-                } else {
-                    Object.assign(posicoes[id], data);
-                    if (mudouPosicao) precisaRedesenhar = true;
+                if (dados.cena_atual) {
+                    if (dados.cena_atual.descricao !== undefined && cenarioDescricao) {
+                        cenarioDescricao.value = dados.cena_atual.descricao || '';
+                    }
+                    if (cenarioImagem) {
+                        if (dados.cena_atual.imagemBase64) {
+                            cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemBase64}" alt="Cena">`;
+                        } else if (dados.cena_atual.imagemUrl) {
+                            cenarioImagem.innerHTML = `<img src="${dados.cena_atual.imagemUrl}" alt="Cena">`;
+                        } else {
+                            cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
+                        }
+                    }
                 }
                 
-                if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
-                if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
-            }
-            
-            if (change.type === "removed") {
-                delete posicoes[id];
-                precisaRedesenhar = true;
-            }
-        });
-        
-        if (precisaRedesenhar && ctx && modoVisualizacao === 'combate') {
-            desenharMapa();
-        }
-        
-        if (personagemAtual && posicoes[personagemAtual.id]) {
-            const desloc = calcularDeslocamento();
-            posicoes[personagemAtual.id].andar = desloc.andar;
-            posicoes[personagemAtual.id].correr = desloc.correr;
-        }
-        
-        atualizarEstadoBotoes();
-    });
-}
+                if (modoVisualizacao !== modoFirebase) {
+                    if (modoFirebase === 'combate') {
+                        modoNarrativo.style.display = 'none';
+                        modoCombate.style.display = 'block';
+                        modoBtns.forEach(btn => {
+                            btn.classList.toggle('ativa', btn.dataset.modo === 'combate');
+                        });
+                        iniciarListenerMarcadores();
+                        iniciarListenersCombate();
+                        if (ctx) setTimeout(() => desenharMapa(), 50);
+                    } else {
+                        modoNarrativo.style.display = 'block';
+                        modoCombate.style.display = 'none';
+                        modoBtns.forEach(btn => {
+                            btn.classList.toggle('ativa', btn.dataset.modo === 'narrativo');
+                        });
+                        resetarModoMovimento();
+                        if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
+                        if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
+                        if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
+                    }
+                    modoVisualizacao = modoFirebase;
+                }
+            });
 
-function pararTodosListeners() {
-    if (unsubscribeSessao) { unsubscribeSessao(); unsubscribeSessao = null; }
-    if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
-    if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
-    if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
-    if (unsubscribeRolagens) { unsubscribeRolagens(); unsubscribeRolagens = null; }
-    if (unsubscribeNPCs) { unsubscribeNPCs(); unsubscribeNPCs = null; }
-}
+            // Listener de rolagens
+            if (unsubscribeRolagens) unsubscribeRolagens();
+            const rolagensQuery = query(
+                collection(db, "sessoes", sessaoAtual.id, "rolagens"),
+                where("visibilidade", "==", "publico"),
+                orderBy("timestamp", "desc"),
+                limit(50)
+            );
+            
+            unsubscribeRolagens = onSnapshot(rolagensQuery, (snapshot) => {
+                let logHtml = '';
+                snapshot.forEach(docSnap => {
+                    const r = docSnap.data();
+                    if (r.tipo === 'pericia') {
+                        logHtml += `<div class="log-item"><span class="icone">🎲</span><span class="jogador">${r.jogador || 'Alguém'}:</span> Perícia ${r.resultado}%</div>`;
+                    } else if (r.tipo === 'dano') {
+                        logHtml += `<div class="log-item"><span class="icone">💥</span><span class="jogador">${r.jogador || 'Alguém'}:</span> Dano ${r.total}</div>`;
+                    } else if (r.tipo === 'critico') {
+                        let nomeTabela = '';
+                        if (r.tabela === 'ful-ataque') nomeTabela = 'Fulminante Ataque';
+                        else if (r.tabela === 'ful-defesa') nomeTabela = 'Fulminante Defesa';
+                        else if (r.tabela === 'ful-magia') nomeTabela = 'Fulminante Magia';
+                        else if (r.tabela === 'fal-ataque') nomeTabela = 'Falha Ataque';
+                        else if (r.tabela === 'fal-defesa') nomeTabela = 'Falha Defesa';
+                        else if (r.tabela === 'fal-magia') nomeTabela = 'Falha Magia';
+                        logHtml += `<div class="log-item"><span class="icone">⚡</span><span class="jogador">${r.jogador || 'Alguém'}:</span> [${nomeTabela}] ${r.resultado} - ${r.texto}</div>`;
+                    }
+                });
+                if (logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary);">Nenhuma rolagem ainda</div>';
+            });
+
+            // Listener de NPCs
+            if (unsubscribeNPCs) unsubscribeNPCs();
+            const npcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "npcs"));
+            
+            unsubscribeNPCs = onSnapshot(npcsQuery, (snapshot) => {
+                let html = '';
+                snapshot.forEach(docSnap => {
+                    const npc = docSnap.data();
+                    const pvAtual = npc.recursos?.pv_atual ?? '?';
+                    const pvMax = npc.recursos?.pv_max ?? '?';
+                    html += `<div class="npc-cena-item"><span class="npc-cena-nome">${npc.nome || '?'}</span><span class="npc-cena-pv">PV: ${pvAtual}/${pvMax}</span></div>`;
+                });
+                if (npcsCenaContainer) npcsCenaContainer.innerHTML = html || '<div style="color: var(--text-secondary);">Nenhum NPC na cena</div>';
+            });
+        }
+
+        function iniciarListenerMarcadores() {
+            if (!sessaoAtual) return;
+            if (unsubscribeMarcadoresGlobal) unsubscribeMarcadoresGlobal();
+            
+            const marcadoresRef = collection(db, "sessoes", sessaoAtual.id, "marcadores");
+            unsubscribeMarcadoresGlobal = onSnapshot(marcadoresRef, (snapshot) => {
+                const novosMarcadores = {};
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    novosMarcadores[`${data.x}_${data.y}`] = { id: docSnap.id, x: data.x, y: data.y };
+                });
+                marcadores = novosMarcadores;
+                if (ctx && modoVisualizacao === 'combate') desenharMapa();
+            });
+        }
+
+        function iniciarListenersCombate() {
+            if (!sessaoAtual) return;
+            
+            if (unsubscribeCombateGlobal) unsubscribeCombateGlobal();
+            const combatesQuery = query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1));
+            
+            unsubscribeCombateGlobal = onSnapshot(combatesQuery, (snapshot) => {
+                if (!snapshot.empty) {
+                    const dados = snapshot.docs[0].data();
+                    const estavaInativo = !combateAtivo;
+                    const novoTurno = dados.turno || 1;
+                    
+                    if (novoTurno !== turnoAtual && turnoAtual !== 1) {
+                        movimentoUsadoNoTurno = 0;
+                        turnoDoUltimoMovimento = 0;
+                        maxMovimentoTurno = 0;
+                    }
+                    
+                    combateAtivo = true;
+                    turnoAtual = novoTurno;
+                    vezAtual = dados.vez || 'jogadores';
+                    
+                    if (estavaInativo) {
+                        setTimeout(() => {
+                            if (ctx) desenharMapa();
+                            atualizarEstadoBotoes();
+                        }, 100);
+                    }
+                } else {
+                    combateAtivo = false;
+                    movimentoUsadoNoTurno = 0;
+                    turnoDoUltimoMovimento = 0;
+                    maxMovimentoTurno = 0;
+                    resetarModoMovimento();
+                }
+                
+                if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
+                if (vezJogadores && vezNPCs) {
+                    if (vezAtual === 'jogadores') {
+                        vezJogadores.classList.add('ativo');
+                        vezNPCs.classList.remove('ativo');
+                    } else {
+                        vezJogadores.classList.remove('ativo');
+                        vezNPCs.classList.add('ativo');
+                    }
+                }
+                if (modoAtualCombate) modoAtualCombate.innerHTML = combateAtivo ? '⚔️ Modo: Combate ativo' : '📍 Modo: Aguardando início';
+                atualizarEstadoBotoes();
+            });
+            
+            if (unsubscribePosicoesGlobal) unsubscribePosicoesGlobal();
+            const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
+            
+            unsubscribePosicoesGlobal = onSnapshot(posicoesRef, (snapshot) => {
+                let precisaRedesenhar = false;
+                
+                snapshot.docChanges().forEach((change) => {
+                    const id = change.doc.id;
+                    const data = change.doc.data();
+                    
+                    if (change.type === "added" || change.type === "modified") {
+                        const posExistente = posicoes[id];
+                        const mudouPosicao = posExistente && (posExistente.hexX !== data.hexX || posExistente.hexY !== data.hexY);
+                        
+                        if (!posicoes[id]) {
+                            posicoes[id] = { id, ...data };
+                            precisaRedesenhar = true;
+                        } else {
+                            Object.assign(posicoes[id], data);
+                            if (mudouPosicao) precisaRedesenhar = true;
+                        }
+                        
+                        if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
+                        if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+                    }
+                    
+                    if (change.type === "removed") {
+                        delete posicoes[id];
+                        precisaRedesenhar = true;
+                    }
+                });
+                
+                if (precisaRedesenhar && ctx && modoVisualizacao === 'combate') {
+                    desenharMapa();
+                }
+                
+                if (personagemAtual && posicoes[personagemAtual.id]) {
+                    const desloc = calcularDeslocamento();
+                    posicoes[personagemAtual.id].andar = desloc.andar;
+                    posicoes[personagemAtual.id].correr = desloc.correr;
+                }
+                
+                atualizarEstadoBotoes();
+            });
+        }
+
+        function pararTodosListeners() {
+            if (unsubscribeSessao) { unsubscribeSessao(); unsubscribeSessao = null; }
+            if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
+            if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
+            if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
+            if (unsubscribeRolagens) { unsubscribeRolagens(); unsubscribeRolagens = null; }
+            if (unsubscribeNPCs) { unsubscribeNPCs(); unsubscribeNPCs = null; }
+            if (unsubscribeParticipantes) { unsubscribeParticipantes(); unsubscribeParticipantes = null; }
+        }
 
         // ============================================
         // FUNÇÕES DE AÇÃO
@@ -2910,73 +2913,77 @@ function pararTodosListeners() {
         // ============================================
         // ROLAGEM
         // ============================================
-        btnRolarPericia.addEventListener('click', async () => {
-            const dezena = Math.floor(Math.random() * 10);
-            const unidade = Math.floor(Math.random() * 10);
-            
-            let resultadoBase = (dezena * 10) + unidade;
-            if (resultadoBase === 0) resultadoBase = 100;
-            
-            const mod = parseInt(modificadorPericia?.value) || 0;
-            const resultadoFinal = Math.min(100, Math.max(0, resultadoBase + mod));
-            
-            resultadoPercentual.textContent = resultadoFinal + '%';
+        if (btnRolarPericia) {
+            btnRolarPericia.addEventListener('click', async () => {
+                const dezena = Math.floor(Math.random() * 10);
+                const unidade = Math.floor(Math.random() * 10);
+                
+                let resultadoBase = (dezena * 10) + unidade;
+                if (resultadoBase === 0) resultadoBase = 100;
+                
+                const mod = parseInt(modificadorPericia?.value) || 0;
+                const resultadoFinal = Math.min(100, Math.max(0, resultadoBase + mod));
+                
+                if (resultadoPercentual) resultadoPercentual.textContent = resultadoFinal + '%';
 
-            if (sessaoAtual) {
-                try {
-                    await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                        tipo: 'pericia',
-                        jogador: personagemAtual?.nome || 'Jogador',
-                        personagemId: personagemAtual?.id,
-                        dezena,
-                        unidade,
-                        resultadoBase,
-                        modificador: mod,
-                        resultado: resultadoFinal,
-                        visibilidade: 'publico',
-                        timestamp: serverTimestamp()
-                    });
-                } catch (error) {
-                    console.error('Erro ao salvar rolagem:', error);
+                if (sessaoAtual) {
+                    try {
+                        await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                            tipo: 'pericia',
+                            jogador: personagemAtual?.nome || 'Jogador',
+                            personagemId: personagemAtual?.id,
+                            dezena,
+                            unidade,
+                            resultadoBase,
+                            modificador: mod,
+                            resultado: resultadoFinal,
+                            visibilidade: 'publico',
+                            timestamp: serverTimestamp()
+                        });
+                    } catch (error) {
+                        console.error('Erro ao salvar rolagem:', error);
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        btnRolarDano.addEventListener('click', async () => {
-            const qtd = parseInt(qtdDadosDano.value) || 1;
-            const mod = parseInt(modificadorDano.value) || 0;
-            
-            const dados = [];
-            let soma = 0;
-            
-            for (let i = 0; i < qtd; i++) {
-                const valor = Math.floor(Math.random() * 8) + 1;
-                dados.push(valor);
-                soma += valor;
-            }
-            
-            const total = soma + mod;
-            resultadoDano.textContent = total;
-
-            if (sessaoAtual) {
-                try {
-                    await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                        tipo: 'dano',
-                        jogador: personagemAtual?.nome || 'Jogador',
-                        personagemId: personagemAtual?.id,
-                        qtdDados: qtd,
-                        dados,
-                        soma,
-                        modificador: mod,
-                        total,
-                        visibilidade: 'publico',
-                        timestamp: serverTimestamp()
-                    });
-                } catch (error) {
-                    console.error('Erro ao salvar rolagem:', error);
+        if (btnRolarDano) {
+            btnRolarDano.addEventListener('click', async () => {
+                const qtd = parseInt(qtdDadosDano?.value) || 1;
+                const mod = parseInt(modificadorDano?.value) || 0;
+                
+                const dados = [];
+                let soma = 0;
+                
+                for (let i = 0; i < qtd; i++) {
+                    const valor = Math.floor(Math.random() * 8) + 1;
+                    dados.push(valor);
+                    soma += valor;
                 }
-            }
-        });
+                
+                const total = soma + mod;
+                if (resultadoDano) resultadoDano.textContent = total;
+
+                if (sessaoAtual) {
+                    try {
+                        await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                            tipo: 'dano',
+                            jogador: personagemAtual?.nome || 'Jogador',
+                            personagemId: personagemAtual?.id,
+                            qtdDados: qtd,
+                            dados,
+                            soma,
+                            modificador: mod,
+                            total,
+                            visibilidade: 'publico',
+                            timestamp: serverTimestamp()
+                        });
+                    } catch (error) {
+                        console.error('Erro ao salvar rolagem:', error);
+                    }
+                }
+            });
+        }
 
         // ============================================
         // SISTEMA DE CRÍTICOS
@@ -3104,61 +3111,59 @@ function pararTodosListeners() {
             });
         }
 
-   // ============================================
-// EVENTOS DO MAPA
-// ============================================
-function handleCanvasClick(canvasX, canvasY) {
-    if (!modoPosicionamentoAtivo && !modoMovimentoAtivo) return;
-    
-    if (!personagemAtual || !personagemAtual.id) {
-        showToast('Personagem não carregado!', true);
-        return;
-    }
-    
-    if (!highlightHex || highlightHex.length === 0) {
-        showToast('Nenhum espaço disponível!', true);
-        return;
-    }
-    
-    const hex = pixelToHex(canvasX, canvasY);
-    
-    if (hex.x === -1 || hex.y === -1) {
-        showToast('Clique dentro de um hexágono!', true);
-        return;
-    }
-    
-    const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
-    if (!isValid) {
-        showToast(`Posição (${hex.x},${hex.y}) não disponível`, true);
-        return;
-    }
-    
-    moverPersonagem(personagemAtual.id, hex.x, hex.y);
-}
-
-if (canvas) {
-    // ✅ CORRIGIDO: Extrai coordenadas do evento de click
-    canvas.addEventListener('click', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const canvasX = (e.clientX - rect.left) * scaleX;
-        const canvasY = (e.clientY - rect.top) * scaleY;
-        handleCanvasClick(canvasX, canvasY);
-    });
-    
-    // Touch permanece igual (já estava correto!)
-    canvas.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 1) {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const canvasX = (e.touches[0].clientX - rect.left) * scaleX;
-            const canvasY = (e.touches[0].clientY - rect.top) * scaleY;
-            handleCanvasClick(canvasX, canvasY);
+        // ============================================
+        // EVENTOS DO MAPA
+        // ============================================
+        function handleCanvasClick(canvasX, canvasY) {
+            if (!modoPosicionamentoAtivo && !modoMovimentoAtivo) return;
+            
+            if (!personagemAtual || !personagemAtual.id) {
+                showToast('Personagem não carregado!', true);
+                return;
+            }
+            
+            if (!highlightHex || highlightHex.length === 0) {
+                showToast('Nenhum espaço disponível!', true);
+                return;
+            }
+            
+            const hex = pixelToHex(canvasX, canvasY);
+            
+            if (hex.x === -1 || hex.y === -1) {
+                showToast('Clique dentro de um hexágono!', true);
+                return;
+            }
+            
+            const isValid = highlightHex.some(h => h.x === hex.x && h.y === hex.y);
+            if (!isValid) {
+                showToast(`Posição (${hex.x},${hex.y}) não disponível`, true);
+                return;
+            }
+            
+            moverPersonagem(personagemAtual.id, hex.x, hex.y);
         }
-    }, { passive: true });
-}
+
+        if (canvas) {
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const canvasX = (e.clientX - rect.left) * scaleX;
+                const canvasY = (e.clientY - rect.top) * scaleY;
+                handleCanvasClick(canvasX, canvasY);
+            });
+            
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const canvasX = (e.touches[0].clientX - rect.left) * scaleX;
+                    const canvasY = (e.touches[0].clientY - rect.top) * scaleY;
+                    handleCanvasClick(canvasX, canvasY);
+                }
+            }, { passive: true });
+        }
 
         // ============================================
         // EVENTOS DOS BOTÕES
@@ -3173,184 +3178,209 @@ if (canvas) {
             btnMoverCorrer.addEventListener('click', () => iniciarMovimento('correr'));
         }
 
-       // ============================================
-// CARREGAR SESSÃO
-// ============================================
-async function carregarVinculoEPersonagem() {
-    if (!currentUser || !campanhaId) return null;
+        // ============================================
+        // CARREGAR SESSÃO
+        // ============================================
+        async function carregarVinculoEPersonagem() {
+            if (!currentUser || !campanhaId) return null;
 
-    try {
-        const vinculosQuery = query(
-            collection(db, "campanha_personagens"),
-            where("campanha_id", "==", campanhaId),
-            where("jogador_uid", "==", currentUser.uid),
-            where("status", "==", "ativo")
-        );
-        
-        const vinculosSnap = await getDocs(vinculosQuery);
-        
-        if (vinculosSnap.empty) {
-            showToast('Você não tem personagem vinculado a esta campanha!', true);
-            setTimeout(() => window.location.href = 'campanhas.html', 2000);
-            return null;
+            try {
+                const vinculosQuery = query(
+                    collection(db, "campanha_personagens"),
+                    where("campanha_id", "==", campanhaId),
+                    where("jogador_uid", "==", currentUser.uid),
+                    where("status", "==", "ativo")
+                );
+                
+                const vinculosSnap = await getDocs(vinculosQuery);
+                
+                if (vinculosSnap.empty) {
+                    showToast('Você não tem personagem vinculado a esta campanha!', true);
+                    setTimeout(() => window.location.href = 'campanhas.html', 2000);
+                    return null;
+                }
+
+                vinculoAtual = {
+                    id: vinculosSnap.docs[0].id,
+                    ...vinculosSnap.docs[0].data()
+                };
+
+                const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
+                const personagemSnap = await getDoc(personagemRef);
+                
+                if (!personagemSnap.exists()) {
+                    showToast('Personagem não encontrado!', true);
+                    return null;
+                }
+
+                personagemAtual = {
+                    id: personagemSnap.id,
+                    ...personagemSnap.data()
+                };
+
+                if (!personagemAtual.statusCombate) {
+                    personagemAtual.statusCombate = {
+                        vidaAtual: calcularPV(),
+                        vidaMax: calcularPV(),
+                        manaAtual: calcularPM(),
+                        manaMax: calcularPM(),
+                        fadigaAtual: calcularPF(),
+                        fadigaMax: calcularPF()
+                    };
+                }
+
+                return personagemAtual;
+
+            } catch (error) {
+                console.error('Erro ao carregar vínculo:', error);
+                showToast('Erro ao carregar personagem', true);
+                return null;
+            }
         }
 
-        vinculoAtual = {
-            id: vinculosSnap.docs[0].id,
-            ...vinculosSnap.docs[0].data()
-        };
-
-        const personagemRef = doc(db, "personagens", vinculoAtual.personagem_id);
-        const personagemSnap = await getDoc(personagemRef);
-        
-        if (!personagemSnap.exists()) {
-            showToast('Personagem não encontrado!', true);
-            return null;
-        }
-
-        personagemAtual = {
-            id: personagemSnap.id,
-            ...personagemSnap.data()
-        };
-
-        if (!personagemAtual.statusCombate) {
-            personagemAtual.statusCombate = {
-                vidaAtual: calcularPV(),
-                vidaMax: calcularPV(),
-                manaAtual: calcularPM(),
-                manaMax: calcularPM(),
-                fadigaAtual: calcularPF(),
-                fadigaMax: calcularPF()
-            };
-        }
-
-        return personagemAtual;
-
-    } catch (error) {
-        console.error('Erro ao carregar vínculo:', error);
-        showToast('Erro ao carregar personagem', true);
-        return null;
-    }
-}
-
-async function carregarTodosJogadores() {
-    if (!campanhaId) return;
-
-    try {
-        const vinculosQuery = query(
-            collection(db, "campanha_personagens"),
-            where("campanha_id", "==", campanhaId),
-            where("status", "==", "ativo")
-        );
-        
-        const vinculosSnap = await getDocs(vinculosQuery);
-        todosJogadores = [];
-
-        for (const docSnap of vinculosSnap.docs) {
-            const vinculo = docSnap.data();
+        async function carregarSessao() {
+            const { sessaoId, campanhaId: campanhaIdParam } = getParamsFromUrl();
             
-            const personagemRef = doc(db, "personagens", vinculo.personagem_id);
-            const personagemSnap = await getDoc(personagemRef);
-            
-            todosJogadores.push({
-                id: docSnap.id,
-                ...vinculo,
-                personagem: personagemSnap.exists() ? personagemSnap.data() : null
+            if (!sessaoId || !campanhaIdParam) {
+                showToast('Parâmetros da sessão não encontrados!', true);
+                setTimeout(() => window.location.href = 'campanhas.html', 2000);
+                return;
+            }
+
+            campanhaId = campanhaIdParam;
+            showLoading();
+
+            try {
+                const sessaoRef = doc(db, "sessoes", sessaoId);
+                const sessaoSnap = await getDoc(sessaoRef);
+                
+                if (!sessaoSnap.exists()) {
+                    showToast('Sessão não encontrada!', true);
+                    setTimeout(() => window.location.href = 'campanhas.html', 2000);
+                    return;
+                }
+
+                sessaoAtual = {
+                    id: sessaoSnap.id,
+                    ...sessaoSnap.data()
+                };
+
+                if (sessaoTitulo) sessaoTitulo.textContent = sessaoAtual.titulo || 'Mesa do Jogador';
+
+                await carregarVinculoEPersonagem();
+                
+                if (!personagemAtual) {
+                    hideLoading();
+                    return;
+                }
+
+                // 🔥 ENTRA NA SESSÃO AUTOMATICAMENTE
+                await entrarNaSessaoAutomaticamente();
+
+                // 🔥 INICIA LISTENER DE PARTICIPANTES
+                iniciarListenerParticipantes();
+
+                renderizarFichaResumida();
+
+                setTimeout(() => {
+                    if (sessaoAtual && sessaoAtual.id) {
+                        iniciarListeners();
+                    } else {
+                        const checkInterval = setInterval(() => {
+                            if (sessaoAtual && sessaoAtual.id) {
+                                clearInterval(checkInterval);
+                                iniciarListeners();
+                            }
+                        }, 200);
+                    }
+                }, 100);
+
+            } catch (error) {
+                console.error('Erro ao carregar sessão:', error);
+                showToast('Erro ao carregar sessão', true);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        if (btnSair) {
+            btnSair.addEventListener('click', async () => {
+                await sairDaSessao();
+                await signOut(auth);
+                window.location.href = 'index.html';
             });
         }
 
-        renderizarJogadores();
-
-    } catch (error) {
-        console.error('Erro ao carregar jogadores:', error);
-    }
-}
-
-async function carregarSessao() {
-    const { sessaoId, campanhaId: campanhaIdParam } = getParamsFromUrl();
-    
-    if (!sessaoId || !campanhaIdParam) {
-        showToast('Parâmetros da sessão não encontrados!', true);
-        setTimeout(() => window.location.href = 'campanhas.html', 2000);
-        return;
-    }
-
-    campanhaId = campanhaIdParam;
-    showLoading();
-
-    try {
-        const sessaoRef = doc(db, "sessoes", sessaoId);
-        const sessaoSnap = await getDoc(sessaoRef);
-        
-        if (!sessaoSnap.exists()) {
-            showToast('Sessão não encontrada!', true);
-            setTimeout(() => window.location.href = 'campanhas.html', 2000);
-            return;
-        }
-
-        sessaoAtual = {
-            id: sessaoSnap.id,
-            ...sessaoSnap.data()
-        };
-
-        sessaoTitulo.textContent = sessaoAtual.titulo || 'Mesa do Jogador';
-
-        await carregarVinculoEPersonagem();
-        
-        if (!personagemAtual) {
-            return;
-        }
-
-        await carregarTodosJogadores();
-
-        renderizarFichaResumida();
-
-        // ============================================
-        // CORREÇÃO: Aguarda sessaoAtual estar definido
-        // ============================================
-        setTimeout(() => {
-            if (sessaoAtual && sessaoAtual.id) {
-                iniciarListeners();
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await carregarSessao();
             } else {
-                const checkInterval = setInterval(() => {
-                    if (sessaoAtual && sessaoAtual.id) {
-                        clearInterval(checkInterval);
-                        iniciarListeners();
-                    }
-                }, 200);
+                window.location.href = 'index.html';
             }
-        }, 100);
+        });
 
-    } catch (error) {
-        console.error('Erro ao carregar sessão:', error);
-        showToast('Erro ao carregar sessão', true);
-    } finally {
-        hideLoading();
-    }
-}
+        window.addEventListener('beforeunload', () => {
+            sairDaSessao();
+            pararTodosListeners();
+        });
 
-        // ============================================
-// INICIALIZAÇÃO
-// ============================================
-btnSair.addEventListener('click', async () => {
-    await signOut(auth);
-    window.location.href = 'index.html';
-});
-
-onAuthStateChanged(auth, async (user) => {
-    if (user) {
-        currentUser = user;
-        await carregarSessao();
-    } else {
-        window.location.href = 'index.html';
-    }
-});
-
-window.addEventListener('beforeunload', () => {
-    if (unsubscribePosicoes) unsubscribePosicoes();
-    if (unsubscribeCombate) unsubscribeCombate();
-    if (unsubscribeMarcadores) unsubscribeMarcadores();
-});
+        // Habilita botões de modo
+        modoBtns.forEach(btn => {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            
+            btn.addEventListener('click', async () => {
+                const modo = btn.dataset.modo;
+                
+                if (modo === 'narrativo') {
+                    modoNarrativo.style.display = 'block';
+                    modoCombate.style.display = 'none';
+                    
+                    modoBtns.forEach(b => {
+                        if (b.dataset.modo === 'narrativo') {
+                            b.classList.add('ativa');
+                        } else {
+                            b.classList.remove('ativa');
+                        }
+                    });
+                    
+                    if (unsubscribePosicoesGlobal) { unsubscribePosicoesGlobal(); unsubscribePosicoesGlobal = null; }
+                    if (unsubscribeCombateGlobal) { unsubscribeCombateGlobal(); unsubscribeCombateGlobal = null; }
+                    if (unsubscribeMarcadoresGlobal) { unsubscribeMarcadoresGlobal(); unsubscribeMarcadoresGlobal = null; }
+                    
+                    resetarModoMovimento();
+                    showToast('🌄 Modo Narrativo ativado', false);
+                    
+                } else if (modo === 'combate') {
+                    modoNarrativo.style.display = 'none';
+                    modoCombate.style.display = 'block';
+                    
+                    modoBtns.forEach(b => {
+                        if (b.dataset.modo === 'combate') {
+                            b.classList.add('ativa');
+                        } else {
+                            b.classList.remove('ativa');
+                        }
+                    });
+                    
+                    iniciarListenerMarcadores();
+                    iniciarListenersCombate();
+                    
+                    setTimeout(() => {
+                        if (ctx) desenharMapa();
+                    }, 100);
+                    
+                    showToast('⚔️ Modo Combate ativado', false);
+                }
+                
+                modoVisualizacao = modo;
+            });
+        });
     </script>
 </body>
 </html>
