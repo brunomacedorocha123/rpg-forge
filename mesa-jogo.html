@@ -1,3 +1,5 @@
+mesa do gm 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2111,9 +2113,7 @@ import {
     orderBy,
     limit,
     setDoc,
-    writeBatch,
-    arrayUnion,
-    arrayRemove
+    writeBatch
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
 // ============================================
@@ -2257,15 +2257,9 @@ let unsubscribeCombate = null;
 let unsubscribeMarcadores = null;
 
 // ============================================
-// NOVAS VARIÁVEIS GLOBAIS - CONTROLE DE TURNO DOS PCs
+// CONTROLE DE MOVIMENTO POR TURNO (NOVO)
 // ============================================
-let pcsFinalizaramTurno = []; // Array de personagem_id dos PCs que finalizaram
-let totalPCsAtivos = 0; // Total de PCs na sessão
-let unsubscribeSessaoPersonagens = null; // Listener para sessao_personagens
-
-// ============================================
-// CONTROLE DE MOVIMENTO POR TURNO
-// ============================================
+// moveuNoTurno[personagemId] = { moveu: true/false, tipo: 'andar' ou 'correr', distanciaUsada: 0, distanciaMax: 0 }
 let moveuNoTurno = {};
 
 // ============================================
@@ -2273,8 +2267,7 @@ let moveuNoTurno = {};
 // ============================================
 function resetarMovimentoTurno() {
     moveuNoTurno = {};
-    pcsFinalizaramTurno = [];
-    console.log('Movimento e turnos resetados para o novo turno');
+    console.log('Movimento resetado para o novo turno');
 }
 
 // ============================================
@@ -2354,6 +2347,8 @@ const tabelasCriticosCompletas = {
         "O conjurador fica atordoado por 1 turno."
     ]
 };
+
+
 
 // ============================================
 // FUNÇÕES AUXILIARES
@@ -2474,15 +2469,9 @@ async function iniciarCombate() {
         combateAtivo = true;
         turnoAtual = 1;
         vezAtual = 'jogadores';
-        pcsFinalizaramTurno = []; // NOVO: Resetar array de finalizados
         combateId = `combate_${Date.now()}`;
         await setDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), {
-            ativo: true, 
-            turno: 1, 
-            vez: 'jogadores', 
-            pcsFinalizaram: [], // NOVO: Array vazio no início
-            iniciado_em: serverTimestamp(), 
-            gm_uid: currentUser.uid
+            ativo: true, turno: 1, vez: 'jogadores', iniciado_em: serverTimestamp(), gm_uid: currentUser.uid
         });
         const batch = writeBatch(db);
         Object.entries(posicoes).forEach(([id, pos]) => {
@@ -2496,11 +2485,12 @@ async function iniciarCombate() {
         });
         await batch.commit();
         
+        // Resetar movimento ao iniciar combate
         resetarMovimentoTurno();
         
         atualizarUICombate();
-        atualizarListaNPCs();
-        showToast('Combate iniciado! Vez dos Jogadores.');
+        atualizarListaNPCs(); // Atualizar lista para mostrar botões habilitados
+        showToast('Combate iniciado! Posicione os personagens.');
     } catch(e) { showToast('Erro ao iniciar: ' + e.message, true); } finally { hideLoading(); }
 }
 
@@ -2513,6 +2503,7 @@ async function moverPersonagem(id, hexX, hexY) {
         showToast('Ocupado!', true); return;
     }
     
+    // Calcular distância percorrida
     let distanciaPercorrida = 0;
     if (pos.hexX !== undefined && pos.hexX !== null) {
         distanciaPercorrida = Math.abs(pos.hexX - hexX) + Math.abs(pos.hexY - hexY);
@@ -2523,6 +2514,7 @@ async function moverPersonagem(id, hexX, hexY) {
     posicoes[id].hexX = hexX;
     posicoes[id].hexY = hexY;
     
+    // Atualizar movimento no turno se foi um movimento de combate
     if (moveuNoTurno[id]?.moveu && distanciaPercorrida > 0) {
         moveuNoTurno[id].distanciaUsada = distanciaPercorrida;
         showToast(`${posicoes[id].nome} moveu ${distanciaPercorrida}m de ${moveuNoTurno[id].distanciaMax}m`);
@@ -2538,54 +2530,8 @@ async function moverPersonagem(id, hexX, hexY) {
     if (personagemSelecionado === id) atualizarFichaCombate(id);
 }
 
-// ============================================
-// FUNÇÃO MODIFICADA: Verificar se todos PCs finalizaram
-// ============================================
-async function verificarTodosPCsFinalizaram() {
-    if (!combateId || !sessaoAtual) return;
-    
-    // Buscar IDs de PCs ativos na sessão (não na campanha)
-    const pcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "sessao_personagens"));
-    const pcsSnap = await getDocs(pcsQuery);
-    const pcsNaSessao = [];
-    pcsSnap.forEach(doc => {
-        pcsNaSessao.push(doc.data().personagem_id);
-    });
-    
-    // Verificar se todos finalizaram
-    const todosFinalizaram = pcsNaSessao.every(pcId => pcsFinalizaramTurno.includes(pcId));
-    
-    if (todosFinalizaram && pcsNaSessao.length > 0) {
-        showToast('Todos os jogadores finalizaram! Passando para NPCs...');
-        setTimeout(() => avancarTurno(), 1500);
-    }
-}
-
-// ============================================
-// FUNÇÃO MODIFICADA: Avançar Turno
-// ============================================
 async function avancarTurno() {
     if (!ehGM || !combateId) return;
-    
-    // Se é vez dos jogadores, verificar se todos finalizaram antes de permitir
-    if (vezAtual === 'jogadores') {
-        const pcsQuery = query(collection(db, "sessoes", sessaoAtual.id, "sessao_personagens"));
-        const pcsSnap = await getDocs(pcsQuery);
-        const pcsNaSessao = [];
-        pcsSnap.forEach(doc => {
-            pcsNaSessao.push(doc.data().personagem_id);
-        });
-        
-        const pcsPendentes = pcsNaSessao.filter(pcId => !pcsFinalizaramTurno.includes(pcId));
-        
-        if (pcsPendentes.length > 0 && pcsNaSessao.length > 0) {
-            // Mostrar alerta mas ainda permitir (GM tem poder de override)
-            if (!confirm(`Atenção: ${pcsPendentes.length} jogador(es) ainda não finalizaram o turno. Deseja prosseguir mesmo assim?`)) {
-                return;
-            }
-        }
-    }
-    
     if (vezAtual === 'jogadores') { 
         vezAtual = 'npcs'; 
         resetarMovimentoTurno();
@@ -2596,15 +2542,9 @@ async function avancarTurno() {
         resetarMovimentoTurno();
         showToast(`Turno ${turnoAtual} - Vez dos Jogadores - Movimento resetado`);
     }
-    
-    await updateDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), { 
-        turno: turnoAtual, 
-        vez: vezAtual,
-        pcsFinalizaram: [] // Resetar array quando muda de turno
-    });
-    
+    await updateDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), { turno: turnoAtual, vez: vezAtual });
     atualizarUICombate();
-    atualizarListaNPCs();
+    atualizarListaNPCs(); // Atualizar lista para habilitar/desabilitar botões
 }
 
 async function encerrarCombate() {
@@ -2621,6 +2561,7 @@ async function encerrarCombate() {
         combateId = null;
         Object.keys(posicoes).forEach(id => { posicoes[id].hexX = undefined; posicoes[id].hexY = undefined; });
         
+        // Resetar movimento ao encerrar combate
         resetarMovimentoTurno();
         
         atualizarUICombate();
@@ -2630,32 +2571,12 @@ async function encerrarCombate() {
     } catch(e) { showToast('Erro ao encerrar: ' + e.message, true); } finally { hideLoading(); }
 }
 
-// ============================================
-// FUNÇÃO MODIFICADA: Atualizar UI do Combate
-// ============================================
 function atualizarUICombate() {
     if (turnoDisplay) turnoDisplay.textContent = `TURNO ${turnoAtual}`;
-    
-    // NOVO: Mostrar contador de PCs que finalizaram quando é vez dos jogadores
     if (vezJogadores && vezNPCs) {
-        if (vezAtual === 'jogadores') { 
-            vezJogadores.classList.add('ativo'); 
-            vezNPCs.classList.remove('ativo');
-            
-            // Adicionar contador se houver PCs
-            if (totalPCsAtivos > 0 && combateAtivo) {
-                const finalizados = pcsFinalizaramTurno.length;
-                vezJogadores.innerHTML = `🧙 JOGADORES (${finalizados}/${totalPCsAtivos})`;
-            } else {
-                vezJogadores.innerHTML = `🧙 JOGADORES`;
-            }
-        } else { 
-            vezJogadores.classList.remove('ativo'); 
-            vezNPCs.classList.add('ativo');
-            vezJogadores.innerHTML = `🧙 JOGADORES`;
-        }
+        if (vezAtual === 'jogadores') { vezJogadores.classList.add('ativo'); vezNPCs.classList.remove('ativo'); }
+        else { vezJogadores.classList.remove('ativo'); vezNPCs.classList.add('ativo'); }
     }
-    
     if (btnIniciarCombate) btnIniciarCombate.disabled = combateAtivo;
     if (btnFinalizarTurno) btnFinalizarTurno.disabled = !combateAtivo;
     if (btnProximoTurno) btnProximoTurno.disabled = !combateAtivo;
@@ -2705,11 +2626,13 @@ window.iniciarMovimento = function(id, tipo) {
     const pos = posicoes[id];
     if (!pos || pos.hexX === undefined) { showToast('Personagem não posicionado!', true); return; }
     
+    // Verificar se já moveu neste turno
     if (moveuNoTurno[id]?.moveu) {
         showToast('Este personagem já se moveu neste turno!', true);
         return;
     }
     
+    // Verificar se é a vez correta
     if (vezAtual !== (pos.tipo === 'pc' ? 'jogadores' : 'npcs')) {
         showToast('Não é a vez deste personagem!', true);
         return;
@@ -2717,6 +2640,7 @@ window.iniciarMovimento = function(id, tipo) {
     
     let alcance = tipo === 'correr' ? (pos.correr || 6) : (pos.andar || 6);
     
+    // Registrar que vai mover
     moveuNoTurno[id] = {
         moveu: true,
         tipo: tipo,
@@ -2740,7 +2664,7 @@ window.iniciarMovimento = function(id, tipo) {
     }
     
     desenharMapa();
-    atualizarListaNPCs();
+    atualizarListaNPCs(); // Atualizar para desabilitar botões
     if (personagemSelecionado === id) atualizarFichaCombate(id);
     showToast(`Movimento ${tipo}: clique em um hexágono destacado para mover ${pos.nome} (até ${alcance}m)`);
     
@@ -2759,6 +2683,7 @@ function handleCanvasClick(e) {
     const mouseY = (e.clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
     if (hex.x >= 0 && hex.y >= 0) {
+        // Modo marcador (obstáculo)
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
@@ -2769,17 +2694,23 @@ function handleCanvasClick(e) {
             return;
         }
         
+        // Verificar se há personagem no hexágono
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
         if (personagemNoHex) {
             personagemSelecionado = personagemNoHex[0];
             atualizarFichaCombate(personagemSelecionado);
-        } else if (ehGM && npcSelecionadoParaPosicionar) {
+        } 
+        // Modo posicionamento de NPC (GM)
+        else if (ehGM && npcSelecionadoParaPosicionar) {
             moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
-        } else if (personagemSelecionado && modoCombateAtual === 'movimento') {
+        } 
+        // Modo movimento (personagem selecionado)
+        else if (personagemSelecionado && modoCombateAtual === 'movimento') {
             moverPersonagem(personagemSelecionado, hex.x, hex.y);
             modoCombateAtual = 'posicionamento';
             highlightHex = [];
             desenharMapa();
+            // Atualizar UI após movimento
             atualizarListaNPCs();
             if (personagemSelecionado) atualizarFichaCombate(personagemSelecionado);
         }
@@ -2860,7 +2791,7 @@ function renderizarMagiasNpc() {
 }
 
 // ============================================
-// FUNÇÃO CORRIGIDA: atualizarListaNPCs
+// FUNÇÃO CORRIGIDA: atualizarListaNPCs (com botões POSICIONAR, ANDAR, CORRER - SEMPRE VISÍVEIS)
 // ============================================
 function atualizarListaNPCs() {
     let html = '';
@@ -2874,12 +2805,16 @@ function atualizarListaNPCs() {
     npcsList.forEach(npc => {
         const estaPosicionado = npc.hexX !== undefined && npc.hexX !== null && npc.hexX !== null;
         const jaMoveu = moveuNoTurno[npc.id]?.moveu || false;
+        
+        // Verifica se pode mover (apenas para habilitar/desabilitar, NÃO para ocultar)
         const podeMover = combateAtivo && vezAtual === 'npcs' && !jaMoveu && estaPosicionado;
         
+        // Determina cor e texto do botão Posicionar
         const btnPosicionarBg = estaPosicionado ? 'var(--bg-primary)' : 'var(--gold)';
         const btnPosicionarColor = estaPosicionado ? 'var(--gold)' : 'var(--bg-primary)';
         const btnPosicionarTexto = estaPosicionado ? 'Reposicionar' : 'Posicionar';
         
+        // Determina estilo dos botões de movimento
         const btnMovimentoBg = podeMover ? 'var(--gold)' : 'var(--bg-primary)';
         const btnMovimentoColor = podeMover ? 'var(--bg-primary)' : 'var(--gold)';
         const btnMovimentoCursor = podeMover ? 'pointer' : 'not-allowed';
@@ -2903,23 +2838,28 @@ function atualizarListaNPCs() {
                 </div>
             </div>
             
+            <!-- Linha de informações de movimento -->
             <div style="display: flex; gap: 15px; justify-content: space-between; font-size: 0.75rem; padding: 5px 0; border-top: 1px solid var(--border-glow);">
                 <span><i class="fas fa-shoe-prints" style="color: #2ecc71;"></i> Andar: ${npc.andar || 4}m</span>
                 <span><i class="fas fa-running" style="color: #f39c12;"></i> Correr: ${npc.correr || 8}m</span>
                 <span><i class="fas fa-shield-alt"></i> RD: ${npc.rd || 0}</span>
             </div>
             
+            <!-- BOTÕES: Posicionar, Andar e Correr (SEMPRE VISÍVEIS) -->
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
+                <!-- Botão POSICIONAR -->
                 <button class="btn-posicionar-npc" onclick="window.selecionarNPCparaPosicionar('${npc.id}')" style="flex:1; background: ${btnPosicionarBg}; color: ${btnPosicionarColor}; border: 1px solid var(--gold); padding: 10px 8px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
                     <i class="fas fa-map-marker-alt"></i> ${btnPosicionarTexto}
                 </button>
                 
+                <!-- Botão ANDAR (SEMPRE VISÍVEL) -->
                 <button class="btn-movimento-andar" onclick="window.moverNPC('${npc.id}', 'andar')" 
                         style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#2ecc71'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;"
                         ${!podeMover ? 'disabled' : ''}>
                     <i class="fas fa-shoe-prints"></i> Andar (${npc.andar || 4}m)
                 </button>
                 
+                <!-- Botão CORRER (SEMPRE VISÍVEL) -->
                 <button class="btn-movimento-correr" onclick="window.moverNPC('${npc.id}', 'correr')" 
                         style="flex:1; background: ${btnMovimentoBg}; color: ${btnMovimentoColor}; border: 1px solid ${podeMover ? 'var(--gold)' : '#f39c12'}; padding: 10px 8px; border-radius: 8px; cursor: ${btnMovimentoCursor}; font-weight: 600; transition: all 0.2s;"
                         ${!podeMover ? 'disabled' : ''}>
@@ -2927,6 +2867,7 @@ function atualizarListaNPCs() {
                 </button>
             </div>
             
+            <!-- Mensagem explicativa quando não pode mover -->
             ${!podeMover && estaPosicionado ? `
             <div style="font-size: 0.7rem; color: #ffaa00; text-align: center; margin-top: 5px; padding: 4px; background: rgba(255,170,0,0.1); border-radius: 6px;">
                 <i class="fas fa-info-circle"></i> 
@@ -2942,6 +2883,9 @@ function atualizarListaNPCs() {
     if(npcsContainer) npcsContainer.innerHTML = html;
 }
 
+// ============================================
+// FUNÇÃO: selecionar NPC para posicionar
+// ============================================
 window.selecionarNPCparaPosicionar = function(id) {
     if (!ehGM) { 
         showToast('Apenas o GM pode posicionar NPCs', true); 
@@ -2972,6 +2916,9 @@ window.selecionarNPCparaPosicionar = function(id) {
     }
 };
 
+// ============================================
+// FUNÇÃO: mover NPC (Andar ou Correr)
+// ============================================
 window.moverNPC = function(id, tipoMovimento) {
     const npc = posicoes[id];
     if (!npc) return;
@@ -2998,6 +2945,7 @@ window.moverNPC = function(id, tipoMovimento) {
     
     let alcance = tipoMovimento === 'correr' ? (npc.correr || 8) : (npc.andar || 4);
     
+    // Registrar que moveu
     moveuNoTurno[id] = {
         moveu: true,
         tipo: tipoMovimento,
@@ -3005,6 +2953,7 @@ window.moverNPC = function(id, tipoMovimento) {
         distanciaMax: alcance
     };
     
+    // Ativar modo movimento no mapa
     personagemSelecionado = id;
     modoCombateAtual = 'movimento';
     highlightHex = [];
@@ -3030,27 +2979,48 @@ window.moverNPC = function(id, tipoMovimento) {
     }
 };
 
+// ============================================
+// FUNÇÃO CORRIGIDA: EXCLUIR NPC (REMOVE DO ARRAY posicoes E DO FIRESTORE)
+// ============================================
 window.excluirNPC = async function(npcId, event) {
     if (event) event.stopPropagation();
     if (!confirm('Tem certeza que deseja excluir este NPC?')) return;
     try {
+        // 1. Excluir o NPC da coleção npcs
         await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "npcs", npcId));
+        
+        // 2. EXCLUIR TAMBÉM A POSIÇÃO NO FIRESTORE (LINHA ESSENCIAL QUE FALTAVA!)
         await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId));
+        
+        // 3. REMOVER TAMBÉM DO ARRAY local posicoes
         delete posicoes[npcId];
+        
+        // 4. ATUALIZAR A LISTA VISUALMENTE
         atualizarListaNPCs();
-        if (personagemSelecionado === npcId) personagemSelecionado = null;
+        
+        // 5. SE O NPC EXCLUÍDO ERA O QUE ESTAVA SELECIONADO, LIMPAR SELEÇÃO
+        if (personagemSelecionado === npcId) {
+            personagemSelecionado = null;
+        }
+        
+        // 6. SE O NPC EXCLUÍDO ERA O QUE ESTAVA SENDO POSICIONADO, LIMPAR
         if (npcSelecionadoParaPosicionar === npcId) {
             npcSelecionadoParaPosicionar = null;
             if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none';
         }
+        
+        // 7. REDESENHAR O MAPA
         if (ctx) desenharMapa();
+        
         showToast('NPC excluído com sucesso!');
     } catch(error) { 
         console.error(error);
         showToast('Erro ao excluir NPC', true); 
     }
 };
-
+// ============================================
+// FUNÇÕES DE DETALHES DO NPC
+// ============================================
 window.abrirDetalheNPC = async function(npcId) {
     try {
         const npcRef = doc(db, "sessoes", sessaoAtual.id, "npcs", npcId);
@@ -3142,61 +3112,11 @@ window.handleRecursoDetalheClick = function(e) {
 };
 
 // ============================================
-// FUNÇÃO MODIFICADA: Carregar PCs da Sessão (não da Campanha)
+// FUNÇÕES DE PCs
 // ============================================
-async function carregarPCs() {
-    if (!sessaoAtual) return;
-    
-    try {
-        // NOVO: Buscar de "sessao_personagens" em vez de "campanha_personagens"
-        const sessaoPersonagensRef = collection(db, "sessoes", sessaoAtual.id, "sessao_personagens");
-        const q = query(sessaoPersonagensRef);
-        
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-            pcVinculados = [];
-            
-            for (const docSnap of snapshot.docs) {
-                const dados = docSnap.data();
-                
-                try {
-                    // Buscar dados completos do personagem
-                    const personagemRef = doc(db, "personagens", dados.personagem_id);
-                    const personagemSnap = await getDoc(personagemRef);
-                    
-                    if (personagemSnap.exists()) {
-                        pcVinculados.push({
-                            id: docSnap.id,
-                            personagem_id: dados.personagem_id,
-                            jogador_uid: dados.jogador_uid,
-                            jogador_nick: dados.jogador_nick || 'Jogador',
-                            personagem_nome: dados.personagem_nome || personagemSnap.data().nome || 'Personagem',
-                            personagem: personagemSnap.data()
-                        });
-                    }
-                } catch(e) {
-                    console.warn('Erro ao buscar personagem:', e);
-                }
-            }
-            
-            // Atualizar contador de PCs ativos
-            totalPCsAtivos = pcVinculados.length;
-            
-            renderizarPCs();
-            atualizarUICombate(); // Atualizar contador se necessário
-        });
-        
-        // Guardar referência para limpar depois
-        unsubscribeSessaoPersonagens = unsubscribe;
-        
-    } catch(error) {
-        console.error('Erro ao carregar PCs da sessão:', error);
-        showToast('Erro ao carregar jogadores', true);
-    }
-}
-
 function renderizarPCs() {
     if (pcVinculados.length === 0) {
-        if(pcsContainer) pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;">Nenhum jogador entrou na sessão</div>';
+        if(pcsContainer) pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;">Nenhum jogador vinculado</div>';
         return;
     }
     let html = '';
@@ -3215,6 +3135,8 @@ function renderizarPCs() {
         });
     });
 }
+
+async function carregarPCs() { try { const q = query( collection(db, "campanha_personagens"), where("campanha_id", "==", campanhaIdCustom), where("status", "==", "ativo") ); const querySnapshot = await getDocs(q); pcVinculados = []; for (const doc of querySnapshot.docs) { const vinculo = { id: doc.id, ...doc.data() }; try { const personagemRef = doc(db, "personagens", vinculo.personagem_id); const personagemSnap = await getDoc(personagemRef); if (personagemSnap.exists()) { vinculo.personagem = personagemSnap.data(); } } catch(e) { console.warn('Erro ao buscar personagem:', e); } pcVinculados.push(vinculo); } renderizarPCs(); } catch(error) { console.error('Erro ao carregar PCs:', error); showToast('Erro ao carregar jogadores', true); } }
 
 // ============================================
 // FUNÇÕES DE LISTENERS
@@ -3279,7 +3201,6 @@ async function carregarSessao() {
             return; 
         }
         
-        // MODIFICADO: Carregar PCs da sessão, não da campanha
         await carregarPCs();
         
         // Carregar NPCs do Firestore
@@ -3310,7 +3231,11 @@ async function carregarSessao() {
             i++;
         });
         
-        // LISTENERS DO COMBATE
+        // ============================================
+        // LISTENERS DO COMBATE (com tratamento de erro para evitar o erro do listener)
+        // ============================================
+        
+        // Listener para marcadores (obstáculos)
         try {
             unsubscribeMarcadores = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "marcadores"), (snap) => {
                 marcadores = {};
@@ -3321,6 +3246,7 @@ async function carregarSessao() {
             console.warn('Erro no listener marcadores:', e); 
         }
         
+        // Listener para posições dos personagens
         try {
             unsubscribePosicoes = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "posicoes"), (snap) => {
                 snap.docChanges().forEach(c => {
@@ -3341,7 +3267,7 @@ async function carregarSessao() {
             console.warn('Erro no listener posicoes:', e); 
         }
         
-        // MODIFICADO: Listener para combate com pcsFinalizaram
+        // Listener para estado do combate
         try {
             unsubscribeCombate = onSnapshot(query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1)), (snap) => {
                 if (!snap.empty) { 
@@ -3349,13 +3275,10 @@ async function carregarSessao() {
                     combateId = c.id; 
                     combateAtivo = true; 
                     turnoAtual = c.data().turno; 
-                    vezAtual = c.data().vez;
-                    // NOVO: Sincronizar array de PCs finalizados
-                    pcsFinalizaramTurno = c.data().pcsFinalizaram || [];
+                    vezAtual = c.data().vez; 
                 } else { 
                     combateAtivo = false; 
-                    combateId = null;
-                    pcsFinalizaramTurno = [];
+                    combateId = null; 
                 }
                 atualizarUICombate();
             });
@@ -3363,8 +3286,10 @@ async function carregarSessao() {
             console.warn('Erro no listener combate:', e); 
         }
         
+        // Iniciar listeners de cenário e rolagens
         iniciarListeners();
         
+        // Desenhar mapa e atualizar lista de NPCs
         if (ctx) desenharMapa();
         atualizarListaNPCs();
         
@@ -3378,7 +3303,7 @@ async function carregarSessao() {
 }
 
 // ============================================
-// EVENTOS DOS BOTÕES DE MODO
+// EVENTOS DOS BOTÕES DE MODO (CORRIGIDO - SALVA NO FIREBASE)
 // ============================================
 if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
     btnModoNarrativo.addEventListener('click', async () => {
@@ -3387,6 +3312,7 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
         modoNarrativoDiv.style.display = 'block';
         modoCombateDiv.style.display = 'none';
         
+        // ✅ SALVA NO FIREBASE para o jogador receber
         if (sessaoAtual) {
             try {
                 await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
@@ -3407,6 +3333,7 @@ if (btnModoNarrativo && btnModoCombate && modoNarrativoDiv && modoCombateDiv) {
         modoCombateDiv.style.display = 'block';
         setTimeout(() => { if (ctx) desenharMapa(); }, 100);
         
+        // ✅ SALVA NO FIREBASE para o jogador receber
         if (sessaoAtual) {
             try {
                 await updateDoc(doc(db, "sessoes", sessaoAtual.id), {
@@ -3439,7 +3366,6 @@ if (btnMarcador) {
 }
 if (canvas) canvas.addEventListener('click', handleCanvasClick);
 if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
-
 // ============================================
 // EVENTOS DE NAVEGAÇÃO
 // ============================================
@@ -3546,6 +3472,9 @@ tabsCritico.forEach(tab => {
 if (btnAddAtaque) btnAddAtaque.addEventListener('click', () => { ataquesArray.push({ nome: 'Novo Ataque', bonus: 0, dano: '1d8', alcance: 1 }); renderizarAtaques(); });
 if (btnAddMagiaNpc) btnAddMagiaNpc.addEventListener('click', () => { magiasArray.push({ nome: 'Nova Magia', nh: 50, efeito: 'Efeito da magia' }); renderizarMagiasNpc(); });
 
+// ============================================
+// FUNÇÃO CORRIGIDA: SALVAR NPC (ADICIONA AO ARRAY posicoes)
+// ============================================
 if (btnSalvarNpc) {
     btnSalvarNpc.addEventListener('click', async () => {
         if (!sessaoAtual) { alert('Sessão não carregada!'); return; }
@@ -3564,6 +3493,7 @@ if (btnSalvarNpc) {
         try {
             const docRef = await addDoc(collection(db, "sessoes", sessaoAtual.id, "npcs"), npcData);
             
+            // ADICIONAR O NOVO NPC AO ARRAY posicoes IMEDIATAMENTE
             posicoes[docRef.id] = {
                 id: docRef.id,
                 nome: nome,
@@ -3585,6 +3515,7 @@ if (btnSalvarNpc) {
                 hexY: undefined
             };
             
+            // ATUALIZAR A LISTA VISUALMENTE
             atualizarListaNPCs();
             
             if(modalNpc) modalNpc.classList.remove('active');
@@ -3692,7 +3623,6 @@ window.addEventListener('beforeunload', () => {
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
     if (unsubscribeMarcadores) unsubscribeMarcadores();
-    if (unsubscribeSessaoPersonagens) unsubscribeSessaoPersonagens();
 });
 </script>
 </body>
