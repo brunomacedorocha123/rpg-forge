@@ -2088,7 +2088,7 @@ body::before {
 </div>
 
 <script type="module">
-  // ============================================
+// ============================================
 // IMPORTAÇÕES FIREBASE
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
@@ -2255,6 +2255,7 @@ let modoMarcadorAtivo = false;
 let unsubscribePosicoes = null;
 let unsubscribeCombate = null;
 let unsubscribeMarcadores = null;
+let unsubscribeParticipantes = null;
 
 // ============================================
 // CONTROLE DE MOVIMENTO POR TURNO
@@ -2460,7 +2461,6 @@ async function executarInicioCombate(quemComeca) {
         const quemTexto = quemComeca === 'jogadores' ? 'JOGADORES' : 'NPCs';
         showToast(`⚔️ Combate iniciado! ${quemTexto} começam o primeiro turno!`);
         
-        // Registrar no log
         await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
             tipo: 'combate',
             jogador: 'Mestre',
@@ -2591,7 +2591,6 @@ function desenharMapa() {
 async function iniciarCombateComModal() {
     if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
     
-    // Verificar se há NPCs posicionados
     const npcsPosicionados = Object.values(posicoes).filter(p => p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null);
     const pcsPosicionados = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null);
     
@@ -2600,7 +2599,6 @@ async function iniciarCombateComModal() {
         return;
     }
     
-    // Criar e mostrar o modal de escolha
     criarModalInicioCombate();
     const modal = document.getElementById('modalInicioCombate');
     if (modal) modal.classList.add('active');
@@ -3174,65 +3172,135 @@ window.handleRecursoDetalheClick = function(e) {
 };
 
 // ============================================
-// FUNÇÕES DE PCs
+// 🔥 FUNÇÃO PRINCIPAL MODIFICADA: CARREGAR PCs APENAS DA SESSÃO 🔥
 // ============================================
-function renderizarPCs() {
-    if (pcVinculados.length === 0) {
-        if(pcsContainer) pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;">Nenhum jogador vinculado</div>';
-        return;
-    }
-    let html = '';
-    pcVinculados.forEach(vinculo => {
-        html += `<div class="pc-card" data-personagem-id="${vinculo.personagem_id}">
-            <div class="pc-avatar"><i class="fas fa-user"></i></div>
-            <div class="pc-nome-jogador">${vinculo.jogador_nick || 'Jogador'}</div>
-            <div class="pc-personagem">${vinculo.personagem_nome || '?'}</div>
-        </div>`;
-    });
-    if(pcsContainer) pcsContainer.innerHTML = html;
-    document.querySelectorAll('.pc-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const personagemId = card.dataset.personagemId;
-            window.open(`gm-personagem-detalhe.html?personagemId=${personagemId}`, '_blank');
-        });
-    });
-}
-
 async function carregarPCs() { 
     try { 
-        const q = query( 
-            collection(db, "campanha_personagens"), 
-            where("campanha_id", "==", campanhaIdCustom), 
-            where("status", "==", "ativo") 
-        ); 
-        const querySnapshot = await getDocs(q); 
-        pcVinculados = []; 
+        showLoading();
         
-        // ✅ ÚNICA MUDANÇA: 'doc' → 'documento'
+        // 🔥 MUDANÇA CRÍTICA: Buscar da coleção sessao_participantes, NÃO da campanha_personagens
+        const q = query( 
+            collection(db, "sessao_participantes"), 
+            where("sessao_id", "==", sessaoAtual.id),
+            where("status", "==", "online") // 🔥 APENAS JOGADORES ONLINE
+        ); 
+        
+        const querySnapshot = await getDocs(q); 
+        pcVinculados = [];
+        
         for (const documento of querySnapshot.docs) { 
-            const vinculo = { 
+            const participante = { 
                 id: documento.id, 
                 ...documento.data() 
             }; 
             
+            // Buscar detalhes completos do personagem (opcional, mas útil)
             try { 
-                const personagemRef = doc(db, "personagens", vinculo.personagem_id); 
+                const personagemRef = doc(db, "personagens", participante.personagem_id); 
                 const personagemSnap = await getDoc(personagemRef); 
                 if (personagemSnap.exists()) { 
-                    vinculo.personagem = personagemSnap.data(); 
+                    participante.personagem = personagemSnap.data(); 
+                    participante.personagem_nome = personagemSnap.data().nome || participante.personagem_nome;
                 } 
             } catch(e) { 
                 console.warn('Erro ao buscar personagem:', e); 
-            } 
-            pcVinculados.push(vinculo); 
+            }
+            
+            pcVinculados.push(participante); 
         } 
         
         renderizarPCs(); 
+        
+        // Log para debug
+        console.log(`✅ ${pcVinculados.length} jogadores online na sessão`);
+        
+        hideLoading();
     } catch(error) { 
         console.error('Erro ao carregar PCs:', error); 
-        showToast('Erro ao carregar jogadores', true); 
+        showToast('Erro ao carregar jogadores', true);
+        hideLoading();
     } 
 }
+
+// ============================================
+// 🔥 LISTENER EM TEMPO REAL PARA PARTICIPANTES 🔥
+// ============================================
+function iniciarListenerParticipantes() {
+    if (!sessaoAtual) return;
+    
+    // Listener em tempo real para atualizar os cards quando alguém entra/sai
+    const participantesQuery = query(
+        collection(db, "sessao_participantes"),
+        where("sessao_id", "==", sessaoAtual.id),
+        where("status", "==", "online")
+    );
+    
+    unsubscribeParticipantes = onSnapshot(participantesQuery, (snapshot) => {
+        console.log(`🔄 Atualizando participantes em tempo real...`);
+        
+        pcVinculados = [];
+        
+        snapshot.forEach(doc => {
+            const participante = { id: doc.id, ...doc.data() };
+            
+            // Buscar detalhes do personagem (opcional)
+            if (participante.personagem_id) {
+                getDoc(doc(db, "personagens", participante.personagem_id))
+                    .then(personagemSnap => {
+                        if (personagemSnap.exists()) {
+                            participante.personagem = personagemSnap.data();
+                            participante.personagem_nome = personagemSnap.data().nome || participante.personagem_nome;
+                        }
+                        renderizarPCs(); // Re-renderiza após carregar detalhes
+                    })
+                    .catch(e => console.warn('Erro ao buscar personagem:', e));
+            }
+            
+            pcVinculados.push(participante);
+        });
+        
+        renderizarPCs();
+    }, (error) => {
+        console.error('Erro no listener de participantes:', error);
+    });
+}
+
+// ============================================
+// FUNÇÃO RENDERIZAR PCS (MODIFICADA PARA MOSTRAR STATUS)
+// ============================================
+function renderizarPCs() {
+    if (pcVinculados.length === 0) {
+        if(pcsContainer) pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;"><i class="fas fa-user-friends"></i> Aguardando jogadores entrarem na sessão...</div>';
+        return;
+    }
+    
+    let html = '';
+    pcVinculados.forEach(participante => {
+        const nomeJogador = participante.jogador_nick || participante.jogador_uid?.substring(0, 8) || 'Jogador';
+        const nomePersonagem = participante.personagem_nome || participante.personagem?.nome || '?';
+        const statusIcon = participante.status === 'online' ? '<i class="fas fa-circle" style="color: #2ecc71; font-size: 0.6rem;"></i>' : '<i class="fas fa-circle" style="color: #e74c3c; font-size: 0.6rem;"></i>';
+        
+        html += `<div class="pc-card" data-personagem-id="${participante.personagem_id}" data-jogador-uid="${participante.jogador_uid}">
+            <div class="pc-avatar"><i class="fas fa-user"></i></div>
+            <div class="pc-nome-jogador">${statusIcon} ${nomeJogador}</div>
+            <div class="pc-personagem">${nomePersonagem}</div>
+            ${participante.ultimo_ping ? '<div style="font-size: 0.6rem; color: var(--text-secondary); margin-top: 4px;">ativo agora</div>' : ''}
+        </div>`;
+    });
+    
+    if(pcsContainer) pcsContainer.innerHTML = html;
+    
+    // Adicionar event listeners para abrir detalhes do personagem
+    document.querySelectorAll('.pc-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const personagemId = card.dataset.personagemId;
+            if (personagemId) {
+                window.open(`gm-personagem-detalhe.html?personagemId=${personagemId}`, '_blank');
+            }
+        });
+    });
+}
+
 // ============================================
 // FUNÇÕES DE LISTENERS
 // ============================================
@@ -3298,7 +3366,11 @@ async function carregarSessao() {
             return; 
         }
         
+        // 🔥 CARREGAR PCs DA SESSÃO (NÃO DA CAMPANHA)
         await carregarPCs();
+        
+        // 🔥 INICIAR LISTENER EM TEMPO REAL PARA PARTICIPANTES
+        iniciarListenerParticipantes();
         
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
@@ -3706,6 +3778,7 @@ window.addEventListener('beforeunload', () => {
     if (unsubscribePosicoes) unsubscribePosicoes();
     if (unsubscribeCombate) unsubscribeCombate();
     if (unsubscribeMarcadores) unsubscribeMarcadores();
+    if (unsubscribeParticipantes) unsubscribeParticipantes();
 });
 </script>
 </body>
