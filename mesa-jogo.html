@@ -3172,21 +3172,25 @@ window.handleRecursoDetalheClick = function(e) {
 };
 
 // ============================================
-// 🔥 FUNÇÃO PRINCIPAL MODIFICADA: CARREGAR PCs APENAS DA SESSÃO 🔥
+// 🔥 FUNÇÃO PRINCIPAL: CARREGAR PCs DA SESSÃO 🔥
 // ============================================
 async function carregarPCs() { 
     try { 
         showLoading();
         
-        // 🔥 MUDANÇA CRÍTICA: Buscar da coleção sessao_participantes, NÃO da campanha_personagens
+        console.log('🔍 Buscando participantes online da sessão:', sessaoAtual.id);
+        
+        // 🔥 CRÍTICO: Buscar da coleção sessao_participantes, NÃO da campanha_personagens
         const q = query( 
             collection(db, "sessao_participantes"), 
             where("sessao_id", "==", sessaoAtual.id),
-            where("status", "==", "online") // 🔥 APENAS JOGADORES ONLINE
+            where("status", "==", "online")
         ); 
         
         const querySnapshot = await getDocs(q); 
         pcVinculados = [];
+        
+        console.log(`📊 Encontrados ${querySnapshot.size} participantes online`);
         
         for (const documento of querySnapshot.docs) { 
             const participante = { 
@@ -3194,7 +3198,9 @@ async function carregarPCs() {
                 ...documento.data() 
             }; 
             
-            // Buscar detalhes completos do personagem (opcional, mas útil)
+            console.log(`👤 Participante: ${participante.jogador_nick} - ${participante.personagem_nome}`);
+            
+            // Buscar detalhes completos do personagem (opcional)
             try { 
                 const personagemRef = doc(db, "personagens", participante.personagem_id); 
                 const personagemSnap = await getDoc(personagemRef); 
@@ -3211,7 +3217,6 @@ async function carregarPCs() {
         
         renderizarPCs(); 
         
-        // Log para debug
         console.log(`✅ ${pcVinculados.length} jogadores online na sessão`);
         
         hideLoading();
@@ -3228,6 +3233,8 @@ async function carregarPCs() {
 function iniciarListenerParticipantes() {
     if (!sessaoAtual) return;
     
+    console.log('🎧 Iniciando listener de participantes em tempo real...');
+    
     // Listener em tempo real para atualizar os cards quando alguém entra/sai
     const participantesQuery = query(
         collection(db, "sessao_participantes"),
@@ -3236,27 +3243,14 @@ function iniciarListenerParticipantes() {
     );
     
     unsubscribeParticipantes = onSnapshot(participantesQuery, (snapshot) => {
-        console.log(`🔄 Atualizando participantes em tempo real...`);
+        console.log(`🔄 Atualizando participantes em tempo real... (${snapshot.size} online)`);
         
         pcVinculados = [];
         
         snapshot.forEach(doc => {
             const participante = { id: doc.id, ...doc.data() };
-            
-            // Buscar detalhes do personagem (opcional)
-            if (participante.personagem_id) {
-                getDoc(doc(db, "personagens", participante.personagem_id))
-                    .then(personagemSnap => {
-                        if (personagemSnap.exists()) {
-                            participante.personagem = personagemSnap.data();
-                            participante.personagem_nome = personagemSnap.data().nome || participante.personagem_nome;
-                        }
-                        renderizarPCs(); // Re-renderiza após carregar detalhes
-                    })
-                    .catch(e => console.warn('Erro ao buscar personagem:', e));
-            }
-            
             pcVinculados.push(participante);
+            console.log(`✅ Participante online: ${participante.jogador_nick} - ${participante.personagem_nome}`);
         });
         
         renderizarPCs();
@@ -3266,11 +3260,13 @@ function iniciarListenerParticipantes() {
 }
 
 // ============================================
-// FUNÇÃO RENDERIZAR PCS (MODIFICADA PARA MOSTRAR STATUS)
+// FUNÇÃO RENDERIZAR PCS
 // ============================================
 function renderizarPCs() {
+    if (!pcsContainer) return;
+    
     if (pcVinculados.length === 0) {
-        if(pcsContainer) pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;"><i class="fas fa-user-friends"></i> Aguardando jogadores entrarem na sessão...</div>';
+        pcsContainer.innerHTML = '<div style="color: var(--text-secondary); padding: 20px; text-align: center;"><i class="fas fa-user-friends"></i> Aguardando jogadores entrarem na sessão...</div>';
         return;
     }
     
@@ -3278,17 +3274,16 @@ function renderizarPCs() {
     pcVinculados.forEach(participante => {
         const nomeJogador = participante.jogador_nick || participante.jogador_uid?.substring(0, 8) || 'Jogador';
         const nomePersonagem = participante.personagem_nome || participante.personagem?.nome || '?';
-        const statusIcon = participante.status === 'online' ? '<i class="fas fa-circle" style="color: #2ecc71; font-size: 0.6rem;"></i>' : '<i class="fas fa-circle" style="color: #e74c3c; font-size: 0.6rem;"></i>';
         
         html += `<div class="pc-card" data-personagem-id="${participante.personagem_id}" data-jogador-uid="${participante.jogador_uid}">
             <div class="pc-avatar"><i class="fas fa-user"></i></div>
-            <div class="pc-nome-jogador">${statusIcon} ${nomeJogador}</div>
+            <div class="pc-nome-jogador"><i class="fas fa-circle" style="color: #2ecc71; font-size: 0.6rem;"></i> ${nomeJogador}</div>
             <div class="pc-personagem">${nomePersonagem}</div>
-            ${participante.ultimo_ping ? '<div style="font-size: 0.6rem; color: var(--text-secondary); margin-top: 4px;">ativo agora</div>' : ''}
+            <div style="font-size: 0.6rem; color: var(--text-secondary); margin-top: 4px;">🎮 online</div>
         </div>`;
     });
     
-    if(pcsContainer) pcsContainer.innerHTML = html;
+    pcsContainer.innerHTML = html;
     
     // Adicionar event listeners para abrir detalhes do personagem
     document.querySelectorAll('.pc-card').forEach(card => {
