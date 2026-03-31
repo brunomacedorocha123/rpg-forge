@@ -1859,23 +1859,63 @@ function somarDanos(dano1, dano2) {
     if (!dano2) return dano1;
     
     function extrairDano(danoStr) {
-        const match = danoStr.match(/(\d*)d([+-]\d+)?/);
-        if (!match) return { dados: 0, mod: 0 };
+        // Limpa a string
+        danoStr = danoStr.trim();
         
-        let dados = match[1] === '' ? 1 : parseInt(match[1]);
-        let mod = match[2] ? parseInt(match[2]) : 0;
+        // Verifica se é um dano com dados (ex: 1d-2, 2d+1, 1d)
+        const dadoMatch = danoStr.match(/^(\d*)d([+-]\d+)?$/);
         
-        return { dados, mod };
+        if (dadoMatch) {
+            // É dano com dados
+            let dados = dadoMatch[1] === '' ? 1 : parseInt(dadoMatch[1]);
+            let mod = dadoMatch[2] ? parseInt(dadoMatch[2]) : 0;
+            return { tipo: 'dado', dados, mod };
+        }
+        
+        // Verifica se é apenas um modificador numérico (ex: +3, -2, +5, 3, 5)
+        const modMatch = danoStr.match(/^([+-]?\d+)$/);
+        if (modMatch) {
+            let mod = parseInt(modMatch[1]);
+            return { tipo: 'mod', dados: 0, mod };
+        }
+        
+        // Se não conseguir identificar, assume como 1d-3 (padrão)
+        console.warn('Formato de dano não reconhecido:', danoStr, 'usando 1d-3');
+        return { tipo: 'dado', dados: 1, mod: -3 };
     }
     
     const d1 = extrairDano(dano1);
     const d2 = extrairDano(dano2);
     
+    // Ambos são apenas modificadores (ex: +3 + +2 = +5)
+    if (d1.tipo === 'mod' && d2.tipo === 'mod') {
+        const totalMod = d1.mod + d2.mod;
+        return totalMod >= 0 ? `+${totalMod}` : `${totalMod}`;
+    }
+    
+    // d1 é modificador, d2 é dado (ex: +3 + 1d-2)
+    if (d1.tipo === 'mod' && d2.tipo === 'dado') {
+        const totalMod = d1.mod + d2.mod;
+        let resultado = d2.dados === 1 ? "1d" : `${d2.dados}d`;
+        if (totalMod > 0) resultado += `+${totalMod}`;
+        else if (totalMod < 0) resultado += `${totalMod}`;
+        return resultado;
+    }
+    
+    // d1 é dado, d2 é modificador (ex: 1d-2 + +3)
+    if (d1.tipo === 'dado' && d2.tipo === 'mod') {
+        const totalMod = d1.mod + d2.mod;
+        let resultado = d1.dados === 1 ? "1d" : `${d1.dados}d`;
+        if (totalMod > 0) resultado += `+${totalMod}`;
+        else if (totalMod < 0) resultado += `${totalMod}`;
+        return resultado;
+    }
+    
+    // Ambos são dados (ex: 1d-2 + 1d+2)
     const totalDados = d1.dados + d2.dados;
     const totalMod = d1.mod + d2.mod;
     
     let resultado = totalDados === 1 ? "1d" : `${totalDados}d`;
-    
     if (totalMod > 0) resultado += `+${totalMod}`;
     else if (totalMod < 0) resultado += `${totalMod}`;
     
