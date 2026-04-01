@@ -7034,24 +7034,33 @@ if (btnIrParaMesa) {
             return;
         }
         
-        const buscarSessaoAtiva = async () => {
+        const buscarSessao = async () => {
             try {
-                const sessoesQuery = query(
-                    collection(db, "sessoes"),
+                // Buscar o participante do jogador atual
+                const participanteQuery = query(
+                    collection(db, "sessao_participantes"),
                     where("campanha_id", "==", campanhaAtual.id),
-                    where("status", "==", "aberto"),
+                    where("jogador_uid", "==", currentUser.uid),
                     limit(1)
                 );
                 
-                const sessoesSnap = await getDocs(sessoesQuery);
+                const participanteSnap = await getDocs(participanteQuery);
                 
-                if (sessoesSnap.empty) {
-                    showToast('Nenhuma sessão aberta encontrada!', true);
+                if (participanteSnap.empty) {
+                    showToast('Você não está em nenhuma sessão!', true);
                     return;
                 }
                 
-                const sessao = sessoesSnap.docs[0];
-                window.location.href = `mesa-jogo-pc.html?sessao=${sessao.id}&campanha=${campanhaAtual.id}`;
+                const participante = participanteSnap.docs[0].data();
+                const sessaoId = participante.sessao_id;
+                
+                if (!sessaoId) {
+                    showToast('Sessão não encontrada!', true);
+                    return;
+                }
+                
+                // Redirecionar com os dois parâmetros
+                window.location.href = `mesa-jogo-pc.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
                 
             } catch (error) {
                 console.error('Erro ao buscar sessão:', error);
@@ -7059,7 +7068,7 @@ if (btnIrParaMesa) {
             }
         };
         
-        buscarSessaoAtiva();
+        buscarSessao();
     });
 }
 // ============================================
