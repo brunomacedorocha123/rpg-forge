@@ -2258,6 +2258,14 @@ let unsubscribeMarcadores = null;
 let unsubscribeParticipantes = null;
 
 // ============================================
+// 🆕 NOVAS VARIÁVEIS PARA DIREÇÃO E ITENS
+// ============================================
+let itensChao = {};              // Itens no chão (obstáculos coletáveis)
+let direcaoPersonagens = {};     // Direção de cada personagem (0=N, 45=NE, 90=E, 135=SE, 180=S, 225=SO, 270=O, 315=NO)
+let unsubscribeItens = null;     // Listener do Firestore para itens
+let personagemParaDirecao = null; // Personagem selecionado para mudar direção
+
+// ============================================
 // CONTROLE DE MOVIMENTO POR TURNO
 // ============================================
 let moveuNoTurno = {};
@@ -2531,7 +2539,9 @@ function desenharHexagono(x, y, destaque = null) {
     ctx.stroke();
 }
 
+// ========== 🆕 FUNÇÃO DESENHAR TOKEN COM CONE DE DIREÇÃO ==========
 function desenharToken(x, y, personagem) {
+    // Círculo base
     ctx.beginPath();
     ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
     ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
@@ -2539,19 +2549,90 @@ function desenharToken(x, y, personagem) {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
+    // ========== 🧭 CONE DE DIREÇÃO (8 DIREÇÕES) ==========
+    const direcao = direcaoPersonagens[personagem.id] || 0; // 0 = NORTE
+    const raioCone = HEX_RADIUS * 0.85;
+    const anguloAbertura = 40; // 40 graus de abertura
+    
+    const anguloRad = direcao * Math.PI / 180;
+    const anguloInicio = anguloRad - (anguloAbertura/2) * Math.PI / 180;
+    const anguloFim = anguloRad + (anguloAbertura/2) * Math.PI / 180;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, raioCone, anguloInicio, anguloFim);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 220, 100, 0.45)';
+    ctx.fill();
+    ctx.strokeStyle = '#FFD966';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    
+    // Linha central da direção
+    const linhaX = x + Math.cos(anguloRad) * (HEX_RADIUS * 0.7);
+    const linhaY = y + Math.sin(anguloRad) * (HEX_RADIUS * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(linhaX, linhaY);
+    ctx.strokeStyle = '#FFAA33';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // ========== FIM DO CONE ==========
+    
+    // Ícone do personagem
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 16px "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+    
+    // Nome abreviado
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
     ctx.shadowBlur = 4;
     ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
     ctx.shadowBlur = 0;
+    
+    // PV
     ctx.font = 'bold 8px "Inter", sans-serif';
     ctx.fillStyle = '#ff6b6b';
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+}
+
+// ========== 🆕 FUNÇÃO DESENHAR ITENS NO CHÃO ==========
+function desenharItens() {
+    Object.values(itensChao).forEach(item => {
+        if (item.hexX !== undefined && item.hexX !== null) {
+            const pixel = hexToPixel(item.hexX, item.hexY);
+            
+            // Fundo do item
+            ctx.beginPath();
+            ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fill();
+            
+            // Ícone do item
+            ctx.fillStyle = item.cor || '#FFD700';
+            ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            let icone = '⚔️';
+            if (item.tipo === 'arma') icone = '⚔️';
+            else if (item.tipo === 'pocao') icone = '🧪';
+            else if (item.tipo === 'escudo') icone = '🛡️';
+            else if (item.tipo === 'tesouro') icone = '💰';
+            else icone = '📦';
+            
+            ctx.fillText(icone, pixel.x, pixel.y);
+            
+            // Nome do item (pequeno)
+            ctx.font = 'bold 8px "Inter", sans-serif';
+            ctx.fillStyle = '#FFD700';
+            ctx.fillText(item.nome.substring(0, 6), pixel.x, pixel.y + 15);
+        }
+    });
 }
 
 function desenharMapa() {
@@ -2567,6 +2648,7 @@ function desenharMapa() {
             desenharHexagono(pixel.x, pixel.y, destaque);
         }
     }
+    // Desenhar obstáculos (marcadores)
     Object.values(marcadores).forEach(m => {
         const pixel = hexToPixel(m.x, m.y);
         ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
@@ -2577,6 +2659,9 @@ function desenharMapa() {
         ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
         ctx.fillText('⬛', pixel.x, pixel.y);
     });
+    // Desenhar itens
+    desenharItens();
+    // Desenhar personagens
     Object.values(posicoes).forEach(pos => {
         if (pos.hexX !== undefined && pos.hexX !== null && pos.hexX !== undefined) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
@@ -2586,7 +2671,202 @@ function desenharMapa() {
 }
 
 // ============================================
-// FUNÇÕES DE COMBATE
+// 🆕 FUNÇÕES DE DIREÇÃO
+// ============================================
+function abrirMenuDirecao(id) {
+    const personagem = posicoes[id];
+    if (!personagem) return;
+    
+    personagemParaDirecao = id;
+    
+    // Criar modal de direção se não existir
+    let modalDirecao = document.getElementById('modalDirecao');
+    if (!modalDirecao) {
+        const modalHTML = `
+            <div class="modal" id="modalDirecao">
+                <div class="modal-content" style="max-width: 400px; text-align: center;">
+                    <h3 style="color: var(--gold); margin-bottom: 20px;">
+                        <i class="fas fa-compass"></i> Direção de <span id="direcaoPersonagemNome"></span>
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0;">
+                        <div></div>
+                        <button class="btn-dir" data-dir="0" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1.2rem;">
+                            ↑ N
+                        </button>
+                        <div></div>
+                        
+                        <button class="btn-dir" data-dir="315" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            ↖ NO
+                        </button>
+                        <button class="btn-dir" data-dir="0" style="background: var(--bg-primary); border: 1px solid var(--gold); padding: 12px; border-radius: 12px; cursor: default;">
+                            🧭
+                        </button>
+                        <button class="btn-dir" data-dir="45" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            NE ↗
+                        </button>
+                        
+                        <button class="btn-dir" data-dir="270" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            ← O
+                        </button>
+                        <button class="btn-dir" data-dir="0" style="background: var(--bg-primary); border: 1px solid var(--gold); padding: 12px; border-radius: 12px; cursor: default;">
+                            ●
+                        </button>
+                        <button class="btn-dir" data-dir="90" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            E →
+                        </button>
+                        
+                        <div></div>
+                        <button class="btn-dir" data-dir="180" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            ↓ S
+                        </button>
+                        <button class="btn-dir" data-dir="225" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            SO ↙
+                        </button>
+                        <button class="btn-dir" data-dir="135" style="background: var(--gold); border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold;">
+                            SE ↘
+                        </button>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <button id="btnFecharDirecao" style="background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 8px 20px; border-radius: 30px; cursor: pointer;">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Eventos dos botões de direção
+        document.querySelectorAll('.btn-dir').forEach(btn => {
+            if (btn.dataset.dir) {
+                btn.addEventListener('click', () => {
+                    const dir = parseInt(btn.dataset.dir);
+                    if (!isNaN(dir) && personagemParaDirecao) {
+                        salvarDirecao(personagemParaDirecao, dir);
+                        modalDirecao.classList.remove('active');
+                        personagemParaDirecao = null;
+                    }
+                });
+            }
+        });
+        
+        document.getElementById('btnFecharDirecao')?.addEventListener('click', () => {
+            modalDirecao.classList.remove('active');
+            personagemParaDirecao = null;
+        });
+    }
+    
+    // Atualizar nome do personagem no modal
+    const nomeSpan = document.getElementById('direcaoPersonagemNome');
+    if (nomeSpan) nomeSpan.textContent = personagem.nome;
+    
+    modalDirecao.classList.add('active');
+}
+
+async function salvarDirecao(id, direcao) {
+    direcaoPersonagens[id] = direcao;
+    
+    // Salvar no Firestore (opcional, para sincronizar com jogadores)
+    try {
+        const dirRef = doc(db, "sessoes", sessaoAtual.id, "direcoes", id);
+        await setDoc(dirRef, { 
+            personagemId: id, 
+            direcao: direcao,
+            atualizadoEm: serverTimestamp()
+        }, { merge: true });
+    } catch(e) {
+        console.warn('Erro ao salvar direção:', e);
+    }
+    
+    desenharMapa();
+    showToast(`🧭 ${posicoes[id]?.nome} agora aponta para ${getNomeDirecao(direcao)}`);
+}
+
+function getNomeDirecao(direcao) {
+    const direcoes = {
+        0: 'Norte',
+        45: 'Nordeste',
+        90: 'Leste',
+        135: 'Sudeste',
+        180: 'Sul',
+        225: 'Sudoeste',
+        270: 'Oeste',
+        315: 'Noroeste'
+    };
+    return direcoes[direcao] || 'Norte';
+}
+
+// ============================================
+// 🆕 FUNÇÕES DE ITENS NO CHÃO
+// ============================================
+async function criarItem(hexX, hexY, tipo, nome, cor = '#FFD700') {
+    if (!ehGM) { showToast('Apenas o GM pode criar itens', true); return; }
+    
+    const itemId = `item_${Date.now()}_${Math.random()}`;
+    const itemData = {
+        id: itemId,
+        nome: nome,
+        tipo: tipo,
+        cor: cor,
+        hexX: hexX,
+        hexY: hexY,
+        criado_por: currentUser.uid,
+        criado_em: serverTimestamp()
+    };
+    
+    try {
+        await setDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemId), itemData);
+        showToast(`📦 Item "${nome}" criado no hexágono!`);
+    } catch(e) {
+        showToast('Erro ao criar item: ' + e.message, true);
+    }
+}
+
+async function pegarItem(personagemId, hexX, hexY) {
+    const itemNoHex = Object.values(itensChao).find(item => item.hexX === hexX && item.hexY === hexY);
+    if (!itemNoHex) return false;
+    
+    const personagem = posicoes[personagemId];
+    if (!personagem) return false;
+    
+    try {
+        await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemNoHex.id));
+        
+        // Adicionar ao log
+        await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+            tipo: 'item',
+            jogador: personagem.nome,
+            mensagem: `${personagem.nome} pegou: ${itemNoHex.nome}`,
+            visibilidade: 'publico',
+            timestamp: serverTimestamp()
+        });
+        
+        showToast(`🎒 ${personagem.nome} pegou ${itemNoHex.nome}!`);
+        return true;
+    } catch(e) {
+        showToast('Erro ao pegar item: ' + e.message, true);
+        return false;
+    }
+}
+
+async function iniciarListenerItens() {
+    if (!sessaoAtual) return;
+    
+    try {
+        unsubscribeItens = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "itens"), (snap) => {
+            itensChao = {};
+            snap.forEach(doc => {
+                itensChao[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            if (ctx) desenharMapa();
+        });
+    } catch(e) {
+        console.warn('Erro no listener de itens:', e);
+    }
+}
+
+// ============================================
+// FUNÇÕES DE COMBATE (MODIFICADAS PARA ITENS)
 // ============================================
 async function iniciarCombateComModal() {
     if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
@@ -2604,6 +2884,7 @@ async function iniciarCombateComModal() {
     if (modal) modal.classList.add('active');
 }
 
+// ========== 🔥 MOVER PERSONAGEM COM VERIFICAÇÃO DE ITENS ==========
 async function moverPersonagem(id, hexX, hexY) {
     if (!combateAtivo && !ehGM) return;
     const pos = posicoes[id];
@@ -2622,6 +2903,9 @@ async function moverPersonagem(id, hexX, hexY) {
     await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
     posicoes[id].hexX = hexX;
     posicoes[id].hexY = hexY;
+    
+    // ========== 🆕 VERIFICAR SE TEM ITEM NO HEXÁGONO ==========
+    await pegarItem(id, hexX, hexY);
     
     if (moveuNoTurno[id]?.moveu && distanciaPercorrida > 0) {
         moveuNoTurno[id].distanciaUsada = distanciaPercorrida;
@@ -2776,6 +3060,7 @@ window.iniciarMovimento = function(id, tipo) {
     }
 };
 
+// ========== 🔥 HANDLE CANVAS CLICK MODIFICADO (DIREÇÃO + ITENS) ==========
 function handleCanvasClick(e) {
     if (!canvas || !ctx) return;
     const rect = canvas.getBoundingClientRect();
@@ -2784,7 +3069,28 @@ function handleCanvasClick(e) {
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
+    
     if (hex.x >= 0 && hex.y >= 0) {
+        // ========== 🆕 BOTÃO DIREITO DO MOUSE (CONTEXT MENU) PARA DIREÇÃO ==========
+        if (e.button === 2) { // Botão direito
+            e.preventDefault();
+            const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
+            if (personagemNoHex && ehGM) {
+                abrirMenuDirecao(personagemNoHex[0]);
+            }
+            return;
+        }
+        
+        // ========== 🆕 BOTÃO ESQUERDO + CTRL PARA CRIAR ITEM (APENAS GM) ==========
+        if (ehGM && e.ctrlKey) {
+            const nomeItem = prompt('Nome do item:', 'Espada Mágica');
+            if (nomeItem) {
+                const tipoItem = prompt('Tipo (arma, pocao, escudo, tesouro):', 'arma');
+                criarItem(hex.x, hex.y, tipoItem || 'arma', nomeItem);
+            }
+            return;
+        }
+        
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
@@ -2812,6 +3118,14 @@ function handleCanvasClick(e) {
             if (personagemSelecionado) atualizarFichaCombate(personagemSelecionado);
         }
     }
+}
+
+// Previne o menu de contexto padrão no canvas
+if (canvas) {
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        return false;
+    });
 }
 
 // ============================================
@@ -3180,7 +3494,6 @@ async function carregarPCs() {
         
         console.log('🔍 Buscando participantes online da sessão:', sessaoAtual.id);
         
-        // 🔥 CRÍTICO: Buscar da coleção sessao_participantes, NÃO da campanha_personagens
         const q = query( 
             collection(db, "sessao_participantes"), 
             where("sessao_id", "==", sessaoAtual.id),
@@ -3200,7 +3513,6 @@ async function carregarPCs() {
             
             console.log(`👤 Participante: ${participante.jogador_nick} - ${participante.personagem_nome}`);
             
-            // Buscar detalhes completos do personagem (opcional)
             try { 
                 const personagemRef = doc(db, "personagens", participante.personagem_id); 
                 const personagemSnap = await getDoc(personagemRef); 
@@ -3235,7 +3547,6 @@ function iniciarListenerParticipantes() {
     
     console.log('🎧 Iniciando listener de participantes em tempo real...');
     
-    // Listener em tempo real para atualizar os cards quando alguém entra/sai
     const participantesQuery = query(
         collection(db, "sessao_participantes"),
         where("sessao_id", "==", sessaoAtual.id),
@@ -3272,7 +3583,6 @@ function renderizarPCs() {
     
     let html = '';
     pcVinculados.forEach(participante => {
-        // 🔥 MOSTRA APENAS O NOME DO PERSONAGEM 🔥
         const nomePersonagem = participante.personagem_nome || participante.personagem?.nome || '?';
         
         html += `<div class="pc-card" data-personagem-id="${participante.personagem_id}" data-jogador-uid="${participante.jogador_uid}">
@@ -3285,7 +3595,6 @@ function renderizarPCs() {
     
     pcsContainer.innerHTML = html;
     
-    // Adicionar event listeners para abrir detalhes do personagem
     document.querySelectorAll('.pc-card').forEach(card => {
         card.addEventListener('click', () => {
             const personagemId = card.dataset.personagemId;
@@ -3325,6 +3634,8 @@ function iniciarListeners() {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">⚡</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> ${r.tabela}: ${r.resultado} - ${r.texto}</div>`;
             } else if (r.tipo === 'combate') {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">⚔️</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> ${r.mensagem}</div>`;
+            } else if (r.tipo === 'item') {
+                logHtml += `<div class="log-item ${classe}"><span class="icone">📦</span><strong style="color: var(--gold-bright);">${r.jogador}:</strong> ${r.mensagem}</div>`;
             }
         });
         if(logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
@@ -3361,11 +3672,19 @@ async function carregarSessao() {
             return; 
         }
         
-        // 🔥 CARREGAR PCs DA SESSÃO (NÃO DA CAMPANHA)
         await carregarPCs();
-        
-        // 🔥 INICIAR LISTENER EM TEMPO REAL PARA PARTICIPANTES
         iniciarListenerParticipantes();
+        
+        // ========== 🆕 CARREGAR DIREÇÕES DOS PERSONAGENS ==========
+        try {
+            const direcoesSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "direcoes"));
+            direcoesSnap.forEach(doc => {
+                direcaoPersonagens[doc.id] = doc.data().direcao;
+            });
+        } catch(e) { console.warn('Erro ao carregar direções:', e); }
+        
+        // ========== 🆕 INICIAR LISTENER DE ITENS ==========
+        await iniciarListenerItens();
         
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
@@ -3736,10 +4055,12 @@ window.addEventListener('click', (e) => {
     const modalNpcEl = document.getElementById('modalNpc');
     const modalTabelasEl = document.getElementById('modalTabelas');
     const modalInicioCombate = document.getElementById('modalInicioCombate');
+    const modalDirecao = document.getElementById('modalDirecao');
     if (e.target === modalNpcDetalhe && modalNpcDetalhe) modalNpcDetalhe.classList.remove('active');
     if (e.target === modalNpcEl && modalNpcEl) modalNpcEl.classList.remove('active');
     if (e.target === modalTabelasEl && modalTabelasEl) modalTabelasEl.classList.remove('active');
     if (e.target === modalInicioCombate && modalInicioCombate) modalInicioCombate.classList.remove('active');
+    if (e.target === modalDirecao && modalDirecao) modalDirecao.classList.remove('active');
 });
 document.querySelectorAll('#modalNpcDetalhe .btn-recurso-npc').forEach(btn => {
     btn.removeEventListener('click', window.handleRecursoDetalheClick);
@@ -3774,6 +4095,7 @@ window.addEventListener('beforeunload', () => {
     if (unsubscribeCombate) unsubscribeCombate();
     if (unsubscribeMarcadores) unsubscribeMarcadores();
     if (unsubscribeParticipantes) unsubscribeParticipantes();
+    if (unsubscribeItens) unsubscribeItens();
 });
 </script>
 </body>
