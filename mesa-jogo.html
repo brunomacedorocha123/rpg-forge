@@ -2931,6 +2931,7 @@ function handleCanvasClick(e) {
     const mouseY = (e.clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
     if (hex.x >= 0 && hex.y >= 0) {
+        // MODO OBSTÁCULO (GM)
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
@@ -2943,10 +2944,18 @@ function handleCanvasClick(e) {
         
         const itemKey = `${hex.x}_${hex.y}`;
         const item = itens[itemKey];
+        
+        // GM REMOVE ITEM (IGUAL OBSTÁCULO)
+        if (ehGM && item) {
+            deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", item.id));
+            showToast(`Item "${item.nome || 'Item'}" removido do mapa!`);
+            return;
+        }
+        
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
         
-        if (personagemNoHex && item) {
-            const personagemId = personagemNoHex[0];
+        // JOGADOR COLETA ITEM
+        if (personagemNoHex && item && !ehGM) {
             const personagem = personagemNoHex[1];
             if (confirm(`${personagem.nome} quer coletar ${item.nome || 'este item'}?`)) {
                 deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", item.id));
@@ -2961,13 +2970,16 @@ function handleCanvasClick(e) {
             return;
         }
         
+        // SELECIONAR PERSONAGEM
         if (personagemNoHex) {
             personagemSelecionado = personagemNoHex[0];
             atualizarFichaCombate(personagemSelecionado);
         } 
+        // POSICIONAR NPC
         else if (ehGM && npcSelecionadoParaPosicionar) {
             moverPersonagem(npcSelecionadoParaPosicionar, hex.x, hex.y);
         } 
+        // MOVIMENTO
         else if (personagemSelecionado && modoCombateAtual === 'movimento') {
             moverPersonagem(personagemSelecionado, hex.x, hex.y);
             modoCombateAtual = 'posicionamento';
