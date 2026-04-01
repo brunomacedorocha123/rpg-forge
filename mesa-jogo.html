@@ -2385,6 +2385,16 @@ let unsubscribeMarcadores = null;
 let unsubscribeParticipantes = null;
 let unsubscribeItens = null;       // 🔥 NOVO: Listener dos itens
 
+// 🧭 SISTEMA DE DIREÇÃO
+const DIRECOES = {
+    'NE': { nome: 'Nordeste', angulo: 60, icone: '↗️' },
+    'NO': { nome: 'Noroeste', angulo: 120, icone: '↖️' },
+    'O':  { nome: 'Oeste', angulo: 180, icone: '⬅️' },
+    'SO': { nome: 'Sudoeste', angulo: 240, icone: '↙️' },
+    'SE': { nome: 'Sudeste', angulo: 300, icone: '↘️' },
+    'L':  { nome: 'Leste', angulo: 0, icone: '➡️' }
+};
+const DIRECOES_LISTA = ['NE', 'NO', 'O', 'SO', 'SE', 'L'];
 // ============================================
 // CONTROLE DE MOVIMENTO POR TURNO
 // ============================================
@@ -2620,8 +2630,9 @@ function getSessaoIdFromUrl() {
 }
 
 // ============================================
-// FUNÇÕES DO MAPA HEXAGONAL
+// FUNÇÕES DO MAPA HEXAGONAL COM SISTEMA DE DIREÇÃO
 // ============================================
+
 function hexToPixel(hexX, hexY) {
     const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
     const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
@@ -2658,7 +2669,70 @@ function desenharHexagono(x, y, destaque = null) {
     ctx.stroke();
 }
 
+// 🧭 NOVA FUNÇÃO: Desenhar seta de direção
+function desenharSetaDirecao(x, y, direcao) {
+    if (!direcao || !DIRECOES[direcao]) return;
+    
+    const angulo = DIRECOES[direcao].angulo * Math.PI / 180;
+    const raio = HEX_RADIUS * 0.75;
+    const pontaX = x + Math.cos(angulo) * raio;
+    const pontaY = y + Math.sin(angulo) * raio;
+    
+    // Desenhar a seta (triângulo)
+    ctx.beginPath();
+    ctx.moveTo(pontaX, pontaY);
+    ctx.lineTo(x + Math.cos(angulo + 2.2) * (raio * 0.5), y + Math.sin(angulo + 2.2) * (raio * 0.5));
+    ctx.lineTo(x + Math.cos(angulo - 2.2) * (raio * 0.5), y + Math.sin(angulo - 2.2) * (raio * 0.5));
+    ctx.closePath();
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+    ctx.strokeStyle = '#B8860B';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Ícone pequeno da direção
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${HEX_RADIUS * 0.45}px "Inter", sans-serif`;
+    ctx.fillText(DIRECOES[direcao].icone, x + Math.cos(angulo) * (raio * 0.65), y + Math.sin(angulo) * (raio * 0.65));
+}
+
+// 🧭 NOVA FUNÇÃO: Desenhar cone de visão
+function desenharConeVisao(x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') {
+    if (!direcao || !DIRECOES[direcao]) return;
+    
+    const anguloBase = DIRECOES[direcao].angulo * Math.PI / 180;
+    const abertura = Math.PI / 2.5; // 72 graus de abertura
+    const alcance = HEX_RADIUS * 2.2;
+    
+    const inicioAngulo = anguloBase - abertura / 2;
+    const fimAngulo = anguloBase + abertura / 2;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    
+    let primeiroPonto = true;
+    for (let ang = inicioAngulo; ang <= fimAngulo; ang += 0.05) {
+        const px = x + Math.cos(ang) * alcance;
+        const py = y + Math.sin(ang) * alcance;
+        if (primeiroPonto) {
+            ctx.lineTo(px, py);
+            primeiroPonto = false;
+        } else {
+            ctx.lineTo(px, py);
+        }
+    }
+    
+    ctx.closePath();
+    ctx.fillStyle = cor;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+}
+
+// 🔄 FUNÇÃO ATUALIZADA: Desenhar token com direção e cone
 function desenharToken(x, y, personagem) {
+    // Desenhar o círculo base do token
     ctx.beginPath();
     ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
     ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
@@ -2666,19 +2740,35 @@ function desenharToken(x, y, personagem) {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
+    // Ícone do personagem
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 16px "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+    
+    // Nome abreviado
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
     ctx.shadowBlur = 4;
     ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
     ctx.shadowBlur = 0;
+    
+    // PV
     ctx.font = 'bold 8px "Inter", sans-serif';
     ctx.fillStyle = '#ff6b6b';
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+    
+    // 🧭 DESENHAR DIREÇÃO (se existir)
+    if (personagem.direcao) {
+        // Desenhar cone de visão (GM vê todos, jogadores vêem só o selecionado)
+        if (ehGM || personagemSelecionado === personagem.id) {
+            desenharConeVisao(x, y, personagem.direcao, 'rgba(255, 215, 0, 0.2)');
+        }
+        // Desenhar seta de direção
+        desenharSetaDirecao(x, y, personagem.direcao);
+    }
 }
 
 function desenharItem(x, y, item) {
@@ -2701,6 +2791,8 @@ function desenharMapa() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Desenhar hexágonos
     for (let x = 0; x < MAPA_LARGURA; x++) {
         for (let y = 0; y < MAPA_ALTURA; y++) {
             const pixel = hexToPixel(x, y);
@@ -2709,6 +2801,8 @@ function desenharMapa() {
             desenharHexagono(pixel.x, pixel.y, destaque);
         }
     }
+    
+    // Desenhar marcadores (obstáculos)
     Object.values(marcadores).forEach(m => {
         const pixel = hexToPixel(m.x, m.y);
         ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
@@ -2719,18 +2813,21 @@ function desenharMapa() {
         ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
         ctx.fillText('⬛', pixel.x, pixel.y);
     });
+    
+    // Desenhar itens
     Object.values(itens).forEach(item => {
         const pixel = hexToPixel(item.hexX, item.hexY);
         desenharItem(pixel.x, pixel.y, item);
     });
+    
+    // Desenhar personagens (NPCs e PCs)
     Object.values(posicoes).forEach(pos => {
-        if (pos.hexX !== undefined && pos.hexX !== null && pos.hexX !== undefined) {
+        if (pos.hexX !== undefined && pos.hexX !== null) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
             desenharToken(pixel.x, pixel.y, pos);
         }
     });
 }
-
 // ============================================
 // FUNÇÕES DE COMBATE
 // ============================================
@@ -2994,6 +3091,47 @@ function handleCanvasClick(e) {
 // ============================================
 // FUNÇÕES DE NPC (CRIAR, EDITAR, EXCLUIR, LISTAR)
 // ============================================
+
+// 🧭 NOVA FUNÇÃO: CICLAR DIREÇÃO DO NPC
+async function ciclarDirecao(npcId) {
+    if (!sessaoAtual) {
+        showToast('Sessão não carregada!', true);
+        return;
+    }
+    
+    const npc = posicoes[npcId];
+    if (!npc) {
+        showToast('NPC não encontrado!', true);
+        return;
+    }
+    
+    // Pega direção atual ou padrão Leste
+    const direcaoAtual = npc.direcao || 'L';
+    const indexAtual = DIRECOES_LISTA.indexOf(direcaoAtual);
+    const proximoIndex = (indexAtual + 1) % DIRECOES_LISTA.length;
+    const novaDirecao = DIRECOES_LISTA[proximoIndex];
+    
+    try {
+        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
+        await updateDoc(posRef, { 
+            direcao: novaDirecao,
+            direcao_atualizada: serverTimestamp()
+        });
+        
+        // Atualizar localmente
+        npc.direcao = novaDirecao;
+        
+        const direcaoInfo = DIRECOES[novaDirecao];
+        showToast(`🧭 ${npc.nome} agora olha para ${direcaoInfo.nome} ${direcaoInfo.icone}`);
+        desenharMapa();
+        atualizarListaNPCs(); // Atualizar para mostrar o botão com a nova direção
+        
+    } catch(error) {
+        console.error('Erro ao atualizar direção:', error);
+        showToast('Erro ao atualizar direção', true);
+    }
+}
+
 function renderizarAtaques() {
     if (!ataquesContainer) return;
     if (ataquesArray.length === 0) {
@@ -3078,6 +3216,10 @@ function atualizarListaNPCs() {
         const jaMoveu = moveuNoTurno[npc.id]?.moveu || false;
         const podeMover = combateAtivo && vezAtual === 'npcs' && !jaMoveu && estaPosicionado;
         
+        // 🧭 PEGAR DIREÇÃO ATUAL (padrão: Leste)
+        const direcaoAtual = npc.direcao || 'L';
+        const direcaoInfo = DIRECOES[direcaoAtual];
+        
         const btnPosicionarBg = estaPosicionado ? 'var(--bg-primary)' : 'var(--gold)';
         const btnPosicionarColor = estaPosicionado ? 'var(--gold)' : 'var(--bg-primary)';
         const btnPosicionarTexto = estaPosicionado ? 'Reposicionar' : 'Posicionar';
@@ -3109,6 +3251,14 @@ function atualizarListaNPCs() {
                 <span><i class="fas fa-shoe-prints" style="color: #2ecc71;"></i> Andar: ${npc.andar || 4}m</span>
                 <span><i class="fas fa-running" style="color: #f39c12;"></i> Correr: ${npc.correr || 8}m</span>
                 <span><i class="fas fa-shield-alt"></i> RD: ${npc.rd || 0}</span>
+            </div>
+            
+            <!-- 🧭 BOTÃO DE DIREÇÃO (NOVO) -->
+            <div style="display: flex; gap: 8px; margin-top: 5px;">
+                <button class="btn-direcao-npc" onclick="event.stopPropagation(); window.ciclarDirecao('${npc.id}')" 
+                        style="flex:1; background: var(--bg-primary); border: 2px solid var(--gold); color: var(--gold); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-compass"></i> ${direcaoInfo.icone} ${direcaoInfo.nome}
+                </button>
             </div>
             
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;">
@@ -3254,6 +3404,9 @@ window.excluirNPC = async function(npcId, event) {
         showToast('Erro ao excluir NPC', true); 
     }
 };
+
+// EXPORTAR FUNÇÃO CICLAR DIREÇÃO PARA O WINDOW
+window.ciclarDirecao = ciclarDirecao;
 
 // ============================================
 // FUNÇÕES DE DETALHES DO NPC
@@ -3674,7 +3827,8 @@ async function carregarSessao() {
                 correr: npc.movimento?.correr || 8, 
                 rd: npc.defesas?.rd || 0,
                 hexX: undefined, 
-                hexY: undefined
+                hexY: undefined,
+                direcao: 'L'  // 🧭 Direção padrão: Leste
             };
             i++;
         });
@@ -3700,6 +3854,8 @@ async function carregarSessao() {
                         }
                         if (posicoes[c.doc.id].hexX === null) posicoes[c.doc.id].hexX = undefined;
                         if (posicoes[c.doc.id].hexY === null) posicoes[c.doc.id].hexY = undefined;
+                        // 🧭 Garantir direção padrão se não existir
+                        if (!posicoes[c.doc.id].direcao) posicoes[c.doc.id].direcao = 'L';
                     }
                 });
                 if (ctx) desenharMapa();
@@ -3947,7 +4103,8 @@ if (btnSalvarNpc) {
                 correr: parseInt(npcCorrer ? npcCorrer.value : 8) || 8,
                 rd: parseInt(npcRd ? npcRd.value : 0) || 0,
                 hexX: undefined,
-                hexY: undefined
+                hexY: undefined,
+                direcao: 'L'  // 🧭 Direção padrão
             };
             
             atualizarListaNPCs();
