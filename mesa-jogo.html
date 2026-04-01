@@ -2531,7 +2531,9 @@ function desenharHexagono(x, y, destaque = null) {
     ctx.stroke();
 }
 
+// ========== 🆕 FUNÇÃO DESENHAR TOKEN COM CONE DE DIREÇÃO ==========
 function desenharToken(x, y, personagem) {
+    // Círculo base
     ctx.beginPath();
     ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
     ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
@@ -2539,19 +2541,94 @@ function desenharToken(x, y, personagem) {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
+    // ========== 🧭 CONE DE DIREÇÃO ==========
+    const direcao = direcaoPersonagens[personagem.id] || 0;
+    const raioCone = HEX_RADIUS * 0.85;
+    const anguloAbertura = 45;
+    const anguloRad = direcao * Math.PI / 180;
+    const anguloInicio = anguloRad - (anguloAbertura/2) * Math.PI / 180;
+    const anguloFim = anguloRad + (anguloAbertura/2) * Math.PI / 180;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, raioCone, anguloInicio, anguloFim);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 220, 100, 0.5)';
+    ctx.fill();
+    ctx.strokeStyle = '#FFD966';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    
+    // Linha central
+    const linhaX = x + Math.cos(anguloRad) * (HEX_RADIUS * 0.7);
+    const linhaY = y + Math.sin(anguloRad) * (HEX_RADIUS * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(linhaX, linhaY);
+    ctx.strokeStyle = '#FFAA33';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Ícone do personagem
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 16px "Inter", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+    
+    // Nome abreviado
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
     ctx.shadowBlur = 4;
     ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
     ctx.shadowBlur = 0;
+    
+    // PV
     ctx.font = 'bold 8px "Inter", sans-serif';
     ctx.fillStyle = '#ff6b6b';
     ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+}
+
+// ========== 🆕 FUNÇÃO DESENHAR ITENS NO CHÃO ==========
+function desenharItens() {
+    Object.values(itensChao).forEach(item => {
+        if (item.hexX !== undefined && item.hexX !== null) {
+            const pixel = hexToPixel(item.hexX, item.hexY);
+            
+            // Fundo brilhante
+            ctx.beginPath();
+            ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.45, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fill();
+            
+            // Brilho
+            ctx.beginPath();
+            ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.4, 0, Math.PI * 2);
+            ctx.fillStyle = item.cor || '#FFD700';
+            ctx.fill();
+            
+            // Ícone
+            ctx.fillStyle = '#000';
+            ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            let icone = '📦';
+            if (item.tipo === 'arma') icone = '⚔️';
+            else if (item.tipo === 'pocao') icone = '🧪';
+            else if (item.tipo === 'escudo') icone = '🛡️';
+            else if (item.tipo === 'tesouro') icone = '💰';
+            else if (item.tipo === 'chave') icone = '🔑';
+            ctx.fillText(icone, pixel.x, pixel.y);
+            
+            // Nome
+            ctx.font = 'bold 7px "Inter", sans-serif';
+            ctx.fillStyle = '#FFD700';
+            ctx.shadowBlur = 2;
+            ctx.fillText(item.nome.substring(0, 8), pixel.x, pixel.y + 18);
+            ctx.shadowBlur = 0;
+        }
+    });
 }
 
 function desenharMapa() {
@@ -2567,6 +2644,7 @@ function desenharMapa() {
             desenharHexagono(pixel.x, pixel.y, destaque);
         }
     }
+    // Desenhar obstáculos
     Object.values(marcadores).forEach(m => {
         const pixel = hexToPixel(m.x, m.y);
         ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
@@ -2577,12 +2655,206 @@ function desenharMapa() {
         ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
         ctx.fillText('⬛', pixel.x, pixel.y);
     });
+    // Desenhar itens
+    desenharItens();
+    // Desenhar personagens
     Object.values(posicoes).forEach(pos => {
         if (pos.hexX !== undefined && pos.hexX !== null && pos.hexX !== undefined) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
             desenharToken(pixel.x, pixel.y, pos);
         }
     });
+}
+
+// ============================================
+// 🆕 FUNÇÕES DE DIREÇÃO (ROTATIVA)
+// ============================================
+function getNomeDirecao(direcao) {
+    const direcoes = {
+        0: '↑ Norte',
+        45: '↗ Nordeste',
+        90: '→ Leste',
+        135: '↘ Sudeste',
+        180: '↓ Sul',
+        225: '↙ Sudoeste',
+        270: '← Oeste',
+        315: '↖ Noroeste'
+    };
+    return direcoes[direcao] || '↑ Norte';
+}
+
+function getProximaDirecao(direcaoAtual) {
+    const direcoes = [0, 45, 90, 135, 180, 225, 270, 315];
+    const indexAtual = direcoes.indexOf(direcaoAtual);
+    const proximoIndex = (indexAtual + 1) % direcoes.length;
+    return direcoes[proximoIndex];
+}
+
+window.rotacionarDirecao = async function(id) {
+    const personagem = posicoes[id];
+    if (!personagem) {
+        showToast('Personagem não encontrado!', true);
+        return;
+    }
+    
+    if (!ehGM) {
+        showToast('Apenas o GM pode alterar direção', true);
+        return;
+    }
+    
+    const direcaoAtual = direcaoPersonagens[id] || 0;
+    const novaDirecao = getProximaDirecao(direcaoAtual);
+    direcaoPersonagens[id] = novaDirecao;
+    
+    try {
+        const dirRef = doc(db, "sessoes", sessaoAtual.id, "direcoes", id);
+        await setDoc(dirRef, { 
+            personagemId: id, 
+            direcao: novaDirecao,
+            atualizadoEm: serverTimestamp()
+        }, { merge: true });
+        
+        showToast(`🧭 ${personagem.nome}: ${getNomeDirecao(novaDirecao)}`);
+        desenharMapa();
+        
+        if (personagemSelecionado === id) {
+            atualizarFichaCombate(id);
+        }
+    } catch(e) {
+        console.warn('Erro ao salvar direção:', e);
+        showToast('Erro ao salvar direção', true);
+    }
+};
+
+// ============================================
+// 🆕 FUNÇÕES DE ITENS NO CHÃO
+// ============================================
+async function criarItem(hexX, hexY, tipo = null, nome = null) {
+    if (!ehGM) {
+        showToast('Apenas o GM pode criar itens', true);
+        return;
+    }
+    
+    if (!nome || nome.trim() === '') {
+        nome = prompt('Nome do item:', 'Espada Mágica');
+        if (!nome) return;
+    }
+    
+    if (!tipo) {
+        tipo = prompt('Tipo (arma, pocao, escudo, tesouro, chave):', 'arma');
+        if (!tipo) tipo = 'arma';
+    }
+    
+    // Escolher cor baseada no tipo
+    let cor = '#FFD700';
+    switch(tipo) {
+        case 'arma': cor = '#ff6b6b'; break;
+        case 'pocao': cor = '#6bff6b'; break;
+        case 'escudo': cor = '#6b6bff'; break;
+        case 'tesouro': cor = '#ffd966'; break;
+        case 'chave': cor = '#ffaa66'; break;
+        default: cor = '#FFD700';
+    }
+    
+    const itemId = `item_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const itemData = {
+        id: itemId,
+        nome: nome,
+        tipo: tipo,
+        cor: cor,
+        hexX: hexX,
+        hexY: hexY,
+        criado_por: currentUser.uid,
+        criado_em: serverTimestamp()
+    };
+    
+    try {
+        await setDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemId), itemData);
+        showToast(`📦 Item "${nome}" criado!`);
+        desenharMapa();
+    } catch(e) {
+        showToast('Erro ao criar item: ' + e.message, true);
+    }
+}
+
+async function pegarItem(personagemId, hexX, hexY) {
+    const itemNoHex = Object.values(itensChao).find(item => item.hexX === hexX && item.hexY === hexY);
+    if (!itemNoHex) return false;
+    
+    const personagem = posicoes[personagemId];
+    if (!personagem) return false;
+    
+    try {
+        await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemNoHex.id));
+        
+        await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+            tipo: 'item',
+            jogador: personagem.nome,
+            mensagem: `🎒 ${personagem.nome} pegou: ${itemNoHex.nome} (${itemNoHex.tipo})`,
+            visibilidade: 'publico',
+            timestamp: serverTimestamp()
+        });
+        
+        showToast(`🎒 ${personagem.nome} pegou ${itemNoHex.nome}!`);
+        desenharMapa();
+        return true;
+    } catch(e) {
+        showToast('Erro ao pegar item: ' + e.message, true);
+        return false;
+    }
+}
+
+async function iniciarListenerItens() {
+    if (!sessaoAtual) return;
+    
+    try {
+        unsubscribeItens = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "itens"), (snap) => {
+            itensChao = {};
+            snap.forEach(doc => {
+                itensChao[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            if (ctx) desenharMapa();
+        });
+        console.log('✅ Listener de itens iniciado');
+    } catch(e) {
+        console.warn('Erro no listener de itens:', e);
+    }
+}
+
+// ============================================
+// 🆕 BOTÃO PARA CRIAR ITEM (NA ÁREA DE COMBATE)
+// ============================================
+let modoCriarItemAtivo = false;
+
+function adicionarBotaoCriarItem() {
+    if (document.getElementById('btnCriarItem')) return;
+    
+    const controlesGM = document.getElementById('controlesGM');
+    if (!controlesGM) return;
+    
+    const btnCriarItem = document.createElement('button');
+    btnCriarItem.id = 'btnCriarItem';
+    btnCriarItem.className = 'btn-combate';
+    btnCriarItem.innerHTML = '<i class="fas fa-plus-circle"></i> 📦 Item';
+    btnCriarItem.style.borderColor = '#FFD700';
+    btnCriarItem.style.color = '#FFD700';
+    btnCriarItem.title = 'Clique para ativar modo criar item, depois clique no mapa';
+    
+    btnCriarItem.addEventListener('click', () => {
+        modoCriarItemAtivo = !modoCriarItemAtivo;
+        btnCriarItem.classList.toggle('ativo', modoCriarItemAtivo);
+        if (modoCriarItemAtivo) {
+            modoMarcadorAtivo = false;
+            if(btnMarcador) btnMarcador.classList.remove('ativo');
+            showToast('📦 Modo Criar Item: Clique no mapa para posicionar o item');
+            if(modoAtualCombate) modoAtualCombate.innerHTML = '📦 Modo: Criar Item';
+        } else {
+            if(modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate';
+            showToast('Modo criar item desativado');
+        }
+    });
+    
+    controlesGM.appendChild(btnCriarItem);
 }
 
 // ============================================
@@ -2604,6 +2876,7 @@ async function iniciarCombateComModal() {
     if (modal) modal.classList.add('active');
 }
 
+// ========== 🔥 MOVER PERSONAGEM COM VERIFICAÇÃO DE ITENS ==========
 async function moverPersonagem(id, hexX, hexY) {
     if (!combateAtivo && !ehGM) return;
     const pos = posicoes[id];
@@ -2622,6 +2895,9 @@ async function moverPersonagem(id, hexX, hexY) {
     await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
     posicoes[id].hexX = hexX;
     posicoes[id].hexY = hexY;
+    
+    // VERIFICAR ITEM NO HEXÁGONO
+    await pegarItem(id, hexX, hexY);
     
     if (moveuNoTurno[id]?.moveu && distanciaPercorrida > 0) {
         moveuNoTurno[id].distanciaUsada = distanciaPercorrida;
@@ -2688,41 +2964,74 @@ function atualizarUICombate() {
     if (btnEncerrarCombate) btnEncerrarCombate.disabled = !combateAtivo;
 }
 
+// ========== 🔥 FICHA DO PERSONAGEM COM BOTÃO DE DIREÇÃO ==========
 function atualizarFichaCombate(id) {
     const pos = posicoes[id];
     if (!pos) return;
     const jaMoveu = moveuNoTurno[id]?.moveu || false;
     const podeMover = combateAtivo && vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs') && !jaMoveu && pos.hexX !== undefined && pos.hexX !== null;
     
+    const dirAtual = direcaoPersonagens[id] || 0;
+    const nomeDirecao = getNomeDirecao(dirAtual);
+    
     const fichaHtml = `
-        <div class="ficha-combate">
-            <div class="ficha-header">
-                <div class="ficha-avatar">${pos.tipo === 'pc' ? '🧙' : '🧌'}</div>
-                <div><div class="ficha-nome">${pos.nome}</div><div>${pos.tipo === 'pc' ? 'Jogador' : 'NPC'}</div></div>
+        <div class="ficha-combate" style="background: var(--bg-secondary); border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 4px solid var(--gold);">
+            <div class="ficha-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <div class="ficha-avatar" style="width: 45px; height: 45px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    ${pos.tipo === 'pc' ? '🧙' : '🧌'}
+                </div>
+                <div>
+                    <div class="ficha-nome" style="font-weight: 700; color: var(--gold); font-size: 1rem;">${pos.nome}</div>
+                    <div style="font-size: 0.7rem;">${pos.tipo === 'pc' ? 'Jogador' : 'NPC'}</div>
+                </div>
             </div>
-            <div class="ficha-stats">
-                <div class="stat-item"><div class="stat-label">PV</div><div class="stat-value">${pos.pv}/${pos.pvMax}</div></div>
-                <div class="stat-item"><div class="stat-label">PM</div><div class="stat-value">${pos.pm || 0}/${pos.pmMax || 0}</div></div>
-                <div class="stat-item"><div class="stat-label">PF</div><div class="stat-value">${pos.pf || 0}/${pos.pfMax || 0}</div></div>
+            
+            <div class="ficha-stats" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0;">
+                <div class="stat-item" style="background: var(--bg-primary); padding: 6px; border-radius: 6px; text-align: center;">
+                    <div class="stat-label" style="font-size: 0.7rem; color: var(--text-secondary);">PV</div>
+                    <div class="stat-value" style="font-size: 1rem; font-weight: 700; color: var(--gold);">${pos.pv}/${pos.pvMax}</div>
+                </div>
+                <div class="stat-item" style="background: var(--bg-primary); padding: 6px; border-radius: 6px; text-align: center;">
+                    <div class="stat-label" style="font-size: 0.7rem; color: var(--text-secondary);">PM</div>
+                    <div class="stat-value" style="font-size: 1rem; font-weight: 700; color: var(--gold);">${pos.pm || 0}/${pos.pmMax || 0}</div>
+                </div>
+                <div class="stat-item" style="background: var(--bg-primary); padding: 6px; border-radius: 6px; text-align: center;">
+                    <div class="stat-label" style="font-size: 0.7rem; color: var(--text-secondary);">PF</div>
+                    <div class="stat-value" style="font-size: 1rem; font-weight: 700; color: var(--gold);">${pos.pf || 0}/${pos.pfMax || 0}</div>
+                </div>
             </div>
-            <div class="defesas-rapidas">
+            
+            <div class="defesas-rapidas" style="display: flex; justify-content: space-between; background: var(--bg-primary); padding: 8px; border-radius: 8px; margin: 10px 0;">
                 <div>Esq ${pos.esquiva || 0}%</div>
                 <div>Apar ${pos.aparar || 0}%</div>
                 <div>Blq ${pos.bloqueio || 0}%</div>
                 <div>RD ${pos.rd || 0}</div>
             </div>
-            <div><i class="fas fa-shoe-prints"></i> Andar ${pos.andar || 0}m | <i class="fas fa-running"></i> Correr ${pos.correr || 0}m</div>
+            
+            <div style="margin: 8px 0;"><i class="fas fa-shoe-prints"></i> Andar ${pos.andar || 0}m | <i class="fas fa-running"></i> Correr ${pos.correr || 0}m</div>
+            
+            <div style="margin: 8px 0; padding: 8px; background: rgba(212,175,55,0.2); border-radius: 8px; text-align: center;">
+                <i class="fas fa-compass"></i> Direção: <strong style="color: var(--gold); font-size: 1.1rem;">${nomeDirecao}</strong>
+            </div>
+            
             ${jaMoveu ? '<div style="color:#ffaa00; font-size:0.8rem; margin:5px 0;"><i class="fas fa-hourglass-half"></i> Já moveu neste turno</div>' : ''}
-            <div class="acoes-painel" style="margin-top:12px">
-                <button class="btn-acao btn-andar" onclick="window.iniciarMovimento('${id}', 'andar')" ${!podeMover ? 'disabled' : ''} style="border-color: #2ecc71; color: #2ecc71;">
-                    <span><i class="fas fa-shoe-prints"></i> Andar (${pos.andar || 0}m)</span>
+            
+            <div class="acoes-painel" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <button class="btn-acao btn-andar" onclick="window.iniciarMovimento('${id}', 'andar')" ${!podeMover ? 'disabled' : ''} style="width:100%; padding: 10px; background: var(--bg-primary); border: 1px solid #2ecc71; color: #2ecc71; border-radius: 8px; cursor: pointer;">
+                    <i class="fas fa-shoe-prints"></i> Andar (${pos.andar || 0}m)
                 </button>
-                <button class="btn-acao btn-correr" onclick="window.iniciarMovimento('${id}', 'correr')" ${!podeMover ? 'disabled' : ''} style="border-color: #f39c12; color: #f39c12;">
-                    <span><i class="fas fa-running"></i> Correr (${pos.correr || 0}m)</span>
+                
+                <button class="btn-acao btn-correr" onclick="window.iniciarMovimento('${id}', 'correr')" ${!podeMover ? 'disabled' : ''} style="width:100%; padding: 10px; background: var(--bg-primary); border: 1px solid #f39c12; color: #f39c12; border-radius: 8px; cursor: pointer;">
+                    <i class="fas fa-running"></i> Correr (${pos.correr || 0}m)
+                </button>
+                
+                <button class="btn-acao btn-direcao" onclick="window.rotacionarDirecao('${id}')" style="width:100%; padding: 10px; background: var(--bg-primary); border: 1px solid var(--gold); color: var(--gold); border-radius: 8px; cursor: pointer;">
+                    <i class="fas fa-sync-alt"></i> 🧭 Rotacionar Direção
                 </button>
             </div>
         </div>
     `;
+    
     const container = document.querySelector('.personagens-lista-combate');
     if (container) container.innerHTML = fichaHtml;
 }
@@ -2776,6 +3085,7 @@ window.iniciarMovimento = function(id, tipo) {
     }
 };
 
+// ========== 🔥 HANDLE CANVAS CLICK MODIFICADO ==========
 function handleCanvasClick(e) {
     if (!canvas || !ctx) return;
     const rect = canvas.getBoundingClientRect();
@@ -2784,7 +3094,19 @@ function handleCanvasClick(e) {
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
+    
     if (hex.x >= 0 && hex.y >= 0) {
+        // MODO CRIAR ITEM
+        if (ehGM && modoCriarItemAtivo) {
+            criarItem(hex.x, hex.y);
+            modoCriarItemAtivo = false;
+            const btnCriarItem = document.getElementById('btnCriarItem');
+            if (btnCriarItem) btnCriarItem.classList.remove('ativo');
+            if(modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate';
+            return;
+        }
+        
+        // MODO OBSTÁCULO
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
@@ -2795,6 +3117,7 @@ function handleCanvasClick(e) {
             return;
         }
         
+        // SELECIONAR PERSONAGEM
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
         if (personagemNoHex) {
             personagemSelecionado = personagemNoHex[0];
@@ -2812,6 +3135,14 @@ function handleCanvasClick(e) {
             if (personagemSelecionado) atualizarFichaCombate(personagemSelecionado);
         }
     }
+}
+
+// Previne menu de contexto no canvas
+if (canvas) {
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        return false;
+    });
 }
 
 // ============================================
@@ -3180,7 +3511,6 @@ async function carregarPCs() {
         
         console.log('🔍 Buscando participantes online da sessão:', sessaoAtual.id);
         
-        // 🔥 CRÍTICO: Buscar da coleção sessao_participantes, NÃO da campanha_personagens
         const q = query( 
             collection(db, "sessao_participantes"), 
             where("sessao_id", "==", sessaoAtual.id),
@@ -3200,7 +3530,6 @@ async function carregarPCs() {
             
             console.log(`👤 Participante: ${participante.jogador_nick} - ${participante.personagem_nome}`);
             
-            // Buscar detalhes completos do personagem (opcional)
             try { 
                 const personagemRef = doc(db, "personagens", participante.personagem_id); 
                 const personagemSnap = await getDoc(personagemRef); 
@@ -3235,7 +3564,6 @@ function iniciarListenerParticipantes() {
     
     console.log('🎧 Iniciando listener de participantes em tempo real...');
     
-    // Listener em tempo real para atualizar os cards quando alguém entra/sai
     const participantesQuery = query(
         collection(db, "sessao_participantes"),
         where("sessao_id", "==", sessaoAtual.id),
@@ -3272,7 +3600,6 @@ function renderizarPCs() {
     
     let html = '';
     pcVinculados.forEach(participante => {
-        // 🔥 MOSTRA APENAS O NOME DO PERSONAGEM 🔥
         const nomePersonagem = participante.personagem_nome || participante.personagem?.nome || '?';
         
         html += `<div class="pc-card" data-personagem-id="${participante.personagem_id}" data-jogador-uid="${participante.jogador_uid}">
@@ -3285,7 +3612,6 @@ function renderizarPCs() {
     
     pcsContainer.innerHTML = html;
     
-    // Adicionar event listeners para abrir detalhes do personagem
     document.querySelectorAll('.pc-card').forEach(card => {
         card.addEventListener('click', () => {
             const personagemId = card.dataset.personagemId;
@@ -3325,6 +3651,8 @@ function iniciarListeners() {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">⚡</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> ${r.tabela}: ${r.resultado} - ${r.texto}</div>`;
             } else if (r.tipo === 'combate') {
                 logHtml += `<div class="log-item ${classe}"><span class="icone">⚔️</span><strong style="color: var(--gold-bright);">${nomeQuemRolou}:</strong> ${r.mensagem}</div>`;
+            } else if (r.tipo === 'item') {
+                logHtml += `<div class="log-item ${classe}"><span class="icone">📦</span><strong style="color: var(--gold-bright);">${r.jogador}:</strong> ${r.mensagem}</div>`;
             }
         });
         if(logContainer) logContainer.innerHTML = logHtml || '<div style="color: var(--text-secondary); text-align: center;">Nenhuma rolagem ainda</div>';
@@ -3361,11 +3689,22 @@ async function carregarSessao() {
             return; 
         }
         
-        // 🔥 CARREGAR PCs DA SESSÃO (NÃO DA CAMPANHA)
         await carregarPCs();
-        
-        // 🔥 INICIAR LISTENER EM TEMPO REAL PARA PARTICIPANTES
         iniciarListenerParticipantes();
+        
+        // CARREGAR DIREÇÕES
+        try {
+            const direcoesSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "direcoes"));
+            direcoesSnap.forEach(doc => {
+                direcaoPersonagens[doc.id] = doc.data().direcao;
+            });
+        } catch(e) { console.warn('Erro ao carregar direções:', e); }
+        
+        // INICIAR LISTENER DE ITENS
+        await iniciarListenerItens();
+        
+        // ADICIONAR BOTÃO CRIAR ITEM
+        adicionarBotaoCriarItem();
         
         const npcsSnap = await getDocs(collection(db, "sessoes", sessaoAtual.id, "npcs"));
         let i = 0;
@@ -3774,6 +4113,7 @@ window.addEventListener('beforeunload', () => {
     if (unsubscribeCombate) unsubscribeCombate();
     if (unsubscribeMarcadores) unsubscribeMarcadores();
     if (unsubscribeParticipantes) unsubscribeParticipantes();
+    if (unsubscribeItens) unsubscribeItens();
 });
 </script>
 </body>
