@@ -7000,50 +7000,6 @@ async function carregarPersonagem() {
         renderizarFicha();
         showToast('Personagem carregado com sucesso!');
         
-        // ============================================
-        // 🎮 BOTÃO PARA IR À MESA DE JOGO
-        // ============================================
-        const btnIrParaMesa = document.getElementById('btnIrParaMesa');
-        if (btnIrParaMesa) {
-            btnIrParaMesa.addEventListener('click', (e) => {
-                e.preventDefault();
-                
-                if (!campanhaAtual || !campanhaAtual.id) {
-                    showToast('ID da campanha não encontrado!', true);
-                    return;
-                }
-                
-                // Buscar a sessão ativa da campanha
-                const buscarSessaoAtiva = async () => {
-                    try {
-                        const sessoesQuery = query(
-                            collection(db, "sessoes"),
-                            where("campanha_id", "==", campanhaAtual.id),
-                            where("status", "==", "ativa"),
-                            limit(1)
-                        );
-                        
-                        const sessoesSnap = await getDocs(sessoesQuery);
-                        
-                        if (sessoesSnap.empty) {
-                            showToast('Nenhuma sessão ativa encontrada!', true);
-                            return;
-                        }
-                        
-                        const sessao = sessoesSnap.docs[0];
-                        window.location.href = `mesa-jogo-pc.html?sessao=${sessao.id}&campanha=${campanhaAtual.id}`;
-                        
-                    } catch (error) {
-                        console.error('Erro ao buscar sessão:', error);
-                        showToast('Erro ao entrar na mesa', true);
-                    }
-                };
-                
-                buscarSessaoAtiva();
-            });
-        }
-        // ============================================
-        
         if (unsubscribePersonagem) {
             unsubscribePersonagem();
         }
@@ -7065,6 +7021,47 @@ async function carregarPersonagem() {
     }
 }
 
+// ============================================
+// 🎮 BOTÃO PARA IR À MESA DE JOGO
+// ============================================
+const btnIrParaMesa = document.getElementById('btnIrParaMesa');
+if (btnIrParaMesa) {
+    btnIrParaMesa.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        if (!campanhaAtual || !campanhaAtual.id) {
+            showToast('ID da campanha não encontrado!', true);
+            return;
+        }
+        
+        const buscarSessaoAtiva = async () => {
+            try {
+                const sessoesQuery = query(
+                    collection(db, "sessoes"),
+                    where("campanha_id", "==", campanhaAtual.id),
+                    where("status", "==", "aberto"),
+                    limit(1)
+                );
+                
+                const sessoesSnap = await getDocs(sessoesQuery);
+                
+                if (sessoesSnap.empty) {
+                    showToast('Nenhuma sessão aberta encontrada!', true);
+                    return;
+                }
+                
+                const sessao = sessoesSnap.docs[0];
+                window.location.href = `mesa-jogo-pc.html?sessao=${sessao.id}&campanha=${campanhaAtual.id}`;
+                
+            } catch (error) {
+                console.error('Erro ao buscar sessão:', error);
+                showToast('Erro ao entrar na mesa', true);
+            }
+        };
+        
+        buscarSessaoAtiva();
+    });
+}
 // ============================================
 // INICIALIZAÇÃO
 // ============================================
@@ -7459,6 +7456,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
-
-
