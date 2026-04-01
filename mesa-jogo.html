@@ -3019,33 +3019,64 @@ window.iniciarMovimento = function(id, tipo) {
     }
 };
 
+// ============================================
+// FUNÇÃO CORRIGIDA: handleCanvasClick (com suporte para mobile)
+// ============================================
 function handleCanvasClick(e) {
     if (!canvas || !ctx) return;
+    
+    // Previne comportamento padrão para toque
+    if (e.preventDefault) e.preventDefault();
+    
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const mouseX = (e.clientX - rect.left) * scaleX;
-    const mouseY = (e.clientY - rect.top) * scaleY;
+    
+    let clientX, clientY;
+    
+    // Verifica se é evento de toque (touch) ou mouse
+    if (e.touches) {
+        // Evento de toque
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else {
+        // Evento de mouse
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+    
+    const mouseX = (clientX - rect.left) * scaleX;
+    const mouseY = (clientY - rect.top) * scaleY;
     const hex = pixelToHex(mouseX, mouseY);
+    
     if (hex.x >= 0 && hex.y >= 0) {
         // MODO OBSTÁCULO (GM)
         if (ehGM && modoMarcadorAtivo) {
             const marcadorId = `marcador_${hex.x}_${hex.y}`;
             if (marcadores[`${hex.x}_${hex.y}`]) {
                 deleteDoc(doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId));
+                showToast('Obstáculo removido!');
             } else {
                 setDoc(doc(db, "sessoes", sessaoAtual.id, "marcadores", marcadorId), { x: hex.x, y: hex.y, criado_por: currentUser.uid });
+                showToast('Obstáculo adicionado!');
             }
+            return;
+        }
+        
+        // MODO ITEM (GM) - O item já está sendo tratado pelo handler do botão Item
+        if (ehGM && modoItemAtivo) {
             return;
         }
         
         const itemKey = `${hex.x}_${hex.y}`;
         const item = itens[itemKey];
         
-        // GM REMOVE ITEM (IGUAL OBSTÁCULO)
+        // GM REMOVE ITEM (clique para remover)
         if (ehGM && item) {
-            deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", item.id));
-            showToast(`Item "${item.nome || 'Item'}" removido do mapa!`);
+            if (confirm(`Remover item "${item.nome || 'Item'}"?`)) {
+                deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", item.id));
+                showToast(`Item "${item.nome || 'Item'}" removido!`);
+            }
             return;
         }
         
@@ -3988,9 +4019,15 @@ if (btnMarcador) {
         if (modoMarcadorAtivo && instrucaoPosicionamento) instrucaoPosicionamento.innerHTML = '👇 Clique para adicionar/remover obstáculo';
     });
 }
-if (canvas) canvas.addEventListener('click', handleCanvasClick);
-if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
 
+// 🔥 LISTENERS DO CANVAS CORRIGIDOS PARA MOBILE
+if (canvas) {
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleCanvasClick(e);
+    }, { passive: false });
+}
 // ============================================
 // EVENTOS DE NAVEGAÇÃO
 // ============================================
@@ -4044,6 +4081,7 @@ if (btnRolarPericia) {
         if (sessaoAtual) await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), { tipo: 'pericia', jogador: 'Mestre', dezena, unidade, resultadoBase, resultado: resultadoBase, visibilidade, timestamp: serverTimestamp() });
     });
 }
+
 if (btnRolarDano) {
     btnRolarDano.addEventListener('click', async () => {
         const qtd = parseInt(qtdDadosDano ? qtdDadosDano.value : 1) || 1;
@@ -4058,6 +4096,10 @@ if (btnRolarDano) {
         if (sessaoAtual) await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), { tipo: 'dano', jogador: 'Mestre', qtdDados: qtd, dados, soma, modificador: mod, total, visibilidade, timestamp: serverTimestamp() });
     });
 }
+
+// ============================================
+// ROLAGEM DE CRÍTICO - SEMPRE PÚBLICA
+// ============================================
 if (btnRolarCritico) {
     btnRolarCritico.addEventListener('click', () => {
         const resultado = Math.floor(Math.random() * 10) + 1;
@@ -4073,10 +4115,22 @@ if (btnRolarCritico) {
             else if (tabelaAtual === 'fal-ataque') nomeTabela = 'Falha Ataque';
             else if (tabelaAtual === 'fal-defesa') nomeTabela = 'Falha Defesa';
             else if (tabelaAtual === 'fal-magia') nomeTabela = 'Falha Magia';
-            addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), { tipo: 'critico', tabela: nomeTabela, resultado, texto, jogador: 'Mestre', visibilidade: 'secreto', timestamp: serverTimestamp() });
+            addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), { 
+                tipo: 'critico', 
+                tabela: nomeTabela, 
+                resultado, 
+                texto, 
+                jogador: 'Mestre', 
+                visibilidade: 'publico',  // 🔥 AGORA SEMPRE PÚBLICO 🔥
+                timestamp: serverTimestamp() 
+            });
         }
     });
 }
+
+// ============================================
+// TABS DAS TABELAS DE CRÍTICO
+// ============================================
 tabsCritico.forEach(tab => {
     tab.addEventListener('click', () => {
         const tabId = tab.dataset.tab;
