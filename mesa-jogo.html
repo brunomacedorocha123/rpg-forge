@@ -3087,12 +3087,11 @@ function handleCanvasClick(e) {
         }
     }
 }
-
 // ============================================
 // FUNÇÕES DE NPC (CRIAR, EDITAR, EXCLUIR, LISTAR)
 // ============================================
 
-// 🧭 NOVA FUNÇÃO: CICLAR DIREÇÃO DO NPC
+// 🧭 FUNÇÃO: CICLAR DIREÇÃO DO NPC (CORRIGIDA)
 async function ciclarDirecao(npcId) {
     if (!sessaoAtual) {
         showToast('Sessão não carregada!', true);
@@ -3113,22 +3112,53 @@ async function ciclarDirecao(npcId) {
     
     try {
         const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", npcId);
-        await updateDoc(posRef, { 
-            direcao: novaDirecao,
-            direcao_atualizada: serverTimestamp()
-        });
+        
+        // 🔥 VERIFICAR SE O DOCUMENTO EXISTE ANTES DE ATUALIZAR
+        const posSnap = await getDoc(posRef);
+        
+        if (!posSnap.exists()) {
+            // Se não existe, criar o documento com dados básicos
+            await setDoc(posRef, {
+                id: npcId,
+                nome: npc.nome,
+                tipo: 'npc',
+                cor: npc.cor,
+                pv: npc.pv,
+                pvMax: npc.pvMax,
+                pm: npc.pm,
+                pmMax: npc.pmMax,
+                pf: npc.pf,
+                pfMax: npc.pfMax,
+                esquiva: npc.esquiva,
+                aparar: npc.aparar,
+                bloqueio: npc.bloqueio,
+                andar: npc.andar,
+                correr: npc.correr,
+                rd: npc.rd,
+                hexX: npc.hexX,
+                hexY: npc.hexY,
+                direcao: novaDirecao,
+                direcao_atualizada: serverTimestamp(),
+                atualizadoEm: serverTimestamp()
+            });
+            showToast(`🧭 ${npc.nome} agora olha para ${DIRECOES[novaDirecao].nome} ${DIRECOES[novaDirecao].icone}`);
+        } else {
+            // Se existe, só atualizar a direção
+            await updateDoc(posRef, { 
+                direcao: novaDirecao,
+                direcao_atualizada: serverTimestamp()
+            });
+            showToast(`🧭 ${npc.nome} agora olha para ${DIRECOES[novaDirecao].nome} ${DIRECOES[novaDirecao].icone}`);
+        }
         
         // Atualizar localmente
         npc.direcao = novaDirecao;
-        
-        const direcaoInfo = DIRECOES[novaDirecao];
-        showToast(`🧭 ${npc.nome} agora olha para ${direcaoInfo.nome} ${direcaoInfo.icone}`);
         desenharMapa();
-        atualizarListaNPCs(); // Atualizar para mostrar o botão com a nova direção
+        atualizarListaNPCs();
         
     } catch(error) {
         console.error('Erro ao atualizar direção:', error);
-        showToast('Erro ao atualizar direção', true);
+        showToast('Erro ao atualizar direção: ' + error.message, true);
     }
 }
 
@@ -3253,7 +3283,7 @@ function atualizarListaNPCs() {
                 <span><i class="fas fa-shield-alt"></i> RD: ${npc.rd || 0}</span>
             </div>
             
-            <!-- 🧭 BOTÃO DE DIREÇÃO (NOVO) -->
+            <!-- 🧭 BOTÃO DE DIREÇÃO -->
             <div style="display: flex; gap: 8px; margin-top: 5px;">
                 <button class="btn-direcao-npc" onclick="event.stopPropagation(); window.ciclarDirecao('${npc.id}')" 
                         style="flex:1; background: var(--bg-primary); border: 2px solid var(--gold); color: var(--gold); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
