@@ -7022,55 +7022,453 @@ async function carregarPersonagem() {
 }
 
 // ============================================
-// 🎮 BOTÃO PARA IR À MESA DE JOGO
+// INICIALIZAÇÃO COM BOTÃO DENTRO
 // ============================================
-const btnIrParaMesa = document.getElementById('btnIrParaMesa');
-if (btnIrParaMesa) {
-    btnIrParaMesa.addEventListener('click', (e) => {
-        e.preventDefault();
-        
-        if (!campanhaAtual || !campanhaAtual.id) {
-            showToast('ID da campanha não encontrado!', true);
-            return;
-        }
-        
-        const buscarSessao = async () => {
+document.addEventListener('DOMContentLoaded', () => {
+    if (elements.fecharModalEsfera) {
+        elements.fecharModalEsfera.addEventListener('click', () => {
+            if (elements.modalGanharEsfera) elements.modalGanharEsfera.classList.remove('active');
+            esferaPendente = false;
+        });
+    }
+
+    if (elements.criarItemTipo) {
+        elements.criarItemTipo.addEventListener('change', atualizarCamposItem);
+    }
+
+    if (elements.modalCriarItemCancelar) {
+        elements.modalCriarItemCancelar.addEventListener('click', () => {
+            if (elements.modalCriarItem) elements.modalCriarItem.classList.remove('active');
+        });
+    }
+
+    if (elements.modalCriarItemConfirmar) {
+        elements.modalCriarItemConfirmar.addEventListener('click', async () => {
+            if (!personagemAtual || !currentUser) return;
+            
+            const tipo = document.getElementById('criarItemTipo').value;
+            const nome = document.getElementById('criarItemNome').value.trim();
+            const peso = parseFloat(document.getElementById('criarItemPeso').value) || 0;
+            const preco = parseInt(document.getElementById('criarItemPreco').value) || 0;
+            const quantidade = parseInt(document.getElementById('criarItemQuantidade').value) || 1;
+            const efeito = document.getElementById('criarItemEfeito').value.trim();
+            const local = document.querySelector('input[name="criarItemLocal"]:checked').value;
+            
+            if (!nome) {
+                showToast('Digite um nome para o item!', true);
+                return;
+            }
+            
+            if (peso <= 0) {
+                showToast('O peso deve ser maior que zero!', true);
+                return;
+            }
+            
+            const novoItem = {
+                id: 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                nome: nome,
+                tipo: tipo,
+                peso: peso,
+                preco: preco,
+                quantidade: quantidade,
+                consumivel: tipo === 'pocao' || tipo === 'item'
+            };
+            
+            if (tipo === 'arma') {
+                const dano = document.getElementById('criarItemDano').value.trim();
+                const st = parseInt(document.getElementById('criarItemST').value) || 0;
+                const aparar = document.getElementById('criarItemAparar')?.value.trim() || '0';
+                const rdArma = parseInt(document.getElementById('criarItemRDArma')?.value) || 0;
+                const pvArma = parseInt(document.getElementById('criarItemPVArma')?.value) || 0;
+                
+                if (dano) novoItem.dano = dano;
+                if (st > 0) novoItem.st = st;
+                if (aparar) novoItem.aparar = aparar;
+                if (rdArma > 0) novoItem.rd = rdArma;
+                if (pvArma > 0) {
+                    novoItem.pv = pvArma;
+                    novoItem.pvAtual = pvArma;
+                }
+                
+            } else if (tipo === 'armadura') {
+                const rd = parseInt(document.getElementById('criarItemRD').value) || 0;
+                if (rd > 0) novoItem.rd = rd;
+                
+            } else if (tipo === 'escudo') {
+                const bonus = parseInt(document.getElementById('criarItemBonus').value) || 0;
+                const ve = document.getElementById('criarItemVE').value.trim();
+                if (bonus > 0) novoItem.bonus = bonus;
+                if (ve) novoItem.ve = ve;
+            }
+            
+            if (efeito) novoItem.efeito = efeito;
+            
+            if (!personagemAtual.inventario) {
+                personagemAtual.inventario = {
+                    corpo: [],
+                    mochila: [],
+                    deposito: [],
+                    magicos: []
+                };
+            }
+            
+            if (!personagemAtual.inventario[local]) {
+                personagemAtual.inventario[local] = [];
+            }
+            
+            if (novoItem.consumivel && local !== 'corpo') {
+                acumularItem(local, novoItem, quantidade);
+            } else {
+                for (let i = 0; i < quantidade; i++) {
+                    const itemCopia = { ...novoItem, id: novoItem.id + '_' + i };
+                    personagemAtual.inventario[local].push(itemCopia);
+                }
+            }
+            
             try {
-                // Buscar o participante do jogador atual nesta campanha
-                const participanteQuery = query(
-                    collection(db, "sessao_participantes"),
-                    where("campanha_id", "==", campanhaAtual.id),
-                    where("jogador_uid", "==", currentUser.uid),
-                    limit(1)
-                );
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                await updateDoc(personagemRef, {
+                    inventario: personagemAtual.inventario
+                });
                 
-                const participanteSnap = await getDocs(participanteQuery);
-                
-                if (participanteSnap.empty) {
-                    showToast('Você não está em nenhuma sessão ativa!', true);
-                    return;
-                }
-                
-                const participante = participanteSnap.docs[0].data();
-                const sessaoId = participante.sessao_id;
-                
-                if (!sessaoId) {
-                    showToast('ID da sessão não encontrado!', true);
-                    return;
-                }
-                
-                // Redirecionar para a mesa
-                window.location.href = `mesa-jogo-pc.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
+                if (elements.modalCriarItem) elements.modalCriarItem.classList.remove('active');
+                renderizarInventario();
+                renderizarFicha();
+                showToast(`Item "${nome}" criado!`);
                 
             } catch (error) {
-                console.error('Erro ao buscar sessão:', error);
-                showToast('Erro ao entrar na mesa: ' + error.message, true);
+                showToast('Erro ao criar item', true);
             }
-        };
-        
-        buscarSessao();
+        });
+    }
+
+    document.querySelectorAll('.btn-atributo-esfera').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const atributo = btn.dataset.atributo;
+            window.gastarEsfera(atributo);
+        });
     });
-}
+
+    if (elements.modalPericiaMenos) {
+        elements.modalPericiaMenos.addEventListener('click', () => {
+            if (periciaModalAtual) {
+                periciaModalAtual.novoNivel--;
+                if (elements.modalPericiaNivel) elements.modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
+                atualizarModalPericia();
+            }
+        });
+    }
+
+    if (elements.modalPericiaMais) {
+        elements.modalPericiaMais.addEventListener('click', () => {
+            if (periciaModalAtual) {
+                periciaModalAtual.novoNivel++;
+                if (elements.modalPericiaNivel) elements.modalPericiaNivel.textContent = periciaModalAtual.novoNivel;
+                atualizarModalPericia();
+            }
+        });
+    }
+
+    if (elements.modalPericiaCancelar) {
+        elements.modalPericiaCancelar.addEventListener('click', () => {
+            if (elements.modalPericia) elements.modalPericia.classList.remove('active');
+        });
+    }
+
+    if (elements.modalPericiaConfirmar) {
+        elements.modalPericiaConfirmar.addEventListener('click', async () => {
+            if (!periciaModalAtual || !personagemAtual) return;
+            
+            const novoNivel = periciaModalAtual.novoNivel;
+            const nivelAtual = periciaModalAtual.nivelAtual;
+            const custoTotal = tabelaCustosPericias[novoNivel];
+            const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+            const custoDiferenca = custoTotal - custoAtual;
+            
+            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+            
+            if (custoDiferenca > ppDisponivel) {
+                showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+                return;
+            }
+            
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+                
+                await updateDoc(personagemRef, {
+                    [`pericias.${periciaModalAtual.id}.nivel`]: novoNivel,
+                    ppGasto: novoPpGasto
+                });
+                
+                if (!personagemAtual.pericias) personagemAtual.pericias = {};
+                personagemAtual.pericias[periciaModalAtual.id] = { nivel: novoNivel };
+                personagemAtual.ppGasto = novoPpGasto;
+                
+                if (elements.modalPericia) elements.modalPericia.classList.remove('active');
+                renderizarFicha();
+                showToast('Perícia atualizada!');
+            } catch (error) {
+                showToast('Erro ao atualizar perícia', true);
+            }
+        });
+    }
+
+    if (elements.modalMagiaFechar) {
+        elements.modalMagiaFechar.addEventListener('click', () => {
+            if (elements.modalMagia) elements.modalMagia.classList.remove('active');
+        });
+    }
+
+    if (elements.modalMagiaComprar) {
+        elements.modalMagiaComprar.addEventListener('click', async () => {
+            if (!magiaModalAtual || !personagemAtual) return;
+            
+            const magia = personagemAtual.escolas?.[escolaMagiaModalAtual]?.magias?.[magiaModalAtual];
+            if (!magia || magia.nivel >= 10) return;
+            
+            const custo = 2;
+            const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+            
+            if (custo > ppDisponivel) {
+                showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+                return;
+            }
+            
+            try {
+                const personagemRef = doc(db, "personagens", personagemAtual.id);
+                
+                const novoPpGasto = (personagemAtual.ppGasto || 0) + custo;
+                
+                await updateDoc(personagemRef, {
+                    [`escolas.${escolaMagiaModalAtual}.magias.${magiaModalAtual}.nivel`]: (magia.nivel || 1) + 1,
+                    ppGasto: novoPpGasto
+                });
+                
+                magia.nivel = (magia.nivel || 1) + 1;
+                personagemAtual.ppGasto = novoPpGasto;
+                
+                if (elements.modalMagia) elements.modalMagia.classList.remove('active');
+                renderizarFicha();
+                showToast('Magia evoluída!');
+            } catch (error) {
+                showToast('Erro ao evoluir magia', true);
+            }
+        });
+    }
+
+    document.querySelectorAll('.escolas-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
+            tab.classList.add('ativa');
+            
+            escolaAtual = tab.dataset.escola;
+            
+            document.querySelectorAll('.conteudo-escola').forEach(div => div.classList.remove('ativa'));
+            document.getElementById(`conteudo${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`).classList.add('ativa');
+            
+            const minhasDiv = document.getElementById(`minhasMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
+            const catalogoDiv = document.getElementById(`catalogoMagias${escolaAtual.charAt(0).toUpperCase() + escolaAtual.slice(1)}`);
+            
+            if (minhasDiv) minhasDiv.style.display = abaMagiaAtual === 'minhas' ? 'block' : 'none';
+            if (catalogoDiv) catalogoDiv.style.display = abaMagiaAtual === 'catalogo' ? 'block' : 'none';
+            
+            if (abaMagiaAtual === 'catalogo') {
+                renderizarCatalogoMagias(escolaAtual);
+            }
+        });
+    });
+
+    // ============================================
+    // EVENTOS DA LOJA
+    // ============================================
+    const btnAbrirLoja = document.getElementById('btnAbrirLoja');
+    if (btnAbrirLoja) {
+        btnAbrirLoja.addEventListener('click', abrirModalLoja);
+    }
+    
+    const fecharModalLojaBtn = document.getElementById('fecharModalLoja');
+    if (fecharModalLojaBtn) {
+        fecharModalLojaBtn.addEventListener('click', () => {
+            const modal = document.getElementById('modalLoja');
+            if (modal) modal.classList.remove('active');
+        });
+    }
+    
+    document.querySelectorAll('.loja-categoria-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.loja-categoria-btn').forEach(b => b.classList.remove('ativa'));
+            btn.classList.add('ativa');
+            const categoria = btn.dataset.categoria;
+            renderizarLoja(categoria);
+        });
+    });
+
+    // ============================================
+    // EVENTOS DOS NOVOS MODAIS
+    // ============================================
+    if (elements.modalCompraMenos) {
+        elements.modalCompraMenos.addEventListener('click', () => {
+            const input = elements.modalCompraQuantidadeInput;
+            if (input) {
+                let val = parseInt(input.value) || 1;
+                if (val > 1) {
+                    input.value = val - 1;
+                    atualizarTotalCompra();
+                }
+            }
+        });
+    }
+    
+    if (elements.modalCompraMais) {
+        elements.modalCompraMais.addEventListener('click', () => {
+            const input = elements.modalCompraQuantidadeInput;
+            if (input) {
+                let val = parseInt(input.value) || 1;
+                const max = parseInt(input.max) || 999;
+                if (val < max) {
+                    input.value = val + 1;
+                    atualizarTotalCompra();
+                }
+            }
+        });
+    }
+    
+    if (elements.modalCompraQuantidadeInput) {
+        elements.modalCompraQuantidadeInput.addEventListener('change', () => {
+            atualizarTotalCompra();
+        });
+    }
+    
+    if (elements.fecharModalCompra) {
+        elements.fecharModalCompra.addEventListener('click', () => {
+            if (elements.modalCompraQuantidade) elements.modalCompraQuantidade.classList.remove('active');
+            itemCompraAtual = null;
+        });
+    }
+    
+    if (elements.confirmarModalCompra) {
+        elements.confirmarModalCompra.addEventListener('click', window.confirmarCompra);
+    }
+    
+    if (elements.modalTransferirMenos) {
+        elements.modalTransferirMenos.addEventListener('click', () => {
+            const input = elements.modalTransferirQuantidadeInput;
+            if (input) {
+                let val = parseInt(input.value) || 1;
+                if (val > 1) {
+                    input.value = val - 1;
+                    atualizarTotalTransferir();
+                }
+            }
+        });
+    }
+    
+    if (elements.modalTransferirMais) {
+        elements.modalTransferirMais.addEventListener('click', () => {
+            const input = elements.modalTransferirQuantidadeInput;
+            if (input) {
+                let val = parseInt(input.value) || 1;
+                const max = parseInt(input.max) || 1;
+                if (val < max) {
+                    input.value = val + 1;
+                    atualizarTotalTransferir();
+                }
+            }
+        });
+    }
+    
+    if (elements.modalTransferirQuantidadeInput) {
+        elements.modalTransferirQuantidadeInput.addEventListener('change', () => {
+            atualizarTotalTransferir();
+        });
+    }
+    
+    if (elements.fecharModalTransferir) {
+        elements.fecharModalTransferir.addEventListener('click', () => {
+            if (elements.modalTransferir) elements.modalTransferir.classList.remove('active');
+            itemTransferirAtual = null;
+        });
+    }
+    
+    if (elements.confirmarModalTransferir) {
+        elements.confirmarModalTransferir.addEventListener('click', window.confirmarTransferir);
+    }
+
+    if (elements.btnSair) {
+        elements.btnSair.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.href = 'index.html';
+        });
+    }
+
+    // ============================================
+    // AUTH STATE CHANGED COM BOTÃO DA MESA
+    // ============================================
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            await carregarPersonagem();
+            
+            // ============================================
+            // 🎮 BOTÃO PARA IR À MESA DE JOGO (DEPOIS DE CARREGAR)
+            // ============================================
+            const btnIrParaMesa = document.getElementById('btnIrParaMesa');
+            if (btnIrParaMesa) {
+                // Remove listeners antigos para evitar duplicação
+                const novoBtn = btnIrParaMesa.cloneNode(true);
+                btnIrParaMesa.parentNode.replaceChild(novoBtn, btnIrParaMesa);
+                
+                novoBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    if (!campanhaAtual || !campanhaAtual.id) {
+                        showToast('ID da campanha não encontrado!', true);
+                        return;
+                    }
+                    
+                    const buscarSessao = async () => {
+                        try {
+                            const participanteQuery = query(
+                                collection(db, "sessao_participantes"),
+                                where("campanha_id", "==", campanhaAtual.id),
+                                where("jogador_uid", "==", currentUser.uid),
+                                limit(1)
+                            );
+                            
+                            const participanteSnap = await getDocs(participanteQuery);
+                            
+                            if (participanteSnap.empty) {
+                                showToast('Você não está em nenhuma sessão ativa!', true);
+                                return;
+                            }
+                            
+                            const participante = participanteSnap.docs[0].data();
+                            const sessaoId = participante.sessao_id;
+                            
+                            if (!sessaoId) {
+                                showToast('ID da sessão não encontrado!', true);
+                                return;
+                            }
+                            
+                            window.location.href = `mesa-jogo-pc.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
+                            
+                        } catch (error) {
+                            console.error('Erro ao buscar sessão:', error);
+                            showToast('Erro ao entrar na mesa', true);
+                        }
+                    };
+                    
+                    buscarSessao();
+                });
+            }
+            
+        } else {
+            window.location.href = 'index.html';
+        }
+    });
+});
 // ============================================
 // INICIALIZAÇÃO
 // ============================================
