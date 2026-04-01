@@ -2301,16 +2301,12 @@ body {
         </div>
     </div>
 
-    <nav class="navbar">
-    <div class="nav-content">
-        <div class="logo-area">
-            <img src="logo-akalanata.png" alt="Akalanata System" style="height: 40px; width: auto;">
-            <span class="logo-text">Akalanata System</span>
-        </div>
-
-            <div class="nav-links">
+    <div class="nav-links">
     <a href="dashboard-pc.html" class="nav-link" id="linkCampanha">
         <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
+    </a>
+    <a href="#" class="nav-link" id="btnIrParaMesa" style="background: rgba(255, 215, 0, 0.2); border-radius: 8px;">
+        <i class="fas fa-dice-d20"></i> Ir para Mesa
     </a>
     <button class="btn-sair" id="btnSair">
         <i class="fas fa-sign-out-alt"></i> Sair
@@ -7003,6 +6999,50 @@ async function carregarPersonagem() {
 
         renderizarFicha();
         showToast('Personagem carregado com sucesso!');
+        
+        // ============================================
+        // 🎮 BOTÃO PARA IR À MESA DE JOGO
+        // ============================================
+        const btnIrParaMesa = document.getElementById('btnIrParaMesa');
+        if (btnIrParaMesa) {
+            btnIrParaMesa.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                if (!campanhaAtual || !campanhaAtual.id) {
+                    showToast('ID da campanha não encontrado!', true);
+                    return;
+                }
+                
+                // Buscar a sessão ativa da campanha
+                const buscarSessaoAtiva = async () => {
+                    try {
+                        const sessoesQuery = query(
+                            collection(db, "sessoes"),
+                            where("campanha_id", "==", campanhaAtual.id),
+                            where("status", "==", "ativa"),
+                            limit(1)
+                        );
+                        
+                        const sessoesSnap = await getDocs(sessoesQuery);
+                        
+                        if (sessoesSnap.empty) {
+                            showToast('Nenhuma sessão ativa encontrada!', true);
+                            return;
+                        }
+                        
+                        const sessao = sessoesSnap.docs[0];
+                        window.location.href = `mesa-jogo-pc.html?sessao=${sessao.id}&campanha=${campanhaAtual.id}`;
+                        
+                    } catch (error) {
+                        console.error('Erro ao buscar sessão:', error);
+                        showToast('Erro ao entrar na mesa', true);
+                    }
+                };
+                
+                buscarSessaoAtiva();
+            });
+        }
+        // ============================================
         
         if (unsubscribePersonagem) {
             unsubscribePersonagem();
