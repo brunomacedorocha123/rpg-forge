@@ -2387,9 +2387,7 @@ body::before {
     const modoAtualCombate = document.getElementById('modoAtualCombate');
     const instrucaoPosicionamento = document.getElementById('instrucaoPosicionamento');
 
-    // ============================================
-    // NOVOS ELEMENTOS - ITENS E ROTAÇÃO
-    // ============================================
+    // NOVOS ELEMENTOS
     const btnItem = document.getElementById('btnItem');
     const btnRotacaoEsq = document.getElementById('btnRotacaoEsq');
     const btnRotacaoDir = document.getElementById('btnRotacaoDir');
@@ -2425,7 +2423,7 @@ body::before {
     let modalNpcDetalheAtual = null;
     let posicoes = {};
     let marcadores = {};
-    let itens = {}; // NOVO: itens no mapa
+    let itens = {};
     let combateAtivo = false;
     let turnoAtual = 1;
     let vezAtual = 'jogadores';
@@ -2435,12 +2433,12 @@ body::before {
     let modoCombateAtual = 'posicionamento';
     let highlightHex = [];
     let modoMarcadorAtivo = false;
-    let modoItemAtivo = false; // NOVO
-    let itemSelecionado = null; // NOVO
+    let modoItemAtivo = false;
+    let itemSelecionado = null;
     let unsubscribePosicoes = null;
     let unsubscribeCombate = null;
     let unsubscribeMarcadores = null;
-    let unsubscribeItens = null; // NOVO
+    let unsubscribeItens = null;
     let unsubscribeParticipantes = null;
 
     // ============================================
@@ -2454,7 +2452,7 @@ body::before {
     }
 
     // ============================================
-    // TABELAS DE CRÍTICOS E FULMINANTES (COMPLETAS)
+    // TABELAS DE CRÍTICOS E FULMINANTES
     // ============================================
     const tabelasCriticosCompletas = {
         'ful-ataque': [
@@ -2532,7 +2530,276 @@ body::before {
     };
 
     // ============================================
-    // FUNÇÃO PARA CRIAR MODAL DE INÍCIO DE COMBATE
+    // FUNÇÕES AUXILIARES
+    // ============================================
+    function showLoading() { if(loadingOverlay) loadingOverlay.classList.add('active'); }
+    function hideLoading() { if(loadingOverlay) loadingOverlay.classList.remove('active'); }
+
+    function showToast(msg, erro = false) {
+        if(toastMessage) toastMessage.textContent = msg;
+        if(toast) {
+            toast.className = 'toast show' + (erro ? ' erro' : '');
+            setTimeout(() => { if(toast) toast.classList.remove('show'); }, 3000);
+        }
+    }
+
+    function getSessaoIdFromUrl() {
+        return new URLSearchParams(window.location.search).get('sessao');
+    }
+
+    // ============================================
+    // FUNÇÕES DO MAPA HEXAGONAL
+    // ============================================
+    function hexToPixel(hexX, hexY) {
+        const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
+        const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
+        return { x, y };
+    }
+
+    function pixelToHex(pixelX, pixelY) {
+        for (let x = 0; x < MAPA_LARGURA; x++) {
+            let y = Math.round((pixelY - OFFSET_Y - (x % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2)) / HEX_VERTICAL_SPACING);
+            if (y >= 0 && y < MAPA_ALTURA) {
+                const pixel = hexToPixel(x, y);
+                if (Math.hypot(pixelX - pixel.x, pixelY - pixel.y) < HEX_RADIUS) return { x, y };
+            }
+        }
+        return { x: -1, y: -1 };
+    }
+
+    function desenharHexagono(x, y, destaque = null) {
+        const pontos = [];
+        for (let i = 0; i < 6; i++) {
+            const angulo = Math.PI / 6 + (i * Math.PI / 3);
+            pontos.push({ x: x + HEX_RADIUS * Math.cos(angulo), y: y + HEX_RADIUS * Math.sin(angulo) });
+        }
+        ctx.beginPath();
+        ctx.moveTo(pontos[0].x, pontos[0].y);
+        for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
+        ctx.closePath();
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        if (destaque === 'move') { ctx.fillStyle = 'rgba(46, 204, 113, 0.3)'; ctx.fill(); }
+        else if (destaque === 'selected') { ctx.fillStyle = 'rgba(212, 175, 55, 0.3)'; ctx.fill(); }
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+
+    function desenharSetaDirecao(x, y, direcao, cor) {
+        const angulos = [-Math.PI/2, -Math.PI/6, Math.PI/6, Math.PI/2, 5*Math.PI/6, -5*Math.PI/6];
+        const angulo = angulos[direcao] || -Math.PI/2;
+        
+        const tamanho = HEX_RADIUS * 0.8;
+        const pontaX = x + Math.cos(angulo) * tamanho;
+        const pontaY = y + Math.sin(angulo) * tamanho;
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(pontaX, pontaY);
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        const tamanhoPonta = 8;
+        ctx.beginPath();
+        ctx.moveTo(pontaX, pontaY);
+        ctx.lineTo(
+            pontaX - tamanhoPonta * Math.cos(angulo - Math.PI/6),
+            pontaY - tamanhoPonta * Math.sin(angulo - Math.PI/6)
+        );
+        ctx.lineTo(
+            pontaX - tamanhoPonta * Math.cos(angulo + Math.PI/6),
+            pontaY - tamanhoPonta * Math.sin(angulo + Math.PI/6)
+        );
+        ctx.closePath();
+        ctx.fillStyle = cor;
+        ctx.fill();
+    }
+
+    function desenharToken(x, y, personagem) {
+        ctx.beginPath();
+        ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
+        
+        ctx.font = 'bold 10px "Inter", sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 4;
+        ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
+        ctx.shadowBlur = 0;
+        
+        ctx.font = 'bold 8px "Inter", sans-serif';
+        ctx.fillStyle = '#ff6b6b';
+        ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
+        
+        if (personagem.direcao !== undefined) {
+            desenharSetaDirecao(x, y, personagem.direcao, '#FFD700');
+        }
+    }
+
+    function desenharItem(x, y, item) {
+        ctx.beginPath();
+        ctx.arc(x, y, HEX_RADIUS * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(155, 89, 182, 0.5)';
+        ctx.fill();
+        ctx.strokeStyle = '#9b59b6';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.font = `bold ${HEX_RADIUS * 0.8}px "Inter", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(item.icone || '📦', x, y);
+        
+        ctx.font = 'bold 8px "Inter", sans-serif';
+        ctx.fillStyle = '#9b59b6';
+        ctx.fillText(item.nome.substring(0, 8), x, y + 18);
+    }
+
+    function desenharMapa() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        for (let x = 0; x < MAPA_LARGURA; x++) {
+            for (let y = 0; y < MAPA_ALTURA; y++) {
+                const pixel = hexToPixel(x, y);
+                let destaque = null;
+                if (highlightHex.some(h => h.x === x && h.y === y)) destaque = 'move';
+                desenharHexagono(pixel.x, pixel.y, destaque);
+            }
+        }
+        
+        Object.values(marcadores).forEach(m => {
+            const pixel = hexToPixel(m.x, m.y);
+            ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
+            ctx.beginPath();
+            ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#8B4513';
+            ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
+            ctx.fillText('⬛', pixel.x, pixel.y);
+        });
+        
+        Object.values(itens).forEach(item => {
+            const pixel = hexToPixel(item.x, item.y);
+            desenharItem(pixel.x, pixel.y, item);
+        });
+        
+        Object.values(posicoes).forEach(pos => {
+            if (pos.hexX !== undefined && pos.hexX !== null && pos.hexX !== undefined) {
+                const pixel = hexToPixel(pos.hexX, pos.hexY);
+                desenharToken(pixel.x, pixel.y, pos);
+            }
+        });
+    }
+
+    // ============================================
+    // FUNÇÕES DE ROTAÇÃO
+    // ============================================
+    async function girarPersonagem(sentido) {
+        if (!personagemSelecionado) {
+            showToast('Selecione um personagem primeiro', true);
+            return;
+        }
+        
+        const pos = posicoes[personagemSelecionado];
+        if (!pos) return;
+        
+        let novaDirecao = (pos.direcao || 0) + (sentido === 'horario' ? 1 : -1);
+        if (novaDirecao < 0) novaDirecao = 5;
+        if (novaDirecao > 5) novaDirecao = 0;
+        
+        try {
+            await updateDoc(doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemSelecionado), {
+                direcao: novaDirecao,
+                atualizadoEm: serverTimestamp()
+            });
+            
+            posicoes[personagemSelecionado].direcao = novaDirecao;
+            desenharMapa();
+            atualizarFichaCombate(personagemSelecionado);
+            
+            const direcoesNome = ['Norte', 'Nordeste', 'Sudeste', 'Sul', 'Sudoeste', 'Noroeste'];
+            showToast(`${pos.nome} agora olha para: ${direcoesNome[novaDirecao]}`);
+        } catch (e) {
+            showToast('Erro ao girar personagem', true);
+        }
+    }
+
+    // ============================================
+    // FUNÇÕES DE ITENS (CORRIGIDAS)
+    // ============================================
+    async function posicionarItem(hexX, hexY) {
+        if (!ehGM) {
+            showToast('Apenas o GM pode posicionar itens', true);
+            return;
+        }
+        
+        if (!itemSelecionado) {
+            showToast('Nenhum item selecionado', true);
+            return;
+        }
+        
+        const ocupado = Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY);
+        const marcadorOcupado = marcadores[`${hexX}_${hexY}`];
+        const itemOcupado = Object.values(itens).some(i => i.x === hexX && i.y === hexY);
+        
+        if (ocupado || marcadorOcupado || itemOcupado) {
+            showToast('Hexágono já ocupado!', true);
+            return;
+        }
+        
+        try {
+            const itemId = `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            await setDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemId), {
+                nome: itemSelecionado.nome,
+                icone: itemSelecionado.icone,
+                x: hexX,
+                y: hexY,
+                criadoPor: currentUser.uid,
+                criadoEm: serverTimestamp()
+            });
+            
+            showToast(`${itemSelecionado.icone} ${itemSelecionado.nome} posicionado!`);
+            
+            modoItemAtivo = false;
+            itemSelecionado = null;
+            if (btnItem) btnItem.classList.remove('ativo');
+            if (modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate';
+            if (instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none';
+            
+        } catch (e) {
+            console.error('Erro ao posicionar item:', e);
+            showToast('Erro ao posicionar item: ' + e.message, true);
+        }
+    }
+
+    async function removerItem(itemId) {
+        if (!ehGM) return;
+        
+        try {
+            await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemId));
+            showToast('Item removido do mapa');
+        } catch (e) {
+            showToast('Erro ao remover item', true);
+        }
+    }
+
+    // ============================================
+    // FUNÇÕES DE COMBATE
     // ============================================
     function criarModalInicioCombate() {
         if (document.getElementById('modalInicioCombate')) return;
@@ -2591,14 +2858,20 @@ body::before {
         });
     }
 
-    // ============================================
-    // FUNÇÃO EXECUTAR INÍCIO DE COMBATE
-    // ============================================
     async function executarInicioCombate(quemComeca) {
         if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
         
         showLoading();
         try {
+            const npcsPosicionados = Object.values(posicoes).filter(p => p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null);
+            const pcsPosicionados = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null);
+            
+            if (npcsPosicionados.length === 0 && pcsPosicionados.length === 0) {
+                showToast('Nenhum personagem posicionado no mapa!', true);
+                hideLoading();
+                return;
+            }
+            
             combateAtivo = true;
             turnoAtual = 1;
             vezAtual = quemComeca;
@@ -2611,35 +2884,6 @@ body::before {
                 iniciado_em: serverTimestamp(), 
                 gm_uid: currentUser.uid
             });
-            
-            const batch = writeBatch(db);
-            Object.entries(posicoes).forEach(([id, pos]) => {
-                if (pos.hexX !== undefined && pos.hexX !== null) {
-                    batch.set(doc(db, "sessoes", sessaoAtual.id, "posicoes", id), {
-                        personagemId: id, 
-                        nome: pos.nome, 
-                        tipo: pos.tipo, 
-                        cor: pos.cor,
-                        pv: pos.pv, 
-                        pvMax: pos.pvMax, 
-                        pm: pos.pm, 
-                        pmMax: pos.pmMax,
-                        pf: pos.pf, 
-                        pfMax: pos.pfMax, 
-                        esquiva: pos.esquiva, 
-                        aparar: pos.aparar,
-                        bloqueio: pos.bloqueio, 
-                        andar: pos.andar, 
-                        correr: pos.correr, 
-                        rd: pos.rd,
-                        direcao: pos.direcao || 0, // NOVO: direção padrão
-                        hexX: pos.hexX, 
-                        hexY: pos.hexY, 
-                        atualizadoEm: serverTimestamp()
-                    }, { merge: true });
-                }
-            });
-            await batch.commit();
             
             resetarMovimentoTurno();
             atualizarUICombate();
@@ -2657,319 +2901,11 @@ body::before {
             });
             
         } catch(e) { 
+            console.error('Erro ao iniciar combate:', e);
             showToast('Erro ao iniciar combate: ' + e.message, true); 
         } finally { 
             hideLoading(); 
         }
-    }
-
-    // ============================================
-    // FUNÇÕES AUXILIARES
-    // ============================================
-    function showLoading() { if(loadingOverlay) loadingOverlay.classList.add('active'); }
-    function hideLoading() { if(loadingOverlay) loadingOverlay.classList.remove('active'); }
-
-    function showToast(msg, erro = false) {
-        if(toastMessage) toastMessage.textContent = msg;
-        if(toast) toast.className = 'toast show' + (erro ? ' erro' : '');
-        setTimeout(() => { if(toast) toast.classList.remove('show'); }, 3000);
-    }
-
-    function getSessaoIdFromUrl() {
-        return new URLSearchParams(window.location.search).get('sessao');
-    }
-
-    // ============================================
-    // FUNÇÕES DO MAPA HEXAGONAL
-    // ============================================
-    function hexToPixel(hexX, hexY) {
-        const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
-        const y = OFFSET_Y + hexY * HEX_VERTICAL_SPACING + (hexX % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2);
-        return { x, y };
-    }
-
-    function pixelToHex(pixelX, pixelY) {
-        for (let x = 0; x < MAPA_LARGURA; x++) {
-            let y = Math.round((pixelY - OFFSET_Y - (x % 2 === 0 ? 0 : HEX_VERTICAL_SPACING / 2)) / HEX_VERTICAL_SPACING);
-            if (y >= 0 && y < MAPA_ALTURA) {
-                const pixel = hexToPixel(x, y);
-                if (Math.hypot(pixelX - pixel.x, pixelY - pixel.y) < HEX_RADIUS) return { x, y };
-            }
-        }
-        return { x: -1, y: -1 };
-    }
-
-    function desenharHexagono(x, y, destaque = null) {
-        const pontos = [];
-        for (let i = 0; i < 6; i++) {
-            const angulo = Math.PI / 6 + (i * Math.PI / 3);
-            pontos.push({ x: x + HEX_RADIUS * Math.cos(angulo), y: y + HEX_RADIUS * Math.sin(angulo) });
-        }
-        ctx.beginPath();
-        ctx.moveTo(pontos[0].x, pontos[0].y);
-        for (let i = 1; i < 6; i++) ctx.lineTo(pontos[i].x, pontos[i].y);
-        ctx.closePath();
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-        if (destaque === 'move') { ctx.fillStyle = 'rgba(46, 204, 113, 0.3)'; ctx.fill(); }
-        else if (destaque === 'selected') { ctx.fillStyle = 'rgba(212, 175, 55, 0.3)'; ctx.fill(); }
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-    }
-
-    // ============================================
-    // FUNÇÃO DESENHAR SETA DE DIREÇÃO (NOVO)
-    // ============================================
-    function desenharSetaDirecao(x, y, direcao, cor) {
-        // direcao: 0=Norte, 1=Nordeste, 2=Sudeste, 3=Sul, 4=Sudoeste, 5=Noroeste
-        const angulos = [-Math.PI/2, -Math.PI/6, Math.PI/6, Math.PI/2, 5*Math.PI/6, -5*Math.PI/6];
-        const angulo = angulos[direcao] || -Math.PI/2;
-        
-        const tamanho = HEX_RADIUS * 0.8;
-        const pontaX = x + Math.cos(angulo) * tamanho;
-        const pontaY = y + Math.sin(angulo) * tamanho;
-        
-        // Linha da seta
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(pontaX, pontaY);
-        ctx.strokeStyle = cor;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        // Ponta da seta (triângulo)
-        const tamanhoPonta = 8;
-        ctx.beginPath();
-        ctx.moveTo(pontaX, pontaY);
-        ctx.lineTo(
-            pontaX - tamanhoPonta * Math.cos(angulo - Math.PI/6),
-            pontaY - tamanhoPonta * Math.sin(angulo - Math.PI/6)
-        );
-        ctx.lineTo(
-            pontaX - tamanhoPonta * Math.cos(angulo + Math.PI/6),
-            pontaY - tamanhoPonta * Math.sin(angulo + Math.PI/6)
-        );
-        ctx.closePath();
-        ctx.fillStyle = cor;
-        ctx.fill();
-    }
-
-    function desenharToken(x, y, personagem) {
-        // Círculo do token
-        ctx.beginPath();
-        ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
-        ctx.fillStyle = personagem.cor || (personagem.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Ícone do personagem
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px "Inter", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-            ctx.fillText(personagem.tipo === 'pc' ? '🧙' : '🧌', x, y);
-        
-        // Nome abreviado
-        ctx.font = 'bold 10px "Inter", sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.shadowBlur = 4;
-        ctx.fillText(personagem.nome.substring(0, 3).toUpperCase(), x, y + 22);
-        ctx.shadowBlur = 0;
-        
-        // PV
-        ctx.font = 'bold 8px "Inter", sans-serif';
-        ctx.fillStyle = '#ff6b6b';
-        ctx.fillText(`${personagem.pv || '?'}/${personagem.pvMax || '?'}`, x, y - 20);
-        
-        // NOVO: Seta de direção
-        if (personagem.direcao !== undefined) {
-            desenharSetaDirecao(x, y, personagem.direcao, '#FFD700');
-        }
-    }
-
-    function desenharItem(x, y, item) {
-        // Fundo do item (hexágono pequeno)
-        ctx.beginPath();
-        ctx.arc(x, y, HEX_RADIUS * 0.5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(155, 89, 182, 0.3)'; // Roxo transparente
-        ctx.fill();
-        ctx.strokeStyle = '#9b59b6';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Ícone do item
-        ctx.font = `bold ${HEX_RADIUS * 0.8}px "Inter", sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(item.icone || '📦', x, y);
-        
-        // Nome do item (pequeno)
-        ctx.font = 'bold 8px "Inter", sans-serif';
-        ctx.fillStyle = '#9b59b6';
-        ctx.fillText(item.nome.substring(0, 6), x, y + 18);
-    }
-
-    function desenharMapa() {
-        if (!ctx) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Desenhar hexágonos do grid
-        for (let x = 0; x < MAPA_LARGURA; x++) {
-            for (let y = 0; y < MAPA_ALTURA; y++) {
-                const pixel = hexToPixel(x, y);
-                let destaque = null;
-                if (highlightHex.some(h => h.x === x && h.y === y)) destaque = 'move';
-                desenharHexagono(pixel.x, pixel.y, destaque);
-            }
-        }
-        
-        // Desenhar marcadores (obstáculos)
-        Object.values(marcadores).forEach(m => {
-            const pixel = hexToPixel(m.x, m.y);
-            ctx.fillStyle = 'rgba(101, 67, 33, 0.6)';
-            ctx.beginPath();
-            ctx.arc(pixel.x, pixel.y, HEX_RADIUS * 0.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#8B4513';
-            ctx.font = `bold ${HEX_RADIUS * 0.7}px "Inter", sans-serif`;
-            ctx.fillText('⬛', pixel.x, pixel.y);
-        });
-        
-        // NOVO: Desenhar itens
-        Object.values(itens).forEach(item => {
-            const pixel = hexToPixel(item.x, item.y);
-            desenharItem(pixel.x, pixel.y, item);
-        });
-        
-        // Desenhar personagens
-        Object.values(posicoes).forEach(pos => {
-            if (pos.hexX !== undefined && pos.hexX !== null && pos.hexX !== undefined) {
-                const pixel = hexToPixel(pos.hexX, pos.hexY);
-                desenharToken(pixel.x, pixel.y, pos);
-            }
-        });
-    }
-
-    // ============================================
-    // FUNÇÕES DE ROTAÇÃO (NOVO)
-    // ============================================
-    async function girarPersonagem(sentido) {
-        if (!personagemSelecionado) {
-            showToast('Selecione um personagem primeiro', true);
-            return;
-        }
-        
-        const pos = posicoes[personagemSelecionado];
-        if (!pos) return;
-        
-        // 0-5, sentido horário = +1, anti-horário = -1
-        let novaDirecao = (pos.direcao || 0) + (sentido === 'horario' ? 1 : -1);
-        if (novaDirecao < 0) novaDirecao = 5;
-        if (novaDirecao > 5) novaDirecao = 0;
-        
-        try {
-            await updateDoc(doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemSelecionado), {
-                direcao: novaDirecao,
-                atualizadoEm: serverTimestamp()
-            });
-            
-            posicoes[personagemSelecionado].direcao = novaDirecao;
-            desenharMapa();
-            atualizarFichaCombate(personagemSelecionado);
-            
-            const direcoesNome = ['Norte', 'Nordeste', 'Sudeste', 'Sul', 'Sudoeste', 'Noroeste'];
-            showToast(`${pos.nome} agora olha para: ${direcoesNome[novaDirecao]}`);
-        } catch (e) {
-            showToast('Erro ao girar personagem', true);
-        }
-    }
-
-    // ============================================
-    // FUNÇÕES DE ITENS (NOVO)
-    // ============================================
-    async function posicionarItem(hexX, hexY) {
-        if (!ehGM || !itemSelecionado) return;
-        
-        // Verificar se já existe algo no hex
-        const ocupado = Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY) ||
-                       marcadores[`${hexX}_${hexY}`] ||
-                       Object.values(itens).some(i => i.x === hexX && i.y === hexY);
-        
-        if (ocupado) {
-            showToast('Hexágono já ocupado!', true);
-            return;
-        }
-        
-        try {
-            const itemId = `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            await setDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemId), {
-                nome: itemSelecionado.nome,
-                icone: itemSelecionado.icone,
-                x: hexX,
-                y: hexY,
-                criadoPor: currentUser.uid,
-                criadoEm: serverTimestamp()
-            });
-            
-            itens[itemId] = {
-                id: itemId,
-                nome: itemSelecionado.nome,
-                icone: itemSelecionado.icone,
-                x: hexX,
-                y: hexY
-            };
-            
-            desenharMapa();
-            showToast(`${itemSelecionado.icone} ${itemSelecionado.nome} posicionado!`);
-            
-            // Resetar modo item
-            modoItemAtivo = false;
-            itemSelecionado = null;
-            if (btnItem) btnItem.classList.remove('ativo');
-            if (modoAtualCombate) modoAtualCombate.innerHTML = '⚔️ Modo: Combate';
-            if (instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none';
-            
-        } catch (e) {
-            showToast('Erro ao posicionar item', true);
-        }
-    }
-
-    async function removerItem(itemId) {
-        if (!ehGM) return;
-        
-        try {
-            await deleteDoc(doc(db, "sessoes", sessaoAtual.id, "itens", itemId));
-            delete itens[itemId];
-            desenharMapa();
-            showToast('Item removido do mapa');
-        } catch (e) {
-            showToast('Erro ao remover item', true);
-        }
-    }
-
-    // ============================================
-    // FUNÇÕES DE COMBATE
-    // ============================================
-    async function iniciarCombateComModal() {
-        if (!ehGM) { showToast('Apenas o GM pode iniciar o combate', true); return; }
-        
-        const npcsPosicionados = Object.values(posicoes).filter(p => p.tipo === 'npc' && p.hexX !== undefined && p.hexX !== null);
-        const pcsPosicionados = Object.values(posicoes).filter(p => p.tipo === 'pc' && p.hexX !== undefined && p.hexX !== null);
-        
-        if (npcsPosicionados.length === 0 && pcsPosicionados.length === 0) {
-            showToast('Nenhum personagem posicionado no mapa! Posicione pelo menos um NPC ou PC antes de iniciar o combate.', true);
-            return;
-        }
-        
-        criarModalInicioCombate();
-        const modal = document.getElementById('modalInicioCombate');
-        if (modal) modal.classList.add('active');
     }
 
     async function moverPersonagem(id, hexX, hexY) {
@@ -2978,41 +2914,32 @@ body::before {
         if (!pos) return;
         if (marcadores[`${hexX}_${hexY}`]) { showToast('Obstáculo!', true); return; }
         
-        // NOVO: Personagens podem ocupar hex com item (diferente de obstáculo)
-        const itemNoHex = Object.values(itens).find(i => i.x === hexX && i.y === hexY);
-        
         if (Object.values(posicoes).some(p => p.hexX === hexX && p.hexY === hexY && p.id !== id)) {
             showToast('Ocupado!', true); return;
         }
         
-        let distanciaPercorrida = 0;
-        if (pos.hexX !== undefined && pos.hexX !== null && pos.hexX !== undefined) {
-            distanciaPercorrida = Math.abs(pos.hexX - hexX) + Math.abs(pos.hexY - hexY);
+        try {
+            const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", id);
+            await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
+            posicoes[id].hexX = hexX;
+            posicoes[id].hexY = hexY;
+            
+            const itemNoHex = Object.values(itens).find(i => i.x === hexX && i.y === hexY);
+            if (itemNoHex) {
+                showToast(`${pos.nome} está sobre ${itemNoHex.icone} ${itemNoHex.nome}`);
+            }
+            
+            if (npcSelecionadoParaPosicionar === id) { 
+                npcSelecionadoParaPosicionar = null; 
+                if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none'; 
+            }
+            
+            desenharMapa();
+            atualizarListaNPCs();
+            if (personagemSelecionado === id) atualizarFichaCombate(id);
+        } catch(e) {
+            showToast('Erro ao mover personagem', true);
         }
-        
-        const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", id);
-        await setDoc(posRef, { hexX, hexY, atualizadoEm: serverTimestamp() }, { merge: true });
-        posicoes[id].hexX = hexX;
-        posicoes[id].hexY = hexY;
-        
-        // NOVO: Notificar se passou por um item
-        if (itemNoHex) {
-            showToast(`${pos.nome} está sobre ${itemNoHex.icone} ${itemNoHex.nome}`);
-        }
-        
-        if (moveuNoTurno[id]?.moveu && distanciaPercorrida > 0) {
-            moveuNoTurno[id].distanciaUsada = distanciaPercorrida;
-            showToast(`${posicoes[id].nome} moveu ${distanciaPercorrida}m de ${moveuNoTurno[id].distanciaMax}m`);
-        }
-        
-        if (npcSelecionadoParaPosicionar === id) { 
-            npcSelecionadoParaPosicionar = null; 
-            if(instrucaoPosicionamento) instrucaoPosicionamento.style.display = 'none'; 
-        }
-        
-        desenharMapa();
-        atualizarListaNPCs();
-        if (personagemSelecionado === id) atualizarFichaCombate(id);
     }
 
     async function avancarTurno() {
@@ -3037,14 +2964,8 @@ body::before {
         showLoading();
         try {
             if (combateId) await updateDoc(doc(db, "sessoes", sessaoAtual.id, "combates", combateId), { ativo: false });
-            const posicoesRef = collection(db, "sessoes", sessaoAtual.id, "posicoes");
-            const posicoesSnap = await getDocs(posicoesRef);
-            const batch = writeBatch(db);
-            posicoesSnap.docs.forEach(docSnap => batch.delete(docSnap.ref));
-            await batch.commit();
             combateAtivo = false;
             combateId = null;
-            Object.keys(posicoes).forEach(id => { posicoes[id].hexX = undefined; posicoes[id].hexY = undefined; });
             resetarMovimentoTurno();
             atualizarUICombate();
             desenharMapa();
@@ -3064,7 +2985,6 @@ body::before {
         if (btnProximoTurno) btnProximoTurno.disabled = !combateAtivo;
         if (btnEncerrarCombate) btnEncerrarCombate.disabled = !combateAtivo;
         
-        // NOVO: Botões de rotação só ativos quando personagem selecionado
         const podeGirar = personagemSelecionado !== null && posicoes[personagemSelecionado]?.hexX !== undefined;
         if (btnRotacaoEsq) btnRotacaoEsq.disabled = !podeGirar;
         if (btnRotacaoDir) btnRotacaoDir.disabled = !podeGirar;
@@ -3076,7 +2996,6 @@ body::before {
         const jaMoveu = moveuNoTurno[id]?.moveu || false;
         const podeMover = combateAtivo && vezAtual === (pos.tipo === 'pc' ? 'jogadores' : 'npcs') && !jaMoveu && pos.hexX !== undefined && pos.hexX !== null;
         
-        // NOVO: Mostrar direção atual
         const direcoesNome = ['Norte', 'Nordeste', 'Sudeste', 'Sul', 'Sudoeste', 'Noroeste'];
         const direcaoAtual = direcoesNome[pos.direcao || 0];
         
@@ -3099,7 +3018,6 @@ body::before {
                 </div>
                 <div><i class="fas fa-shoe-prints"></i> Andar ${pos.andar || 0}m | <i class="fas fa-running"></i> Correr ${pos.correr || 0}m</div>
                 
-                <!-- NOVO: Painel de direção -->
                 <div class="rotacao-painel">
                     <div class="rotacao-info">
                         Direção: <span class="rotacao-direcao">➡️ ${direcaoAtual}</span>
@@ -3158,7 +3076,6 @@ body::before {
             for (let dy = -alcance; dy <= alcance; dy++) {
                 let newX = pos.hexX + dx, newY = pos.hexY + dy;
                 if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
-                    // NOVO: Itens não bloqueiam movimento (só obstáculos e personagens)
                     if (!marcadores[`${newX}_${newY}`] && !Object.values(posicoes).some(p => p.hexX === newX && p.hexY === newY && p.id !== id)) {
                         highlightHex.push({ x: newX, y: newY });
                     }
@@ -3177,7 +3094,6 @@ body::before {
         }
     };
 
-    // NOVO: Expor função de rotação globalmente
     window.girarPersonagem = function(sentido) {
         girarPersonagem(sentido);
     };
@@ -3187,13 +3103,22 @@ body::before {
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        const mouseX = (e.clientX - rect.left) * scaleX;
-        const mouseY = (e.clientY - rect.top) * scaleY;
+        let clientX, clientY;
+        
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        const mouseX = (clientX - rect.left) * scaleX;
+        const mouseY = (clientY - rect.top) * scaleY;
         const hex = pixelToHex(mouseX, mouseY);
         
         if (hex.x < 0 || hex.y < 0) return;
         
-        // NOVO: Modo item ativo
         if (ehGM && modoItemAtivo) {
             posicionarItem(hex.x, hex.y);
             return;
@@ -3209,7 +3134,6 @@ body::before {
             return;
         }
         
-        // Verificar clique em item primeiro (para remover)
         const itemNoHex = Object.entries(itens).find(([id, i]) => i.x === hex.x && i.y === hex.y);
         if (itemNoHex && ehGM) {
             if (confirm(`Remover ${itemNoHex[1].icone} ${itemNoHex[1].nome} do mapa?`)) {
@@ -3221,7 +3145,7 @@ body::before {
         const personagemNoHex = Object.entries(posicoes).find(([id, p]) => p.hexX === hex.x && p.hexY === hex.y);
         if (personagemNoHex) {
             personagemSelecionado = personagemNoHex[0];
-            atualizarUICombate(); // Atualiza botões de rotação
+            atualizarUICombate();
             atualizarFichaCombate(personagemSelecionado);
         } 
         else if (ehGM && npcSelecionadoParaPosicionar) {
@@ -3238,7 +3162,7 @@ body::before {
     }
 
     // ============================================
-    // FUNÇÕES DE NPC (CRIAR, EDITAR, EXCLUIR, LISTAR) - ORIGINAIS
+    // FUNÇÕES DE NPC
     // ============================================
     function renderizarAtaques() {
         if (!ataquesContainer) return;
@@ -3259,6 +3183,7 @@ body::before {
                 <button class="btn-remover-ataque" data-index="${index}" style="background:transparent; border:1px solid #e74c3c; color:#e74c3c; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fas fa-trash"></i> Remover</button>
             </div>
         `).join('');
+        
         document.querySelectorAll('.ataque-nome, .ataque-bonus, .ataque-dano, .ataque-alcance').forEach(input => {
             input.addEventListener('input', (e) => {
                 const index = e.target.dataset.index;
@@ -3268,6 +3193,7 @@ body::before {
                 if (e.target.classList.contains('ataque-alcance')) ataquesArray[index].alcance = parseInt(e.target.value) || 0;
             });
         });
+        
         document.querySelectorAll('.btn-remover-ataque').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const index = e.currentTarget.dataset.index;
@@ -3293,6 +3219,7 @@ body::before {
                 <button class="btn-remover-magia" data-index="${index}" style="background:transparent; border:1px solid #e74c3c; color:#e74c3c; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fas fa-trash"></i> Remover</button>
             </div>
         `).join('');
+        
         document.querySelectorAll('.magia-nome, .magia-nh, .magia-efeito').forEach(input => {
             input.addEventListener('input', (e) => {
                 const index = e.target.dataset.index;
@@ -3301,6 +3228,7 @@ body::before {
                 if (e.target.classList.contains('magia-efeito')) magiasArray[index].efeito = e.target.value;
             });
         });
+        
         document.querySelectorAll('.btn-remover-magia').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const index = e.currentTarget.dataset.index;
@@ -3332,7 +3260,6 @@ body::before {
             const btnMovimentoColor = podeMover ? 'var(--bg-primary)' : 'var(--gold)';
             const btnMovimentoCursor = podeMover ? 'pointer' : 'not-allowed';
             
-            // NOVO: Mostrar direção se estiver posicionado
             const direcaoInfo = estaPosicionado ? ` <span style="font-size:0.7rem; color:#3498db; margin-left:8px;"><i class="fas fa-location-arrow"></i> ${['N','NE','SE','S','SO','NO'][npc.direcao || 0]}</span>` : '';
             
             html += `<div class="npc-card-simples" style="flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-glow);">
@@ -3404,7 +3331,6 @@ body::before {
         modoCombateAtual = 'posicionamento';
         personagemSelecionado = null;
         
-        // Desativar outros modos
         if (modoMarcadorAtivo) { 
             modoMarcadorAtivo = false; 
             if(btnMarcador) btnMarcador.classList.remove('ativo'); 
@@ -3468,7 +3394,6 @@ body::before {
             for (let dy = -alcance; dy <= alcance; dy++) {
                 let newX = npc.hexX + dx, newY = npc.hexY + dy;
                 if (newX >= 0 && newX < MAPA_LARGURA && newY >= 0 && newY < MAPA_ALTURA) {
-                    // NOVO: Itens não bloqueiam movimento
                     if (!marcadores[`${newX}_${newY}`] && !Object.values(posicoes).some(p => p.hexX === newX && p.hexY === newY && p.id !== id)) {
                         highlightHex.push({ x: newX, y: newY });
                     }
@@ -3604,13 +3529,11 @@ body::before {
     };
 
     // ============================================
-    // FUNÇÃO PRINCIPAL: CARREGAR PCs DA SESSÃO
+    // FUNÇÕES DE PCs E PARTICIPANTES
     // ============================================
     async function carregarPCs() { 
         try { 
             showLoading();
-            
-            console.log('🔍 Buscando participantes online da sessão:', sessaoAtual.id);
             
             const q = query( 
                 collection(db, "sessao_participantes"), 
@@ -3621,15 +3544,11 @@ body::before {
             const querySnapshot = await getDocs(q); 
             pcVinculados = [];
             
-            console.log(`📊 Encontrados ${querySnapshot.size} participantes online`);
-            
             for (const documento of querySnapshot.docs) { 
                 const participante = { 
                     id: documento.id, 
                     ...documento.data() 
                 }; 
-                
-                console.log(`👤 Participante: ${participante.jogador_nick} - ${participante.personagem_nome}`);
                 
                 try { 
                     const personagemRef = doc(db, "personagens", participante.personagem_id); 
@@ -3646,9 +3565,6 @@ body::before {
             } 
             
             renderizarPCs(); 
-            
-            console.log(`✅ ${pcVinculados.length} jogadores online na sessão`);
-            
             hideLoading();
         } catch(error) { 
             console.error('Erro ao carregar PCs:', error); 
@@ -3657,13 +3573,8 @@ body::before {
         } 
     }
 
-    // ============================================
-    // LISTENER EM TEMPO REAL PARA PARTICIPANTES
-    // ============================================
     function iniciarListenerParticipantes() {
         if (!sessaoAtual) return;
-        
-        console.log('🎧 Iniciando listener de participantes em tempo real...');
         
         const participantesQuery = query(
             collection(db, "sessao_participantes"),
@@ -3672,25 +3583,17 @@ body::before {
         );
         
         unsubscribeParticipantes = onSnapshot(participantesQuery, (snapshot) => {
-            console.log(`🔄 Atualizando participantes em tempo real... (${snapshot.size} online)`);
-            
             pcVinculados = [];
-            
             snapshot.forEach(doc => {
                 const participante = { id: doc.id, ...doc.data() };
                 pcVinculados.push(participante);
-                console.log(`✅ Participante online: ${participante.jogador_nick} - ${participante.personagem_nome}`);
             });
-            
             renderizarPCs();
         }, (error) => {
             console.error('Erro no listener de participantes:', error);
         });
     }
 
-    // ============================================
-    // FUNÇÃO RENDERIZAR PCS
-    // ============================================
     function renderizarPCs() {
         if (!pcsContainer) return;
         
@@ -3728,6 +3631,7 @@ body::before {
     // ============================================
     function iniciarListeners() {
         if (!sessaoAtual) return;
+        
         onSnapshot(doc(db, "sessoes", sessaoAtual.id), (doc) => {
             if (doc.exists() && doc.data().cena_atual) {
                 if (doc.data().cena_atual.descricao !== undefined && cenarioDescricao) cenarioDescricao.value = doc.data().cena_atual.descricao;
@@ -3736,6 +3640,7 @@ body::before {
                 else if(cenarioImagem) cenarioImagem.innerHTML = '<i class="fas fa-image"></i>';
             }
         });
+        
         const rolagensQuery = query(collection(db, "sessoes", sessaoAtual.id, "rolagens"), orderBy("timestamp", "desc"), limit(30));
         onSnapshot(rolagensQuery, (snapshot) => {
             let logHtml = '';
@@ -3812,14 +3717,13 @@ body::before {
                     andar: npc.movimento?.andar || 4,
                     correr: npc.movimento?.correr || 8, 
                     rd: npc.defesas?.rd || 0,
-                    direcao: 0, // NOVO: direção padrão
+                    direcao: 0,
                     hexX: undefined, 
                     hexY: undefined
                 };
                 i++;
             });
             
-            // Listener de marcadores (obstáculos)
             try {
                 unsubscribeMarcadores = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "marcadores"), (snap) => {
                     marcadores = {};
@@ -3830,7 +3734,6 @@ body::before {
                 console.warn('Erro no listener marcadores:', e); 
             }
             
-            // NOVO: Listener de itens
             try {
                 unsubscribeItens = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "itens"), (snap) => {
                     itens = {};
@@ -3843,7 +3746,6 @@ body::before {
                 console.warn('Erro no listener itens:', e);
             }
             
-            // Listener de posições
             try {
                 unsubscribePosicoes = onSnapshot(collection(db, "sessoes", sessaoAtual.id, "posicoes"), (snap) => {
                     snap.docChanges().forEach(c => {
@@ -3864,7 +3766,6 @@ body::before {
                 console.warn('Erro no listener posicoes:', e); 
             }
             
-            // Listener de combate
             try {
                 unsubscribeCombate = onSnapshot(query(collection(db, "sessoes", sessaoAtual.id, "combates"), where("ativo", "==", true), limit(1)), (snap) => {
                     if (!snap.empty) { 
@@ -3944,7 +3845,7 @@ body::before {
     // ============================================
     // EVENTOS DOS BOTÕES DE COMBATE
     // ============================================
-    if (btnIniciarCombate) btnIniciarCombate.addEventListener('click', iniciarCombateComModal);
+    if (btnIniciarCombate) btnIniciarCombate.addEventListener('click', () => criarModalInicioCombate());
     if (btnProximoTurno) btnProximoTurno.addEventListener('click', avancarTurno);
     if (btnEncerrarCombate) btnEncerrarCombate.addEventListener('click', encerrarCombate);
     
@@ -3954,7 +3855,6 @@ body::before {
             modoMarcadorAtivo = !modoMarcadorAtivo;
             btnMarcador.classList.toggle('ativo', modoMarcadorAtivo);
             
-            // Desativar modo item se ativo
             if (modoItemAtivo) {
                 modoItemAtivo = false;
                 itemSelecionado = null;
@@ -3967,12 +3867,9 @@ body::before {
         });
     }
     
-    // NOVO: Eventos dos botões de item e rotação
     if (btnItem) {
         btnItem.addEventListener('click', () => {
             if (!ehGM) { showToast('Apenas o GM pode posicionar itens', true); return; }
-            
-            // Abrir modal de seleção de item
             if (modalItem) {
                 modalItem.classList.add('active');
                 itemSelecionado = null;
@@ -3990,7 +3887,6 @@ body::before {
         btnRotacaoDir.addEventListener('click', () => girarPersonagem('horario'));
     }
     
-    // Eventos do modal de item
     if (modalItem) {
         document.querySelectorAll('.item-option').forEach(option => {
             option.addEventListener('click', () => {
@@ -4002,7 +3898,7 @@ body::before {
                 };
                 if(itemCustomNome) itemCustomNome.value = '';
             });
-        }); // <-- ESTA CHAVE ESTAVA FALTANDO AQUI
+        });
         
         if (btnCancelarItem) {
             btnCancelarItem.addEventListener('click', () => {
@@ -4015,9 +3911,7 @@ body::before {
         
         if (btnConfirmarItem) {
             btnConfirmarItem.addEventListener('click', () => {
-                // Verificar se selecionou um item pré-definido
                 if (!itemSelecionado && itemCustomNome && itemCustomNome.value.trim()) {
-                    // Usar item customizado
                     itemSelecionado = {
                         icone: '📦',
                         nome: itemCustomNome.value.trim().substring(0, 20)
@@ -4033,7 +3927,6 @@ body::before {
                 modoItemAtivo = true;
                 if(btnItem) btnItem.classList.add('ativo');
                 
-                // Desativar outros modos
                 modoMarcadorAtivo = false;
                 if(btnMarcador) btnMarcador.classList.remove('ativo');
                 npcSelecionadoParaPosicionar = null;
@@ -4047,10 +3940,16 @@ body::before {
                 showToast(`Modo item ativo: ${itemSelecionado.icone} ${itemSelecionado.nome} - Clique no mapa`);
             });
         }
-    } // <-- ESTA É A CHAVE QUE FECHA O if(modalItem)
+    }
 
-    if (canvas) canvas.addEventListener('click', handleCanvasClick);
-    if (canvas) canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) handleCanvasClick(e.touches[0]); }, { passive: true });
+    if (canvas) {
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('touchstart', (e) => { 
+            e.preventDefault();
+            if (e.touches.length === 1) handleCanvasClick(e); 
+        }, { passive: false });
+    }
+    
     // ============================================
     // EVENTOS DE NAVEGAÇÃO
     // ============================================
@@ -4058,8 +3957,13 @@ body::before {
     if (btnSair) btnSair.addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
     if (btnTabelas) btnTabelas.addEventListener('click', () => { if(modalTabelas) modalTabelas.classList.add('active'); });
     if (btnFecharTabelas) btnFecharTabelas.addEventListener('click', () => { if(modalTabelas) modalTabelas.classList.remove('active'); });
+    
     const btnFecharModalDetalhe = document.getElementById('btnFecharModalDetalhe');
-    if (btnFecharModalDetalhe) btnFecharModalDetalhe.addEventListener('click', () => { const modal = document.getElementById('modalNpcDetalhe'); if(modal) modal.classList.remove('active'); modalNpcDetalheAtual = null; });
+    if (btnFecharModalDetalhe) btnFecharModalDetalhe.addEventListener('click', () => { 
+        const modal = document.getElementById('modalNpcDetalhe'); 
+        if(modal) modal.classList.remove('active'); 
+        modalNpcDetalheAtual = null; 
+    });
 
     // ============================================
     // EVENTOS DO CENÁRIO
@@ -4085,8 +3989,11 @@ body::before {
             uploadCenario.value = '';
         });
     }
+    
     if (cenarioDescricao) {
-        cenarioDescricao.addEventListener('input', async () => { if (sessaoAtual) await updateDoc(doc(db, "sessoes", sessaoAtual.id), { 'cena_atual.descricao': cenarioDescricao.value, 'cena_atual.atualizado_em': serverTimestamp() }); });
+        cenarioDescricao.addEventListener('input', async () => { 
+            if (sessaoAtual) await updateDoc(doc(db, "sessoes", sessaoAtual.id), { 'cena_atual.descricao': cenarioDescricao.value, 'cena_atual.atualizado_em': serverTimestamp() }); 
+        });
     }
 
     // ============================================
@@ -4104,6 +4011,7 @@ body::before {
             if (sessaoAtual) await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), { tipo: 'pericia', jogador: 'Mestre', dezena, unidade, resultadoBase, resultado: resultadoBase, visibilidade, timestamp: serverTimestamp() });
         });
     }
+    
     if (btnRolarDano) {
         btnRolarDano.addEventListener('click', async () => {
             const qtd = parseInt(qtdDadosDano ? qtdDadosDano.value : 1) || 1;
@@ -4118,6 +4026,7 @@ body::before {
             if (sessaoAtual) await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), { tipo: 'dano', jogador: 'Mestre', qtdDados: qtd, dados, soma, modificador: mod, total, visibilidade, timestamp: serverTimestamp() });
         });
     }
+    
     if (btnRolarCritico) {
         btnRolarCritico.addEventListener('click', () => {
             const resultado = Math.floor(Math.random() * 10) + 1;
@@ -4137,6 +4046,7 @@ body::before {
             }
         });
     }
+    
     tabsCritico.forEach(tab => {
         tab.addEventListener('click', () => {
             const tabId = tab.dataset.tab;
@@ -4152,7 +4062,7 @@ body::before {
     });
 
     // ============================================
-    // EVENTOS DE NPC (CRIAR, EDITAR)
+    // EVENTOS DE NPC
     // ============================================
     if (btnAddAtaque) btnAddAtaque.addEventListener('click', () => { ataquesArray.push({ nome: 'Novo Ataque', bonus: 0, dano: '1d8', alcance: 1 }); renderizarAtaques(); });
     if (btnAddMagiaNpc) btnAddMagiaNpc.addEventListener('click', () => { magiasArray.push({ nome: 'Nova Magia', nh: 50, efeito: 'Efeito da magia' }); renderizarMagiasNpc(); });
@@ -4192,7 +4102,7 @@ body::before {
                     andar: parseInt(npcAndar ? npcAndar.value : 4) || 4,
                     correr: parseInt(npcCorrer ? npcCorrer.value : 8) || 8,
                     rd: parseInt(npcRd ? npcRd.value : 0) || 0,
-                    direcao: 0, // NOVO: direção padrão
+                    direcao: 0,
                     hexX: undefined,
                     hexY: undefined
                 };
@@ -4212,6 +4122,7 @@ body::before {
             } catch(error) { console.error(error); alert('Erro ao salvar NPC: ' + error.message); }
         });
     }
+    
     if (btnCancelarNpc) btnCancelarNpc.addEventListener('click', () => { if(modalNpc) modalNpc.classList.remove('active'); ataquesArray = []; magiasArray = []; renderizarAtaques(); renderizarMagiasNpc(); });
     if (btnAddNpc) btnAddNpc.addEventListener('click', () => { ataquesArray = []; magiasArray = []; renderizarAtaques(); renderizarMagiasNpc(); if(modalNpc) modalNpc.classList.add('active'); });
 
@@ -4228,6 +4139,7 @@ body::before {
             if(targetTab) targetTab.classList.add('ativa');
         });
     });
+    
     document.querySelectorAll('.tabela-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             document.querySelectorAll('.tabela-tab').forEach(t => t.classList.remove('ativa'));
@@ -4318,7 +4230,7 @@ body::before {
         if (unsubscribeItens) unsubscribeItens();
         if (unsubscribeParticipantes) unsubscribeParticipantes();
     });
-    </script>
+</script>
 </body>
 </html>
        
