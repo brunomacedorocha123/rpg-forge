@@ -1689,6 +1689,7 @@ canvas.modo-movimento {
         const db = getFirestore(app);
 
                // ============================================
+// ============================================
 // ELEMENTOS DOM
 // ============================================
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -1777,6 +1778,10 @@ const btnMoverCorrer = document.getElementById('btnMoverCorrer');
 const statusMovimento = document.getElementById('statusMovimento');
 const valorAndarSpan = document.getElementById('valorAndar');
 const valorCorrerSpan = document.getElementById('valorCorrer');
+
+// 🧭 Elementos de direção (faceamento do personagem no mapa hexagonal)
+const btnDirecaoPC = document.getElementById('btnDirecaoPC');
+const direcaoAtualTexto = document.getElementById('direcaoAtualTexto');
 
 // ============================================
 // 🔥 NOVAS VARIÁVEIS GLOBAIS PARA PARTICIPAÇÃO
@@ -2702,7 +2707,30 @@ function iniciarMovimento(tipo) {
     showToast(`🏃 Modo ${tipo} ativado! Máx: ${alcance}m`);
 }
 
-// 🧭 FUNÇÃO AUXILIAR: Ciclar direção do PC
+// 🧭 FUNÇÃO PARA ATUALIZAR O TEXTO DO BOTÃO DE DIREÇÃO
+function atualizarTextoDirecao() {
+    if (!personagemAtual || !btnDirecaoPC) return;
+    
+    const pos = posicoes[personagemAtual.id];
+    if (pos && pos.direcao && DIRECOES[pos.direcao]) {
+        const direcaoInfo = DIRECOES[pos.direcao];
+        if (direcaoAtualTexto) {
+            direcaoAtualTexto.innerHTML = `${direcaoInfo.icone} ${direcaoInfo.nome}`;
+        }
+        if (btnDirecaoPC) {
+            btnDirecaoPC.innerHTML = `<i class="fas fa-compass"></i> <span id="direcaoAtualTexto">${direcaoInfo.icone} ${direcaoInfo.nome}</span>`;
+        }
+    } else {
+        if (direcaoAtualTexto) {
+            direcaoAtualTexto.innerHTML = `➡️ Leste`;
+        }
+        if (btnDirecaoPC) {
+            btnDirecaoPC.innerHTML = `<i class="fas fa-compass"></i> <span id="direcaoAtualTexto">➡️ Leste</span>`;
+        }
+    }
+}
+
+// 🧭 FUNÇÃO AUXILIAR: Ciclar direção do PC (CORRIGIDA)
 async function ciclarDirecaoPC() {
     if (!personagemAtual || !personagemAtual.id) {
         showToast('Personagem não carregado!', true);
@@ -2710,17 +2738,20 @@ async function ciclarDirecaoPC() {
     }
     
     const pos = posicoes[personagemAtual.id];
-    if (!pos) {
-        showToast('Personagem não posicionado no mapa!', true);
+    if (!pos || pos.hexX === undefined || pos.hexX === null) {
+        showToast('Personagem não posicionado no mapa! Primeiro posicione seu personagem.', true);
         return;
     }
     
+    // Obter direção atual ou usar padrão Leste
     const direcaoAtual = pos.direcao || 'L';
     const indexAtual = DIRECOES_LISTA.indexOf(direcaoAtual);
-    const novaDirecao = DIRECOES_LISTA[(indexAtual + 1) % 6];
+    const novaDirecao = DIRECOES_LISTA[(indexAtual + 1) % DIRECOES_LISTA.length];
     
     try {
         const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemAtual.id);
+        
+        // Verificar se o documento existe
         const posSnap = await getDoc(posRef);
         
         if (!posSnap.exists()) {
@@ -2747,10 +2778,11 @@ async function ciclarDirecaoPC() {
                 hexX: pos.hexX,
                 hexY: pos.hexY,
                 direcao: novaDirecao,
+                direcao_atualizada: serverTimestamp(),
                 atualizadoEm: serverTimestamp()
-            }, { merge: true });
+            });
         } else {
-            // Atualizar direção existente
+            // Atualizar apenas a direção
             await updateDoc(posRef, { 
                 direcao: novaDirecao,
                 direcao_atualizada: serverTimestamp()
@@ -2758,15 +2790,24 @@ async function ciclarDirecaoPC() {
         }
         
         // Atualizar localmente
-        pos.direcao = novaDirecao;
+        if (posicoes[personagemAtual.id]) {
+            posicoes[personagemAtual.id].direcao = novaDirecao;
+        }
         
         const direcaoInfo = DIRECOES[novaDirecao];
         showToast(`🧭 ${personagemAtual.nome} agora olha para ${direcaoInfo.nome} ${direcaoInfo.icone}`);
-        desenharMapa();
+        
+        // Atualizar texto do botão
+        atualizarTextoDirecao();
+        
+        // Redesenhar o mapa
+        if (ctx && modoVisualizacao === 'combate') {
+            desenharMapa();
+        }
         
     } catch(error) {
         console.error('Erro ao atualizar direção:', error);
-        showToast('Erro ao atualizar direção', true);
+        showToast('Erro ao atualizar direção: ' + error.message, true);
     }
 }
 
@@ -3547,7 +3588,6 @@ if (canvas) {
         }
     }, { passive: true });
 }
-
 // ============================================
 // EVENTOS DOS BOTÕES
 // ============================================
@@ -3561,6 +3601,12 @@ if (btnMoverCorrer) {
     btnMoverCorrer.addEventListener('click', () => iniciarMovimento('correr'));
 }
 
+// 🧭 BOTÃO DE DIREÇÃO (FACEAMENTO DO PERSONAGEM)
+// Controla para qual direção o personagem está olhando no mapa hexagonal
+// Ciclos: Leste → Nordeste → Noroeste → Oeste → Sudoeste → Sudeste → Leste
+if (btnDirecaoPC) {
+    btnDirecaoPC.addEventListener('click', ciclarDirecaoPC);
+}
 // ============================================
 // CARREGAR SESSÃO
 // ============================================
