@@ -7442,7 +7442,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-        // ============================================
+         // ============================================
     // BOTÃO VOLTAR PARA A MESA
     // ============================================
     if (elements.linkMesa) {
@@ -7478,25 +7478,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 const campanhaId = vinculo.campanha_id;
                 console.log('2. Campanha ID encontrada:', campanhaId);
                 
-                // Buscar sessão ativa desta campanha
+                // Buscar TODAS as sessões da campanha
                 const sessoesQuery = query(
                     collection(db, "sessoes"),
-                    where("campanha_id", "==", campanhaId),
-                    where("status", "==", "ativa"),
-                    limit(1)
+                    where("campanha_id", "==", campanhaId)
                 );
                 const sessoesSnap = await getDocs(sessoesQuery);
                 
                 if (sessoesSnap.empty) {
-                    console.log('Nenhuma sessão ativa encontrada');
-                    showToast('Nenhuma sessão ativa encontrada para esta campanha!', true);
+                    console.log('Nenhuma sessão encontrada');
+                    showToast('Nenhuma sessão encontrada para esta campanha!', true);
                     hideLoading();
                     return;
                 }
                 
-                const sessao = sessoesSnap.docs[0];
-                const sessaoId = sessao.id;
-                console.log('3. Sessão encontrada:', sessaoId);
+                // Procurar a sessão que está ativa (status = "ativa", "aberta", "em_andamento", etc)
+                let sessaoAtiva = null;
+                const statusAtivos = ["ativa", "aberta", "em_andamento", "iniciada", "ativo"];
+                
+                for (const doc of sessoesSnap.docs) {
+                    const data = doc.data();
+                    const status = data.status?.toLowerCase() || "";
+                    
+                    if (statusAtivos.includes(status)) {
+                        sessaoAtiva = { id: doc.id, ...data };
+                        console.log('Sessão ativa encontrada:', sessaoAtiva.id, 'Status:', status);
+                        break;
+                    }
+                }
+                
+                // Se não encontrou sessão com status ativo, pega a primeira mesmo
+                if (!sessaoAtiva) {
+                    console.log('Nenhuma sessão com status ativo encontrada, pegando a primeira');
+                    sessaoAtiva = { id: sessoesSnap.docs[0].id, ...sessoesSnap.docs[0].data() };
+                }
+                
+                const sessaoId = sessaoAtiva.id;
+                console.log('3. Sessão escolhida:', sessaoId);
                 
                 // Redirecionar
                 window.location.href = `mesa.html?sessao=${sessaoId}&campanha=${campanhaId}`;
