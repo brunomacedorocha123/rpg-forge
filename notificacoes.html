@@ -745,6 +745,7 @@
     updateDoc,
     deleteDoc,
     serverTimestamp,
+    orderBy,
     arrayUnion,
     arrayRemove
   } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -800,7 +801,7 @@
   }
 
 
-  // ===== FUNÇÃO PARA CONVITES DE GUILDA =====
+  // ===== FUNÇÃO PARA CONVITES DE GUILDA (TOTALMENTE CORRIGIDA) =====
   window.aceitarConviteGuilda = async function(notificacaoId, guildaId) {
     if (!confirm('Deseja entrar nesta guilda?')) {
       return;
@@ -809,6 +810,9 @@
     showLoading();
     
     try {
+      console.log('🎯 Aceitando convite - Notificação:', notificacaoId, 'Guilda ID recebido:', guildaId);
+      
+      // 1️⃣ Buscar dados COMPLETOS da notificação
       const notifRef = doc(db, "notificacoes", notificacaoId);
       const notifDoc = await getDoc(notifRef);
       
@@ -819,14 +823,32 @@
       }
       
       const notifData = notifDoc.data();
+      console.log('📄 Dados da notificação:', notifData);
       
-      let idGuildaReal = guildaId || notifData.guilda_id || notifData.guildaId || notifData.guilda;
+      // 2️⃣ IDENTIFICAR O ID CORRETO DA GUILDA
+      let idGuildaReal = null;
+      
+      // Pega o ID da guilda - pode estar em campos diferentes
+      if (guildaId) {
+        idGuildaReal = guildaId;
+      } else if (notifData.guilda_id) {
+        idGuildaReal = notifData.guilda_id;
+      } else if (notifData.guildaId) {
+        idGuildaReal = notifData.guildaId;
+      } else if (notifData.guilda) {
+        idGuildaReal = notifData.guilda;
+      }
+      
+      console.log('🔍 ID da guilda identificado:', idGuildaReal);
       
       if (!idGuildaReal) {
         showToast('ID da guilda não encontrado!', true);
         hideLoading();
         return;
       }
+      
+      // 3️⃣ BUSCAR A GUILDA - PRIMEIRO PELO CAMPO 'id'
+      console.log('🔍 Buscando guilda por campo id:', idGuildaReal);
       
       let guildaDoc = null;
       let guildaRef = null;
@@ -843,16 +865,39 @@
         guildaDoc = guildaSnap.docs[0];
         guildaRef = doc(db, "guildas", guildaDoc.id);
         guildaData = guildaDoc.data();
+        console.log('✅ Guilda encontrada por campo id! Documento ID:', guildaDoc.id);
+        console.log('📄 Dados da guilda:', guildaData);
       } else {
+        console.log('❌ Não encontrou por campo id, tentando como ID do documento...');
         try {
           const docRef = doc(db, "guildas", idGuildaReal);
           const docSnap = await getDoc(docRef);
+          
           if (docSnap.exists()) {
             guildaDoc = docSnap;
             guildaRef = docRef;
             guildaData = docSnap.data();
+            console.log('✅ Guilda encontrada como documento ID!');
           }
-        } catch (e) {}
+        } catch (e) {
+          console.log('Erro ao buscar como documento:', e);
+        }
+      }
+      
+      if (!guildaData) {
+        console.log('🔍 Tentando buscar por nome...');
+        const nomeQuery = query(
+          collection(db, "guildas"),
+          where("nome", "==", idGuildaReal)
+        );
+        const nomeSnap = await getDocs(nomeQuery);
+        
+        if (!nomeSnap.empty) {
+          guildaDoc = nomeSnap.docs[0];
+          guildaRef = doc(db, "guildas", guildaDoc.id);
+          guildaData = guildaDoc.data();
+          console.log('✅ Guilda encontrada por nome!');
+        }
       }
       
       if (!guildaData) {
@@ -863,11 +908,18 @@
       
       if (guildaData.membros && guildaData.membros.includes(currentUser.uid)) {
         showToast('Você já é membro desta guilda!', true);
-        await updateDoc(notifRef, { lida: true, data_resposta: serverTimestamp() });
+        
+        await updateDoc(notifRef, {
+          lida: true,
+          data_resposta: serverTimestamp()
+        });
+        
         hideLoading();
         setTimeout(() => window.location.reload(), 1500);
         return;
       }
+      
+      console.log('📝 Adicionando membro à guilda...');
       
       const novoMembro = {
         uid: currentUser.uid,
@@ -895,17 +947,23 @@
           where("destinatario_uid", "==", currentUser.uid),
           where("status", "==", "pendente")
         );
+        
         const convitesSnap = await getDocs(convitesQuery);
         convitesSnap.forEach(async (conviteDoc) => {
           await deleteDoc(doc(db, "convites", conviteDoc.id));
         });
-      } catch (e) {}
+      } catch (e) {
+        console.log('Não foi possível deletar convites:', e);
+      }
       
       showToast('✅ Você entrou na guilda!');
-      setTimeout(() => window.location.reload(), 1500);
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
       
     } catch (error) {
-      console.error('Erro ao aceitar convite:', error);
+      console.error('❌ Erro ao aceitar convite:', error);
       showToast('Erro ao aceitar convite: ' + error.message, true);
     } finally {
       hideLoading();
@@ -925,8 +983,13 @@
         lida: true,
         data_resposta: serverTimestamp()
       });
+      
       showToast('Convite recusado');
-      setTimeout(() => window.location.reload(), 1500);
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+      
     } catch (error) {
       console.error('Erro ao recusar convite:', error);
       showToast('Erro ao recusar convite', true);
@@ -937,23 +1000,27 @@
 
 
   // ===== FUNÇÃO PARA CONVITES DE CAMPANHA =====
-  window.aceitarConviteCampanha = async function(notificacaoId, campanhaId) {
-    if (!confirm('Deseja aceitar o convite para esta campanha?')) {
+  window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
+    if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) {
       return;
     }
     
     showLoading();
     
     try {
-      const notifDoc = await getDoc(doc(db, "notificacoes", notificacaoId));
-      if (!notifDoc.exists()) {
+      // Buscar o convite na coleção CONVITES
+      const conviteRef = doc(db, "convites", conviteId);
+      const conviteDoc = await getDoc(conviteRef);
+      
+      if (!conviteDoc.exists()) {
         showToast('Convite não encontrado!', true);
         hideLoading();
         return;
       }
       
-      const notifData = notifDoc.data();
+      const conviteData = conviteDoc.data();
       
+      // Verificar se já está na campanha
       const vinculoQuery = query(
         collection(db, "campanha_personagens"),
         where("campanha_id", "==", campanhaId),
@@ -964,11 +1031,16 @@
       
       if (!vinculoSnap.empty) {
         showToast('Você já está nesta campanha!', true);
-        await updateDoc(doc(db, "notificacoes", notificacaoId), { lida: true });
+        
+        await updateDoc(conviteRef, {
+          status: 'aceito'
+        });
+        
         hideLoading();
         return;
       }
       
+      // Buscar personagens do jogador
       const personagensQuery = query(
         collection(db, "personagens"),
         where("userId", "==", currentUser.uid)
@@ -992,6 +1064,7 @@
         }
       });
       
+      // Buscar dados da campanha
       const campanhaQuery = query(
         collection(db, "campanhas"),
         where("id", "==", campanhaId)
@@ -1003,9 +1076,10 @@
         campanhaDocId = doc.id;
       });
       
+      // Criar vínculo
       const vinculoData = {
         campanha_id: campanhaId,
-        campanha_nome: notifData.campanha_nome || 'Campanha',
+        campanha_nome: campanhaNome,
         jogador_uid: currentUser.uid,
         jogador_nick: userData?.nickname || 'Jogador',
         personagem_id: personagemId,
@@ -1016,25 +1090,32 @@
       
       await addDoc(collection(db, "campanha_personagens"), vinculoData);
       
+      // Atualizar vagas na campanha
       if (campanhaDocId) {
         const campanhaRef = doc(db, "campanhas", campanhaDocId);
         const campanhaDoc = await getDoc(campanhaRef);
         if (campanhaDoc.exists()) {
           const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
-          await updateDoc(campanhaRef, { vagas_ocupadas: vagasOcupadas });
+          await updateDoc(campanhaRef, {
+            vagas_ocupadas: vagasOcupadas
+          });
         }
       }
       
-      await updateDoc(doc(db, "notificacoes", notificacaoId), {
-        lida: true,
+      // Marcar convite como aceito
+      await updateDoc(conviteRef, {
+        status: 'aceito',
         data_resposta: serverTimestamp()
       });
       
       showToast('✅ Você entrou na campanha!');
-      setTimeout(() => window.location.reload(), 1500);
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
       
     } catch (error) {
-      console.error('Erro ao aceitar convite:', error);
+      console.error('❌ Erro ao aceitar convite:', error);
       showToast('Erro ao aceitar convite: ' + error.message, true);
     } finally {
       hideLoading();
@@ -1042,7 +1123,7 @@
   };
 
 
-  window.recusarConviteCampanha = async function(notificacaoId) {
+  window.recusarConviteCampanha = async function(conviteId) {
     if (!confirm('Deseja recusar este convite?')) {
       return;
     }
@@ -1050,12 +1131,17 @@
     showLoading();
     
     try {
-      await updateDoc(doc(db, "notificacoes", notificacaoId), {
-        lida: true,
+      await updateDoc(doc(db, "convites", conviteId), {
+        status: 'recusado',
         data_resposta: serverTimestamp()
       });
+      
       showToast('Convite recusado');
-      setTimeout(() => window.location.reload(), 1500);
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+      
     } catch (error) {
       console.error('Erro ao recusar convite:', error);
       showToast('Erro ao recusar convite', true);
@@ -1065,22 +1151,23 @@
   };
 
 
-  // ===== CARREGAR NOTIFICAÇÕES (SEM orderBy - NÃO PRECISA DE ÍNDICE) =====
+  // ===== CARREGAR NOTIFICAÇÕES (BUSCA DA COLEÇÃO CONVITES) =====
   async function carregarNotificacoes() {
     if (!currentUser) return;
     
     showLoading();
     
     try {
-      const q = query(
-        collection(db, "notificacoes"),
+      // Buscar da coleção CONVITES (onde o GM envia os convites)
+      const convitesQuery = query(
+        collection(db, "convites"),
         where("destinatario_uid", "==", currentUser.uid),
-        where("lida", "==", false)
+        where("status", "==", "pendente")
       );
       
-      const querySnapshot = await getDocs(q);
+      const convitesSnap = await getDocs(convitesQuery);
       
-      if (querySnapshot.empty) {
+      if (convitesSnap.empty) {
         notificacoesContainer.innerHTML = `
           <div class="empty-state">
             <i class="fas fa-bell-slash"></i>
@@ -1093,63 +1180,38 @@
       }
       
       let html = '';
-      let notificacoesArray = [];
+      let convitesArray = [];
       
-      querySnapshot.forEach((doc) => {
-        const n = { id: doc.id, ...doc.data() };
-        const data = n.data ? new Date(n.data.seconds * 1000) : new Date();
-        notificacoesArray.push({ ...n, dataObj: data });
+      convitesSnap.forEach((doc) => {
+        const c = { id: doc.id, ...doc.data() };
+        const data = c.data_envio ? new Date(c.data_envio) : new Date();
+        convitesArray.push({ ...c, dataObj: data });
       });
       
-      // Ordenar manualmente por data (mais recente primeiro)
-      notificacoesArray.sort((a, b) => b.dataObj - a.dataObj);
+      // Ordenar por data (mais recente primeiro)
+      convitesArray.sort((a, b) => b.dataObj - a.dataObj);
       
-      for (const n of notificacoesArray) {
-        const dataFormatada = n.dataObj.toLocaleString();
-        
-        // CONVITE DE GUILDA
-        if (n.tipo === 'convite_guilda') {
-          const guildaId = n.guilda_id || n.guildaId || n.guilda;
-          
-          html += `
-            <div class="notification-item">
-              <div class="notification-icon">
-                <i class="fas fa-users"></i>
-              </div>
-              <div class="notification-content">
-                <div class="notification-title">${n.titulo || 'Convite para Guilda'}</div>
-                <div class="notification-message">${n.mensagem || ''}</div>
-                <div class="notification-time"><i class="fas fa-clock"></i> ${dataFormatada}</div>
-                <div class="notification-actions">
-                  <button class="btn-aceitar" onclick="aceitarConviteGuilda('${n.id}', '${guildaId}')">
-                    <i class="fas fa-check"></i> Aceitar
-                  </button>
-                  <button class="btn-recusar" onclick="recusarConviteGuilda('${n.id}')">
-                    <i class="fas fa-times"></i> Recusar
-                  </button>
-                </div>
-              </div>
-              <span class="notification-badge">NOVO</span>
-            </div>
-          `;
-        }
+      for (const c of convitesArray) {
+        const dataFormatada = c.dataObj.toLocaleString();
         
         // CONVITE DE CAMPANHA
-        else if (n.tipo === 'convite_campanha') {
+        if (c.tipo === 'campanha') {
           html += `
             <div class="notification-item">
               <div class="notification-icon">
                 <i class="fas fa-scroll"></i>
               </div>
               <div class="notification-content">
-                <div class="notification-title">${n.titulo || 'Convite para Campanha'}</div>
-                <div class="notification-message">${n.mensagem || ''}</div>
+                <div class="notification-title">Convite para Campanha</div>
+                <div class="notification-message">
+                  <strong>${c.remetente_nick}</strong> convidou você para a campanha <strong>${c.campanha_nome}</strong>
+                </div>
                 <div class="notification-time"><i class="fas fa-clock"></i> ${dataFormatada}</div>
                 <div class="notification-actions">
-                  <button class="btn-aceitar" onclick="aceitarConviteCampanha('${n.id}', '${n.campanha_id}')">
+                  <button class="btn-aceitar" onclick="aceitarConviteCampanha('${c.id}', '${c.campanha_id}', '${c.campanha_nome}')">
                     <i class="fas fa-check"></i> Aceitar
                   </button>
-                  <button class="btn-recusar" onclick="recusarConviteCampanha('${n.id}')">
+                  <button class="btn-recusar" onclick="recusarConviteCampanha('${c.id}')">
                     <i class="fas fa-times"></i> Recusar
                   </button>
                 </div>
@@ -1159,17 +1221,27 @@
           `;
         }
         
-        // OUTRAS NOTIFICAÇÕES
-        else {
+        // CONVITE DE GUILDA
+        else if (c.tipo === 'guilda') {
           html += `
             <div class="notification-item">
               <div class="notification-icon">
-                <i class="fas fa-bell"></i>
+                <i class="fas fa-users"></i>
               </div>
               <div class="notification-content">
-                <div class="notification-title">${n.titulo || 'Notificação'}</div>
-                <div class="notification-message">${n.mensagem || ''}</div>
+                <div class="notification-title">Convite para Guilda</div>
+                <div class="notification-message">
+                  <strong>${c.remetente_nick}</strong> convidou você para a guilda <strong>${c.guilda_nome}</strong>
+                </div>
                 <div class="notification-time"><i class="fas fa-clock"></i> ${dataFormatada}</div>
+                <div class="notification-actions">
+                  <button class="btn-aceitar" onclick="aceitarConviteGuilda('${c.id}', '${c.guilda_id}')">
+                    <i class="fas fa-check"></i> Aceitar
+                  </button>
+                  <button class="btn-recusar" onclick="recusarConviteGuilda('${c.id}')">
+                    <i class="fas fa-times"></i> Recusar
+                  </button>
+                </div>
               </div>
               <span class="notification-badge">NOVO</span>
             </div>
@@ -1206,10 +1278,10 @@
       
       if (docSnap.exists()) {
         userData = docSnap.data();
+        
         displayIdPc.textContent = userData.id_pc || '--------';
         displayNickname.textContent = userData.nickname || 'Aventureiro';
-        await carregarNotificacoes();
-      } else {
+        
         await carregarNotificacoes();
       }
     } catch (error) {
