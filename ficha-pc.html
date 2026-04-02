@@ -2880,6 +2880,37 @@ let origemTransferirAtual = null;
 let destinoTransferirAtual = null;
 let itemUsarAtual = null;
 let localUsarAtual = null;
+
+// ============================================
+// FUNÇÃO PARA BUSCAR A CAMPANHA DO PERSONAGEM
+// ============================================
+async function buscarCampanhaDoPersonagem(personagemId) {
+    try {
+        const vinculosQuery = query(
+            collection(db, "campanha_personagens"),
+            where("personagem_id", "==", personagemId),
+            where("status", "==", "ativo")
+        );
+        const vinculosSnap = await getDocs(vinculosQuery);
+        
+        if (!vinculosSnap.empty) {
+            const vinculo = vinculosSnap.docs[0].data();
+            const campanhaRef = doc(db, "campanhas", vinculo.campanha_id);
+            const campanhaSnap = await getDoc(campanhaRef);
+            
+            if (campanhaSnap.exists()) {
+                return {
+                    id: campanhaSnap.id,
+                    ...campanhaSnap.data()
+                };
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('Erro ao buscar campanha:', error);
+        return null;
+    }
+}
 // ============================================
 // TABELA DE DANO
 // ============================================
@@ -7410,10 +7441,58 @@ document.addEventListener('DOMContentLoaded', () => {
     // BOTÃO VOLTAR PARA A MESA
     // ============================================
     if (elements.linkMesa) {
-        elements.linkMesa.addEventListener('click', (e) => {
+        elements.linkMesa.addEventListener('click', async (e) => {
             e.preventDefault();
+            
+            // Se campanhaAtual ainda não foi carregada, tenta buscar novamente
+            if (!campanhaAtual || !campanhaAtual.id) {
+                if (personagemAtual && personagemAtual.id) {
+                    try {
+                        const vinculosQuery = query(
+                            collection(db, "campanha_personagens"),
+                            where("personagem_id", "==", personagemAtual.id)
+                        );
+                        const vinculosSnap = await getDocs(vinculosQuery);
+                        
+                        if (!vinculosSnap.empty) {
+                            const vinculo = vinculosSnap.docs[0].data();
+                            const campanhaRef = doc(db, "campanhas", vinculo.campanha_id);
+                            const campanhaSnap = await getDoc(campanhaRef);
+                            
+                            if (campanhaSnap.exists()) {
+                                campanhaAtual = {
+                                    id: campanhaSnap.id,
+                                    ...campanhaSnap.data()
+                                };
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Erro ao buscar campanha:', err);
+                    }
+                }
+            }
+            
             if (campanhaAtual && campanhaAtual.id) {
-                window.location.href = `mesa.html?id=${campanhaAtual.id}`;
+                // Buscar a sessão ativa da campanha
+                try {
+                    const sessoesQuery = query(
+                        collection(db, "sessoes"),
+                        where("campanha_id", "==", campanhaAtual.id),
+                        where("status", "==", "ativa"),
+                        limit(1)
+                    );
+                    const sessoesSnap = await getDocs(sessoesQuery);
+                    
+                    if (!sessoesSnap.empty) {
+                        const sessao = sessoesSnap.docs[0];
+                        window.location.href = `mesa.html?sessao=${sessao.id}&campanha=${campanhaAtual.id}`;
+                    } else {
+                        showToast('Nenhuma sessão ativa encontrada para esta campanha', true);
+                    }
+                } catch (error) {
+                    console.error('Erro ao buscar sessão:', error);
+                    showToast('Erro ao voltar para a mesa', true);
+                }
             } else {
                 showToast('Erro: Não foi possível identificar a campanha', true);
             }
