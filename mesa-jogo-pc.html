@@ -1876,6 +1876,40 @@ function getParamsFromUrl() {
         campanhaId: urlParams.get('campanha')
     };
 }
+
+// ============================================
+// FUNÇÃO DE ANIMAÇÃO COM SOM PARA ROLAGENS
+// ============================================
+const somDado = new Audio('som-dados.mp3');
+
+function animarRolagem(elemento, valorFinal, callback) {
+    // Toca o som
+    somDado.currentTime = 0;
+    somDado.play().catch(e => console.log('Erro ao tocar som:', e));
+    
+    // Animação: números mudam rapidamente
+    const duracaoAnimacao = 2800; // 2.8 segundos
+    const inicio = Date.now();
+    const maxNumero = valorFinal > 10 ? 100 : 20;
+    
+    const intervalo = setInterval(() => {
+        const agora = Date.now();
+        const decorrido = agora - inicio;
+        
+        if (decorrido >= duracaoAnimacao) {
+            clearInterval(intervalo);
+            // Mostra o resultado final
+            elemento.textContent = valorFinal;
+            // Chama o callback para salvar no Firebase
+            if (callback) callback();
+            return;
+        }
+        
+        // Número aleatório durante a animação
+        const numeroFalso = Math.floor(Math.random() * maxNumero) + 1;
+        elemento.textContent = numeroFalso;
+    }, 50);
+}
 // ============================================
 // FUNÇÕES DE DANO - VERSÃO COM DUAS ARMAS
 // ============================================
@@ -3373,26 +3407,28 @@ if (btnRolarPericia) {
         const mod = parseInt(modificadorPericia?.value) || 0;
         const resultadoFinal = Math.min(100, Math.max(0, resultadoBase + mod));
         
-        if (resultadoPercentual) resultadoPercentual.textContent = resultadoFinal + '%';
-
-        if (sessaoAtual) {
-            try {
-                await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                    tipo: 'pericia',
-                    jogador: personagemAtual?.nome || 'Jogador',
-                    personagemId: personagemAtual?.id,
-                    dezena,
-                    unidade,
-                    resultadoBase,
-                    modificador: mod,
-                    resultado: resultadoFinal,
-                    visibilidade: 'publico',
-                    timestamp: serverTimestamp()
-                });
-            } catch (error) {
-                console.error('Erro ao salvar rolagem:', error);
+        const salvarRolagem = async () => {
+            if (sessaoAtual) {
+                try {
+                    await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                        tipo: 'pericia',
+                        jogador: personagemAtual?.nome || 'Jogador',
+                        personagemId: personagemAtual?.id,
+                        dezena,
+                        unidade,
+                        resultadoBase,
+                        modificador: mod,
+                        resultado: resultadoFinal,
+                        visibilidade: 'publico',
+                        timestamp: serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Erro ao salvar rolagem:', error);
+                }
             }
-        }
+        };
+        
+        animarRolagem(resultadoPercentual, resultadoFinal + '%', salvarRolagem);
     });
 }
 
@@ -3411,29 +3447,31 @@ if (btnRolarDano) {
         }
         
         const total = soma + mod;
-        if (resultadoDano) resultadoDano.textContent = total;
-
-        if (sessaoAtual) {
-            try {
-                await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
-                    tipo: 'dano',
-                    jogador: personagemAtual?.nome || 'Jogador',
-                    personagemId: personagemAtual?.id,
-                    qtdDados: qtd,
-                    dados,
-                    soma,
-                    modificador: mod,
-                    total,
-                    visibilidade: 'publico',
-                    timestamp: serverTimestamp()
-                });
-            } catch (error) {
-                console.error('Erro ao salvar rolagem:', error);
+        
+        const salvarRolagem = async () => {
+            if (sessaoAtual) {
+                try {
+                    await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                        tipo: 'dano',
+                        jogador: personagemAtual?.nome || 'Jogador',
+                        personagemId: personagemAtual?.id,
+                        qtdDados: qtd,
+                        dados,
+                        soma,
+                        modificador: mod,
+                        total,
+                        visibilidade: 'publico',
+                        timestamp: serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Erro ao salvar rolagem:', error);
+                }
             }
-        }
+        };
+        
+        animarRolagem(resultadoDano, total, salvarRolagem);
     });
 }
-
 // ============================================
 // SISTEMA DE CRÍTICOS - GM VÊ OS RESULTADOS
 // ============================================
