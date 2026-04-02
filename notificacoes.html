@@ -745,7 +745,6 @@
     updateDoc,
     deleteDoc,
     serverTimestamp,
-    orderBy,
     arrayUnion,
     arrayRemove
   } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
@@ -801,7 +800,7 @@
   }
 
 
-  // ===== FUNÇÃO PARA CONVITES DE GUILDA (TOTALMENTE CORRIGIDA) =====
+  // ===== FUNÇÃO PARA CONVITES DE GUILDA =====
   window.aceitarConviteGuilda = async function(conviteId, guildaId) {
     if (!confirm('Deseja entrar nesta guilda?')) {
       return;
@@ -810,9 +809,9 @@
     showLoading();
     
     try {
-      console.log('🎯 Aceitando convite - Convite ID:', conviteId, 'Guilda ID recebido:', guildaId);
+      console.log('🎯 Aceitando convite de guilda - ID:', conviteId);
       
-      // 1️⃣ Buscar dados COMPLETOS do convite
+      // 1️⃣ Buscar o convite
       const conviteRef = doc(db, "convites", conviteId);
       const conviteDoc = await getDoc(conviteRef);
       
@@ -823,22 +822,9 @@
       }
       
       const conviteData = conviteDoc.data();
-      console.log('📄 Dados do convite:', conviteData);
       
-      // 2️⃣ IDENTIFICAR O ID CORRETO DA GUILDA
-      let idGuildaReal = null;
-      
-      if (guildaId) {
-        idGuildaReal = guildaId;
-      } else if (conviteData.guilda_id) {
-        idGuildaReal = conviteData.guilda_id;
-      } else if (conviteData.guildaId) {
-        idGuildaReal = conviteData.guildaId;
-      } else if (conviteData.guilda) {
-        idGuildaReal = conviteData.guilda;
-      }
-      
-      console.log('🔍 ID da guilda identificado:', idGuildaReal);
+      // 2️⃣ Identificar o ID da guilda
+      let idGuildaReal = guildaId || conviteData.guilda_id || conviteData.guildaId || conviteData.guilda;
       
       if (!idGuildaReal) {
         showToast('ID da guilda não encontrado!', true);
@@ -846,10 +832,7 @@
         return;
       }
       
-      // 3️⃣ BUSCAR A GUILDA
-      console.log('🔍 Buscando guilda por campo id:', idGuildaReal);
-      
-      let guildaDoc = null;
+      // 3️⃣ Buscar a guilda
       let guildaRef = null;
       let guildaData = null;
       
@@ -861,42 +844,18 @@
       const guildaSnap = await getDocs(guildaQuery);
       
       if (!guildaSnap.empty) {
-        guildaDoc = guildaSnap.docs[0];
+        const guildaDoc = guildaSnap.docs[0];
         guildaRef = doc(db, "guildas", guildaDoc.id);
         guildaData = guildaDoc.data();
-        console.log('✅ Guilda encontrada por campo id! Documento ID:', guildaDoc.id);
-        console.log('📄 Dados da guilda:', guildaData);
       } else {
-        console.log('❌ Não encontrou por campo id, tentando como ID do documento...');
         try {
           const docRef = doc(db, "guildas", idGuildaReal);
           const docSnap = await getDoc(docRef);
-          
           if (docSnap.exists()) {
-            guildaDoc = docSnap;
             guildaRef = docRef;
             guildaData = docSnap.data();
-            console.log('✅ Guilda encontrada como documento ID!');
           }
-        } catch (e) {
-          console.log('Erro ao buscar como documento:', e);
-        }
-      }
-      
-      if (!guildaData) {
-        console.log('🔍 Tentando buscar por nome...');
-        const nomeQuery = query(
-          collection(db, "guildas"),
-          where("nome", "==", idGuildaReal)
-        );
-        const nomeSnap = await getDocs(nomeQuery);
-        
-        if (!nomeSnap.empty) {
-          guildaDoc = nomeSnap.docs[0];
-          guildaRef = doc(db, "guildas", guildaDoc.id);
-          guildaData = guildaDoc.data();
-          console.log('✅ Guilda encontrada por nome!');
-        }
+        } catch (e) {}
       }
       
       if (!guildaData) {
@@ -906,56 +865,40 @@
       }
       
       // 4️⃣ Verificar se já é membro
-      if (guildaData.membros && guildaData.membros.includes(currentUser.uid)) {
-        showToast('Você já é membro desta guilda!', true);
-        await deleteDoc(conviteRef);
-        hideLoading();
-        await carregarNotificacoes();
-        return;
-      }
+      const jaMembro = guildaData.membros && guildaData.membros.includes(currentUser.uid);
       
-      // 5️⃣ ATUALIZAR A GUILDA - Adicionar membro
-      console.log('📝 Adicionando membro à guilda...');
-      
-      const novoMembro = {
-        uid: currentUser.uid,
-        nick: userData?.nickname || 'Jogador',
-        id_pc: userData?.id_pc || '---',
-        cargo: 'membro',
-        data_entrada: new Date().toISOString()
-      };
-      
-      await updateDoc(guildaRef, {
-        membros: arrayUnion(currentUser.uid),
-        membros_detalhes: arrayUnion(novoMembro),
-        total_membros: (guildaData.total_membros || 0) + 1
-      });
-      
-      // 6️⃣ DELETAR o convite
-      await deleteDoc(conviteRef);
-      
-      // 7️⃣ Deletar também da coleção notificacoes se existir
-      try {
-        const notifQuery = query(
-          collection(db, "notificacoes"),
-          where("guilda_id", "==", guildaDoc.id),
-          where("destinatario_uid", "==", currentUser.uid),
-          where("lida", "==", false)
-        );
-        const notifSnap = await getDocs(notifQuery);
-        notifSnap.forEach(async (notifDoc) => {
-          await deleteDoc(doc(db, "notificacoes", notifDoc.id));
+      if (!jaMembro) {
+        // Adicionar membro à guilda
+        const novoMembro = {
+          uid: currentUser.uid,
+          nick: userData?.nickname || 'Jogador',
+          id_pc: userData?.id_pc || '---',
+          cargo: 'membro',
+          data_entrada: new Date().toISOString()
+        };
+        
+        await updateDoc(guildaRef, {
+          membros: arrayUnion(currentUser.uid),
+          membros_detalhes: arrayUnion(novoMembro),
+          total_membros: (guildaData.total_membros || 0) + 1
         });
-      } catch (e) {
-        console.log('Não foi possível deletar notificações:', e);
+        
+        showToast('✅ Você entrou na guilda!');
+      } else {
+        console.log('Já é membro da guilda');
       }
       
-      showToast('✅ Você entrou na guilda!');
+      // 5️⃣ DELETAR O CONVITE (sempre deletar, independente se já era membro ou não)
+      await deleteDoc(conviteRef);
+      console.log('✅ Convite deletado');
+      
+      // 6️⃣ Recarregar a lista de notificações
       await carregarNotificacoes();
       
     } catch (error) {
       console.error('❌ Erro ao aceitar convite:', error);
       showToast('Erro ao aceitar convite: ' + error.message, true);
+      hideLoading();
     } finally {
       hideLoading();
     }
@@ -976,6 +919,7 @@
     } catch (error) {
       console.error('Erro ao recusar convite:', error);
       showToast('Erro ao recusar convite', true);
+      hideLoading();
     } finally {
       hideLoading();
     }
@@ -991,7 +935,9 @@
     showLoading();
     
     try {
-      // Buscar dados do convite
+      console.log('🎯 Aceitando convite de campanha - ID:', conviteId);
+      
+      // 1️⃣ Buscar o convite
       const conviteRef = doc(db, "convites", conviteId);
       const conviteDoc = await getDoc(conviteRef);
       
@@ -1003,7 +949,7 @@
       
       const conviteData = conviteDoc.data();
       
-      // Verificar se já está na campanha
+      // 2️⃣ Verificar se já está na campanha
       const vinculoQuery = query(
         collection(db, "campanha_personagens"),
         where("campanha_id", "==", campanhaId),
@@ -1011,102 +957,87 @@
       );
       
       const vinculoSnap = await getDocs(vinculoQuery);
+      const jaEstaNaCampanha = !vinculoSnap.empty;
       
-      if (!vinculoSnap.empty) {
-        showToast('Você já está nesta campanha!', true);
-        await deleteDoc(conviteRef);
-        await carregarNotificacoes();
-        hideLoading();
-        return;
-      }
-      
-      // Buscar personagens do jogador
-      const personagensQuery = query(
-        collection(db, "personagens"),
-        where("userId", "==", currentUser.uid)
-      );
-      
-      const personagensSnap = await getDocs(personagensQuery);
-      
-      if (personagensSnap.empty) {
-        showToast('Você precisa criar um personagem primeiro!', true);
-        window.location.href = 'criar-personagem.html?return=notificacoes';
-        hideLoading();
-        return;
-      }
-      
-      let personagemId = null;
-      let personagemNome = null;
-      personagensSnap.forEach(doc => {
-        if (!personagemId) {
-          personagemId = doc.id;
-          personagemNome = doc.data().nome;
-        }
-      });
-      
-      // Buscar dados da campanha
-      const campanhaQuery = query(
-        collection(db, "campanhas"),
-        where("id", "==", campanhaId)
-      );
-      
-      const campanhaSnap = await getDocs(campanhaQuery);
-      let campanhaDocId = null;
-      campanhaSnap.forEach(doc => {
-        campanhaDocId = doc.id;
-      });
-      
-      // Criar vínculo
-      const vinculoData = {
-        campanha_id: campanhaId,
-        campanha_nome: campanhaNome,
-        jogador_uid: currentUser.uid,
-        jogador_nick: userData?.nickname || 'Jogador',
-        personagem_id: personagemId,
-        personagem_nome: personagemNome,
-        data_vinculo: serverTimestamp(),
-        status: 'ativo'
-      };
-      
-      await addDoc(collection(db, "campanha_personagens"), vinculoData);
-      
-      // Atualizar vagas na campanha
-      if (campanhaDocId) {
-        const campanhaRef = doc(db, "campanhas", campanhaDocId);
-        const campanhaDoc = await getDoc(campanhaRef);
-        if (campanhaDoc.exists()) {
-          const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
-          await updateDoc(campanhaRef, {
-            vagas_ocupadas: vagasOcupadas
-          });
-        }
-      }
-      
-      // DELETAR o convite
-      await deleteDoc(conviteRef);
-      
-      // Deletar também da coleção notificacoes se existir
-      try {
-        const notifQuery = query(
-          collection(db, "notificacoes"),
-          where("campanha_id", "==", campanhaId),
-          where("destinatario_uid", "==", currentUser.uid),
-          where("lida", "==", false)
+      if (!jaEstaNaCampanha) {
+        // 3️⃣ Buscar personagens do jogador
+        const personagensQuery = query(
+          collection(db, "personagens"),
+          where("userId", "==", currentUser.uid)
         );
-        const notifSnap = await getDocs(notifQuery);
-        notifSnap.forEach(async (notifDoc) => {
-          await deleteDoc(doc(db, "notificacoes", notifDoc.id));
+        
+        const personagensSnap = await getDocs(personagensQuery);
+        
+        if (personagensSnap.empty) {
+          showToast('Você precisa criar um personagem primeiro!', true);
+          window.location.href = 'criar-personagem.html?return=notificacoes';
+          hideLoading();
+          return;
+        }
+        
+        let personagemId = null;
+        let personagemNome = null;
+        personagensSnap.forEach(doc => {
+          if (!personagemId) {
+            personagemId = doc.id;
+            personagemNome = doc.data().nome;
+          }
         });
-      } catch (e) {
-        console.log('Não foi possível deletar notificações:', e);
+        
+        // 4️⃣ Buscar dados da campanha
+        const campanhaQuery = query(
+          collection(db, "campanhas"),
+          where("id", "==", campanhaId)
+        );
+        
+        const campanhaSnap = await getDocs(campanhaQuery);
+        let campanhaDocId = null;
+        campanhaSnap.forEach(doc => {
+          campanhaDocId = doc.id;
+        });
+        
+        // 5️⃣ Criar vínculo
+        const vinculoData = {
+          campanha_id: campanhaId,
+          campanha_nome: campanhaNome,
+          jogador_uid: currentUser.uid,
+          jogador_nick: userData?.nickname || 'Jogador',
+          personagem_id: personagemId,
+          personagem_nome: personagemNome,
+          data_vinculo: serverTimestamp(),
+          status: 'ativo'
+        };
+        
+        await addDoc(collection(db, "campanha_personagens"), vinculoData);
+        
+        // 6️⃣ Atualizar vagas na campanha
+        if (campanhaDocId) {
+          const campanhaRef = doc(db, "campanhas", campanhaDocId);
+          const campanhaDoc = await getDoc(campanhaRef);
+          if (campanhaDoc.exists()) {
+            const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
+            await updateDoc(campanhaRef, {
+              vagas_ocupadas: vagasOcupadas
+            });
+          }
+        }
+        
+        showToast('✅ Você entrou na campanha!');
+      } else {
+        console.log('Já está na campanha');
       }
       
-      showToast('✅ Você entrou na campanha!');
+      // 7️⃣ DELETAR O CONVITE (sempre deletar, independente se já estava na campanha ou não)
+      await deleteDoc(conviteRef);
+      console.log('✅ Convite deletado');
+      
+      // 8️⃣ Recarregar a lista de notificações
       await carregarNotificacoes();
       
     } catch (error) {
       console.error('❌ Erro ao aceitar convite:', error);
       showToast('Erro ao aceitar convite: ' + error.message, true);
+      hideLoading();
     } finally {
       hideLoading();
     }
@@ -1127,13 +1058,14 @@
     } catch (error) {
       console.error('Erro ao recusar convite:', error);
       showToast('Erro ao recusar convite', true);
+      hideLoading();
     } finally {
       hideLoading();
     }
   };
 
 
-  // ===== CARREGAR NOTIFICAÇÕES (BUSCA DA COLEÇÃO CONVITES) =====
+  // ===== CARREGAR NOTIFICAÇÕES =====
   async function carregarNotificacoes() {
     if (!currentUser) return;
     
@@ -1174,7 +1106,6 @@
       for (const c of convitesArray) {
         const dataFormatada = c.dataObj.toLocaleString();
         
-        // CONVITE DE CAMPANHA
         if (c.tipo === 'campanha') {
           html += `
             <div class="notification-item">
@@ -1199,10 +1130,7 @@
               <span class="notification-badge">NOVO</span>
             </div>
           `;
-        }
-        
-        // CONVITE DE GUILDA
-        else if (c.tipo === 'guilda') {
+        } else if (c.tipo === 'guilda') {
           html += `
             <div class="notification-item">
               <div class="notification-icon">
@@ -1258,10 +1186,8 @@
       
       if (docSnap.exists()) {
         userData = docSnap.data();
-        
         displayIdPc.textContent = userData.id_pc || '--------';
         displayNickname.textContent = userData.nickname || 'Aventureiro';
-        
         await carregarNotificacoes();
       } else {
         await carregarNotificacoes();
