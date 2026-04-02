@@ -1381,35 +1381,34 @@ canvas.modo-movimento {
         <span id="defesaDeslocamento">0.0m / 0.0m</span>
     </div>
 
-    <!-- ============================================ -->
-    <!-- NOVO BLOCO DE DANO - COLOCAR AQUI DEPOIS DO DESLOCAMENTO -->
-    <!-- ============================================ -->
-    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--gold);">
-        <h4 style="color: var(--gold); font-size: 0.9rem; margin-bottom: 8px;">
-            <i class="fas fa-sword"></i> Dano
-        </h4>
+   <!-- ============================================ -->
+<!-- BLOCO DE DANO - VERSÃO CORRETA -->
+<!-- ============================================ -->
+<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--gold);">
+    <h4 style="color: var(--gold); font-size: 0.9rem; margin-bottom: 8px;">
+        <i class="fas fa-sword"></i> Dano
+    </h4>
+    
+    <div style="background: var(--bg-primary); border-radius: 8px; padding: 10px;">
+        <!-- Linha 1: Dano Base (sempre aparece) -->
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+            <span><i class="fas fa-fist-raised"></i> Dano Base (ST)</span>
+            <span id="danoBaseValor" style="color: var(--gold); font-weight: 600;">--</span>
+        </div>
         
-        <div style="background: var(--bg-primary); border-radius: 8px; padding: 10px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.8rem;">
-                <span><i class="fas fa-fist-raised"></i> Dano Base (ST)</span>
-                <span id="danoBase" style="color: var(--gold); font-weight: 600;">--</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.8rem;">
-                <span><i class="fas fa-sword"></i> Dano da Arma</span>
-                <span id="danoArma" style="color: var(--gold); font-weight: 600;">--</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; padding-top: 6px; margin-top: 6px; border-top: 1px dashed var(--border-glow); font-size: 0.9rem;">
-                <span><i class="fas fa-bolt"></i> Dano Total</span>
-                <span id="danoTotal" style="color: var(--gold-bright); font-weight: 700; font-size: 1rem;">--</span>
-            </div>
-            
-            <div id="armaEquipadaInfo" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 8px; text-align: center;">
-                <!-- Nome da arma equipada aparecerá aqui -->
-            </div>
+        <!-- Linha 2: Arma 1 (se existir) -->
+        <div id="arma1Container" style="display: none; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+            <span><i class="fas fa-sword"></i> <span id="arma1Nome">--</span></span>
+            <span id="arma1Dano" style="color: var(--gold-bright); font-weight: 700;">--</span>
+        </div>
+        
+        <!-- Linha 3: Arma 2 (se existir) -->
+        <div id="arma2Container" style="display: none; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem;">
+            <span><i class="fas fa-sword"></i> <span id="arma2Nome">--</span></span>
+            <span id="arma2Dano" style="color: var(--gold-bright); font-weight: 700;">--</span>
         </div>
     </div>
+</div>
 </div>
 
     <!-- Atributos Rápidos -->
@@ -1878,12 +1877,13 @@ function getParamsFromUrl() {
     };
 }
 // ============================================
-// FUNÇÕES DE DANO
+// FUNÇÕES DE DANO - VERSÃO COM DUAS ARMAS
 // ============================================
 
-function obterArmaEquipada() {
-    if (!personagemAtual?.inventario?.corpo) return null;
-    return personagemAtual.inventario.corpo.find(item => item.dano) || null;
+function obterArmasEquipadas() {
+    if (!personagemAtual?.inventario?.corpo) return [];
+    // Pega todas as armas que têm dano
+    return personagemAtual.inventario.corpo.filter(item => item.dano);
 }
 
 function somarDanos(dano1, dano2) {
@@ -1892,27 +1892,21 @@ function somarDanos(dano1, dano2) {
     if (!dano2) return dano1;
     
     function extrairDano(danoStr) {
-        // Limpa a string
         danoStr = danoStr.trim();
-        
-        // Verifica se é um dano com dados (ex: 1d-2, 2d+1, 1d)
         const dadoMatch = danoStr.match(/^(\d*)d([+-]\d+)?$/);
         
         if (dadoMatch) {
-            // É dano com dados
             let dados = dadoMatch[1] === '' ? 1 : parseInt(dadoMatch[1]);
             let mod = dadoMatch[2] ? parseInt(dadoMatch[2]) : 0;
             return { tipo: 'dado', dados, mod };
         }
         
-        // Verifica se é apenas um modificador numérico (ex: +3, -2, +5, 3, 5)
         const modMatch = danoStr.match(/^([+-]?\d+)$/);
         if (modMatch) {
             let mod = parseInt(modMatch[1]);
             return { tipo: 'mod', dados: 0, mod };
         }
         
-        // Se não conseguir identificar, assume como 1d-3 (padrão)
         console.warn('Formato de dano não reconhecido:', danoStr, 'usando 1d-3');
         return { tipo: 'dado', dados: 1, mod: -3 };
     }
@@ -1920,13 +1914,11 @@ function somarDanos(dano1, dano2) {
     const d1 = extrairDano(dano1);
     const d2 = extrairDano(dano2);
     
-    // Ambos são apenas modificadores (ex: +3 + +2 = +5)
     if (d1.tipo === 'mod' && d2.tipo === 'mod') {
         const totalMod = d1.mod + d2.mod;
         return totalMod >= 0 ? `+${totalMod}` : `${totalMod}`;
     }
     
-    // d1 é modificador, d2 é dado (ex: +3 + 1d-2)
     if (d1.tipo === 'mod' && d2.tipo === 'dado') {
         const totalMod = d1.mod + d2.mod;
         let resultado = d2.dados === 1 ? "1d" : `${d2.dados}d`;
@@ -1935,7 +1927,6 @@ function somarDanos(dano1, dano2) {
         return resultado;
     }
     
-    // d1 é dado, d2 é modificador (ex: 1d-2 + +3)
     if (d1.tipo === 'dado' && d2.tipo === 'mod') {
         const totalMod = d1.mod + d2.mod;
         let resultado = d1.dados === 1 ? "1d" : `${d1.dados}d`;
@@ -1944,7 +1935,6 @@ function somarDanos(dano1, dano2) {
         return resultado;
     }
     
-    // Ambos são dados (ex: 1d-2 + 1d+2)
     const totalDados = d1.dados + d2.dados;
     const totalMod = d1.mod + d2.mod;
     
@@ -1964,32 +1954,57 @@ function calcularDanoTotal() {
     };
     const danoBase = tabelaDano[stEsferas] || "1d-3";
     
-    const arma = obterArmaEquipada();
-    const danoArma = arma?.dano || null;
+    const armas = obterArmasEquipadas();
+    const armasComDano = [];
+    
+    // Calcula dano total para cada arma (ST + arma)
+    for (let i = 0; i < Math.min(armas.length, 2); i++) {
+        const arma = armas[i];
+        const danoTotal = somarDanos(danoBase, arma.dano);
+        armasComDano.push({
+            nome: arma.nome || `Arma ${i+1}`,
+            dano: danoTotal
+        });
+    }
     
     return {
         base: danoBase,
-        arma: danoArma,
-        armaNome: arma?.nome || null,
-        total: somarDanos(danoBase, danoArma)
+        armas: armasComDano
     };
 }
 
 function atualizarDanoUI() {
     const dano = calcularDanoTotal();
     
-    const danoBaseSpan = document.getElementById('danoBase');
-    const danoArmaSpan = document.getElementById('danoArma');
-    const danoTotalSpan = document.getElementById('danoTotal');
-    const armaInfoSpan = document.getElementById('armaEquipadaInfo');
-    
+    // Sempre mostra o dano base
+    const danoBaseSpan = document.getElementById('danoBaseValor');
     if (danoBaseSpan) danoBaseSpan.textContent = dano.base;
-    if (danoArmaSpan) danoArmaSpan.textContent = dano.arma || 'Nenhuma';
-    if (danoTotalSpan) danoTotalSpan.textContent = dano.total;
-    if (armaInfoSpan) {
-        armaInfoSpan.innerHTML = dano.armaNome ? 
-            `<i class="fas fa-sword"></i> ${dano.armaNome} equipada` : 
-            `<i class="fas fa-hand-fist"></i> Desarmado`;
+    
+    // Arma 1
+    const arma1Container = document.getElementById('arma1Container');
+    const arma1Nome = document.getElementById('arma1Nome');
+    const arma1Dano = document.getElementById('arma1Dano');
+    
+    // Arma 2
+    const arma2Container = document.getElementById('arma2Container');
+    const arma2Nome = document.getElementById('arma2Nome');
+    const arma2Dano = document.getElementById('arma2Dano');
+    
+    // Esconde todos primeiro
+    if (arma1Container) arma1Container.style.display = 'none';
+    if (arma2Container) arma2Container.style.display = 'none';
+    
+    // Mostra as armas que existem
+    if (dano.armas.length >= 1) {
+        if (arma1Container) arma1Container.style.display = 'flex';
+        if (arma1Nome) arma1Nome.textContent = dano.armas[0].nome;
+        if (arma1Dano) arma1Dano.textContent = dano.armas[0].dano;
+    }
+    
+    if (dano.armas.length >= 2) {
+        if (arma2Container) arma2Container.style.display = 'flex';
+        if (arma2Nome) arma2Nome.textContent = dano.armas[1].nome;
+        if (arma2Dano) arma2Dano.textContent = dano.armas[1].dano;
     }
 }
 
