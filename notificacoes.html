@@ -725,12 +725,6 @@
       const conviteData = conviteDoc.data();
       const nomeGuilda = conviteData.guilda_nome;
       
-      if (!nomeGuilda) {
-        showToast('Nome da guilda não encontrado!', true);
-        hideLoading();
-        return;
-      }
-      
       const guildaQuery = query(
         collection(db, "guildas"),
         where("nome", "==", nomeGuilda)
@@ -738,7 +732,7 @@
       
       const guildaSnap = await getDocs(guildaQuery);
       
-      if (guildaSnap.empty) {
+      if (guildaSnap.empty()) {
         showToast('Guilda não encontrada!', true);
         hideLoading();
         return;
@@ -800,7 +794,7 @@
     }
   };
 
-  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA =====
+  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (USANDO OS CAMPOS CORRETOS) =====
   window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
     if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) {
       return;
@@ -818,8 +812,6 @@
         hideLoading();
         return;
       }
-      
-      const conviteData = conviteDoc.data();
       
       // 2️⃣ Buscar a campanha pelo campo "id"
       const campanhaQuery = query(
@@ -839,22 +831,15 @@
       const campanhaRef = doc(db, "campanhas", campanhaDoc.id);
       const campanhaData = campanhaDoc.data();
       
-      // 3️⃣ Verificar se o jogador já é membro
-      const jaMembro = campanhaData.membros && campanhaData.membros.includes(currentUser.uid);
+      // 3️⃣ Verificar se o jogador já está na campanha (campo "jogadores")
+      const jogadores = campanhaData.jogadores || [];
+      const jaMembro = jogadores.includes(currentUser.uid);
       
       if (!jaMembro) {
-        // 4️⃣ Adicionar jogador como membro da campanha
-        const novoMembro = {
-          uid: currentUser.uid,
-          nick: userData?.nickname || 'Jogador',
-          id_pc: userData?.id_pc || '---',
-          data_entrada: new Date().toISOString()
-        };
-        
+        // 4️⃣ Adicionar jogador ao array "jogadores"
         await updateDoc(campanhaRef, {
-          membros: arrayUnion(currentUser.uid),
-          membros_detalhes: arrayUnion(novoMembro),
-          total_membros: (campanhaData.total_membros || 0) + 1
+          jogadores: arrayUnion(currentUser.uid),
+          vagas_ocupadas: (campanhaData.vagas_ocupadas || 0) + 1
         });
         
         showToast('✅ Você entrou na campanha ' + campanhaNome + '!');
