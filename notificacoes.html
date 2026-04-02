@@ -656,7 +656,6 @@
     query,
     where,
     getDocs,
-    addDoc,
     updateDoc,
     deleteDoc,
     serverTimestamp,
@@ -739,7 +738,7 @@
       
       const guildaSnap = await getDocs(guildaQuery);
       
-      if (guildaSnap.empty()) {
+      if (guildaSnap.empty) {
         showToast('Guilda não encontrada!', true);
         hideLoading();
         return;
@@ -775,6 +774,7 @@
       await carregarNotificacoes();
       
     } catch (error) {
+      console.error('Erro ao aceitar convite:', error);
       showToast('Erro ao aceitar convite', true);
     } finally {
       hideLoading();
@@ -793,13 +793,14 @@
       showToast('Convite recusado');
       await carregarNotificacoes();
     } catch (error) {
+      console.error('Erro ao recusar convite:', error);
       showToast('Erro ao recusar convite', true);
     } finally {
       hideLoading();
     }
   };
 
-  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (ADICIONA APENAS O JOGADOR, SEM PERSONAGEM) =====
+  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA =====
   window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
     if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) {
       return;
@@ -817,6 +818,8 @@
         hideLoading();
         return;
       }
+      
+      const conviteData = conviteDoc.data();
       
       // 2️⃣ Buscar a campanha pelo campo "id"
       const campanhaQuery = query(
@@ -836,18 +839,16 @@
       const campanhaRef = doc(db, "campanhas", campanhaDoc.id);
       const campanhaData = campanhaDoc.data();
       
-      // 3️⃣ Verificar se o jogador já é membro da campanha
+      // 3️⃣ Verificar se o jogador já é membro
       const jaMembro = campanhaData.membros && campanhaData.membros.includes(currentUser.uid);
       
       if (!jaMembro) {
-        // 4️⃣ Adicionar apenas o JOGADOR (sem personagem)
+        // 4️⃣ Adicionar jogador como membro da campanha
         const novoMembro = {
           uid: currentUser.uid,
           nick: userData?.nickname || 'Jogador',
           id_pc: userData?.id_pc || '---',
-          data_entrada: new Date().toISOString(),
-          personagem_id: null,
-          personagem_nome: null
+          data_entrada: new Date().toISOString()
         };
         
         await updateDoc(campanhaRef, {
@@ -887,6 +888,7 @@
       showToast('Convite recusado');
       await carregarNotificacoes();
     } catch (error) {
+      console.error('Erro ao recusar convite:', error);
       showToast('Erro ao recusar convite', true);
     } finally {
       hideLoading();
@@ -908,7 +910,7 @@
       
       const convitesSnap = await getDocs(convitesQuery);
       
-      if (convitesSnap.empty()) {
+      if (convitesSnap.empty) {
         notificacoesContainer.innerHTML = `
           <div class="empty-state">
             <i class="fas fa-bell-slash"></i>
@@ -921,7 +923,7 @@
       }
       
       let html = '';
-      let convitesArray = [];
+      const convitesArray = [];
       
       convitesSnap.forEach((doc) => {
         const c = { id: doc.id, ...doc.data() };
@@ -1051,7 +1053,5 @@
     }
   });
 </script>
-
-
 </body>
 </html>
