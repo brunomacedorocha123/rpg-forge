@@ -746,7 +746,7 @@
     deleteDoc,
     serverTimestamp,
     arrayUnion,
-    runTransaction
+    writeBatch
   } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -801,7 +801,7 @@
     showLoading();
     
     try {
-      // PRIMEIRO: Buscar dados do convite
+      // 1. Buscar dados do convite PRIMEIRO (fora da transaction)
       const conviteRef = doc(db, "convites", conviteId);
       const conviteSnap = await getDoc(conviteRef);
       
@@ -813,9 +813,7 @@
       }
       
       const conviteData = conviteSnap.data();
-      
-      // Determinar ID da guilda
-      let idGuildaReal = guildaId || conviteData.guilda_id || conviteData.guildaId || conviteData.guilda;
+      const idGuildaReal = guildaId || conviteData.guilda_id || conviteData.guildaId || conviteData.guilda;
       
       if (!idGuildaReal) {
         showToast('ID da guilda não encontrado!', true);
@@ -823,8 +821,8 @@
         return;
       }
       
-      // Buscar guilda
-      let guildaRef = null;
+      // 2. Buscar guilda (fora da transaction)
+      let guildaDocId = null;
       let guildaData = null;
       
       const guildaQuery = query(
@@ -835,15 +833,13 @@
       const guildaSnap = await getDocs(guildaQuery);
       
       if (!guildaSnap.empty) {
-        const guildaDoc = guildaSnap.docs[0];
-        guildaRef = doc(db, "guildas", guildaDoc.id);
-        guildaData = guildaDoc.data();
+        guildaDocId = guildaSnap.docs[0].id;
+        guildaData = guildaSnap.docs[0].data();
       } else {
-        // Tentar buscar diretamente pelo ID do documento
         const docRef = doc(db, "guildas", idGuildaReal);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          guildaRef = docRef;
+          guildaDocId = idGuildaReal;
           guildaData = docSnap.data();
         }
       }
@@ -854,12 +850,9 @@
         return;
       }
       
-      // Verificar se já é membro
+      // 3. Verificar se já é membro
       const membros = guildaData.membros || [];
-      const jaMembro = membros.includes(currentUser.uid);
-      
-      if (jaMembro) {
-        // Já é membro, apenas deleta o convite
+      if (membros.includes(currentUser.uid)) {
         await deleteDoc(conviteRef);
         showToast('Você já é membro desta guilda!');
         await carregarNotificacoes();
@@ -867,7 +860,10 @@
         return;
       }
       
-      // Adicionar membro à guilda
+      // 4. Agora usar writeBatch (mais simples que transaction)
+      const batch = writeBatch(db);
+      
+      const guildaRef = doc(db, "guildas", guildaDocId);
       const novoMembro = {
         uid: currentUser.uid,
         nick: userData?.nickname || 'Jogador',
@@ -876,41 +872,25 @@
         data_entrada: new Date().toISOString()
       };
       
-      // Usar transaction para garantir atomicidade
-      await runTransaction(db, async (transaction) => {
-        const guildaDoc = await transaction.get(guildaRef);
-        if (!guildaDoc.exists()) {
-          throw new Error('Guilda não encontrada!');
-        }
-        
-        const currentMembros = guildaDoc.data().membros || [];
-        const currentDetalhes = guildaDoc.data().membros_detalhes || [];
-        
-        if (currentMembros.includes(currentUser.uid)) {
-          throw new Error('Já é membro');
-        }
-        
-        transaction.update(guildaRef, {
-          membros: [...currentMembros, currentUser.uid],
-          membros_detalhes: [...currentDetalhes, novoMembro],
-          total_membros: (guildaDoc.data().total_membros || 0) + 1
-        });
-        
-        // Deletar convite dentro da transaction
-        transaction.delete(conviteRef);
+      const membrosAtuais = guildaData.membros || [];
+      const detalhesAtuais = guildaData.membros_detalhes || [];
+      
+      batch.update(guildaRef, {
+        membros: [...membrosAtuais, currentUser.uid],
+        membros_detalhes: [...detalhesAtuais, novoMembro],
+        total_membros: (guildaData.total_membros || 0) + 1
       });
+      
+      batch.delete(conviteRef);
+      
+      await batch.commit();
       
       showToast('✅ Você entrou na guilda com sucesso!');
       await carregarNotificacoes();
       
     } catch (error) {
       console.error('Erro ao aceitar convite:', error);
-      if (error.message === 'Já é membro') {
-        showToast('Você já é membro desta guilda!');
-        await carregarNotificacoes();
-      } else {
-        showToast('Erro ao aceitar convite: ' + error.message, true);
-      }
+      showToast('Erro ao aceitar convite: ' + error.message, true);
     } finally {
       hideLoading();
     }
@@ -945,7 +925,7 @@
     showLoading();
     
     try {
-      // PRIMEIRO: Buscar dados do convite
+      // 1. Buscar convite PRIMEIRO
       const conviteRef = doc(db, "convites", conviteId);
       const conviteSnap = await getDoc(conviteRef);
       
@@ -960,13 +940,7 @@
       const campanhaIdReal = campanhaId || conviteData.campanha_id;
       const campanhaNomeReal = campanhaNome || conviteData.campanha_nome;
       
-      if (!campanhaIdReal) {
-        showToast('ID da campanha não encontrado!', true);
-        hideLoading();
-        return;
-      }
-      
-      // Verificar se já está na campanha
+      // 2. Verificar se já está na campanha
       const vinculoQuery = query(
         collection(db, "campanha_personagens"),
         where("campanha_id", "==", campanhaIdReal),
@@ -976,7 +950,6 @@
       const vinculoSnap = await getDocs(vinculoQuery);
       
       if (!vinculoSnap.empty) {
-        // Já está na campanha, apenas deleta o convite
         await deleteDoc(conviteRef);
         showToast('Você já está nesta campanha!');
         await carregarNotificacoes();
@@ -984,7 +957,7 @@
         return;
       }
       
-      // Buscar personagens do jogador
+      // 3. Buscar personagem
       const personagensQuery = query(
         collection(db, "personagens"),
         where("userId", "==", currentUser.uid)
@@ -1008,7 +981,7 @@
         }
       });
       
-      // Buscar documento da campanha
+      // 4. Buscar campanha
       const campanhaQuery = query(
         collection(db, "campanhas"),
         where("id", "==", campanhaIdReal)
@@ -1016,67 +989,50 @@
       
       const campanhaSnap = await getDocs(campanhaQuery);
       let campanhaDocId = null;
-      let campanhaDocRef = null;
+      let campanhaData = null;
       
       campanhaSnap.forEach(doc => {
         campanhaDocId = doc.id;
-        campanhaDocRef = doc.ref;
+        campanhaData = doc.data();
       });
       
-      // Criar vínculo usando transaction
-      await runTransaction(db, async (transaction) => {
-        // Verificar novamente se não existe vínculo (evitar race condition)
-        const vinculoCheck = query(
-          collection(db, "campanha_personagens"),
-          where("campanha_id", "==", campanhaIdReal),
-          where("jogador_uid", "==", currentUser.uid)
-        );
-        
-        const vinculoCheckSnap = await getDocs(vinculoCheck);
-        
-        if (!vinculoCheckSnap.empty) {
-          throw new Error('Já está na campanha');
-        }
-        
-        // Criar o vínculo
-        const vinculoData = {
-          campanha_id: campanhaIdReal,
-          campanha_nome: campanhaNomeReal,
-          jogador_uid: currentUser.uid,
-          jogador_nick: userData?.nickname || 'Jogador',
-          personagem_id: personagemId,
-          personagem_nome: personagemNome,
-          data_vinculo: serverTimestamp(),
-          status: 'ativo'
-        };
-        
-        const vinculoRef = doc(collection(db, "campanha_personagens"));
-        transaction.set(vinculoRef, vinculoData);
-        
-        // Atualizar vagas na campanha
-        if (campanhaDocRef) {
-          const campanhaDoc = await transaction.get(campanhaDocRef);
-          if (campanhaDoc.exists()) {
-            const vagasOcupadas = (campanhaDoc.data().vagas_ocupadas || 0) + 1;
-            transaction.update(campanhaDocRef, { vagas_ocupadas: vagasOcupadas });
-          }
-        }
-        
-        // Deletar convite
-        transaction.delete(conviteRef);
-      });
+      // 5. Usar writeBatch
+      const batch = writeBatch(db);
+      
+      // Criar vínculo
+      const vinculoRef = doc(collection(db, "campanha_personagens"));
+      const vinculoData = {
+        campanha_id: campanhaIdReal,
+        campanha_nome: campanhaNomeReal,
+        jogador_uid: currentUser.uid,
+        jogador_nick: userData?.nickname || 'Jogador',
+        personagem_id: personagemId,
+        personagem_nome: personagemNome,
+        data_vinculo: serverTimestamp(),
+        status: 'ativo'
+      };
+      
+      batch.set(vinculoRef, vinculoData);
+      
+      // Atualizar vagas
+      if (campanhaDocId) {
+        const campanhaRef = doc(db, "campanhas", campanhaDocId);
+        batch.update(campanhaRef, {
+          vagas_ocupadas: (campanhaData?.vagas_ocupadas || 0) + 1
+        });
+      }
+      
+      // Deletar convite
+      batch.delete(conviteRef);
+      
+      await batch.commit();
       
       showToast('✅ Você entrou na campanha com sucesso!');
       await carregarNotificacoes();
       
     } catch (error) {
       console.error('Erro ao aceitar convite:', error);
-      if (error.message === 'Já está na campanha') {
-        showToast('Você já está nesta campanha!');
-        await carregarNotificacoes();
-      } else {
-        showToast('Erro ao aceitar convite: ' + error.message, true);
-      }
+      showToast('Erro ao aceitar convite: ' + error.message, true);
     } finally {
       hideLoading();
     }
