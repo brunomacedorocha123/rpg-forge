@@ -1113,18 +1113,18 @@
   };
 
 
-  // ===== CARREGAR NOTIFICAÇÕES =====
+  // ===== CARREGAR NOTIFICAÇÕES (SEM orderBy - NÃO PRECISA DE ÍNDICE) =====
   async function carregarNotificacoes() {
     if (!currentUser) return;
     
     showLoading();
     
     try {
+      // SEM orderBy para não precisar de índice
       const q = query(
         collection(db, "notificacoes"),
         where("usuarioId", "==", currentUser.uid),
-        where("lida", "==", false),
-        orderBy("data", "desc")
+        where("lida", "==", false)
       );
       
       const querySnapshot = await getDocs(q);
@@ -1141,11 +1141,21 @@
         return;
       }
       
-      let html = '';
-      
+      // Coletar e ordenar manualmente
+      let notificacoesArray = [];
       querySnapshot.forEach((doc) => {
         const n = { id: doc.id, ...doc.data() };
-        const data = n.data ? new Date(n.data.seconds * 1000).toLocaleString() : 'Agora mesmo';
+        const data = n.data ? new Date(n.data.seconds * 1000) : new Date();
+        notificacoesArray.push({ ...n, dataObj: data });
+      });
+      
+      // Ordenar manualmente por data (mais recente primeiro)
+      notificacoesArray.sort((a, b) => b.dataObj - a.dataObj);
+      
+      let html = '';
+      
+      for (const n of notificacoesArray) {
+        const data = n.dataObj.toLocaleString();
         
         if (n.tipo === 'convite_guilda') {
           const guildaId = n.guilda_id || n.guildaId || n.guilda;
@@ -1207,7 +1217,7 @@
             </div>
           `;
         }
-      });
+      }
       
       notificacoesContainer.innerHTML = html;
       
