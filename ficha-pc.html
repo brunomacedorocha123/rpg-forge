@@ -2301,12 +2301,19 @@ body {
         </div>
     </div>
 
-   <div class="nav-links">
+    <nav class="navbar">
+    <div class="nav-content">
+        <div class="logo-area">
+            <img src="logo-akalanata.png" alt="Akalanata System" style="height: 40px; width: auto;">
+            <span class="logo-text">Akalanata System</span>
+        </div>
+
+            <div class="nav-links">
     <a href="dashboard-pc.html" class="nav-link" id="linkCampanha">
         <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
     </a>
-    <a href="#" class="nav-link" id="linkMesa">
-        <i class="fas fa-dice-d20"></i> Voltar para a Mesa
+    <a href="#" class="nav-link" id="btnVoltarMesa" style="background: #ffd700; color: #14141f;">
+        <i class="fas fa-gamepad"></i> Voltar para Mesa
     </a>
     <button class="btn-sair" id="btnSair">
         <i class="fas fa-sign-out-alt"></i> Sair
@@ -2724,14 +2731,9 @@ import {
     query,
     where,
     getDocs,
-    onSnapshot,
-    limit,
-    addDoc,
-    setDoc,
-    serverTimestamp,
-    deleteDoc,
-    writeBatch
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
 // ============================================
 // FIREBASE CONFIG
 // ============================================
@@ -2747,6 +2749,65 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// ============================================
+// FUNÇÕES PARA VOLTAR PARA A MESA
+// ============================================
+function voltarParaMesa() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let sessaoId = urlParams.get('sessao');
+    let campanhaId = urlParams.get('campanha');
+    
+    console.log('🔍 Parâmetros na URL:', { sessaoId, campanhaId });
+    
+    if (sessaoId && campanhaId) {
+        window.location.href = `mesa-jogo-pc.html?sessao=${sessaoId}&campanha=${campanhaId}`;
+        return;
+    }
+    
+    if (campanhaId) {
+        buscarSessaoDaCampanha(campanhaId);
+        return;
+    }
+    
+    if (campanhaAtual && campanhaAtual.id) {
+        buscarSessaoDaCampanha(campanhaAtual.id);
+        return;
+    }
+    
+    showToast('❌ Não foi possível voltar para a mesa', true);
+    setTimeout(() => {
+        window.location.href = 'dashboard-pc.html';
+    }, 1500);
+}
+
+async function buscarSessaoDaCampanha(campanhaId) {
+    showToast('🔍 Procurando mesa ativa...');
+    
+    try {
+        const sessoesQuery = query(
+            collection(db, "sessoes"),
+            where("campanha_id", "==", campanhaId),
+            where("status", "==", "ativa")
+        );
+        
+        const sessoesSnap = await getDocs(sessoesQuery);
+        
+        if (!sessoesSnap.empty) {
+            const sessao = sessoesSnap.docs[0];
+            window.location.href = `mesa-jogo-pc.html?sessao=${sessao.id}&campanha=${campanhaId}`;
+        } else {
+            showToast('⚠️ Nenhuma mesa ativa encontrada', true);
+            setTimeout(() => {
+                window.location.href = `campanha-pc.html?id=${campanhaId}`;
+            }, 1500);
+        }
+        
+    } catch (error) {
+        console.error('Erro ao buscar sessão:', error);
+        showToast('Erro ao buscar mesa', true);
+    }
+}
 
 // ============================================
 // ELEMENTOS DOM
@@ -2837,7 +2898,6 @@ const elements = {
     modalMagiaFechar: document.getElementById('modalMagiaFechar'),
     breadcrumbCampanha: document.getElementById('breadcrumbCampanha'),
     linkCampanha: document.getElementById('linkCampanha'),
-    linkMesa: document.getElementById('linkMesa'),
     
     // ===== NOVOS MODAIS =====
     modalCompraQuantidade: document.getElementById('modalCompraQuantidade'),
@@ -2886,36 +2946,6 @@ let destinoTransferirAtual = null;
 let itemUsarAtual = null;
 let localUsarAtual = null;
 
-// ============================================
-// FUNÇÃO PARA BUSCAR A CAMPANHA DO PERSONAGEM
-// ============================================
-async function buscarCampanhaDoPersonagem(personagemId) {
-    try {
-        const vinculosQuery = query(
-            collection(db, "campanha_personagens"),
-            where("personagem_id", "==", personagemId),
-            where("status", "==", "ativo")
-        );
-        const vinculosSnap = await getDocs(vinculosQuery);
-        
-        if (!vinculosSnap.empty) {
-            const vinculo = vinculosSnap.docs[0].data();
-            const campanhaRef = doc(db, "campanhas", vinculo.campanha_id);
-            const campanhaSnap = await getDoc(campanhaRef);
-            
-            if (campanhaSnap.exists()) {
-                return {
-                    id: campanhaSnap.id,
-                    ...campanhaSnap.data()
-                };
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('Erro ao buscar campanha:', error);
-        return null;
-    }
-}
 // ============================================
 // TABELA DE DANO
 // ============================================
@@ -7433,8 +7463,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ============================================
-    // BOTÃO SAIR
+    // BOTÃO VOLTAR PARA MESA
     // ============================================
+    const btnVoltarMesa = document.getElementById('btnVoltarMesa');
+    if (btnVoltarMesa) {
+        btnVoltarMesa.addEventListener('click', (e) => {
+            e.preventDefault();
+            voltarParaMesa();
+        });
+    }
+
     if (elements.btnSair) {
         elements.btnSair.addEventListener('click', async () => {
             await signOut(auth);
@@ -7442,93 +7480,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-         // ============================================
-    // BOTÃO VOLTAR PARA A MESA
-    // ============================================
-    if (elements.linkMesa) {
-        elements.linkMesa.addEventListener('click', async (e) => {
-            e.preventDefault();
-            
-            showLoading();
-            
-            try {
-                if (!personagemAtual || !personagemAtual.id) {
-                    showToast('Personagem não carregado!', true);
-                    hideLoading();
-                    return;
-                }
-                
-                console.log('1. Buscando vínculo do personagem:', personagemAtual.id);
-                
-                // Buscar o vínculo do personagem com a campanha
-                const vinculosQuery = query(
-                    collection(db, "campanha_personagens"),
-                    where("personagem_id", "==", personagemAtual.id)
-                );
-                const vinculosSnap = await getDocs(vinculosQuery);
-                
-                if (vinculosSnap.empty) {
-                    console.log('Nenhum vínculo encontrado');
-                    showToast('Personagem não está vinculado a nenhuma campanha!', true);
-                    hideLoading();
-                    return;
-                }
-                
-                const vinculo = vinculosSnap.docs[0].data();
-                const campanhaId = vinculo.campanha_id;
-                console.log('2. Campanha ID encontrada:', campanhaId);
-                
-                // Buscar TODAS as sessões da campanha
-                const sessoesQuery = query(
-                    collection(db, "sessoes"),
-                    where("campanha_id", "==", campanhaId)
-                );
-                const sessoesSnap = await getDocs(sessoesQuery);
-                
-                if (sessoesSnap.empty) {
-                    console.log('Nenhuma sessão encontrada');
-                    showToast('Nenhuma sessão encontrada para esta campanha!', true);
-                    hideLoading();
-                    return;
-                }
-                
-                // Procurar a sessão que está ativa (status = "ativa", "aberta", "em_andamento", etc)
-                let sessaoAtiva = null;
-                const statusAtivos = ["ativa", "aberta", "em_andamento", "iniciada", "ativo"];
-                
-                for (const doc of sessoesSnap.docs) {
-                    const data = doc.data();
-                    const status = data.status?.toLowerCase() || "";
-                    
-                    if (statusAtivos.includes(status)) {
-                        sessaoAtiva = { id: doc.id, ...data };
-                        console.log('Sessão ativa encontrada:', sessaoAtiva.id, 'Status:', status);
-                        break;
-                    }
-                }
-                
-                // Se não encontrou sessão com status ativo, pega a primeira mesmo
-                if (!sessaoAtiva) {
-                    console.log('Nenhuma sessão com status ativo encontrada, pegando a primeira');
-                    sessaoAtiva = { id: sessoesSnap.docs[0].id, ...sessoesSnap.docs[0].data() };
-                }
-                
-                const sessaoId = sessaoAtiva.id;
-                console.log('3. Sessão escolhida:', sessaoId);
-                
-                // Redirecionar
-                window.location.href = `mesa.html?sessao=${sessaoId}&campanha=${campanhaId}`;
-                
-            } catch (error) {
-                console.error('Erro detalhado:', error);
-                showToast('Erro: ' + error.message, true);
-                hideLoading();
-            }
-        });
-    }
-    // ============================================
-    // AUTH STATE CHANGED
-    // ============================================
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
