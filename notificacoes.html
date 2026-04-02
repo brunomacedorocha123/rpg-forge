@@ -725,7 +725,6 @@
     </div>
   </div>
 
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
   import {
@@ -800,7 +799,7 @@
   }
 
 
-  // ===== FUNÇÃO PARA CONVITES DE GUILDA =====
+  // ===== FUNÇÃO PARA CONVITES DE GUILDA (CORRIGIDA) =====
   window.aceitarConviteGuilda = async function(conviteId, guildaId) {
     if (!confirm('Deseja entrar nesta guilda?')) {
       return;
@@ -809,18 +808,19 @@
     showLoading();
     
     try {
-      // DELETA O CONVITE PRIMEIRO
-      await deleteDoc(doc(db, "convites", conviteId));
-      
+      // PRIMEIRO: Ler os dados do convite ANTES de deletar
       const conviteRef = doc(db, "convites", conviteId);
       const conviteDoc = await getDoc(conviteRef);
       
       if (!conviteDoc.exists()) {
-        // Convite já foi deletado
+        showToast('Convite não encontrado!', true);
+        hideLoading();
+        return;
       }
       
-      const conviteData = conviteDoc.data() || {};
+      const conviteData = conviteDoc.data();
       
+      // Pega o ID da guilda dos dados do convite
       let idGuildaReal = guildaId || conviteData.guilda_id || conviteData.guildaId || conviteData.guilda;
       
       if (!idGuildaReal) {
@@ -829,6 +829,7 @@
         return;
       }
       
+      // Buscar a guilda
       let guildaRef = null;
       let guildaData = null;
       
@@ -860,6 +861,7 @@
         return;
       }
       
+      // Verificar se já é membro
       const jaMembro = guildaData.membros && guildaData.membros.includes(currentUser.uid);
       
       if (!jaMembro) {
@@ -882,11 +884,16 @@
         showToast('Você já é membro desta guilda!');
       }
       
+      // SÓ AGORA deleta o convite (depois de usar os dados)
+      await deleteDoc(conviteRef);
+      
+      // Recarregar notificações
       await carregarNotificacoes();
       
     } catch (error) {
       console.error('Erro ao aceitar convite:', error);
       showToast('Erro ao aceitar convite: ' + error.message, true);
+      hideLoading();
     } finally {
       hideLoading();
     }
@@ -913,7 +920,7 @@
   };
 
 
-  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA =====
+  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (CORRIGIDA) =====
   window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
     if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) {
       return;
@@ -922,8 +929,17 @@
     showLoading();
     
     try {
-      // DELETA O CONVITE PRIMEIRO
-      await deleteDoc(doc(db, "convites", conviteId));
+      // PRIMEIRO: Ler os dados do convite ANTES de deletar
+      const conviteRef = doc(db, "convites", conviteId);
+      const conviteDoc = await getDoc(conviteRef);
+      
+      if (!conviteDoc.exists()) {
+        showToast('Convite não encontrado!', true);
+        hideLoading();
+        return;
+      }
+      
+      const conviteData = conviteDoc.data();
       
       // Verificar se já está na campanha
       const vinculoQuery = query(
@@ -936,6 +952,7 @@
       
       if (!vinculoSnap.empty) {
         showToast('Você já está nesta campanha!');
+        await deleteDoc(conviteRef);
         await carregarNotificacoes();
         hideLoading();
         return;
@@ -1001,6 +1018,9 @@
         }
       }
       
+      // SÓ AGORA deleta o convite (depois de usar os dados)
+      await deleteDoc(conviteRef);
+      
       showToast('✅ Você entrou na campanha!');
       await carregarNotificacoes();
       
@@ -1033,7 +1053,7 @@
   };
 
 
-  // ===== CARREGAR NOTIFICAÇÕES (BUSCA DA COLEÇÃO CONVITES) =====
+  // ===== CARREGAR NOTIFICAÇÕES =====
   async function carregarNotificacoes() {
     if (!currentUser) return;
     
@@ -1083,11 +1103,11 @@
               <div class="notification-content">
                 <div class="notification-title">Convite para Campanha</div>
                 <div class="notification-message">
-                  <strong>${c.remetente_nick}</strong> convidou você para a campanha <strong>${c.campanha_nome}</strong>
+                  <strong>${escapeHtml(c.remetente_nick)}</strong> convidou você para a campanha <strong>${escapeHtml(c.campanha_nome)}</strong>
                 </div>
                 <div class="notification-time"><i class="fas fa-clock"></i> ${dataFormatada}</div>
                 <div class="notification-actions">
-                  <button class="btn-aceitar" onclick="aceitarConviteCampanha('${c.id}', '${c.campanha_id}', '${c.campanha_nome}')">
+                  <button class="btn-aceitar" onclick="aceitarConviteCampanha('${c.id}', '${c.campanha_id}', '${escapeHtml(c.campanha_nome)}')">
                     <i class="fas fa-check"></i> Aceitar
                   </button>
                   <button class="btn-recusar" onclick="recusarConviteCampanha('${c.id}')">
@@ -1107,7 +1127,7 @@
               <div class="notification-content">
                 <div class="notification-title">Convite para Guilda</div>
                 <div class="notification-message">
-                  <strong>${c.remetente_nick}</strong> convidou você para a guilda <strong>${c.guilda_nome}</strong>
+                  <strong>${escapeHtml(c.remetente_nick)}</strong> convidou você para a guilda <strong>${escapeHtml(c.guilda_nome)}</strong>
                 </div>
                 <div class="notification-time"><i class="fas fa-clock"></i> ${dataFormatada}</div>
                 <div class="notification-actions">
@@ -1139,6 +1159,14 @@
     } finally {
       hideLoading();
     }
+  }
+  
+  // Função auxiliar para escapar HTML
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
 
