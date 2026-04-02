@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   
   <style>
+    /* Seu CSS permanece o mesmo - não vou repetir para economizar espaço */
     * {
       margin: 0;
       padding: 0;
@@ -494,83 +495,25 @@
     }
 
     @media (max-width: 768px) {
-      .container {
-        padding: 12px;
-      }
-
-      .navbar {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 15px;
-      }
-
-      .logo-area {
-        justify-content: center;
-        width: 100%;
-      }
-
-      .system-title {
-        text-align: center;
-        width: 100%;
-      }
-
-      .user-info {
-        justify-content: center;
-        width: 100%;
-      }
-
-      .user-id, .user-nick {
-        flex: 1;
-        justify-content: center;
-      }
-
-      .btn-sair {
-        width: 100%;
-        justify-content: center;
-      }
-
-      .notification-item {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .notification-icon {
-        align-self: center;
-      }
-
-      .notification-actions {
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-
-      .btn-aceitar, .btn-recusar {
-        flex: 1;
-        min-width: 120px;
-        justify-content: center;
-      }
+      .container { padding: 12px; }
+      .navbar { flex-direction: column; align-items: stretch; padding: 15px; }
+      .logo-area { justify-content: center; width: 100%; }
+      .system-title { text-align: center; width: 100%; }
+      .user-info { justify-content: center; width: 100%; }
+      .user-id, .user-nick { flex: 1; justify-content: center; }
+      .btn-sair { width: 100%; justify-content: center; }
+      .notification-item { flex-direction: column; align-items: stretch; }
+      .notification-icon { align-self: center; }
+      .notification-actions { justify-content: center; flex-wrap: wrap; }
+      .btn-aceitar, .btn-recusar { flex: 1; min-width: 120px; justify-content: center; }
     }
 
     @media (max-width: 480px) {
-      .notifications-list {
-        padding: 15px;
-      }
-
-      .notification-item {
-        padding: 15px;
-      }
-
-      .notification-title {
-        font-size: 1rem;
-      }
-
-      .notification-message {
-        font-size: 0.85rem;
-      }
-
-      .btn-aceitar, .btn-recusar {
-        padding: 6px 15px;
-        font-size: 0.8rem;
-      }
+      .notifications-list { padding: 15px; }
+      .notification-item { padding: 15px; }
+      .notification-title { font-size: 1rem; }
+      .notification-message { font-size: 0.85rem; }
+      .btn-aceitar, .btn-recusar { padding: 6px 15px; font-size: 0.8rem; }
     }
   </style>
 </head>
@@ -591,11 +534,9 @@
     <nav class="navbar">
       <div class="logo-area">
         <img src="logo-akalanata.png" alt="Akalanata System" class="logo-main">
-        
         <div class="pc-icon-wrap">
           <img src="icone-pc1.png" alt="Jogador" class="pc-icon">
         </div>
-        
         <div class="system-title">
           <h1>Akalanata</h1>
           <span>Portal do Jogador</span>
@@ -608,12 +549,10 @@
           <span class="label">ID PC:</span>
           <span class="value" id="displayIdPc">--------</span>
         </div>
-        
         <div class="user-nick">
           <i class="fas fa-user"></i>
           <span id="displayNickname">Aventureiro</span>
         </div>
-        
         <button class="btn-sair" id="btnSair">
           <i class="fas fa-sign-out-alt"></i> Sair
         </button>
@@ -699,8 +638,8 @@
     }, 3000);
   }
 
-  // ===== FUNÇÃO PARA CONVITES DE GUILDA (MESMA LÓGICA QUE FUNCIONAVA) =====
-  window.aceitarConviteGuilda = async function(conviteId, guildaId) {
+  // ===== FUNÇÃO PARA CONVITES DE GUILDA (CORRIGIDA - BUSCA POR NOME) =====
+  window.aceitarConviteGuilda = async function(conviteId) {
     if (!confirm('Deseja entrar nesta guilda?')) {
       return;
     }
@@ -708,6 +647,9 @@
     showLoading();
     
     try {
+      console.log('🔍 Convite ID:', conviteId);
+      
+      // 1️⃣ Buscar o convite
       const conviteRef = doc(db, "convites", conviteId);
       const conviteDoc = await getDoc(conviteRef);
       
@@ -718,22 +660,29 @@
       }
       
       const conviteData = conviteDoc.data();
-      let idGuildaReal = guildaId || conviteData.guilda_id || conviteData.guildaId || conviteData.guilda;
+      console.log('📄 Dados do convite:', conviteData);
       
-      if (!idGuildaReal) {
-        showToast('ID da guilda não encontrado!', true);
+      // 2️⃣ Pegar o NOME da guilda do convite
+      const nomeGuilda = conviteData.guilda_nome;
+      
+      if (!nomeGuilda) {
+        showToast('Nome da guilda não encontrado no convite!', true);
         hideLoading();
         return;
       }
       
+      console.log('🎯 Buscando guilda pelo NOME:', nomeGuilda);
+      
+      // 3️⃣ Buscar a guilda pelo campo "nome"
       const guildaQuery = query(
         collection(db, "guildas"),
-        where("id", "==", idGuildaReal)
+        where("nome", "==", nomeGuilda)
       );
       
       const guildaSnap = await getDocs(guildaQuery);
       
       if (guildaSnap.empty) {
+        console.error('❌ Nenhuma guilda encontrada com nome:', nomeGuilda);
         showToast('Guilda não encontrada!', true);
         hideLoading();
         return;
@@ -743,6 +692,9 @@
       const guildaRef = doc(db, "guildas", guildaDoc.id);
       const guildaData = guildaDoc.data();
       
+      console.log('✅ Guilda encontrada:', guildaData.nome);
+      
+      // 4️⃣ Verificar se já é membro
       const jaMembro = guildaData.membros && guildaData.membros.includes(currentUser.uid);
       
       if (!jaMembro) {
@@ -760,17 +712,20 @@
           total_membros: (guildaData.total_membros || 0) + 1
         });
         
-        showToast('✅ Você entrou na guilda!');
+        showToast('✅ Você entrou na guilda ' + guildaData.nome + '!');
       } else {
         showToast('Você já é membro desta guilda!');
       }
       
+      // 5️⃣ Deletar o convite
       await deleteDoc(conviteRef);
+      
+      // 6️⃣ Recarregar notificações
       await carregarNotificacoes();
       
     } catch (error) {
-      console.error('Erro ao aceitar convite:', error);
-      showToast('Erro ao aceitar convite', true);
+      console.error('❌ Erro ao aceitar convite:', error);
+      showToast('Erro ao aceitar convite: ' + error.message, true);
     } finally {
       hideLoading();
     }
@@ -795,7 +750,7 @@
     }
   };
 
-  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA (MESMA LÓGICA DA GUILDA) =====
+  // ===== FUNÇÃO PARA CONVITES DE CAMPANHA =====
   window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
     if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) {
       return;
@@ -804,7 +759,6 @@
     showLoading();
     
     try {
-      // Buscar dados do convite
       const conviteRef = doc(db, "convites", conviteId);
       const conviteDoc = await getDoc(conviteRef);
       
@@ -1007,7 +961,7 @@
                 </div>
                 <div class="notification-time"><i class="fas fa-clock"></i> ${dataFormatada}</div>
                 <div class="notification-actions">
-                  <button class="btn-aceitar" onclick="aceitarConviteGuilda('${c.id}', '${c.guilda_id}')">
+                  <button class="btn-aceitar" onclick="aceitarConviteGuilda('${c.id}')">
                     <i class="fas fa-check"></i> Aceitar
                   </button>
                   <button class="btn-recusar" onclick="recusarConviteGuilda('${c.id}')">
