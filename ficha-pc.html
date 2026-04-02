@@ -7444,57 +7444,62 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.linkMesa.addEventListener('click', async (e) => {
             e.preventDefault();
             
-            // Se campanhaAtual ainda não foi carregada, tenta buscar novamente
-            if (!campanhaAtual || !campanhaAtual.id) {
-                if (personagemAtual && personagemAtual.id) {
-                    try {
-                        const vinculosQuery = query(
-                            collection(db, "campanha_personagens"),
-                            where("personagem_id", "==", personagemAtual.id)
-                        );
-                        const vinculosSnap = await getDocs(vinculosQuery);
-                        
-                        if (!vinculosSnap.empty) {
-                            const vinculo = vinculosSnap.docs[0].data();
-                            const campanhaRef = doc(db, "campanhas", vinculo.campanha_id);
-                            const campanhaSnap = await getDoc(campanhaRef);
-                            
-                            if (campanhaSnap.exists()) {
-                                campanhaAtual = {
-                                    id: campanhaSnap.id,
-                                    ...campanhaSnap.data()
-                                };
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Erro ao buscar campanha:', err);
-                    }
-                }
-            }
+            showLoading();
             
-            if (campanhaAtual && campanhaAtual.id) {
-                // Buscar a sessão ativa da campanha
-                try {
-                    const sessoesQuery = query(
-                        collection(db, "sessoes"),
-                        where("campanha_id", "==", campanhaAtual.id),
-                        where("status", "==", "ativa"),
-                        limit(1)
-                    );
-                    const sessoesSnap = await getDocs(sessoesQuery);
-                    
-                    if (!sessoesSnap.empty) {
-                        const sessao = sessoesSnap.docs[0];
-                        window.location.href = `mesa.html?sessao=${sessao.id}&campanha=${campanhaAtual.id}`;
-                    } else {
-                        showToast('Nenhuma sessão ativa encontrada para esta campanha', true);
-                    }
-                } catch (error) {
-                    console.error('Erro ao buscar sessão:', error);
-                    showToast('Erro ao voltar para a mesa', true);
+            try {
+                if (!personagemAtual || !personagemAtual.id) {
+                    showToast('Personagem não carregado!', true);
+                    hideLoading();
+                    return;
                 }
-            } else {
-                showToast('Erro: Não foi possível identificar a campanha', true);
+                
+                console.log('1. Buscando vínculo do personagem:', personagemAtual.id);
+                
+                // Buscar o vínculo do personagem com a campanha
+                const vinculosQuery = query(
+                    collection(db, "campanha_personagens"),
+                    where("personagem_id", "==", personagemAtual.id)
+                );
+                const vinculosSnap = await getDocs(vinculosQuery);
+                
+                if (vinculosSnap.empty) {
+                    console.log('Nenhum vínculo encontrado');
+                    showToast('Personagem não está vinculado a nenhuma campanha!', true);
+                    hideLoading();
+                    return;
+                }
+                
+                const vinculo = vinculosSnap.docs[0].data();
+                const campanhaId = vinculo.campanha_id;
+                console.log('2. Campanha ID encontrada:', campanhaId);
+                
+                // Buscar sessão ativa desta campanha
+                const sessoesQuery = query(
+                    collection(db, "sessoes"),
+                    where("campanha_id", "==", campanhaId),
+                    where("status", "==", "ativa"),
+                    limit(1)
+                );
+                const sessoesSnap = await getDocs(sessoesQuery);
+                
+                if (sessoesSnap.empty) {
+                    console.log('Nenhuma sessão ativa encontrada');
+                    showToast('Nenhuma sessão ativa encontrada para esta campanha!', true);
+                    hideLoading();
+                    return;
+                }
+                
+                const sessao = sessoesSnap.docs[0];
+                const sessaoId = sessao.id;
+                console.log('3. Sessão encontrada:', sessaoId);
+                
+                // Redirecionar
+                window.location.href = `mesa.html?sessao=${sessaoId}&campanha=${campanhaId}`;
+                
+            } catch (error) {
+                console.error('Erro detalhado:', error);
+                showToast('Erro: ' + error.message, true);
+                hideLoading();
             }
         });
     }
