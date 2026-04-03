@@ -705,7 +705,7 @@
     campanha_nome: campanhaNome,
     jogador_uid: currentUser.uid,
     jogador_nick: userData?.nickname || 'Jogador',
-    personagem_id: null,  // 👈 SEM PC VINCULADO
+    personagem_id: null,  // 👈 SEM PC VINCULADO (opcional)
     personagem_nome: null,
     data_vinculo: serverTimestamp(),
     status: 'ativo'
@@ -713,11 +713,8 @@
    
    await addDoc(collection(db, "campanha_personagens"), vinculoData);
    
-   // Atualizar vagas ocupadas na campanha
-   const campanhaRef = doc(db, "campanhas", campanhaDocId);
-   const campanhaData = campanhaDoc.data();
-   const vagasOcupadas = (campanhaData.vagas_ocupadas || 0) + 1;
-   await updateDoc(campanhaRef, { vagas_ocupadas: vagasOcupadas });
+   // ⚠️ REMOVIDO: atualização de vagas_ocupadas (apenas GM pode fazer isso nas rules)
+   // Se precisar controlar vagas, faça via Cloud Function ou deixe o GM ajustar manualmente
    
    // DELETAR O CONVITE
    await deleteDoc(conviteRef);
@@ -891,8 +888,16 @@
    
    convitesSnap.forEach((doc) => {
     const c = { id: doc.id, ...doc.data() };
-    const data = c.data_envio ? new Date(c.data_envio) : new Date();
-    convitesArray.push({ ...c, dataObj: data });
+    // Tratamento seguro para timestamp ou string
+    let dataObj;
+    if (c.data_envio && c.data_envio.toDate) {
+      dataObj = c.data_envio.toDate();
+    } else if (c.data_envio) {
+      dataObj = new Date(c.data_envio);
+    } else {
+      dataObj = new Date();
+    }
+    convitesArray.push({ ...c, dataObj: dataObj });
    });
    
    convitesArray.sort((a, b) => b.dataObj - a.dataObj);
