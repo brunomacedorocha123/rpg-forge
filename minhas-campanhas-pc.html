@@ -680,7 +680,8 @@
         query,
         where,
         getDocs,
-        deleteDoc
+        deleteDoc,
+        updateDoc
     } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -745,8 +746,30 @@
             const vinculosSnap = await getDocs(vinculosQuery);
             return vinculosSnap.size;
         } catch (error) {
-            console.error('Erro ao buscar vagas para campanha', campanhaId, error);
+            console.error('Erro ao buscar vagas:', error);
             return 0;
+        }
+    }
+
+    // ===== FUNÇÃO PARA VINCULAR PERSONAGEM =====
+    async function vincularPersonagem(vinculoId, personagemId, personagemNome) {
+        showLoading();
+        
+        try {
+            const vinculoRef = doc(db, "campanha_personagens", vinculoId);
+            await updateDoc(vinculoRef, {
+                personagem_id: personagemId,
+                personagem_nome: personagemNome
+            });
+            
+            showToast(`✅ Personagem "${personagemNome}" vinculado com sucesso!`);
+            await carregarCampanhas(); // Recarrega para mostrar o personagem vinculado
+            
+        } catch (error) {
+            console.error('Erro ao vincular personagem:', error);
+            showToast('Erro ao vincular personagem: ' + error.message, true);
+        } finally {
+            hideLoading();
         }
     }
 
@@ -755,17 +778,14 @@
         showLoading();
         
         try {
-            // Deletar o vínculo
             const vinculoRef = doc(db, "campanha_personagens", vinculoId);
             await deleteDoc(vinculoRef);
             
             showToast(`✅ Você abandonou a campanha "${campanhaNome}"`);
             
-            // Fechar modal
             modalAbandonar.classList.remove('active');
             campanhaParaAbandonar = null;
             
-            // Recarregar a lista (a campanha vai sumir)
             await carregarCampanhas();
             
         } catch (error) {
@@ -783,24 +803,107 @@
         modalAbandonar.classList.add('active');
     }
 
-    // ===== FECHAR MODAL =====
     function fecharModal() {
         modalAbandonar.classList.remove('active');
         campanhaParaAbandonar = null;
     }
 
-    // ===== CARREGAR CAMPANHAS (APENAS COM VÍNCULO ATIVO) =====
+    // ===== BUSCAR PERSONAGENS DO JOGADOR =====
+    async function buscarPersonagensDoJogador() {
+        try {
+            const personagensQuery = query(
+                collection(db, "personagens"),
+                where("userId", "==", currentUser.uid),
+                where("status", "==", "finalizado")
+            );
+            
+            const personagensSnap = await getDocs(personagensQuery);
+            const personagens = [];
+            
+            personagensSnap.forEach(doc => {
+                personagens.push({
+                    id: doc.id,
+                    nome: doc.data().nome,
+                    classe: doc.data().classe
+                });
+            });
+            
+            return personagens;
+        } catch (error) {
+            console.error('Erro ao buscar personagens:', error);
+            return [];
+        }
+    }
+
+    // ===== MODAL PARA ESCOLHER PERSONAGEM =====
+    function mostrarModalPersonagens(vinculoId, campanhaNome, personagens) {
+        if (personagens.length === 0) {
+            showToast('Você não tem personagens finalizados. Crie um primeiro!', true);
+            window.location.href = 'criar-personagem.html';
+            return;
+        }
+        
+        // Criar modal dinâmico
+        const modalHtml = `
+            <div class="modal-overlay" id="modalPersonagens" style="display: flex;">
+                <div class="modal-container" style="max-width: 500px;">
+                    <i class="fas fa-dragon"></i>
+                    <h3>🎭 Vincular Personagem</h3>
+                    <p>Escolha um personagem para vincular à campanha:</p>
+                    <p style="font-size: 0.9rem; color: #ffd700; margin-bottom: 20px;">Campanha: ${campanhaNome}</p>
+                    <div style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                        ${personagens.map(p => `
+                            <button class="btn-personagem" data-id="${p.id}" data-nome="${p.nome}" style="background: rgba(255,215,0,0.1); border: 1px solid #ffd700; padding: 12px; border-radius: 10px; cursor: pointer; color: #fff; font-size: 1rem; text-align: left;">
+                                <i class="fas fa-user"></i> <strong>${p.nome}</strong> - ${p.classe || 'Sem classe'}
+                            </button>
+                        `).join('')}
+                        <button class="btn-pular" style="background: transparent; border: 1px solid #666; padding: 12px; border-radius: 10px; cursor: pointer; color: #999; margin-top: 10px;">
+                            <i class="fas fa-clock"></i> Vincular depois
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Adicionar modal ao body
+        const modalDiv = document.createElement('div');
+        modalDiv.innerHTML = modalHtml;
+        document.body.appendChild(modalDiv);
+        
+        // Eventos dos botões
+        document.querySelectorAll('.btn-personagem').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const personagemId = btn.getAttribute('data-id');
+                const personagemNome = btn.getAttribute('data-nome');
+                modalDiv.remove();
+                await vincularPersonagem(vinculoId, personagemId, personagemNome);
+            });
+        });
+        
+        document.querySelector('.btn-pular').addEventListener('click', () => {
+            modalDiv.remove();
+            showToast('Você pode vincular um personagem depois acessando a campanha.');
+        });
+        
+        document.getElementById('modalPersonagens').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('modalPersonagens')) {
+                modalDiv.remove();
+            }
+        });
+    }
+
+    // ===== CARREGAR CAMPANHAS (CORRIGIDO - MOSTRA TODAS COM VÍNCULO) =====
     async function carregarCampanhas() {
         if (!currentUser) return;
         
         showLoading();
         
         try {
-            // Buscar SOMENTE vínculos com personagem vinculado (campanhas ativas)
+            // 🔥 CORREÇÃO AQUI: Remove o filtro "personagem_id != null"
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("jogador_uid", "==", currentUser.uid),
-                where("personagem_id", "!=", null)
+                where("status", "==", "ativo")
             );
             
             const vinculosSnap = await getDocs(vinculosQuery);
@@ -820,25 +923,16 @@
                 return;
             }
             
-            // Mapa de campanhas ativas
-            const campanhasAtivas = new Map();
-            vinculosSnap.forEach(doc => {
-                const data = doc.data();
-                campanhasAtivas.set(data.campanha_id, {
-                    personagem: data.personagem_nome,
-                    personagemId: data.personagem_id,
-                    vinculoId: doc.id,
-                    dataVinculo: data.data_vinculo
-                });
-            });
+            const campanhasAtivas = [];
             
-            // Buscar detalhes de cada campanha ativa
-            const campanhasParaMostrar = [];
-            
-            for (const [campanhaId, vinculoInfo] of campanhasAtivas) {
+            for (const vinculoDoc of vinculosSnap.docs) {
+                const vinculo = vinculoDoc.data();
+                const vinculoId = vinculoDoc.id;
+                
+                // Buscar a campanha
                 const campanhaQuery = query(
                     collection(db, "campanhas"),
-                    where("id", "==", campanhaId)
+                    where("id", "==", vinculo.campanha_id)
                 );
                 
                 const campanhaSnap = await getDocs(campanhaQuery);
@@ -850,19 +944,20 @@
                         ...campanhaDoc.data()
                     };
                     
-                    const vagasReais = await buscarVagasReais(campanhaId);
+                    const vagasReais = await buscarVagasReais(vinculo.campanha_id);
                     
-                    campanhasParaMostrar.push({
+                    campanhasAtivas.push({
                         ...campanha,
                         vagas_ocupadas_real: vagasReais,
-                        personagemVinculado: vinculoInfo.personagem,
-                        personagemId: vinculoInfo.personagemId,
-                        vinculoId: vinculoInfo.vinculoId
+                        personagemVinculado: vinculo.personagem_nome || null,
+                        personagemId: vinculo.personagem_id || null,
+                        vinculoId: vinculoId,
+                        temPersonagemVinculado: !!vinculo.personagem_id
                     });
                 }
             }
             
-            if (campanhasParaMostrar.length === 0) {
+            if (campanhasAtivas.length === 0) {
                 campanhasContainer.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-scroll"></i>
@@ -879,7 +974,7 @@
             
             // Renderizar cards
             let html = '';
-            campanhasParaMostrar.forEach(camp => {
+            for (const camp of campanhasAtivas) {
                 const statusClass = camp.status === 'aberto' ? 'status-aberto' :
                                    camp.status === 'andamento' ? 'status-andamento' :
                                    camp.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
@@ -890,6 +985,20 @@
                 
                 const vagasOcupadas = camp.vagas_ocupadas_real || 0;
                 const vagasMax = camp.vagas_max || 5;
+                
+                // Exibir diferente se tem personagem vinculado ou não
+                const personagemHtml = camp.temPersonagemVinculado ? 
+                    `<div style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(76, 175, 80, 0.2); border-radius: 10px; font-size: 0.85rem; color: #4CAF50; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Personagem: ${camp.personagemVinculado}</span>
+                    </div>` :
+                    `<div style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(255, 215, 0, 0.15); border-radius: 10px; font-size: 0.85rem; color: #ffd700; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>⚠️ Nenhum personagem vinculado</span>
+                        <button class="btn-vincular" data-vinculo-id="${camp.vinculoId}" data-campanha-nome="${camp.nome}" style="margin-left: auto; background: #ffd700; border: none; padding: 4px 12px; border-radius: 15px; color: #0a0a1a; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
+                            <i class="fas fa-link"></i> Vincular
+                        </button>
+                    </div>`;
                 
                 html += `
                     <div class="campanha-card" data-campanha-id="${camp.id}" data-vinculo-id="${camp.vinculoId}" data-campanha-nome="${camp.nome || 'Campanha sem nome'}">
@@ -906,10 +1015,7 @@
                             <div class="campanha-descricao">
                                 ${camp.descricao_curta || 'Sem descrição disponível'}
                             </div>
-                            <div style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(255,215,0,0.1); border-radius: 10px; font-size: 0.85rem; color: #ffd700; display: flex; align-items: center; gap: 8px;">
-                                <i class="fas fa-dragon"></i>
-                                <span>Personagem: ${camp.personagemVinculado || 'Vinculado'}</span>
-                            </div>
+                            ${personagemHtml}
                             <div class="campanha-footer">
                                 <span class="campanha-status ${statusClass}">${statusText}</span>
                                 <div style="display: flex; gap: 10px;">
@@ -924,11 +1030,11 @@
                         </div>
                     </div>
                 `;
-            });
+            }
             
             campanhasContainer.innerHTML = html;
             
-            // Adicionar eventos aos botões
+            // Eventos dos botões de acessar
             document.querySelectorAll('.btn-acessar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -937,6 +1043,7 @@
                 });
             });
             
+            // Eventos dos botões de abandonar
             document.querySelectorAll('.btn-abandonar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -952,14 +1059,28 @@
                 });
             });
             
-            // Clique no card para acessar (exceto se clicou nos botões)
+            // Eventos dos botões de vincular personagem
+            document.querySelectorAll('.btn-vincular').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const vinculoId = btn.getAttribute('data-vinculo-id');
+                    const campanhaNome = btn.getAttribute('data-campanha-nome');
+                    
+                    const personagens = await buscarPersonagensDoJogador();
+                    mostrarModalPersonagens(vinculoId, campanhaNome, personagens);
+                });
+            });
+            
+            // Clique no card para acessar
             document.querySelectorAll('.campanha-card').forEach(card => {
                 const acessarBtn = card.querySelector('.btn-acessar');
                 const abandonarBtn = card.querySelector('.btn-abandonar');
+                const vincularBtn = card.querySelector('.btn-vincular');
                 
                 card.addEventListener('click', (e) => {
                     if (e.target === acessarBtn || acessarBtn?.contains(e.target)) return;
                     if (e.target === abandonarBtn || abandonarBtn?.contains(e.target)) return;
+                    if (e.target === vincularBtn || vincularBtn?.contains(e.target)) return;
                     
                     const campanhaId = card.getAttribute('data-campanha-id');
                     if (campanhaId) {
@@ -975,6 +1096,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                     <h2>Erro ao carregar</h2>
                     <p>Não foi possível carregar suas campanhas. Tente novamente mais tarde.</p>
+                    <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #ffd700; border: none; border-radius: 10px; cursor: pointer; color: #0a0a1a;">Tentar novamente</button>
                 </div>
             `;
         } finally {
@@ -994,7 +1116,6 @@
         }
     });
     
-    // Fechar modal clicando fora
     modalAbandonar.addEventListener('click', (e) => {
         if (e.target === modalAbandonar) {
             fecharModal();
@@ -1025,11 +1146,10 @@
                 if (docSnap.exists()) {
                     userData = docSnap.data();
                     displayIdPc.textContent = userData.id_pc || '---';
-                    
-                    await carregarCampanhas();
-                } else {
-                    await carregarCampanhas();
                 }
+                
+                await carregarCampanhas();
+                
             } catch (error) {
                 console.error('Erro ao carregar dados do usuário:', error);
                 await carregarCampanhas();
