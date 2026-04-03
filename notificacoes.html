@@ -639,13 +639,13 @@ window.aceitarConviteGuilda = async function(conviteId) {
  try {
   const conviteRef = doc(db, "convites", conviteId);
   const conviteDoc = await getDoc(conviteRef);
-  if (!conviteDoc.exists()) { showToast('Convite não encontrado!', true); hideLoading(); return; }
+  if (!conviteDoc.exists()) { showToast('Convite não encontrado!', true); return; }
   const conviteData = conviteDoc.data();
   const nomeGuilda = conviteData.guilda_nome;
-  if (!nomeGuilda) { showToast('Nome da guilda não encontrado!', true); hideLoading(); return; }
+  if (!nomeGuilda) { showToast('Nome da guilda não encontrado!', true); return; }
   const guildaQuery = query(collection(db, "guildas"), where("nome", "==", nomeGuilda));
   const guildaSnap = await getDocs(guildaQuery);
-  if (guildaSnap.empty) { showToast('Guilda não encontrada!', true); hideLoading(); return; }
+  if (guildaSnap.empty) { showToast('Guilda não encontrada!', true); return; }
   const guildaDoc = guildaSnap.docs[0];
   const guildaRef = doc(db, "guildas", guildaDoc.id);
   const guildaData = guildaDoc.data();
@@ -657,7 +657,7 @@ window.aceitarConviteGuilda = async function(conviteId) {
   } else { showToast('Você já é membro desta guilda!'); }
   await deleteDoc(conviteRef);
   await carregarNotificacoes();
- } catch (error) { console.error('Erro:', error); showToast('Erro ao aceitar convite: ' + error.message, true); } finally { hideLoading(); }
+ } catch (error) { console.error('Erro:', error); showToast('Erro ao aceitar convite', true); } finally { hideLoading(); }
 };
 
 window.recusarConviteGuilda = async function(conviteId) {
@@ -667,66 +667,47 @@ window.recusarConviteGuilda = async function(conviteId) {
  catch (error) { console.error('Erro:', error); showToast('Erro ao recusar convite', true); } finally { hideLoading(); }
 };
 
-// ===== 🔥 CONVITES DE CAMPANHA - CORRIGIDO DEFINITIVAMENTE 🔥 =====
+// ===== CONVITES DE CAMPANHA - CORRIGIDO =====
 window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
  if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) return;
  
  showLoading();
  
  try {
-  // 1️⃣ Verificar o convite
+  // 1️⃣ Buscar o convite
   const conviteRef = doc(db, "convites", conviteId);
   const conviteDoc = await getDoc(conviteRef);
   if (!conviteDoc.exists()) { showToast('Convite não encontrado!', true); hideLoading(); return; }
   
-  // 2️⃣ 🔥 BUSCA INTELIGENTE: tenta por ID do documento OU pelo campo "id"
+  // 2️⃣ Buscar a campanha (tenta por ID do documento OU por campo "id")
   let campanhaDoc = null;
   let campanhaRef = null;
   
-  // Tentativa 1: Buscar por ID do documento
+  // Tentativa 1: por ID do documento
   try {
    campanhaRef = doc(db, "campanhas", campanhaId);
    campanhaDoc = await getDoc(campanhaRef);
-   console.log("📌 Busca por ID do documento:", campanhaDoc.exists() ? "✅ ENCONTRADO" : "❌ Não encontrado");
-  } catch(e) { console.log("Erro na busca por ID:", e); }
+  } catch(e) { console.log("Erro busca por ID:", e); }
   
-  // Tentativa 2: Se falhou, busca pelo campo "id"
+  // Tentativa 2: por campo "id"
   if (!campanhaDoc || !campanhaDoc.exists()) {
-   console.log("🔄 Tentando busca pelo campo 'id'...");
    const campanhaQuery = query(collection(db, "campanhas"), where("id", "==", campanhaId));
    const campanhaSnap = await getDocs(campanhaQuery);
    if (!campanhaSnap.empty) {
     campanhaDoc = campanhaSnap.docs[0];
     campanhaRef = campanhaDoc.ref;
-    console.log("✅ ENCONTRADO pelo campo 'id'! ID real do documento:", campanhaDoc.id);
    }
   }
   
-  // Tentativa 3: Busca pelo nome (último recurso)
   if (!campanhaDoc || !campanhaDoc.exists()) {
-   console.log("🔄 Tentando busca pelo nome...");
-   const campanhaQuery = query(collection(db, "campanhas"), where("nome", "==", campanhaNome));
-   const campanhaSnap = await getDocs(campanhaQuery);
-   if (!campanhaSnap.empty) {
-    campanhaDoc = campanhaSnap.docs[0];
-    campanhaRef = campanhaDoc.ref;
-    console.log("✅ ENCONTRADO pelo nome! ID:", campanhaDoc.id);
-   }
-  }
-  
-  // Se não encontrou em nenhuma tentativa
-  if (!campanhaDoc || !campanhaDoc.exists()) {
-   console.error("❌ Campanha NÃO encontrada! campanhaId recebido:", campanhaId);
-   showToast(`Campanha "${campanhaNome}" não encontrada!`, true);
+   showToast('Campanha não encontrada!', true);
    hideLoading();
    return;
   }
   
   const campanhaData = campanhaDoc.data();
-  const nomeRealCampanha = campanhaData.nome || campanhaNome;
   const campanhaIdReal = campanhaData.id || campanhaDoc.id;
-  
-  console.log("🎯 Campanha encontrada:", { id: campanhaIdReal, nome: nomeRealCampanha });
+  const nomeRealCampanha = campanhaData.nome || campanhaNome;
   
   // 3️⃣ Verificar se já está na campanha
   const vinculoQuery = query(
@@ -744,51 +725,84 @@ window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNo
    return;
   }
   
-  // 4️⃣ Buscar personagens do jogador
+  // 4️⃣ Buscar personagens do jogador (SEM filtro de status)
   const personagensQuery = query(
    collection(db, "personagens"),
-   where("userId", "==", currentUser.uid),
-   where("status", "==", "finalizado")
+   where("userId", "==", currentUser.uid)
   );
   const personagensSnap = await getDocs(personagensQuery);
   
   if (personagensSnap.empty) {
-   showToast('Você precisa criar um personagem finalizado primeiro!', true);
+   showToast('Você não tem nenhum personagem! Crie um primeiro.', true);
    window.location.href = 'criar-personagem.html?return=notificacoes';
    hideLoading();
    return;
   }
   
-  let personagemId = null;
-  let personagemNome = null;
-  personagensSnap.forEach(doc => { if (!personagemId) { personagemId = doc.id; personagemNome = doc.data().nome; } });
+  // 5️⃣ Pegar o primeiro personagem ou mostrar opções
+  let personagemEscolhido = null;
   
-  // 5️⃣ Criar vínculo na campanha
+  if (personagensSnap.size === 1) {
+   personagensSnap.forEach(doc => { personagemEscolhido = { id: doc.id, nome: doc.data().nome }; });
+  } else {
+   // Tem múltiplos personagens - mostra um seletor
+   hideLoading();
+   let opcoes = "Escolha um personagem:\n\n";
+   const personagensList = [];
+   personagensSnap.forEach((doc, index) => {
+    const data = doc.data();
+    personagensList.push({ id: doc.id, nome: data.nome, classe: data.classe });
+    opcoes += `${index + 1}. ${data.nome} (${data.classe || 'Sem classe'})\n`;
+   });
+   const escolha = prompt(opcoes);
+   const idx = parseInt(escolha) - 1;
+   if (idx >= 0 && idx < personagensList.length) {
+    personagemEscolhido = personagensList[idx];
+   } else {
+    showToast('Nenhum personagem selecionado!', true);
+    return;
+   }
+   showLoading();
+  }
+  
+  if (!personagemEscolhido) {
+   showToast('Erro ao selecionar personagem!', true);
+   hideLoading();
+   return;
+  }
+  
+  // 6️⃣ Criar vínculo na campanha
   const vinculoData = {
    campanha_id: campanhaIdReal,
    campanha_nome: nomeRealCampanha,
    jogador_uid: currentUser.uid,
    jogador_nick: userData?.nickname || 'Jogador',
-   personagem_id: personagemId,
-   personagem_nome: personagemNome,
+   personagem_id: personagemEscolhido.id,
+   personagem_nome: personagemEscolhido.nome,
    data_vinculo: serverTimestamp(),
    status: 'ativo'
   };
   
   await addDoc(collection(db, "campanha_personagens"), vinculoData);
   
-  // 6️⃣ Atualizar vagas ocupadas
+  // 7️⃣ Atualizar vagas ocupadas
   const vagasOcupadasAtuais = campanhaData.vagas_ocupadas || 0;
   await updateDoc(campanhaRef, { vagas_ocupadas: vagasOcupadasAtuais + 1 });
   
-  // 7️⃣ Deletar o convite
+  // 8️⃣ Deletar o convite
   await deleteDoc(conviteRef);
   
-  showToast(`✅ Você entrou na campanha "${nomeRealCampanha}" com o personagem "${personagemNome}"!`);
-  await carregarNotificacoes();
+  showToast(`✅ Você entrou na campanha "${nomeRealCampanha}" com o personagem "${personagemEscolhido.nome}"!`);
+  
+  // 9️⃣ Perguntar se quer ir para a campanha agora
+  if (confirm(`Você entrou na campanha! Deseja acessar agora?`)) {
+   window.location.href = `campanha-pc.html?id=${campanhaIdReal}`;
+  } else {
+   await carregarNotificacoes();
+  }
   
  } catch (error) {
-  console.error('❌ Erro completo:', error);
+  console.error('❌ Erro:', error);
   showToast('Erro ao aceitar convite: ' + error.message, true);
  } finally {
   hideLoading();
@@ -807,16 +821,28 @@ async function carregarNotificacoes() {
  if (!currentUser) return;
  showLoading();
  try {
-  const convitesQuery = query(collection(db, "convites"), where("destinatario_uid", "==", currentUser.uid), where("status", "==", "pendente"));
+  const convitesQuery = query(
+   collection(db, "convites"),
+   where("destinatario_uid", "==", currentUser.uid),
+   where("status", "==", "pendente")
+  );
   const convitesSnap = await getDocs(convitesQuery);
+  
   if (convitesSnap.empty) {
    notificacoesContainer.innerHTML = `<div class="empty-state"><i class="fas fa-bell-slash"></i><h2>Nenhuma notificação</h2><p>Você não tem notificações no momento.</p></div>`;
-   hideLoading(); return;
+   hideLoading();
+   return;
   }
+  
   let html = '';
   let convitesArray = [];
-  convitesSnap.forEach((doc) => { const c = { id: doc.id, ...doc.data() }; const data = c.data_envio ? new Date(c.data_envio) : new Date(); convitesArray.push({ ...c, dataObj: data }); });
+  convitesSnap.forEach((doc) => {
+   const c = { id: doc.id, ...doc.data() };
+   const data = c.data_envio ? new Date(c.data_envio) : new Date();
+   convitesArray.push({ ...c, dataObj: data });
+  });
   convitesArray.sort((a, b) => b.dataObj - a.dataObj);
+  
   for (const c of convitesArray) {
    const dataFormatada = c.dataObj.toLocaleString('pt-BR');
    if (c.tipo === 'campanha') {
@@ -829,7 +855,12 @@ async function carregarNotificacoes() {
  } catch (error) { console.error('Erro:', error); notificacoesContainer.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color: #f44336;"></i><h2>Erro ao carregar</h2><p>Não foi possível carregar suas notificações.</p></div>`; } finally { hideLoading(); }
 }
 
-function escapeHtml(text) { if (!text) return ''; const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+function escapeHtml(text) {
+ if (!text) return '';
+ const div = document.createElement('div');
+ div.textContent = text;
+ return div.innerHTML;
+}
 
 async function carregarDadosUsuario(user) {
  if (!user) return;
@@ -837,14 +868,24 @@ async function carregarDadosUsuario(user) {
   currentUser = user;
   const docRef = doc(db, "usuarios", user.uid);
   const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) { userData = docSnap.data(); displayIdPc.textContent = userData.id_pc || '--------'; displayNickname.textContent = userData.nickname || 'Aventureiro'; }
+  if (docSnap.exists()) {
+   userData = docSnap.data();
+   displayIdPc.textContent = userData.id_pc || '--------';
+   displayNickname.textContent = userData.nickname || 'Aventureiro';
+  }
   await carregarNotificacoes();
  } catch (error) { console.error('Erro:', error); showToast('Erro ao carregar dados', true); }
 }
 
-onAuthStateChanged(auth, async (user) => { if (user) { await carregarDadosUsuario(user); } else { window.location.href = 'index.html'; } });
+onAuthStateChanged(auth, async (user) => {
+ if (user) { await carregarDadosUsuario(user); } 
+ else { window.location.href = 'index.html'; }
+});
 
-btnSair.addEventListener('click', async () => { try { showLoading(); await signOut(auth); window.location.href = 'index.html'; } catch (error) { console.error('Erro:', error); showToast('Erro ao sair', true); hideLoading(); } });
+btnSair.addEventListener('click', async () => {
+ try { showLoading(); await signOut(auth); window.location.href = 'index.html'; } 
+ catch (error) { console.error('Erro:', error); showToast('Erro ao sair', true); hideLoading(); }
+});
 </script>
 
 </body>
