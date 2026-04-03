@@ -1257,21 +1257,26 @@ canvas.modo-movimento {
     <!-- Recursos (PV/PM/PF) -->
     <div class="recursos-panel">
         <!-- PV -->
-        <div class="recurso-item">
-            <div class="recurso-header">
-                <span class="pv"><i class="fas fa-heart"></i> PV</span>
-                <span id="pvTexto">0/0</span>
-            </div>
-            <div class="recurso-barra-container">
-                <div class="recurso-barra barra-pv" id="pvBarra" style="width: 0%"></div>
-            </div>
-            <div class="recurso-botoes">
-                <button class="btn-recurso menos" onclick="alterarRecurso('pv', -1)">-1</button>
-                <button class="btn-recurso mais" onclick="alterarRecurso('pv', 1)">+1</button>
-                <button class="btn-recurso menos" onclick="alterarRecurso('pv', -5)">-5</button>
-                <button class="btn-recurso mais" onclick="alterarRecurso('pv', 5)">+5</button>
-            </div>
+       <!-- PV -->
+<div class="recurso-item">
+    <div class="recurso-header">
+        <span class="pv"><i class="fas fa-heart"></i> PV</span>
+        <div>
+            <span id="pvTexto">0/0</span>
+            <span id="statusMorteMarcador" style="display: none; margin-left: 8px;"></span>
+            <span id="statusMorteTexto" style="font-size: 10px; color: #e74c3c; margin-left: 5px;"></span>
         </div>
+    </div>
+    <div class="recurso-barra-container">
+        <div class="recurso-barra barra-pv" id="pvBarra" style="width: 0%"></div>
+    </div>
+    <div class="recurso-botoes">
+        <button class="btn-recurso menos" onclick="alterarRecurso('pv', -1)">-1</button>
+        <button class="btn-recurso mais" onclick="alterarRecurso('pv', 1)">+1</button>
+        <button class="btn-recurso menos" onclick="alterarRecurso('pv', -5)">-5</button>
+        <button class="btn-recurso mais" onclick="alterarRecurso('pv', 5)">+5</button>
+    </div>
+</div>
         
         <!-- PM -->
         <div class="recurso-item">
@@ -1875,6 +1880,22 @@ function getParamsFromUrl() {
         sessaoId: urlParams.get('sessao'),
         campanhaId: urlParams.get('campanha')
     };
+}
+
+// ============================================
+// FUNÇÕES DE TESTE DE MORTE
+// ============================================
+function getVTPercentual() {
+    return 40 + ((personagemAtual?.atributos?.vt?.esferas || 0) * 3);
+}
+
+function getLimiteCritico(vtFixo) {
+    return vtFixo * 5;
+}
+
+function isEstadoCritico(pvAtual, vtFixo) {
+    const limite = getLimiteCritico(vtFixo);
+    return pvAtual <= limite;
 }
 
 // ============================================
@@ -3014,6 +3035,26 @@ function renderizarFichaResumida() {
     if (pvBarra) pvBarra.style.width = (pvAtual / pvMax) * 100 + '%';
     if (pmBarra) pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
     if (pfBarra) pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
+
+    // ============================================
+    // MARCADOR DE TESTE DE MORTE (VT×5)
+    // ============================================
+    const vtFixo = getVTFixo();
+    const limiteCritico = vtFixo * 5;
+    const critico = pvAtual <= limiteCritico;
+
+    const marcadorMorte = document.getElementById('statusMorteMarcador');
+
+    if (marcadorMorte) {
+        if (critico) {
+            marcadorMorte.style.display = 'inline-block';
+            marcadorMorte.style.color = '#e74c3c';
+            marcadorMorte.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            marcadorMorte.title = `⚠️ ESTADO CRÍTICO! Limite: ${limiteCritico} PV (VT×5)`;
+        } else {
+            marcadorMorte.style.display = 'none';
+        }
+    }
 
     if (atributoST) atributoST.textContent = getSTFixo();
     if (atributoDX) atributoDX.textContent = getDXFixo();
