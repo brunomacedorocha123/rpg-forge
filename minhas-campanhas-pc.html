@@ -733,58 +733,74 @@
         }, 3000);
     }
 
+    // ===== FUNÇÃO PARA BUSCAR VAGAS REAIS =====
     async function buscarVagasReais(campanhaId) {
         try {
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
-                where("campanha_id", "==", campanhaId)
+                where("campanha_id", "==", campanhaId),
+                where("personagem_id", "!=", null)
             );
+            
             const vinculosSnap = await getDocs(vinculosQuery);
             return vinculosSnap.size;
         } catch (error) {
+            console.error('Erro ao buscar vagas para campanha', campanhaId, error);
             return 0;
         }
     }
 
+    // ===== FUNÇÃO PARA ABANDONAR CAMPANHA =====
     async function abandonarCampanha(campanhaId, campanhaNome, vinculoId) {
         showLoading();
+        
         try {
+            // Deletar o vínculo
             const vinculoRef = doc(db, "campanha_personagens", vinculoId);
             await deleteDoc(vinculoRef);
+            
             showToast(`✅ Você abandonou a campanha "${campanhaNome}"`);
+            
+            // Fechar modal
             modalAbandonar.classList.remove('active');
             campanhaParaAbandonar = null;
+            
+            // Recarregar a lista (a campanha vai sumir)
             await carregarCampanhas();
+            
         } catch (error) {
+            console.error('Erro ao abandonar campanha:', error);
             showToast('Erro ao abandonar campanha: ' + error.message, true);
         } finally {
             hideLoading();
         }
     }
 
+    // ===== FUNÇÃO PARA ABRIR MODAL =====
     function abrirModalAbandonar(campanha) {
         campanhaParaAbandonar = campanha;
         modalCampanhaNome.textContent = campanha.nome || 'Campanha sem nome';
         modalAbandonar.classList.add('active');
     }
 
+    // ===== FECHAR MODAL =====
     function fecharModal() {
         modalAbandonar.classList.remove('active');
         campanhaParaAbandonar = null;
     }
 
-    // ===== CARREGAR CAMPANHAS - MOSTRA TODAS COM VÍNCULO ATIVO (MESMO SEM PC) =====
+    // ===== CARREGAR CAMPANHAS (APENAS COM VÍNCULO ATIVO) =====
     async function carregarCampanhas() {
         if (!currentUser) return;
         
         showLoading();
         
         try {
-            // 🔥 BUSCA TODOS OS VÍNCULOS ATIVOS (independente de ter personagem ou não)
+            // Buscar SOMENTE vínculos com personagem vinculado (campanhas ativas)
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("jogador_uid", "==", currentUser.uid),
-                where("status", "==", "ativo")
+                where("personagem_id", "!=", null)
             );
             
             const vinculosSnap = await getDocs(vinculosQuery);
@@ -804,15 +820,25 @@
                 return;
             }
             
-            const campanhasAtivas = [];
+            // Mapa de campanhas ativas
+            const campanhasAtivas = new Map();
+            vinculosSnap.forEach(doc => {
+                const data = doc.data();
+                campanhasAtivas.set(data.campanha_id, {
+                    personagem: data.personagem_nome,
+                    personagemId: data.personagem_id,
+                    vinculoId: doc.id,
+                    dataVinculo: data.data_vinculo
+                });
+            });
             
-            for (const vinculoDoc of vinculosSnap.docs) {
-                const vinculo = vinculoDoc.data();
-                const vinculoId = vinculoDoc.id;
-                
+            // Buscar detalhes de cada campanha ativa
+            const campanhasParaMostrar = [];
+            
+            for (const [campanhaId, vinculoInfo] of campanhasAtivas) {
                 const campanhaQuery = query(
                     collection(db, "campanhas"),
-                    where("id", "==", vinculo.campanha_id)
+                    where("id", "==", campanhaId)
                 );
                 
                 const campanhaSnap = await getDocs(campanhaQuery);
@@ -824,20 +850,19 @@
                         ...campanhaDoc.data()
                     };
                     
-                    const vagasReais = await buscarVagasReais(vinculo.campanha_id);
+                    const vagasReais = await buscarVagasReais(campanhaId);
                     
-                    campanhasAtivas.push({
+                    campanhasParaMostrar.push({
                         ...campanha,
                         vagas_ocupadas_real: vagasReais,
-                        personagemVinculado: vinculo.personagem_nome || null,
-                        personagemId: vinculo.personagem_id || null,
-                        vinculoId: vinculoId,
-                        temPersonagemVinculado: !!vinculo.personagem_id
+                        personagemVinculado: vinculoInfo.personagem,
+                        personagemId: vinculoInfo.personagemId,
+                        vinculoId: vinculoInfo.vinculoId
                     });
                 }
             }
             
-            if (campanhasAtivas.length === 0) {
+            if (campanhasParaMostrar.length === 0) {
                 campanhasContainer.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-scroll"></i>
@@ -854,7 +879,7 @@
             
             // Renderizar cards
             let html = '';
-            for (const camp of campanhasAtivas) {
+            campanhasParaMostrar.forEach(camp => {
                 const statusClass = camp.status === 'aberto' ? 'status-aberto' :
                                    camp.status === 'andamento' ? 'status-andamento' :
                                    camp.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
@@ -865,17 +890,6 @@
                 
                 const vagasOcupadas = camp.vagas_ocupadas_real || 0;
                 const vagasMax = camp.vagas_max || 5;
-                
-                // 🔥 APENAS MOSTRA SE TEM PERSONAGEM OU NÃO - SEM BOTÃO DE VINCULAR
-                const statusPersonagemHtml = camp.temPersonagemVinculado ? 
-                    `<div style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(76, 175, 80, 0.2); border-radius: 10px; font-size: 0.85rem; color: #4CAF50; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Personagem: ${camp.personagemVinculado}</span>
-                    </div>` :
-                    `<div style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.2); border-radius: 10px; font-size: 0.85rem; color: #ff6b6b; display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>⚠️ Nenhum personagem vinculado</span>
-                    </div>`;
                 
                 html += `
                     <div class="campanha-card" data-campanha-id="${camp.id}" data-vinculo-id="${camp.vinculoId}" data-campanha-nome="${camp.nome || 'Campanha sem nome'}">
@@ -892,7 +906,10 @@
                             <div class="campanha-descricao">
                                 ${camp.descricao_curta || 'Sem descrição disponível'}
                             </div>
-                            ${statusPersonagemHtml}
+                            <div style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(255,215,0,0.1); border-radius: 10px; font-size: 0.85rem; color: #ffd700; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-dragon"></i>
+                                <span>Personagem: ${camp.personagemVinculado || 'Vinculado'}</span>
+                            </div>
                             <div class="campanha-footer">
                                 <span class="campanha-status ${statusClass}">${statusText}</span>
                                 <div style="display: flex; gap: 10px;">
@@ -907,10 +924,11 @@
                         </div>
                     </div>
                 `;
-            }
+            });
             
             campanhasContainer.innerHTML = html;
             
+            // Adicionar eventos aos botões
             document.querySelectorAll('.btn-acessar').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -934,6 +952,7 @@
                 });
             });
             
+            // Clique no card para acessar (exceto se clicou nos botões)
             document.querySelectorAll('.campanha-card').forEach(card => {
                 const acessarBtn = card.querySelector('.btn-acessar');
                 const abandonarBtn = card.querySelector('.btn-abandonar');
@@ -955,7 +974,7 @@
                 <div class="empty-state" style="color: #ff6b6b;">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h2>Erro ao carregar</h2>
-                    <p>Não foi possível carregar suas campanhas.</p>
+                    <p>Não foi possível carregar suas campanhas. Tente novamente mais tarde.</p>
                 </div>
             `;
         } finally {
@@ -963,6 +982,7 @@
         }
     }
 
+    // Eventos do Modal
     btnCancelarAbandonar.addEventListener('click', fecharModal);
     btnConfirmarAbandonar.addEventListener('click', async () => {
         if (campanhaParaAbandonar) {
@@ -974,12 +994,14 @@
         }
     });
     
+    // Fechar modal clicando fora
     modalAbandonar.addEventListener('click', (e) => {
         if (e.target === modalAbandonar) {
             fecharModal();
         }
     });
 
+    // Sair
     btnSair.addEventListener('click', async () => {
         try {
             showLoading();
@@ -991,6 +1013,7 @@
         }
     });
 
+    // Verificar login
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
@@ -1002,12 +1025,13 @@
                 if (docSnap.exists()) {
                     userData = docSnap.data();
                     displayIdPc.textContent = userData.id_pc || '---';
+                    
+                    await carregarCampanhas();
+                } else {
+                    await carregarCampanhas();
                 }
-                
-                await carregarCampanhas();
-                
             } catch (error) {
-                console.error('Erro:', error);
+                console.error('Erro ao carregar dados do usuário:', error);
                 await carregarCampanhas();
             }
         } else {
@@ -1016,4 +1040,4 @@
     });
 </script>
 </body>
-</html>
+</html> deve mexer somente no js..correto?
