@@ -784,24 +784,11 @@ const btnSair = document.getElementById('btnSair');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const toast = document.getElementById('toastNotification');
 const toastMessage = document.getElementById('toastMessage');
-const campanhaTitulo = document.getElementById('campanhaTitulo');
-const campanhaDescricao = document.getElementById('campanhaDescricao');
-const campanhaNomeBreadcrumb = document.getElementById('campanhaNomeBreadcrumb');
-const campanhaStatus = document.getElementById('campanhaStatus');
-const vagas = document.getElementById('vagas');
-const nivelMin = document.getElementById('nivelMin');
-const nivelMax = document.getElementById('nivelMax');
-const diasHorarios = document.getElementById('diasHorarios');
-const resumoMundo = document.getElementById('resumoMundo');
-const regrasCasa = document.getElementById('regrasCasa');
-const personagensContainer = document.getElementById('personagensContainer');
-const sessoesContainer = document.getElementById('sessoesContainer');
+const campanhasContainer = document.getElementById('campanhasContainer');
 
 let currentUser = null;
 let userData = null;
-let campanhaAtual = null;
-let campanhaId = null;
-let vinculoAtual = null;
+let campanhasDoJogador = [];
 
 function showLoading() { loadingOverlay.classList.add('active'); }
 function hideLoading() { loadingOverlay.classList.remove('active'); }
@@ -817,411 +804,225 @@ function showToast(message, isError = false) {
   }, 3000);
 }
 
-function getCampanhaIdFromUrl() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get('id');
-}
-
-async function buscarVagasReais() {
-  if (!campanhaAtual) return 0;
-  try {
-    const vinculosQuery = query(
-      collection(db, "campanha_personagens"),
-      where("campanha_id", "==", campanhaAtual.id),
-      where("personagem_id", "!=", null)
-    );
-    const vinculosSnap = await getDocs(vinculosQuery);
-    return vinculosSnap.size;
-  } catch (error) {
-    return 0;
-  }
-}
-
-async function carregarCampanha() {
-  campanhaId = getCampanhaIdFromUrl();
-  if (!campanhaId) {
-    showToast('ID da campanha não encontrado!', true);
-    setTimeout(() => window.location.href = 'minhas-campanhas-pc.html', 2000);
-    return;
-  }
-
+// ===== CARREGAR CAMPANHAS DO JOGADOR (PELO VÍNCULO DE USUÁRIO, NÃO PERSONAGEM) =====
+async function carregarCampanhas() {
+  if (!currentUser) return;
+  
   showLoading();
   
   try {
-    let campanhaData = null;
-    let campanhaDocId = null;
-    
-    const q = query(collection(db, "campanhas"), where("id", "==", campanhaId));
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      querySnapshot.forEach((doc) => {
-        campanhaData = doc.data();
-        campanhaDocId = doc.id;
-      });
-    } else {
-      const docRef = doc(db, "campanhas", campanhaId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        campanhaData = docSnap.data();
-        campanhaDocId = docSnap.id;
-      }
-    }
-    
-    if (!campanhaData) {
-      showToast('Campanha não encontrada!', true);
-      setTimeout(() => window.location.href = 'minhas-campanhas-pc.html', 2000);
-      return;
-    }
-    
-    campanhaAtual = {
-      docId: campanhaDocId,
-      id: campanhaData.id || campanhaDocId,
-      nome: campanhaData.nome || 'Sem nome',
-      descricao_curta: campanhaData.descricao_curta || 'Sem descrição',
-      status: campanhaData.status || 'aberto',
-      gm_nick: campanhaData.gm_nick || 'Mestre',
-      nivel_min: campanhaData.nivel_min || 1,
-      nivel_max: campanhaData.nivel_max || 5,
-      dias_horarios: campanhaData.dias_horarios || 'Não definido',
-      resumo_mundo: campanhaData.resumo_mundo || 'Sem resumo',
-      regras_casa: campanhaData.regras_casa || 'Nenhuma regra definida',
-      imagem_capa: campanhaData.imagem_capa,
-      vagas_max: campanhaData.vagas_max || 5
-    };
-    
-    // Atualizar interface
-    campanhaTitulo.textContent = campanhaAtual.nome;
-    campanhaNomeBreadcrumb.textContent = campanhaAtual.nome;
-    campanhaDescricao.textContent = campanhaAtual.descricao_curta;
-    
-    const statusClass = campanhaAtual.status === 'aberto' ? 'status-aberto' :
-              campanhaAtual.status === 'andamento' ? 'status-andamento' :
-              campanhaAtual.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
-    const statusText = campanhaAtual.status === 'aberto' ? 'Aberto' :
-             campanhaAtual.status === 'andamento' ? 'Em Andamento' :
-             campanhaAtual.status === 'fechado' ? 'Fechado' : 'Encerrado';
-    
-    campanhaStatus.className = `campanha-status ${statusClass}`;
-    campanhaStatus.textContent = statusText;
-    
-    const vagasReais = await buscarVagasReais();
-    vagas.textContent = `${vagasReais}/${campanhaAtual.vagas_max}`;
-    
-    nivelMin.textContent = campanhaAtual.nivel_min;
-    nivelMax.textContent = campanhaAtual.nivel_max;
-    diasHorarios.textContent = campanhaAtual.dias_horarios;
-    resumoMundo.textContent = campanhaAtual.resumo_mundo;
-    regrasCasa.textContent = campanhaAtual.regras_casa;
-    
-    if (campanhaAtual.imagem_capa) {
-      const capa = document.getElementById('campanhaCapa');
-      capa.style.backgroundImage = `url('${campanhaAtual.imagem_capa}')`;
-      capa.innerHTML = '';
-    }
-    
-    // Carregar vínculo e personagens
-    await carregarVinculoAtual();
-    await carregarPersonagens();
-    await carregarSessoes();
-    
-  } catch (error) {
-    console.error('Erro:', error);
-    showToast('Erro ao carregar campanha', true);
-  } finally {
-    hideLoading();
-  }
-}
-
-async function carregarVinculoAtual() {
-  if (!currentUser || !campanhaAtual) return;
-  
-  try {
+    // 🔥 CORREÇÃO PRINCIPAL: Buscar por jogador_uid, independente de personagem_id
     const q = query(
       collection(db, "campanha_personagens"),
-      where("campanha_id", "==", campanhaAtual.id),
       where("jogador_uid", "==", currentUser.uid),
       where("status", "==", "ativo")
     );
+    
+    const vinculosSnap = await getDocs(q);
+    
+    campanhasDoJogador = [];
+    
+    if (vinculosSnap.empty) {
+      renderizarEmptyState();
+      hideLoading();
+      return;
+    }
+    
+    // Para cada vínculo, buscar dados da campanha
+    for (const vinculoDoc of vinculosSnap.docs) {
+      const vinculo = vinculoDoc.data();
+      
+      // Buscar dados completos da campanha
+      const campanhaQuery = query(
+        collection(db, "campanhas"),
+        where("id", "==", vinculo.campanha_id)
+      );
+      const campanhaSnap = await getDocs(campanhaQuery);
+      
+      if (!campanhaSnap.empty) {
+        const campanhaDoc = campanhaSnap.docs[0];
+        const campanhaData = campanhaDoc.data();
+        
+        // Contar vagas reais
+        const vagasQuery = query(
+          collection(db, "campanha_personagens"),
+          where("campanha_id", "==", vinculo.campanha_id),
+          where("status", "==", "ativo")
+        );
+        const vagasSnap = await getDocs(vagasQuery);
+        
+        campanhasDoJogador.push({
+          vinculoId: vinculoDoc.id,
+          campanhaDocId: campanhaDoc.id,
+          ...campanhaData,
+          personagemVinculado: vinculo.personagem_nome || null,
+          personagemId: vinculo.personagem_id || null,
+          dataVinculo: vinculo.data_vinculo
+        });
+      }
+    }
+    
+    renderizarCampanhas();
+    
+  } catch (error) {
+    console.error('Erro ao carregar campanhas:', error);
+    showToast('Erro ao carregar campanhas', true);
+  } finally {
+    hideLoading();
+  }
+}
+
+// ===== RENDERIZAR LISTA DE CAMPANHAS =====
+function renderizarCampanhas() {
+  if (campanhasDoJogador.length === 0) {
+    renderizarEmptyState();
+    return;
+  }
+  
+  let html = '';
+  
+  campanhasDoJogador.forEach(campanha => {
+    const statusClass = campanha.status === 'aberto' ? 'status-aberto' :
+              campanha.status === 'andamento' ? 'status-andamento' :
+              campanha.status === 'fechado' ? 'status-fechado' : 'status-encerrado';
+    
+    const statusText = campanha.status === 'aberto' ? 'Aberto' :
+             campanha.status === 'andamento' ? 'Em Andamento' :
+             campanha.status === 'fechado' ? 'Fechado' : 'Encerrado';
+    
+    // 🔥 CORREÇÃO: Mostrar status do personagem (vinculado ou não)
+    const personagemStatus = campanha.personagemVinculado 
+      ? `<span style="color: #00ff00;"><i class="fas fa-check-circle"></i> ${campanha.personagemVinculado}</span>`
+      : `<span style="color: #ffaa00;"><i class="fas fa-exclamation-circle"></i> Sem personagem</span>`;
+    
+    html += `
+      <div class="campanha-card">
+        <div class="campanha-capa" style="${campanha.imagem_capa ? `background-image: url('${campanha.imagem_capa}')` : ''}">
+          ${!campanha.imagem_capa ? '<i class="fas fa-scroll"></i>' : ''}
+        </div>
+        <div class="campanha-info">
+          <h2>${campanha.nome || 'Sem nome'}</h2>
+          <div class="campanha-meta">
+            <span><i class="fas fa-user-shield"></i> GM: ${campanha.gm_nick || 'Desconhecido'}</span>
+            <span><i class="fas fa-users"></i> ${campanha.vagas_ocupadas || 0}/${campanha.vagas_max || 5}</span>
+            <span class="campanha-status ${statusClass}">${statusText}</span>
+          </div>
+          <div style="margin: 10px 0; padding: 8px 12px; background: rgba(0,0,0,0.3); border-radius: 10px; font-size: 0.9rem;">
+            Personagem: ${personagemStatus}
+          </div>
+          <p class="campanha-descricao">${campanha.descricao_curta || 'Sem descrição'}</p>
+          <div class="campanha-footer">
+            <button class="btn-acessar" onclick="acessarCampanha('${campanha.id}')">
+              <i class="fas fa-door-open"></i> Acessar Campanha
+            </button>
+            <button class="btn-abandonar" onclick="abandonarCampanha('${campanha.id}', '${campanha.nome}')">
+              <i class="fas fa-sign-out-alt"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  campanhasContainer.innerHTML = html;
+}
+
+// ===== EMPTY STATE =====
+function renderizarEmptyState() {
+  campanhasContainer.innerHTML = `
+    <div class="empty-state">
+      <i class="fas fa-scroll"></i>
+      <h2>Nenhuma campanha encontrada</h2>
+      <p>Você ainda não participa de nenhuma campanha.</p>
+      <a href="convites-pc.html" class="btn-convites">
+        <i class="fas fa-envelope"></i> Ver Convites
+      </a>
+    </div>
+  `;
+}
+
+// ===== ACESSAR CAMPANHA (SEM VERIFICAÇÃO DE PERSONAGEM!) =====
+window.acessarCampanha = function(campanhaId) {
+  // 🔥 CORREÇÃO: Redireciona direto, sem verificar personagem
+  // A escolha do personagem acontece dentro da campanha-pc.html
+  window.location.href = `campanha-pc.html?id=${campanhaId}`;
+};
+
+// ===== ABRANDONAR CAMPANHA =====
+let campanhaParaAbandonar = null;
+
+window.abandonarCampanha = function(campanhaId, campanhaNome) {
+  campanhaParaAbandonar = { id: campanhaId, nome: campanhaNome };
+  document.getElementById('modalCampanhaNome').textContent = campanhaNome;
+  document.getElementById('modalAbandonar').classList.add('active');
+};
+
+// Confirmar abandono
+document.getElementById('btnConfirmarAbandonar').addEventListener('click', async () => {
+  if (!campanhaParaAbandonar || !currentUser) return;
+  
+  showLoading();
+  
+  try {
+    // Encontrar o vínculo do usuário nesta campanha
+    const q = query(
+      collection(db, "campanha_personagens"),
+      where("campanha_id", "==", campanhaParaAbandonar.id),
+      where("jogador_uid", "==", currentUser.uid),
+      where("status", "==", "ativo")
+    );
+    
     const snapshot = await getDocs(q);
     
     if (!snapshot.empty) {
-      snapshot.forEach(doc => {
-        vinculoAtual = {
-          id: doc.id,
-          ...doc.data()
-        };
-      });
-    } else {
-      vinculoAtual = null;
-    }
-  } catch (error) {
-    vinculoAtual = null;
-  }
-}
-
-window.vincularPersonagem = async function(personagemId, personagemNome) {
-  if (!currentUser || !campanhaAtual) return;
-  if (!confirm(`Vincular "${personagemNome}" a esta campanha?`)) return;
-  
-  showLoading();
-  
-  try {
-    if (vinculoAtual && vinculoAtual.id) {
-      const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
-      await updateDoc(vinculoRef, {
-        personagem_id: personagemId,
-        personagem_nome: personagemNome,
-        data_vinculo: serverTimestamp()
-      });
-      showToast(`✅ Personagem "${personagemNome}" vinculado!`);
-    } else {
-      await addDoc(collection(db, "campanha_personagens"), {
-        campanha_id: campanhaAtual.id,
-        campanha_nome: campanhaAtual.nome,
-        jogador_uid: currentUser.uid,
-        jogador_nick: userData?.nickname || 'Jogador',
-        personagem_id: personagemId,
-        personagem_nome: personagemNome,
-        data_vinculo: serverTimestamp(),
-        status: 'ativo'
-      });
-      showToast(`✅ Personagem "${personagemNome}" vinculado!`);
+      // Deletar o vínculo (ou marcar como inativo)
+      const vinculoDoc = snapshot.docs[0];
+      await deleteDoc(doc(db, "campanha_personagens", vinculoDoc.id));
+      
+      showToast('Você saiu da campanha');
+      await carregarCampanhas(); // Recarregar lista
     }
     
-    await carregarVinculoAtual();
-    await carregarPersonagens();
-    
-    const vagasReais = await buscarVagasReais();
-    vagas.textContent = `${vagasReais}/${campanhaAtual.vagas_max}`;
+    document.getElementById('modalAbandonar').classList.remove('active');
+    campanhaParaAbandonar = null;
     
   } catch (error) {
-    showToast('Erro ao vincular: ' + error.message, true);
+    console.error('Erro ao abandonar:', error);
+    showToast('Erro ao sair da campanha', true);
   } finally {
     hideLoading();
   }
-};
+});
 
-window.desvincularPersonagem = async function() {
-  if (!vinculoAtual) {
-    showToast('Nenhum personagem vinculado', true);
-    return;
-  }
-  
-  if (!confirm(`Desvincular "${vinculoAtual.personagem_nome}" da campanha?`)) return;
-  
-  showLoading();
-  
-  try {
-    const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
-    await updateDoc(vinculoRef, {
-      personagem_id: null,
-      personagem_nome: null
-    });
-    
-    showToast('✅ Personagem desvinculado!');
-    await carregarVinculoAtual();
-    await carregarPersonagens();
-    
-    const vagasReais = await buscarVagasReais();
-    vagas.textContent = `${vagasReais}/${campanhaAtual.vagas_max}`;
-    
-  } catch (error) {
-    showToast('Erro ao desvincular: ' + error.message, true);
-  } finally {
-    hideLoading();
-  }
-};
+// Cancelar abandono
+document.getElementById('btnCancelarAbandonar').addEventListener('click', () => {
+  document.getElementById('modalAbandonar').classList.remove('active');
+  campanhaParaAbandonar = null;
+});
 
-async function carregarPersonagens() {
-  if (!currentUser) return;
-  
-  try {
-    const q = query(
-      collection(db, "personagens"),
-      where("userId", "==", currentUser.uid)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    const personagens = [];
-    querySnapshot.forEach((doc) => {
-      personagens.push({ id: doc.id, ...doc.data() });
-    });
-    
-    if (personagens.length === 0) {
-      personagensContainer.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(10,10,26,0.5); border-radius: 20px;">
-          <i class="fas fa-dragon" style="font-size: 3rem; color: #ffd700; margin-bottom: 15px;"></i>
-          <h3>Nenhum personagem criado</h3>
-          <p>Crie um personagem primeiro para entrar na campanha.</p>
-          <a href="criar-personagem.html" style="display: inline-block; margin-top: 15px; padding: 10px 25px; background: linear-gradient(45deg, #ffd700, #ff6b6b); color: #0a0a1a; text-decoration: none; border-radius: 30px; font-weight: 600;">
-            <i class="fas fa-plus"></i> Criar Personagem
-          </a>
-        </div>
-      `;
-      return;
-    }
-    
-    let html = '';
-    
-    for (const p of personagens) {
-      const estaVinculado = vinculoAtual && vinculoAtual.personagem_id === p.id;
-      const temVinculoMasVazio = vinculoAtual && !vinculoAtual.personagem_id;
-      const temOutroVinculado = vinculoAtual && vinculoAtual.personagem_id && vinculoAtual.personagem_id !== p.id;
-      
-      html += `<div class="personagem-card" data-id="${p.id}">`;
-      
-      if (estaVinculado) {
-        html += `<div class="selo-vinculado"><i class="fas fa-check-circle"></i> Vinculado</div>`;
-      }
-      
-      html += `
-        <div class="personagem-header">
-          <div class="personagem-avatar"><i class="fas fa-dragon"></i></div>
-          <div class="personagem-info">
-            <h3>${p.nome || 'Sem nome'}</h3>
-            <span class="personagem-classe">${p.classe || 'Sem classe'}</span>
-          </div>
-        </div>
-        <div class="personagem-atributos">
-          <span><i class="fas fa-fist-raised"></i> ${p.atributos?.st?.esferas || 0}</span>
-          <span><i class="fas fa-running"></i> ${p.atributos?.dx?.esferas || 0}</span>
-          <span><i class="fas fa-brain"></i> ${p.atributos?.iq?.esferas || 0}</span>
-          <span><i class="fas fa-heart"></i> ${p.atributos?.vigor?.esferas || 0}</span>
-        </div>
-        <div class="personagem-stats">
-          <span><i class="fas fa-heartbeat"></i> ${p.statusCombate?.vidaAtual || 0}/${p.statusCombate?.vidaMax || 0}</span>
-          <span><i class="fas fa-magic"></i> ${p.statusCombate?.manaAtual || 0}/${p.statusCombate?.manaMax || 0}</span>
-        </div>
-      `;
-      
-      if (estaVinculado) {
-        html += `
-          <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <a href="ficha-pc.html?personagemId=${p.id}" style="flex: 1; text-decoration: none;">
-              <button class="btn-vincular" style="background: linear-gradient(45deg, #ffd700, #ffaa00); margin: 0;">
-                <i class="fas fa-eye"></i> Acessar Ficha
-              </button>
-            </a>
-            <button class="btn-desvincular" style="flex: 1; margin: 0;" onclick="desvincularPersonagem()">
-              <i class="fas fa-unlink"></i> Desvincular
-            </button>
-          </div>
-        `;
-      } else if (temVinculoMasVazio) {
-        html += `
-          <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')" style="margin-top: 10px; background: linear-gradient(45deg, #00ff00, #00cc00);">
-            <i class="fas fa-link"></i> Vincular à Campanha
-          </button>
-        `;
-      } else if (temOutroVinculado) {
-        html += `
-          <div class="btn-ja-vinculado" style="background: rgba(255,0,0,0.2); border-color: #ff0000; color: #ff0000; text-align: center; padding: 10px; border-radius: 10px; margin-top: 10px;">
-            <i class="fas fa-info-circle"></i> ${vinculoAtual.personagem_nome} já está vinculado
-          </div>
-        `;
-      } else {
-        html += `
-          <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')" style="margin-top: 10px;">
-            <i class="fas fa-link"></i> Vincular à Campanha
-          </button>
-        `;
-      }
-      
-      html += `</div>`;
-    }
-    
-    personagensContainer.innerHTML = html;
-    
-  } catch (error) {
-    console.error('Erro:', error);
-    personagensContainer.innerHTML = `<div style="text-align: center; color: #ff6b6b; padding: 40px;">Erro ao carregar personagens</div>`;
-  }
-}
-
-window.entrarSessao = function(sessaoId) {
-  if (!vinculoAtual || !vinculoAtual.personagem_id) {
-    showToast('Você precisa vincular um personagem primeiro!', true);
-    return;
-  }
-  window.location.href = `mesa-jogo-pc.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
-}
-
-async function carregarSessoes() {
-  if (!campanhaAtual) return;
-  
-  try {
-    const q = query(collection(db, "sessoes"), where("campanha_id_custom", "==", campanhaAtual.id));
-    const querySnapshot = await getDocs(q);
-    const sessoes = [];
-    querySnapshot.forEach((doc) => { sessoes.push({ id: doc.id, ...doc.data() }); });
-    
-    if (sessoes.length === 0) {
-      sessoesContainer.innerHTML = `<div style="text-align: center; padding: 40px;"><i class="fas fa-calendar" style="font-size: 3rem; color: #ffd700;"></i><h3>Nenhuma sessão agendada</h3><p>Aguarde o mestre criar as sessões.</p></div>`;
-      return;
-    }
-    
-    let html = '';
-    sessoes.sort((a, b) => (a.data?.seconds || 0) - (b.data?.seconds || 0));
-    
-    for (const sessao of sessoes) {
-      const data = sessao.data ? new Date(sessao.data.seconds * 1000) : new Date();
-      const dia = data.getDate().toString().padStart(2, '0');
-      const mes = (data.getMonth() + 1).toString().padStart(2, '0');
-      const ano = data.getFullYear();
-      
-      let statusText = '';
-      if (sessao.realizada) statusText = '✓ Realizada';
-      else if (sessao.status === 'fechado') statusText = '🔒 Fechada';
-      else if (sessao.status === 'andamento') statusText = '⏳ Em Andamento';
-      else statusText = '📅 Aberta';
-      
-      html += `
-        <div class="sessao-item">
-          <div class="sessao-data"><div class="dia">${dia}</div><div class="mes">${mes}/${ano}</div></div>
-          <div class="sessao-info">
-            <h4>${sessao.titulo || 'Sessão sem título'}</h4>
-            <p>${sessao.descricao || 'Sem descrição'}</p>
-          </div>
-          ${!sessao.realizada && vinculoAtual?.personagem_id ? 
-            `<div><button class="btn-vincular" onclick="entrarSessao('${sessao.id}')" style="padding: 8px 20px;"><i class="fas fa-sign-in-alt"></i> Entrar</button></div>` : 
-            `<div><button class="btn-vincular" disabled style="padding: 8px 20px; background: #444;"><i class="fas fa-ban"></i> ${!vinculoAtual?.personagem_id ? 'Vincule um Personagem' : 'Realizada'}</button></div>`
-          }
-        </div>
-      `;
-    }
-    sessoesContainer.innerHTML = html;
-  } catch (error) {
-    sessoesContainer.innerHTML = `<div style="text-align: center; color: #ff6b6b; padding: 40px;">Erro ao carregar sessões</div>`;
-  }
-}
-
-window.mudarAba = function(aba) {
-  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-  if (window.event && window.event.target) window.event.target.classList.add('active');
-  document.querySelectorAll('.aba-conteudo').forEach(c => c.style.display = 'none');
-  document.getElementById(`aba-${aba}`).style.display = 'block';
-  if (aba === 'sessoes') carregarSessoes();
-  else if (aba === 'meus-personagens') carregarPersonagens();
-}
-
+// ===== SAIR =====
 btnSair.addEventListener('click', async () => {
   await signOut(auth);
   window.location.href = 'index.html';
 });
 
+// ===== VERIFICAR LOGIN =====
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     showLoading();
+    
     try {
       const docRef = doc(db, "usuarios", user.uid);
       const docSnap = await getDoc(docRef);
+      
       if (docSnap.exists()) {
         userData = docSnap.data();
         displayIdPc.textContent = userData.id_pc || '---';
       }
-      await carregarCampanha();
+      
+      await carregarCampanhas();
+      
     } catch (error) {
       console.error('Erro:', error);
       showToast('Erro ao carregar dados', true);
