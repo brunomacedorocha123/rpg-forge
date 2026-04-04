@@ -1169,6 +1169,61 @@ canvas {
 canvas.modo-movimento {
     cursor: crosshair !important;
 }
+
+/* ============================================ */
+/* SELETOR DE AVATAR - ESTILOS NOVOS            */
+/* ============================================ */
+
+.btn-avatar {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-avatar:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 12px var(--gold);
+    border-color: var(--gold-bright) !important;
+}
+
+.btn-avatar:active {
+    transform: translateY(0px);
+}
+
+.btn-avatar.selecionado {
+    border: 3px solid var(--gold-bright) !important;
+    background: rgba(212, 175, 55, 0.25) !important;
+    box-shadow: 0 0 15px var(--gold);
+    position: relative;
+}
+
+.btn-avatar.selecionado::after {
+    content: "✓";
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--gold-bright);
+    color: var(--bg-primary);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+}
+
+/* Animação de carregamento do avatar no mapa */
+@keyframes avatarLoad {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.token-com-imagem {
+    animation: avatarLoad 0.2s ease-out;
+}
     </style>
 </head>
 <body>
@@ -1248,7 +1303,7 @@ canvas.modo-movimento {
                 </div>
             </div>
 
-           <!-- Coluna direita - Ficha Resumida do Personagem + Defesas -->
+         <!-- Coluna direita - Ficha Resumida do Personagem + Defesas -->
 <div class="ficha-resumida">
     <h3><i class="fas fa-user"></i> <span id="fichaPersonagemNome">Meu Personagem</span></h3>
     
@@ -1306,6 +1361,39 @@ canvas.modo-movimento {
         </div>
     </div>
 
+    <!-- ============================================ -->
+    <!-- 🔥 SELETOR DE AVATAR - ADICIONADO AQUI 🔥 -->
+    <!-- ============================================ -->
+    <div class="seletor-avatar" style="background: var(--bg-secondary); border-radius: 12px; padding: 15px; margin-bottom: 20px;">
+        <h4 style="color: var(--gold); margin-bottom: 12px; font-size: 0.9rem;">
+            <i class="fas fa-user-astronaut"></i> Escolha seu Avatar
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+            <!-- Guerreiro -->
+            <button class="btn-avatar" data-avatar="guerreiro-mapa.png" style="background: var(--bg-primary); border: 2px solid var(--gold); border-radius: 8px; padding: 8px; cursor: pointer; transition: all 0.2s;">
+                <div style="font-size: 24px;">⚔️</div>
+                <div style="font-size: 11px;">Guerreiro</div>
+            </button>
+            
+            <!-- Mago -->
+            <button class="btn-avatar" data-avatar="mago-mapa.png" style="background: var(--bg-primary); border: 2px solid var(--gold); border-radius: 8px; padding: 8px; cursor: pointer; transition: all 0.2s;">
+                <div style="font-size: 24px;">🔮</div>
+                <div style="font-size: 11px;">Mago</div>
+            </button>
+            
+            <!-- Ladino -->
+            <button class="btn-avatar" data-avatar="ladino-mapa.png" style="background: var(--bg-primary); border: 2px solid var(--gold); border-radius: 8px; padding: 8px; cursor: pointer; transition: all 0.2s;">
+                <div style="font-size: 24px;">🗡️</div>
+                <div style="font-size: 11px;">Ladino</div>
+            </button>
+            
+            <!-- Arqueiro -->
+            <button class="btn-avatar" data-avatar="arqueiro-mapa.png" style="background: var(--bg-primary); border: 2px solid var(--gold); border-radius: 8px; padding: 8px; cursor: pointer; transition: all 0.2s;">
+                <div style="font-size: 24px;">🏹</div>
+                <div style="font-size: 11px;">Arqueiro</div>
+            </button>
+        </div>
+    </div>
    <!-- ============================================ -->
 <!-- PAINEL DE CONTROLE DO PERSONAGEM (NOVO) -->
 <!-- ============================================ -->
@@ -1779,6 +1867,8 @@ const valorCorrerSpan = document.getElementById('valorCorrer');
 const btnDirecaoPC = document.getElementById('btnDirecaoPC');
 const direcaoAtualTexto = document.getElementById('direcaoAtualTexto');
 
+// 🔥 SELETOR DE AVATAR
+const botoesAvatar = document.querySelectorAll('.btn-avatar');
 // ============================================
 // 🔥 NOVAS VARIÁVEIS GLOBAIS PARA PARTICIPAÇÃO
 // ============================================
@@ -1790,6 +1880,11 @@ let unsubscribeParticipantes = null;
 // 🔥 NOVA VARIÁVEL PARA ITENS
 // ============================================
 let itens = {};
+
+// ============================================
+// 🔥 CACHE DE IMAGENS PARA AVATAR
+// ============================================
+const imageCache = {};
 
 // ============================================
 // 🧭 SISTEMA DE DIREÇÃO PARA PCS
@@ -2381,7 +2476,7 @@ function calcularNHPericia(periciaId, dados) {
 }
 
 // ============================================
-// FUNÇÕES DO MAPA (ATUALIZADO COM ITENS E DIREÇÃO)
+// FUNÇÕES DO MAPA (ATUALIZADO COM ITENS, DIREÇÃO E AVATAR)
 // ============================================
 function hexToPixel(hexX, hexY) {
     const x = OFFSET_X + hexX * HEX_HORIZONTAL_SPACING;
@@ -2489,36 +2584,89 @@ function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') 
     ctx.stroke();
 }
 
-// 🔄 FUNÇÃO CORRIGIDA: Desenhar token com direção (PC vê TODOS os personagens - PCs e NPCs)
+// 🔥 FUNÇÃO ATUALIZADA: Desenhar token com imagem de avatar
 function desenharToken(ctx, x, y, personagem) {
     const nomeToken = personagem?.nome || '?';
     const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
+    const raioToken = HEX_RADIUS * 0.65;
+    const tamanhoToken = raioToken * 2;
     
-    // Desenhar o círculo base do token
-    ctx.beginPath();
-    ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
-    ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // Se tem avatar e é PC
+    if (personagem.avatar && personagem.tipo === 'pc') {
+        let img = imageCache[personagem.avatar];
+        
+        if (img && img.complete) {
+            ctx.save();
+            
+            // Sombra
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 3;
+            
+            // Corte circular
+            ctx.beginPath();
+            ctx.arc(x, y, raioToken, 0, Math.PI * 2);
+            ctx.clip();
+            
+            // Desenha imagem
+            ctx.drawImage(img, x - raioToken, y - raioToken, tamanhoToken, tamanhoToken);
+            ctx.restore();
+            
+            // Borda dourada
+            ctx.beginPath();
+            ctx.arc(x, y, raioToken + 1, 0, Math.PI * 2);
+            ctx.strokeStyle = '#D4AF37';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+        } else if (!img) {
+            // Carrega imagem
+            img = new Image();
+            img.src = personagem.avatar;
+            img.onload = () => {
+                imageCache[personagem.avatar] = img;
+                desenharMapa();
+            };
+            imageCache[personagem.avatar] = img;
+            
+            // Placeholder enquanto carrega
+            ctx.beginPath();
+            ctx.arc(x, y, raioToken, 0, Math.PI * 2);
+            ctx.fillStyle = '#333';
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px "Inter"';
+            ctx.fillText('⏳', x-4, y+4);
+        }
+    } else {
+        // Fallback: círculo colorido original
+        ctx.beginPath();
+        ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Ícone do personagem
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(personagem?.tipo === 'pc' ? '🧙' : '🧌', x, y);
+    }
     
-    // Ícone do personagem
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 16px "Inter", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(personagem?.tipo === 'pc' ? '🧙' : '🧌', x, y);
-    
-    // Nome abreviado
+    // Nome abreviado (sempre)
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 2;
     ctx.fillText(nomeAbreviado, x, y + 22);
     
-    // PV
+    // PV (sempre)
     ctx.font = 'bold 8px "Inter", sans-serif';
     ctx.fillStyle = '#ff6b6b';
     ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
+    ctx.shadowColor = 'transparent';
     
     // 🧭 DESENHAR DIREÇÃO E CONE DE VISÃO PARA TODOS OS PERSONAGENS (PCs e NPCs)
     if (personagem?.direcao) {
@@ -2969,6 +3117,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
                 hexX: hexX,
                 hexY: hexY,
                 direcao: 'L',
+                avatar: 'guerreiro-mapa.png',
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
             
@@ -2978,6 +3127,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             posicoes[personagemId].andar = desloc.andar;
             posicoes[personagemId].correr = desloc.correr;
             posicoes[personagemId].direcao = 'L';
+            posicoes[personagemId].avatar = 'guerreiro-mapa.png';
             
             resetarModoMovimento();
             desenharMapa();
@@ -3370,6 +3520,17 @@ function iniciarListenersCombate() {
                 
                 if (posicoes[id].hexX === null) posicoes[id].hexX = undefined;
                 if (posicoes[id].hexY === null) posicoes[id].hexY = undefined;
+                
+                // 🔥 DESTACAR BOTÃO DE AVATAR SE FOR O PERSONAGEM ATUAL
+                if (personagemAtual && id === personagemAtual.id && data.avatar && botoesAvatar.length > 0) {
+                    botoesAvatar.forEach(btn => {
+                        if (btn.dataset.avatar === data.avatar) {
+                            btn.classList.add('selecionado');
+                        } else {
+                            btn.classList.remove('selecionado');
+                        }
+                    });
+                }
             }
             
             if (change.type === "removed") {
@@ -3735,6 +3896,41 @@ if (btnMoverCorrer) {
 }
 if (btnDirecaoPC) {
     btnDirecaoPC.addEventListener('click', ciclarDirecaoPC);
+}
+
+// ============================================
+// 🔥 EVENTOS DOS BOTÕES DE AVATAR
+// ============================================
+if (botoesAvatar.length > 0) {
+    botoesAvatar.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const avatarNome = btn.dataset.avatar;
+            if (!avatarNome || !personagemAtual || !sessaoAtual) return;
+            
+            try {
+                const posicaoRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemAtual.id);
+                await updateDoc(posicaoRef, { avatar: avatarNome });
+                
+                if (posicoes[personagemAtual.id]) {
+                    posicoes[personagemAtual.id].avatar = avatarNome;
+                }
+                
+                botoesAvatar.forEach(b => b.classList.remove('selecionado'));
+                btn.classList.add('selecionado');
+                
+                const nomeAvatar = btn.querySelector('div:last-child')?.textContent || avatarNome;
+                showToast(`Avatar alterado para ${nomeAvatar}`);
+                
+                if (ctx && modoVisualizacao === 'combate') {
+                    desenharMapa();
+                }
+                
+            } catch (error) {
+                console.error('Erro ao salvar avatar:', error);
+                showToast('Erro ao alterar avatar', true);
+            }
+        });
+    });
 }
 
 // ============================================
