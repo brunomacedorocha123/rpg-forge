@@ -7822,13 +7822,42 @@ function equiparItem(itemId) {
     const index = inventario.mochila.findIndex(i => i.id === itemId);
     if (index !== -1) {
         const item = inventario.mochila[index];
+        
+        // Verifica Força necessária
         if (item.st && getSTFixo() < item.st) {
             alert(`Força insuficiente! Precisa de ST ${item.st}`);
             return;
         }
+        
+        // ===== IDENTIFICA O TIPO DO ITEM =====
+        const isArmadura = item.rd && !item.dano && !item.bonus;
+        const isEscudo = item.bonus && !item.dano;
+        
+        // ===== VERIFICA ARMADURA (só pode 1) =====
+        if (isArmadura) {
+            const armaduraEquipada = inventario.corpo.find(i => i.rd && !i.dano && !i.bonus);
+            
+            if (armaduraEquipada) {
+                alert(`❌ Você já está usando uma armadura: ${armaduraEquipada.nome}\n\nRemova a armadura atual antes de equipar outra.`);
+                return;
+            }
+        }
+        
+        // ===== VERIFICA ESCUDO (só pode 1) =====
+        if (isEscudo) {
+            const escudoEquipado = inventario.corpo.find(i => i.bonus && !i.dano);
+            
+            if (escudoEquipado) {
+                alert(`❌ Você já está usando um escudo: ${escudoEquipado.nome}\n\nRemova o escudo atual antes de equipar outro.`);
+                return;
+            }
+        }
+        
+        // ===== EQUIPA O ITEM =====
         if (!inventario.corpo) inventario.corpo = [];
         inventario.corpo.push(item);
         inventario.mochila.splice(index, 1);
+        
         renderizarInventario();
         atualizarInterface();
         triggerAutoSave();
