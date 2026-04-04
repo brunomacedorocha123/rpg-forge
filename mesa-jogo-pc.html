@@ -2189,23 +2189,7 @@ function calcularPM() {
 }
 
 // ============================================
-// 🔥 NOVA FUNÇÃO - BÔNUS DEFENSIVO DAS ARMADURAS
-// ============================================
-function calcularBonusDefensivo() {
-    let bonus = 0;
-    if (personagemAtual?.inventario?.corpo) {
-        personagemAtual.inventario.corpo.forEach(item => {
-            // Armaduras têm rd e não são armas (dano) nem escudos (bonus)
-            if (item.rd && !item.dano && !item.bonus) {
-                bonus += item.rd;
-            }
-        });
-    }
-    return bonus;
-}
-
-// ============================================
-// BÔNUS DEFENSIVO DAS ARMADURAS
+// BÔNUS DEFENSIVO DAS ARMADURAS (ÚNICA VERSÃO)
 // ============================================
 function calcularBonusDefensivo() {
     let bonus = 0;
@@ -2221,19 +2205,17 @@ function calcularBonusDefensivo() {
 }
 
 // ============================================
-// CÁLCULO DA CARGA (se não existir, define)
+// CÁLCULO DA CARGA
 // ============================================
-if (typeof calcularCarga !== 'function') {
-    function calcularCarga() {
-        let pesoTotal = 0;
-        if (personagemAtual?.inventario?.corpo) {
-            personagemAtual.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-        }
-        if (personagemAtual?.inventario?.mochila) {
-            personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-        }
-        return pesoTotal;
+function calcularCarga() {
+    let pesoTotal = 0;
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
+    if (personagemAtual?.inventario?.mochila) {
+        personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    }
+    return pesoTotal;
 }
 
 // ============================================
@@ -2256,41 +2238,9 @@ function calcularEsquiva() {
     return Math.max(0, esquiva);
 }
 
-/// ============================================
-// DEFESAS ATUALIZADAS (COM BÔNUS DEFENSIVO)
 // ============================================
-
-function calcularBonusDefensivo() {
-    let bonus = 0;
-    if (personagemAtual?.inventario?.corpo) {
-        personagemAtual.inventario.corpo.forEach(item => {
-            // Só armaduras (tem rd, não tem dano, não tem bonus)
-            if (item.rd && !item.dano && !item.bonus) {
-                bonus += item.rd;
-            }
-        });
-    }
-    return bonus;
-}
-
-function calcularEsquiva() {
-    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) - 15;  // -15
-    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
-    
-    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
-    esquiva += calcularBonusDefensivo();
-    
-    const carga = calcularCarga();
-    const st = getSTFixo();
-    const limiteLeve = st * 2;
-    const limiteMedio = st * 4;
-    
-    if (carga > limiteMedio) esquiva -= 10;
-    else if (carga > limiteLeve) esquiva -= 5;
-    
-    return Math.max(0, esquiva);  // sem limite
-}
-
+// DEFESA - APARAR
+// ============================================
 function calcularAparar() {
     let melhorBonus = 0;
     let bonusArma = 0;
@@ -2330,24 +2280,22 @@ function calcularAparar() {
     }
     
     if (!temArma) return 0;
+    if (bonusArma === -999) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 20;  // -20
-    
-    if (bonusArma !== -999) {
-        aparar += bonusArma;
-    } else {
-        return 0;
-    }
+    let aparar = getDXPercentual() + melhorBonus - 20;
+    aparar += bonusArma;
     
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagemAtual?.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
-    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
     aparar += calcularBonusDefensivo();
     
-    return Math.max(0, aparar);  // sem limite
+    return Math.max(0, aparar);
 }
 
+// ============================================
+// DEFESA - BLOQUEIO
+// ============================================
 function calcularBloqueio() {
     let melhorBonus = 0;
     let bonusEscudo = 0;
@@ -2369,31 +2317,13 @@ function calcularBloqueio() {
     
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 20;  // -20
+    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 20;
     
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
     
-    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
     bloqueio += calcularBonusDefensivo();
     
-    return Math.max(0, bloqueio);  // sem limite
-}
- 
-// ============================================
-// CARGA
-// ============================================
-function calcularCarga() {
-    let pesoTotal = 0;
-    if (personagemAtual?.inventario?.corpo) {
-        personagemAtual.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-    }
-    if (personagemAtual?.inventario?.mochila) {
-        personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-    }
-    if (personagemAtual?.inventario?.deposito) {
-        personagemAtual.inventario.deposito.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-    }
-    return pesoTotal;
+    return Math.max(0, bloqueio);
 }
 
 // ============================================
@@ -2449,6 +2379,7 @@ function calcularNHPericia(periciaId, dados) {
     
     return atributoBase + bonus;
 }
+
 // ============================================
 // FUNÇÕES DO MAPA (ATUALIZADO COM ITENS E DIREÇÃO)
 // ============================================
@@ -2590,11 +2521,8 @@ function desenharToken(ctx, x, y, personagem) {
     ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
     
     // 🧭 DESENHAR DIREÇÃO E CONE DE VISÃO PARA TODOS OS PERSONAGENS (PCs e NPCs)
-    // Agora qualquer personagem que tiver direção vai mostrar seta e cone de visão
     if (personagem?.direcao) {
-        // Desenhar cone de visão
         desenharConeVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.25)');
-        // Desenhar seta de direção
         desenharSetaDirecao(ctx, x, y, personagem.direcao);
     }
 }
@@ -2929,7 +2857,7 @@ function atualizarTextoDirecao() {
     }
 }
 
-// 🧭 FUNÇÃO AUXILIAR: Ciclar direção do PC (CORRIGIDA)
+// 🧭 FUNÇÃO AUXILIAR: Ciclar direção do PC
 async function ciclarDirecaoPC() {
     if (!personagemAtual || !personagemAtual.id) {
         showToast('Personagem não carregado!', true);
@@ -2942,19 +2870,15 @@ async function ciclarDirecaoPC() {
         return;
     }
     
-    // Obter direção atual ou usar padrão Leste
     const direcaoAtual = pos.direcao || 'L';
     const indexAtual = DIRECOES_LISTA.indexOf(direcaoAtual);
     const novaDirecao = DIRECOES_LISTA[(indexAtual + 1) % DIRECOES_LISTA.length];
     
     try {
         const posRef = doc(db, "sessoes", sessaoAtual.id, "posicoes", personagemAtual.id);
-        
-        // Verificar se o documento existe
         const posSnap = await getDoc(posRef);
         
         if (!posSnap.exists()) {
-            // Se não existe, criar com dados básicos
             const desloc = calcularDeslocamento();
             await setDoc(posRef, {
                 personagemId: personagemAtual.id,
@@ -2981,25 +2905,20 @@ async function ciclarDirecaoPC() {
                 atualizadoEm: serverTimestamp()
             });
         } else {
-            // Atualizar apenas a direção
             await updateDoc(posRef, { 
                 direcao: novaDirecao,
                 direcao_atualizada: serverTimestamp()
             });
         }
         
-        // Atualizar localmente
         if (posicoes[personagemAtual.id]) {
             posicoes[personagemAtual.id].direcao = novaDirecao;
         }
         
         const direcaoInfo = DIRECOES[novaDirecao];
         showToast(`🧭 ${personagemAtual.nome} agora olha para ${direcaoInfo.nome} ${direcaoInfo.icone}`);
-        
-        // Atualizar texto do botão
         atualizarTextoDirecao();
         
-        // Redesenhar o mapa
         if (ctx && modoVisualizacao === 'combate') {
             desenharMapa();
         }
@@ -3049,7 +2968,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
                 rd: calcularRD(),
                 hexX: hexX,
                 hexY: hexY,
-                direcao: 'L',  // 🧭 Direção padrão ao posicionar
+                direcao: 'L',
                 atualizadoEm: serverTimestamp()
             }, { merge: true });
             
@@ -3058,7 +2977,7 @@ async function moverPersonagem(personagemId, hexX, hexY) {
             posicoes[personagemId].hexY = hexY;
             posicoes[personagemId].andar = desloc.andar;
             posicoes[personagemId].correr = desloc.correr;
-            posicoes[personagemId].direcao = 'L';  // 🧭 Direção padrão
+            posicoes[personagemId].direcao = 'L';
             
             resetarModoMovimento();
             desenharMapa();
@@ -3472,7 +3391,6 @@ function iniciarListenersCombate() {
         atualizarEstadoBotoes();
     });
     
-    // 🔥 INICIAR LISTENER DE ITENS
     iniciarListenerItens();
 }
 
@@ -3621,8 +3539,9 @@ if (btnRolarDano) {
         animarRolagem(resultadoDano, total, salvarRolagem);
     });
 }
+
 // ============================================
-// SISTEMA DE CRÍTICOS - GM VÊ OS RESULTADOS
+// SISTEMA DE CRÍTICOS
 // ============================================
 const tabelas = {
     'ful-ataque': [
@@ -3637,18 +3556,18 @@ const tabelas = {
         "DANO DUPLICADO. Golpe devastador que causa dano máximo.",
         "DANO DUPLICADO. Oponente deve fazer Teste de VIGOR. Se falhar, fica sem ação no próximo turno."
     ],
-   'ful-defesa': [
-    "Contra-ataque imediato com dano normal.",
-    "Atacante sofre 1d de dano (próprio golpe mal executado).",
-    "Contra-ataque imediato com dano normal.",
-    "Arma do inimigo cai a 1d-3m de distância (mínimo 1m).",
-    "Inimigo perde o equilíbrio: não pode atacar nem defender no próximo turno.",
-    "Arma do inimigo cai no chão.",
-    "Contra-ataque imediato com dano normal.",
-    "Inimigo deve fazer Teste de DX ou cair no chão.",
-    "Contra-ataque com metade do dano, ignorando RD.",
-    "Contra-ataque imediato com dano duplicado."
-],
+    'ful-defesa': [
+        "Contra-ataque imediato com dano normal.",
+        "Atacante sofre 1d de dano (próprio golpe mal executado).",
+        "Contra-ataque imediato com dano normal.",
+        "Arma do inimigo cai a 1d-3m de distância (mínimo 1m).",
+        "Inimigo perde o equilíbrio: não pode atacar nem defender no próximo turno.",
+        "Arma do inimigo cai no chão.",
+        "Contra-ataque imediato com dano normal.",
+        "Inimigo deve fazer Teste de DX ou cair no chão.",
+        "Contra-ataque com metade do dano, ignorando RD.",
+        "Contra-ataque imediato com dano duplicado."
+    ],
     'ful-magia': [
         "A magia custa metade do PM (arredondado para baixo). Mínimo 1 PM.",
         "Ignora completamente RD e qualquer resistência mágica do alvo.",
@@ -3716,9 +3635,6 @@ tabsCritico.forEach(tab => {
     });
 });
 
-// ============================================
-// ROLAGEM DE CRÍTICO DO JOGADOR - GM VÊ O RESULTADO
-// ============================================
 if (btnRolarCritico) {
     btnRolarCritico.addEventListener('click', () => {
         const resultado = Math.floor(Math.random() * 10) + 1;
@@ -3743,12 +3659,13 @@ if (btnRolarCritico) {
                 resultado: resultado,
                 texto: texto,
                 jogador: personagemAtual?.nome || 'Jogador',
-                visibilidade: 'publico',  // 🔥 'publico' = GM VÊ 🔥
+                visibilidade: 'publico',
                 timestamp: serverTimestamp()
             });
         }
     });
 }
+
 // ============================================
 // EVENTOS DO MAPA
 // ============================================
@@ -3802,6 +3719,7 @@ if (canvas) {
         }
     }, { passive: true });
 }
+
 // ============================================
 // EVENTOS DOS BOTÕES
 // ============================================
@@ -3814,13 +3732,10 @@ if (btnMoverAndar) {
 if (btnMoverCorrer) {
     btnMoverCorrer.addEventListener('click', () => iniciarMovimento('correr'));
 }
-
-// 🧭 BOTÃO DE DIREÇÃO (FACEAMENTO DO PERSONAGEM)
-// Controla para qual direção o personagem está olhando no mapa hexagonal
-// Ciclos: Leste → Nordeste → Noroeste → Oeste → Sudoeste → Sudeste → Leste
 if (btnDirecaoPC) {
     btnDirecaoPC.addEventListener('click', ciclarDirecaoPC);
 }
+
 // ============================================
 // CARREGAR SESSÃO
 // ============================================
