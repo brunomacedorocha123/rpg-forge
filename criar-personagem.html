@@ -7101,11 +7101,24 @@ function calcularEsquiva() {
 
 function calcularAparar() {
     let melhorBonus = 0;
+    let bonusArma = 0;
     let temArma = false;
+    
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
             if (item.dano) {
                 temArma = true;
+                
+                // 🔥 PEGA O BÔNUS DE APARAR DA ARMA
+                if (item.aparar) {
+                    const bonusStr = item.aparar.toString();
+                    if (bonusStr === "--") {
+                        bonusArma = -999;  // Arma não pode aparar
+                    } else {
+                        bonusArma = parseInt(bonusStr) || 0;
+                    }
+                }
+                
                 const periciaId = mapearPericiaArma(item.nome);
                 const pericia = pericias[periciaId];
                 if (pericia) {
@@ -7115,9 +7128,16 @@ function calcularAparar() {
             }
         });
     }
+    
     if (!temArma) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 10;  
+    // 🔥 VERIFICA SE A ARMA PODE APARAR
+    if (bonusArma === -999) return 0;
+    
+    let aparar = getDXPercentual() + melhorBonus - 10;
+    
+    // 🔥 SOMA O BÔNUS DA ARMA (ex: Bastão +5)
+    aparar += bonusArma;
     
     if (vantagensSelecionadas.has('reflexosRapidos')) aparar += 5;
     if (vantagensSelecionadas.has('ataquesMultiplos')) aparar += 5;
