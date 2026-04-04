@@ -1369,10 +1369,10 @@ canvas.modo-movimento {
         </div>
     </div>
     
-    <div class="rd-deslocamento">
-        <span><i class="fas fa-shield"></i> RD</span>
-        <span id="defesaRD">0</span>
-    </div>
+   <div class="rd-deslocamento">
+    <span><i class="fas fa-shield"></i> Valor Defensivo</span>
+    <span id="defesaRD">0</span>
+</div>
     
     <div class="rd-deslocamento">
         <span><i class="fas fa-person-running"></i> Deslocamento</span>
@@ -2154,7 +2154,7 @@ function iniciarListenerParticipantes() {
 }
 
 // ============================================
-// FUNÇÕES DE CÁLCULO (MANTIDAS)
+// FUNÇÕES DE CÁLCULO (ATUALIZADAS COM BÔNUS DEFENSIVO)
 // ============================================
 function getSTFixo() { return 5 + (personagemAtual?.atributos?.st?.esferas || 0); }
 function getDXFixo() { return 5 + (personagemAtual?.atributos?.dx?.esferas || 0); }
@@ -2188,40 +2188,96 @@ function calcularPM() {
     return getVIGORFixo() + getIQFixo() + getVTFixo();
 }
 
+// ============================================
+// 🔥 NOVA FUNÇÃO - BÔNUS DEFENSIVO DAS ARMADURAS
+// ============================================
+function calcularBonusDefensivo() {
+    let bonus = 0;
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => {
+            // Armaduras têm rd e não são armas (dano) nem escudos (bonus)
+            if (item.rd && !item.dano && !item.bonus) {
+                bonus += item.rd;
+            }
+        });
+    }
+    return bonus;
+}
+
+// ============================================
+// DEFESAS ATUALIZADAS (COM BÔNUS DEFENSIVO)
+// ============================================
 function calcularEsquiva() {
-    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2);
+    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) - 5;
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
+    
+    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
+    esquiva += calcularBonusDefensivo();
+    
+    const carga = calcularCarga();
+    const st = getSTFixo();
+    const limiteLeve = st * 2;
+    const limiteMedio = st * 4;
+    
+    if (carga > limiteMedio) esquiva -= 10;
+    else if (carga > limiteLeve) esquiva -= 5;
+    
     return Math.min(75, Math.max(0, esquiva));
 }
 
 function calcularAparar() {
     let melhorBonus = 0;
+    let bonusArma = 0;
     let temArma = false;
+    let armaEquipada = null;
     
     if (personagemAtual?.inventario?.corpo) {
-        personagemAtual.inventario.corpo.forEach(item => {
-            if (item.dano) {
-                temArma = true;
-                const nome = item.nome.toLowerCase();
-                let periciaId = 'espada';
-                if (nome.includes('machado')) periciaId = 'machado';
-                else if (nome.includes('lança') || nome.includes('haste')) periciaId = 'armasHaste';
-                else if (nome.includes('bastão')) periciaId = 'bastao';
-                
-                const pericia = personagemAtual.pericias?.[periciaId];
-                if (pericia) {
-                    const bonus = (pericia.nivel || 0) * 4;
-                    if (bonus > melhorBonus) melhorBonus = bonus;
+        armaEquipada = personagemAtual.inventario.corpo.find(item => item.dano);
+        if (armaEquipada) {
+            temArma = true;
+            if (armaEquipada.aparar) {
+                const bonusStr = armaEquipada.aparar.toString();
+                if (bonusStr === "--") {
+                    bonusArma = -999;
+                } else {
+                    bonusArma = parseInt(bonusStr) || 0;
                 }
             }
-        });
+            
+            let periciaId = 'espada';
+            const nome = armaEquipada.nome.toLowerCase();
+            if (nome.includes('machado')) periciaId = 'machado';
+            else if (nome.includes('arco')) periciaId = 'arco';
+            else if (nome.includes('besta')) periciaId = 'besta';
+            else if (nome.includes('chicote')) periciaId = 'chicote';
+            else if (nome.includes('lança')) periciaId = 'armasHaste';
+            else if (nome.includes('bastão')) periciaId = 'bastao';
+            else if (nome.includes('mangual')) periciaId = 'mangual';
+            else if (nome.includes('martelo')) periciaId = 'machado';
+            else if (nome.includes('foice')) periciaId = 'armasHaste';
+            
+            const pericia = personagemAtual.pericias?.[periciaId];
+            if (pericia) {
+                melhorBonus = (pericia.nivel || 0) * 4;
+            }
+        }
     }
     
     if (!temArma) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 10;
+    let aparar = getDXPercentual() + melhorBonus - 15;
+    
+    if (bonusArma !== -999) {
+        aparar += bonusArma;
+    } else {
+        return 0;
+    }
+    
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagemAtual?.vantagens?.includes('ataquesMultiplos')) aparar += 5;
+    
+    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
+    aparar += calcularBonusDefensivo();
     
     return Math.min(80, Math.max(0, aparar));
 }
@@ -2247,12 +2303,36 @@ function calcularBloqueio() {
     
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 10;
+    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 15;
+    
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
+    
+    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
+    bloqueio += calcularBonusDefensivo();
     
     return Math.min(85, Math.max(0, bloqueio));
 }
 
+// ============================================
+// CARGA
+// ============================================
+function calcularCarga() {
+    let pesoTotal = 0;
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    }
+    if (personagemAtual?.inventario?.mochila) {
+        personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    }
+    if (personagemAtual?.inventario?.deposito) {
+        personagemAtual.inventario.deposito.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+    }
+    return pesoTotal;
+}
+
+// ============================================
+// DESLOCAMENTO
+// ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
     const andarBruto = soma * 0.1;
@@ -2269,6 +2349,9 @@ function calcularDeslocamento() {
     return { andar: arredondar(andarBruto), correr: arredondar(correrBruto) };
 }
 
+// ============================================
+// RD (Valor Defensivo para exibição)
+// ============================================
 function calcularRD() {
     let rd = 0;
     if (personagemAtual?.vantagens?.includes('corpoResistente')) rd += 2;
@@ -2280,6 +2363,9 @@ function calcularRD() {
     return rd;
 }
 
+// ============================================
+// NH DE PERÍCIAS
+// ============================================
 function calcularNHPericia(periciaId, dados) {
     const periciasMap = {
         'adestramento': 'iq', 'alquimia': 'iq', 'artista': 'iq', 'comercio': 'iq',
