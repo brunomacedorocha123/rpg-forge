@@ -2584,7 +2584,7 @@ function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') 
     ctx.stroke();
 }
 
-// 🔥 FUNÇÃO CORRIGIDA: Cone por BAIXO, imagem por CIMA, seta por CIMA
+// 🔥 FUNÇÃO CORRIGIDA - Cone por BAIXO, AVATAR por CIMA
 function desenharToken(ctx, x, y, personagem) {
     const nomeToken = personagem?.nome || '?';
     const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
@@ -2592,14 +2592,14 @@ function desenharToken(ctx, x, y, personagem) {
     const tamanhoToken = raioToken * 2;
     
     // ============================================
-    // 1. CONE DE VISÃO (por BAIXO de tudo)
+    // 1. CONE DE VISÃO (PRIMEIRO - por BAIXO)
     // ============================================
     if (personagem?.direcao) {
-        desenharConeVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.25)');
+        desenharConeVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.3)');
     }
     
     // ============================================
-    // 2. AVATAR ou CÍRCULO COLORIDO (no meio)
+    // 2. AVATAR (SEGUNDO - por CIMA do cone)
     // ============================================
     const temAvatar = personagem.avatar && personagem.tipo === 'pc';
     
@@ -2616,13 +2616,15 @@ function desenharToken(ctx, x, y, personagem) {
             ctx.drawImage(img, x - raioToken, y - raioToken, tamanhoToken, tamanhoToken);
             ctx.restore();
             
+            // Borda dourada ao redor do avatar
             ctx.beginPath();
             ctx.arc(x, y, raioToken + 1, 0, Math.PI * 2);
             ctx.strokeStyle = '#D4AF37';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2.5;
             ctx.stroke();
             
         } else if (!img) {
+            // Carrega a imagem
             img = new Image();
             img.src = personagem.avatar;
             img.onload = () => {
@@ -2631,16 +2633,19 @@ function desenharToken(ctx, x, y, personagem) {
             };
             imageCache[personagem.avatar] = img;
             
+            // Placeholder enquanto carrega
             ctx.beginPath();
             ctx.arc(x, y, raioToken, 0, Math.PI * 2);
             ctx.fillStyle = '#333';
             ctx.fill();
             ctx.fillStyle = '#fff';
-            ctx.font = '10px "Inter"';
-            ctx.fillText('⏳', x-4, y+4);
+            ctx.font = 'bold 12px "Inter"';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⏳', x, y);
         }
     } else {
-        // Fallback: círculo colorido
+        // Fallback: círculo colorido com ícone (apenas se NÃO tiver avatar)
         ctx.beginPath();
         ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
         ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
@@ -2657,7 +2662,7 @@ function desenharToken(ctx, x, y, personagem) {
     }
     
     // ============================================
-    // 3. NOME e PV (sempre)
+    // 3. NOME e PV (sempre por cima)
     // ============================================
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
@@ -2671,7 +2676,7 @@ function desenharToken(ctx, x, y, personagem) {
     ctx.shadowColor = 'transparent';
     
     // ============================================
-    // 4. SETA DE DIREÇÃO (por CIMA de tudo)
+    // 4. SETA DE DIREÇÃO (por CIMA do avatar)
     // ============================================
     if (personagem?.direcao) {
         desenharSetaDirecao(ctx, x, y, personagem.direcao);
@@ -2736,7 +2741,6 @@ function desenharMapa() {
         }
     });
 }
-
 // ============================================
 // FUNÇÕES DE MOVIMENTO (ATUALIZADO COM DIREÇÃO)
 // ============================================
