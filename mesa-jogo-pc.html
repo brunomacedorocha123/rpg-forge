@@ -2550,7 +2550,7 @@ function desenharSetaDirecao(ctx, x, y, direcao) {
     ctx.fillText(DIRECOES[direcao].icone, x + Math.cos(angulo) * (raio * 0.65), y + Math.sin(angulo) * (raio * 0.65));
 }
 
-// 🧭 FUNÇÃO: Desenhar cone de visão (FAROL)
+// 🧭 FUNÇÃO: Desenhar cone de visão
 function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') {
     if (!direcao || !DIRECOES[direcao]) return;
     
@@ -2584,7 +2584,7 @@ function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') 
     ctx.stroke();
 }
 
-// 🔥 FUNÇÃO CORRIGIDA: Desenhar token com imagem de avatar (CONE POR BAIXO, IMAGEM POR CIMA)
+// 🔥 FUNÇÃO CORRIGIDA: Cone por BAIXO, imagem por CIMA, seta por CIMA
 function desenharToken(ctx, x, y, personagem) {
     const nomeToken = personagem?.nome || '?';
     const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
@@ -2592,42 +2592,30 @@ function desenharToken(ctx, x, y, personagem) {
     const tamanhoToken = raioToken * 2;
     
     // ============================================
-    // 1. PRIMEIRO: Desenha o CONE DE VISÃO (por BAIXO do avatar)
+    // 1. CONE DE VISÃO (por BAIXO de tudo)
     // ============================================
     if (personagem?.direcao) {
         desenharConeVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.25)');
     }
     
     // ============================================
-    // 2. DEPOIS: Desenha o AVATAR (imagem) ou o círculo colorido
+    // 2. AVATAR ou CÍRCULO COLORIDO (no meio)
     // ============================================
-    
-    // Verifica se tem avatar e é PC
     const temAvatar = personagem.avatar && personagem.tipo === 'pc';
     
     if (temAvatar) {
-        // ----------------------------------------
-        // CASO 1: TEM AVATAR - Desenha a imagem
-        // ----------------------------------------
         let img = imageCache[personagem.avatar];
         
         if (img && img.complete) {
             ctx.save();
-            
-            // Sombra
             ctx.shadowColor = 'rgba(0,0,0,0.5)';
             ctx.shadowBlur = 3;
-            
-            // Corte circular
             ctx.beginPath();
             ctx.arc(x, y, raioToken, 0, Math.PI * 2);
             ctx.clip();
-            
-            // Desenha imagem
             ctx.drawImage(img, x - raioToken, y - raioToken, tamanhoToken, tamanhoToken);
             ctx.restore();
             
-            // Borda dourada
             ctx.beginPath();
             ctx.arc(x, y, raioToken + 1, 0, Math.PI * 2);
             ctx.strokeStyle = '#D4AF37';
@@ -2635,7 +2623,6 @@ function desenharToken(ctx, x, y, personagem) {
             ctx.stroke();
             
         } else if (!img) {
-            // Carrega imagem (primeira vez)
             img = new Image();
             img.src = personagem.avatar;
             img.onload = () => {
@@ -2644,7 +2631,6 @@ function desenharToken(ctx, x, y, personagem) {
             };
             imageCache[personagem.avatar] = img;
             
-            // Placeholder enquanto carrega
             ctx.beginPath();
             ctx.arc(x, y, raioToken, 0, Math.PI * 2);
             ctx.fillStyle = '#333';
@@ -2653,13 +2639,8 @@ function desenharToken(ctx, x, y, personagem) {
             ctx.font = '10px "Inter"';
             ctx.fillText('⏳', x-4, y+4);
         }
-        
-        // ⚠️ ATENÇÃO: NÃO TEM ÍCONE 🧙 AQUI!
-        
     } else {
-        // ----------------------------------------
-        // CASO 2: NÃO TEM AVATAR - Fallback (círculo colorido com ícone)
-        // ----------------------------------------
+        // Fallback: círculo colorido
         ctx.beginPath();
         ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
         ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
@@ -2668,7 +2649,6 @@ function desenharToken(ctx, x, y, personagem) {
         ctx.lineWidth = 2;
         ctx.stroke();
         
-        // ✅ Ícone SÓ aparece aqui (no fallback)
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 16px "Inter", sans-serif';
         ctx.textAlign = 'center';
@@ -2677,24 +2657,21 @@ function desenharToken(ctx, x, y, personagem) {
     }
     
     // ============================================
-    // 3. NOME E PV (sempre, por cima do avatar)
+    // 3. NOME e PV (sempre)
     // ============================================
-    
-    // Nome abreviado
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur = 2;
     ctx.fillText(nomeAbreviado, x, y + 22);
     
-    // PV atual / PV máximo
     ctx.font = 'bold 8px "Inter", sans-serif';
     ctx.fillStyle = '#ff6b6b';
     ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
     ctx.shadowColor = 'transparent';
     
     // ============================================
-    // 4. Por ÚLTIMO: Desenha a SETA DE DIREÇÃO (por cima do avatar)
+    // 4. SETA DE DIREÇÃO (por CIMA de tudo)
     // ============================================
     if (personagem?.direcao) {
         desenharSetaDirecao(ctx, x, y, personagem.direcao);
@@ -2745,7 +2722,6 @@ function desenharMapa() {
     }
     desenharMarcadores();
     
-    // Desenhar itens
     Object.values(itens).forEach(item => {
         if (item && item.hexX !== undefined && item.hexY !== undefined) {
             const pixel = hexToPixel(item.hexX, item.hexY);
@@ -2753,7 +2729,6 @@ function desenharMapa() {
         }
     });
     
-    // Desenhar personagens
     Object.values(posicoes).forEach(pos => {
         if (pos && pos.hexX !== undefined && pos.hexX !== null && pos.hexY !== undefined && pos.hexY !== null) {
             const pixel = hexToPixel(pos.hexX, pos.hexY);
