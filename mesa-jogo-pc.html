@@ -2550,7 +2550,7 @@ function desenharSetaDirecao(ctx, x, y, direcao) {
     ctx.fillText(DIRECOES[direcao].icone, x + Math.cos(angulo) * (raio * 0.65), y + Math.sin(angulo) * (raio * 0.65));
 }
 
-// 🧭 FUNÇÃO: Desenhar cone de visão
+// 🧭 FUNÇÃO: Desenhar cone de visão (FAROL)
 function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') {
     if (!direcao || !DIRECOES[direcao]) return;
     
@@ -2584,15 +2584,24 @@ function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') 
     ctx.stroke();
 }
 
-// 🔥 FUNÇÃO ATUALIZADA: Desenhar token com imagem de avatar
+// 🔥 FUNÇÃO CORRIGIDA: Desenhar token com imagem de avatar (SEM ÍCONE AMARELO POR CIMA)
 function desenharToken(ctx, x, y, personagem) {
     const nomeToken = personagem?.nome || '?';
     const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
     const raioToken = HEX_RADIUS * 0.65;
     const tamanhoToken = raioToken * 2;
     
-    // Se tem avatar e é PC
-    if (personagem.avatar && personagem.tipo === 'pc') {
+    // ============================================
+    // DESENHA O AVATAR (IMAGEM) OU O CÍRCULO COLORIDO
+    // ============================================
+    
+    // Verifica se tem avatar e é PC
+    const temAvatar = personagem.avatar && personagem.tipo === 'pc';
+    
+    if (temAvatar) {
+        // ----------------------------------------
+        // CASO 1: TEM AVATAR - Desenha a imagem
+        // ----------------------------------------
         let img = imageCache[personagem.avatar];
         
         if (img && img.complete) {
@@ -2619,7 +2628,7 @@ function desenharToken(ctx, x, y, personagem) {
             ctx.stroke();
             
         } else if (!img) {
-            // Carrega imagem
+            // Carrega imagem (primeira vez)
             img = new Image();
             img.src = personagem.avatar;
             img.onload = () => {
@@ -2637,8 +2646,13 @@ function desenharToken(ctx, x, y, personagem) {
             ctx.font = '10px "Inter"';
             ctx.fillText('⏳', x-4, y+4);
         }
+        
+        // ⚠️ ATENÇÃO: NÃO TEM ÍCONE 🧙 AQUI!
+        
     } else {
-        // Fallback: círculo colorido original
+        // ----------------------------------------
+        // CASO 2: NÃO TEM AVATAR - Fallback (círculo colorido com ícone)
+        // ----------------------------------------
         ctx.beginPath();
         ctx.arc(x, y, HEX_RADIUS * 0.6, 0, Math.PI * 2);
         ctx.fillStyle = personagem?.cor || (personagem?.tipo === 'pc' ? '#1E90FF' : '#e74c3c');
@@ -2647,7 +2661,7 @@ function desenharToken(ctx, x, y, personagem) {
         ctx.lineWidth = 2;
         ctx.stroke();
         
-        // Ícone do personagem
+        // ✅ Ícone SÓ aparece aqui (no fallback)
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 16px "Inter", sans-serif';
         ctx.textAlign = 'center';
@@ -2655,20 +2669,26 @@ function desenharToken(ctx, x, y, personagem) {
         ctx.fillText(personagem?.tipo === 'pc' ? '🧙' : '🧌', x, y);
     }
     
-    // Nome abreviado (sempre)
+    // ============================================
+    // NOME E PV (sempre, para todos os personagens)
+    // ============================================
+    
+    // Nome abreviado
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur = 2;
     ctx.fillText(nomeAbreviado, x, y + 22);
     
-    // PV (sempre)
+    // PV atual / PV máximo
     ctx.font = 'bold 8px "Inter", sans-serif';
     ctx.fillStyle = '#ff6b6b';
     ctx.fillText(`${personagem?.pv || '?'}/${personagem?.pvMax || '?'}`, x, y - 20);
     ctx.shadowColor = 'transparent';
     
-    // 🧭 DESENHAR DIREÇÃO E CONE DE VISÃO PARA TODOS OS PERSONAGENS (PCs e NPCs)
+    // ============================================
+    // FAROL: DIREÇÃO E CONE DE VISÃO (sempre)
+    // ============================================
     if (personagem?.direcao) {
         desenharConeVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.25)');
         desenharSetaDirecao(ctx, x, y, personagem.direcao);
