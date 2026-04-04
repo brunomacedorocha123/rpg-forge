@@ -4913,14 +4913,14 @@ const catalogoEquipamentos = {
         { id: "besta_leve", nome: "Besta Leve", tipo: "arma", dano: "1d+1", aparar: "--", rd: 2, pv: 280, preco: 150, peso: 2.5, st: 7 },
         { id: "besta_pesada", nome: "Besta Pesada", tipo: "arma", dano: "1d+2", aparar: "--", rd: 3, pv: 400, preco: 250, peso: 4.0, st: 10 }
     ],
-    armaduras: [
-        { id: 'couro', nome: 'Armadura de Couro', rd: 3, preco: 100, peso: 5.0, consumivel: false },
-        { id: 'tunica_aprendiz', nome: 'Túnica de mago aprendiz', rd: 1, preco: 50, peso: 1.0, consumivel: false },
-        { id: 'couro_ref', nome: 'Armadura de Couro Reforçado', rd: 5, preco: 250, peso: 10.0, consumivel: false },
-        { id: 'cota_malha', nome: 'Cota de Malha', rd: 7, preco: 700, peso: 15.0, consumivel: false },
-        { id: 'placa_escamas', nome: 'Placa de Escamas', rd: 9, preco: 1000, peso: 20.0, consumivel: false },
-        { id: 'placas', nome: 'Armadura de Placas', rd: 10, preco: 1200, peso: 22.0, consumivel: false },
-    ],
+   armaduras: [
+    { id: 'tunica_aprendiz', nome: 'Túnica de mago aprendiz', rd: 1, preco: 50, peso: 1.0, consumivel: false },
+    { id: 'couro', nome: 'Armadura de Couro', rd: 3, preco: 100, peso: 5.0, consumivel: false },
+    { id: 'couro_ref', nome: 'Armadura de Couro Reforçado', rd: 5, preco: 250, peso: 10.0, consumivel: false },
+    { id: 'cota_malha', nome: 'Cota de Malha', rd: 7, preco: 700, peso: 15.0, consumivel: false },
+    { id: 'placa_escamas', nome: 'Placa de Escamas', rd: 9, preco: 1000, peso: 20.0, consumivel: false },
+    { id: 'placas', nome: 'Armadura de Placas', rd: 10, preco: 1200, peso: 22.0, consumivel: false },
+],
     escudos: [
         { id: "escudo_leve", nome: "Escudo Leve", tipo: "escudo", bonus: 1, ve: "3/20", preco: 50, peso: 2.0, consumivel: false },
         { id: "escudo_medio", nome: "Escudo Médio", tipo: "escudo", bonus: 2, ve: "5/30", preco: 150, peso: 4.0, consumivel: false },
@@ -5101,22 +5101,29 @@ function calcularRD() {
 }
 
 // ============================================
-// NOVA FUNÇÃO - BÔNUS DEFENSIVO DAS ARMADURAS
+// CÁLCULO DO BÔNUS DEFENSIVO (APENAS ARMADURAS)
 // ============================================
 function calcularBonusDefensivo() {
-    // Reaproveita a função original para não quebrar nada
-    return calcularRD();
+    let bonus = 0;
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => {
+            // ✅ CORRETO: Só armaduras (tem rd, NÃO tem dano, NÃO tem bonus)
+            if (item.rd && !item.dano && !item.bonus) {
+                bonus += item.rd;
+            }
+        });
+    }
+    return bonus;
 }
 
 // ============================================
-// DEFESAS ATUALIZADAS COM BÔNUS DEFENSIVO
+// DEFESA - ESQUIVA (mantida original)
 // ============================================
-
 function calcularEsquiva() {
-    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) - 10;
+    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) - 15;
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
     
-    // 🔥 ADICIONA O BÔNUS DEFENSIVO DA ARMADURA
+    // Bônus defensivo da armadura
     esquiva += calcularBonusDefensivo();
     
     const carga = calcularCarga();
@@ -5127,9 +5134,12 @@ function calcularEsquiva() {
     if (carga > limiteMedio) esquiva -= 10;
     else if (carga > limiteLeve) esquiva -= 5;
     
-    return Math.min(75, Math.max(0, esquiva));
+    return Math.max(0, esquiva);
 }
 
+// ============================================
+// DEFESA - APARAR (CORRIGIDA)
+// ============================================
 function calcularAparar() {
     let melhorBonus = 0;
     let bonusArma = 0;
@@ -5169,24 +5179,24 @@ function calcularAparar() {
     }
     
     if (!temArma) return 0;
+    if (bonusArma === -999) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 10;
+    let aparar = getDXPercentual() + melhorBonus - 20;
+    aparar += bonusArma;
     
-    if (bonusArma !== -999) {
-        aparar += bonusArma;
-    } else {
-        return 0;
-    }
-    
+    // ✅ CORREÇÃO: Adicionar bônus das vantagens
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagemAtual?.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
-    // 🔥 ADICIONA O BÔNUS DEFENSIVO DA ARMADURA
+    // ✅ CORREÇÃO: Adicionar bônus defensivo da armadura
     aparar += calcularBonusDefensivo();
     
-    return Math.min(80, Math.max(0, aparar));
+    return Math.max(0, aparar);
 }
 
+// ============================================
+// DEFESA - BLOQUEIO (CORRIGIDA)
+// ============================================
 function calcularBloqueio() {
     let melhorBonus = 0;
     let bonusEscudo = 0;
@@ -5208,18 +5218,19 @@ function calcularBloqueio() {
     
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 10;
+    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 20;
     
+    // ✅ CORREÇÃO: Adicionar bônus das vantagens
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
     
-    // 🔥 ADICIONA O BÔNUS DEFENSIVO DA ARMADURA
+    // ✅ CORREÇÃO: Adicionar bônus defensivo da armadura
     bloqueio += calcularBonusDefensivo();
     
-    return Math.min(85, Math.max(0, bloqueio));
+    return Math.max(0, bloqueio);
 }
 
 // ============================================
-// CARGA
+// CARGA (mantida original - SEM MUDANÇAS)
 // ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
