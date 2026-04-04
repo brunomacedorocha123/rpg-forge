@@ -6858,9 +6858,33 @@ async function moverItem(itemId, origem, destino) {
         return;
     }
     
+    // ===== VERIFICAÇÃO DE ARMADURA E ESCUDO =====
+    if (destino === 'corpo') {
+        const isArmadura = item.rd && !item.dano && !item.bonus;
+        const isEscudo = item.bonus && !item.dano;
+        
+        if (isArmadura) {
+            const armaduraEquipada = personagemAtual.inventario.corpo.find(i => i.rd && !i.dano && !i.bonus);
+            if (armaduraEquipada) {
+                showToast(`❌ Você já está usando uma armadura: ${armaduraEquipada.nome}. Remova antes de equipar outra.`, true);
+                return;
+            }
+        }
+        
+        if (isEscudo) {
+            const escudoEquipado = personagemAtual.inventario.corpo.find(i => i.bonus && !i.dano);
+            if (escudoEquipado) {
+                showToast(`❌ Você já está usando um escudo: ${escudoEquipado.nome}. Remova antes de equipar outro.`, true);
+                return;
+            }
+        }
+    }
+    // ===== FIM DA VERIFICAÇÃO =====
+    
     if (!personagemAtual.inventario[destino]) personagemAtual.inventario[destino] = [];
     origemArray.splice(index, 1);
     personagemAtual.inventario[destino].push(item);
+    
     try {
         const personagemRef = doc(db, "personagens", personagemAtual.id);
         await updateDoc(personagemRef, { inventario: personagemAtual.inventario });
