@@ -2256,9 +2256,41 @@ function calcularEsquiva() {
     return Math.max(0, esquiva);
 }
 
+/// ============================================
+// DEFESAS ATUALIZADAS (COM BÔNUS DEFENSIVO)
 // ============================================
-// DEFESA - APARAR
-// ============================================
+
+function calcularBonusDefensivo() {
+    let bonus = 0;
+    if (personagemAtual?.inventario?.corpo) {
+        personagemAtual.inventario.corpo.forEach(item => {
+            // Só armaduras (tem rd, não tem dano, não tem bonus)
+            if (item.rd && !item.dano && !item.bonus) {
+                bonus += item.rd;
+            }
+        });
+    }
+    return bonus;
+}
+
+function calcularEsquiva() {
+    let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) - 15;  // -15
+    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
+    
+    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
+    esquiva += calcularBonusDefensivo();
+    
+    const carga = calcularCarga();
+    const st = getSTFixo();
+    const limiteLeve = st * 2;
+    const limiteMedio = st * 4;
+    
+    if (carga > limiteMedio) esquiva -= 10;
+    else if (carga > limiteLeve) esquiva -= 5;
+    
+    return Math.max(0, esquiva);  // sem limite
+}
+
 function calcularAparar() {
     let melhorBonus = 0;
     let bonusArma = 0;
@@ -2298,22 +2330,24 @@ function calcularAparar() {
     }
     
     if (!temArma) return 0;
-    if (bonusArma === -999) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 20;
-    aparar += bonusArma;
+    let aparar = getDXPercentual() + melhorBonus - 20;  // -20
+    
+    if (bonusArma !== -999) {
+        aparar += bonusArma;
+    } else {
+        return 0;
+    }
     
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
     if (personagemAtual?.vantagens?.includes('ataquesMultiplos')) aparar += 5;
     
+    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
     aparar += calcularBonusDefensivo();
     
-    return Math.max(0, aparar);
+    return Math.max(0, aparar);  // sem limite
 }
 
-// ============================================
-// DEFESA - BLOQUEIO
-// ============================================
 function calcularBloqueio() {
     let melhorBonus = 0;
     let bonusEscudo = 0;
@@ -2335,14 +2369,16 @@ function calcularBloqueio() {
     
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 20;
+    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 20;  // -20
     
     if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
     
+    // 🔥 BÔNUS DEFENSIVO DA ARMADURA
     bloqueio += calcularBonusDefensivo();
     
-    return Math.max(0, bloqueio);
+    return Math.max(0, bloqueio);  // sem limite
 }
+ 
 // ============================================
 // CARGA
 // ============================================
