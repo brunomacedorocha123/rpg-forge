@@ -2550,31 +2550,39 @@ function desenharSetaDirecao(ctx, x, y, direcao) {
     ctx.fillText(DIRECOES[direcao].icone, x + Math.cos(angulo) * (raio * 0.65), y + Math.sin(angulo) * (raio * 0.65));
 }
 
-// 🧭 FUNÇÃO: Desenhar cone de visão
+// 🧭 FUNÇÃO: Desenhar cone de visão (CONE COMEÇA DO HEX ADJACENTE - AVATAR VISÍVEL)
 function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') {
     if (!direcao || !DIRECOES[direcao]) return;
     
     const anguloBase = DIRECOES[direcao].angulo * Math.PI / 180;
     const abertura = Math.PI / 2.5;
-    const alcance = HEX_RADIUS * 2.2;
+    
+    // 🔥 CONE AGORA COMEÇA APÓS O HEX DO PERSONAGEM (não cobre o avatar)
+    const raioAvatar = HEX_RADIUS * 0.75;      // Tamanho do avatar
+    const alcanceInicial = raioAvatar + 8;      // Começa logo após o avatar (+8px de margem)
+    const alcanceFinal = HEX_RADIUS * 2.8;        // Termina 2 hexágonos à frente
     
     const inicioAngulo = anguloBase - abertura / 2;
     const fimAngulo = anguloBase + abertura / 2;
     
     ctx.beginPath();
-    ctx.moveTo(x, y);
     
-    let primeiroPonto = true;
+    // Ponto inicial: logo após o círculo do avatar
+    const xInicial = x + Math.cos(inicioAngulo) * alcanceInicial;
+    const yInicial = y + Math.sin(inicioAngulo) * alcanceInicial;
+    ctx.moveTo(xInicial, yInicial);
+    
+    // Arco frontal até o alcance máximo
     for (let ang = inicioAngulo; ang <= fimAngulo; ang += 0.05) {
-        const px = x + Math.cos(ang) * alcance;
-        const py = y + Math.sin(ang) * alcance;
-        if (primeiroPonto) {
-            ctx.lineTo(px, py);
-            primeiroPonto = false;
-        } else {
-            ctx.lineTo(px, py);
-        }
+        const px = x + Math.cos(ang) * alcanceFinal;
+        const py = y + Math.sin(ang) * alcanceFinal;
+        ctx.lineTo(px, py);
     }
+    
+    // Fecha o cone voltando para o outro lado do ponto inicial
+    const xFinal = x + Math.cos(fimAngulo) * alcanceInicial;
+    const yFinal = y + Math.sin(fimAngulo) * alcanceInicial;
+    ctx.lineTo(xFinal, yFinal);
     
     ctx.closePath();
     ctx.fillStyle = cor;
