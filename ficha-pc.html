@@ -5928,7 +5928,7 @@ function renderizarMinhasMagias(escola) {
             custoTexto = dadosMagia.custoPM + ' MANA';
         }
         
-        // ===== PEGA O TEMPO (suporta novo formato) =====
+                // ===== PEGA O TEMPO (suporta novo formato) =====
         let tempoTexto = "1 ação";
         if (dadosMagia.tempoConjuracao) {
             if (typeof dadosMagia.tempoConjuracao === 'object') {
@@ -6059,9 +6059,23 @@ function renderizarCatalogoMagias(escola) {
         const podeDesbloquear = !temMagia && magiasDesbloqueadas + 1 >= magia.nivelRequerido;
         const botaoHabilitado = podeDesbloquear && ppDisponivel >= 2;
         
-        // Pega o custo e tempo para exibir no catálogo
-        let custoExibicao = magia.custoPM + ' MANA';
-        let tempoExibicao = magia.tempoConjuracao;
+        // Pega o custo e tempo para exibir no catálogo (suporta novo formato)
+        let custoExibicao = '2 MANA';
+        let tempoExibicao = '1 ação';
+        
+        if (magia.custoMana) {
+            custoExibicao = magia.custoMana[1] + ' MANA';
+        } else if (magia.custoPM) {
+            custoExibicao = magia.custoPM + ' MANA';
+        }
+        
+        if (magia.tempoConjuracao) {
+            if (typeof magia.tempoConjuracao === 'object') {
+                tempoExibicao = magia.tempoConjuracao[1] || '1 ação';
+            } else {
+                tempoExibicao = magia.tempoConjuracao;
+            }
+        }
         
         html += `
             <div class="magia-card-catalogo" style="margin-bottom: 12px; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid ${temMagia ? '#ffd700' : '#2a2a3c'}; border-radius: 8px;">
@@ -6598,6 +6612,7 @@ window.abrirModalMagia = function(escola, magiaId) {
     
     if (elements.modalMagia) elements.modalMagia.classList.add('active');
 };
+
 // ============================================
 // FUNÇÕES DA LOJA (ATUALIZADA PARA ITENS MÁGICOS)
 // ============================================
@@ -6882,59 +6897,6 @@ function atualizarModalPericia() {
     if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custoDiferenca + ' PP';
     if (elements.modalPericiaConfirmar) elements.modalPericiaConfirmar.disabled = custoDiferenca > ppDisponivel;
 }
-
-window.abrirModalMagia = function(escola, magiaId) {
-    const magia = personagemAtual?.escolas?.[escola]?.magias?.[magiaId];
-    const dados = escola === 'agua' ? dadosMagiasAgua[magiaId] :
-                  escola === 'ar' ? dadosMagiasAr[magiaId] :
-                  escola === 'gelo' ? dadosMagiasGelo[magiaId] :
-                  escola === 'fogo' ? dadosMagiasFogo[magiaId] :
-                  escola === 'terra' ? dadosMagiasTerra[magiaId] :
-                  escola === 'corpo' ? dadosMagiasCorpo[magiaId] :
-                  escola === 'natureza' ? dadosMagiasNatureza[magiaId] :
-                  escola === 'trevas' ? dadosMagiasTrevas[magiaId] :
-                  escola === 'luz' ? dadosMagiasLuz[magiaId] :
-                  escola === 'animais' ? dadosMagiasAnimais[magiaId] :
-                  null;
-    if (!magia || !dados) return;
-    
-    escolaMagiaModalAtual = escola;
-    magiaModalAtual = magiaId;
-    if (elements.modalMagiaTitulo) elements.modalMagiaTitulo.textContent = dados.nome;
-    
-    if (elements.modalMagiaCustoPM) elements.modalMagiaCustoPM.textContent = dados.custoPM + ' PM';
-    if (elements.modalMagiaTempo) elements.modalMagiaTempo.textContent = dados.tempoConjuracao;
-    
-    let linhas = '';
-    const iqPercentual = getIQPercentual();
-    const nhBase = iqPercentual + 10;
-    
-    for (let i = 1; i <= 10; i++) {
-        const classe = i === (magia.nivel || 1) ? 'nivel-atual' : '';
-        const nh = nhBase + i;
-        const efeito = dados.efeitos[i] || '-';
-        
-        const custoPM = dados.custoPM;
-        const tempo = dados.tempoConjuracao;
-        
-        linhas += `<tr class="${classe}">
-              <td>${i}</td>
-              <td>${efeito}</td>
-              <td>${nh}%</td>
-              <td>${custoPM} PM</td>
-              <td>${tempo}</td>
-          </tr>`;
-    }
-    if (elements.tabelaMagia) elements.tabelaMagia.innerHTML = linhas;
-    
-    const nivelAtual = magia.nivel || 1;
-    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-    
-    if (elements.modalMagiaCusto) elements.modalMagiaCusto.textContent = nivelAtual >= 10 ? 'Nível Máximo' : '2 PP';
-    if (elements.modalMagiaComprar) elements.modalMagiaComprar.disabled = nivelAtual >= 10 || 2 > ppDisponivel;
-    
-    if (elements.modalMagia) elements.modalMagia.classList.add('active');
-};
 
 async function moverItem(itemId, origem, destino) {
     if (!personagemAtual?.inventario) return;
