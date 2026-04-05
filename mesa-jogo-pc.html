@@ -2525,49 +2525,24 @@ function desenharHexagono(ctx, x, y, destaque = null) {
     ctx.stroke();
 }
 
-// 🧭 FUNÇÃO: Desenhar seta de direção
-function desenharSetaDirecao(ctx, x, y, direcao) {
-    if (!direcao || !DIRECOES[direcao]) return;
-    
-    const angulo = DIRECOES[direcao].angulo * Math.PI / 180;
-    const raio = HEX_RADIUS * 0.75;
-    const pontaX = x + Math.cos(angulo) * raio;
-    const pontaY = y + Math.sin(angulo) * raio;
-    
-    ctx.beginPath();
-    ctx.moveTo(pontaX, pontaY);
-    ctx.lineTo(x + Math.cos(angulo + 2.2) * (raio * 0.5), y + Math.sin(angulo + 2.2) * (raio * 0.5));
-    ctx.lineTo(x + Math.cos(angulo - 2.2) * (raio * 0.5), y + Math.sin(angulo - 2.2) * (raio * 0.5));
-    ctx.closePath();
-    ctx.fillStyle = '#FFD700';
-    ctx.fill();
-    ctx.strokeStyle = '#B8860B';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${HEX_RADIUS * 0.45}px "Inter", sans-serif`;
-    ctx.fillText(DIRECOES[direcao].icone, x + Math.cos(angulo) * (raio * 0.65), y + Math.sin(angulo) * (raio * 0.65));
-}
-
-// 🧭 FUNÇÃO: Desenhar cone de visão (CONE COMEÇA DO HEX ADJACENTE - AVATAR VISÍVEL)
-function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') {
+// 🧭 FUNÇÃO: FAROL DE VISÃO (cone que começa APÓS o avatar, sem seta)
+function desenharFarolVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.2)') {
     if (!direcao || !DIRECOES[direcao]) return;
     
     const anguloBase = DIRECOES[direcao].angulo * Math.PI / 180;
-    const abertura = Math.PI / 2.5;
+    const abertura = Math.PI / 2.8; // Farol mais focado
     
-    // 🔥 CONE AGORA COMEÇA APÓS O HEX DO PERSONAGEM (não cobre o avatar)
-    const raioAvatar = HEX_RADIUS * 0.75;      // Tamanho do avatar
-    const alcanceInicial = raioAvatar + 8;      // Começa logo após o avatar (+8px de margem)
-    const alcanceFinal = HEX_RADIUS * 2.8;        // Termina 2 hexágonos à frente
+    // 🔥 FAROL COMEÇA APÓS O AVATAR (não cobre o personagem)
+    const raioAvatar = HEX_RADIUS * 0.75;
+    const alcanceInicial = raioAvatar + 10;  // Começa depois do avatar
+    const alcanceFinal = HEX_RADIUS * 2.8;    // 2 hexágonos de alcance
     
     const inicioAngulo = anguloBase - abertura / 2;
     const fimAngulo = anguloBase + abertura / 2;
     
     ctx.beginPath();
     
-    // Ponto inicial: logo após o círculo do avatar
+    // Ponto inicial: logo após o avatar
     const xInicial = x + Math.cos(inicioAngulo) * alcanceInicial;
     const yInicial = y + Math.sin(inicioAngulo) * alcanceInicial;
     ctx.moveTo(xInicial, yInicial);
@@ -2579,7 +2554,7 @@ function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') 
         ctx.lineTo(px, py);
     }
     
-    // Fecha o cone voltando para o outro lado do ponto inicial
+    // Fecha o cone voltando
     const xFinal = x + Math.cos(fimAngulo) * alcanceInicial;
     const yFinal = y + Math.sin(fimAngulo) * alcanceInicial;
     ctx.lineTo(xFinal, yFinal);
@@ -2587,12 +2562,12 @@ function desenharConeVisao(ctx, x, y, direcao, cor = 'rgba(255, 215, 0, 0.25)') 
     ctx.closePath();
     ctx.fillStyle = cor;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+    ctx.lineWidth = 1;
     ctx.stroke();
 }
 
-// 🔥 FUNÇÃO CORRIGIDA - Avatar por CIMA do cone de visão
+// 🔥 FUNÇÃO CORRIGIDA - SEM SETA, APENAS AVATAR + FAROL
 function desenharToken(ctx, x, y, personagem) {
     const nomeToken = personagem?.nome || '?';
     const nomeAbreviado = nomeToken.length > 3 ? nomeToken.substring(0, 3).toUpperCase() : nomeToken.toUpperCase();
@@ -2600,14 +2575,14 @@ function desenharToken(ctx, x, y, personagem) {
     const tamanhoToken = raioToken * 2;
     
     // ============================================
-    // 1. CONE DE VISÃO DE 2 HEXÁGONOS (BASE - por baixo de tudo)
+    // 1. FAROL DE VISÃO (BASE - só ilumina à frente, NÃO cobre o avatar)
     // ============================================
     if (personagem?.direcao) {
-        desenharConeVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.25)');
+        desenharFarolVisao(ctx, x, y, personagem.direcao, 'rgba(255, 215, 0, 0.2)');
     }
     
     // ============================================
-    // 2. AVATAR (MEIO - por cima do cone, por baixo da seta)
+    // 2. AVATAR (MEIO - completamente visível)
     // ============================================
     const temAvatar = personagem.avatar && personagem.tipo === 'pc';
     
@@ -2670,14 +2645,7 @@ function desenharToken(ctx, x, y, personagem) {
     }
     
     // ============================================
-    // 3. SETA DE DIREÇÃO (TOPO - por cima do avatar)
-    // ============================================
-    if (personagem?.direcao) {
-        desenharSetaDirecao(ctx, x, y, personagem.direcao);
-    }
-    
-    // ============================================
-    // 4. NOME e PV (SEMPRE POR CIMA DE TUDO)
+    // 3. NOME e PV (SEMPRE POR CIMA)
     // ============================================
     ctx.font = 'bold 10px "Inter", sans-serif';
     ctx.fillStyle = '#fff';
