@@ -667,7 +667,7 @@ window.recusarConviteGuilda = async function(conviteId) {
  catch (error) { console.error('Erro:', error); showToast('Erro ao recusar convite', true); } finally { hideLoading(); }
 };
 
-// ===== CONVITES DE CAMPANHA - SOMENTE ACEITAR =====
+// ===== CONVITES DE CAMPANHA - COM CRIAÇÃO EM CAMPANHA_MEMBROS =====
 window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNome) {
  if (!confirm(`Deseja aceitar o convite para a campanha "${campanhaNome}"?`)) return;
  
@@ -707,47 +707,68 @@ window.aceitarConviteCampanha = async function(conviteId, campanhaId, campanhaNo
   const campanhaIdReal = campanhaData.id || campanhaDoc.id;
   const nomeRealCampanha = campanhaData.nome || campanhaNome;
   
-  // 3️⃣ Verificar se já está na campanha
-  const vinculoQuery = query(
-   collection(db, "campanha_personagens"),
+  // 3️⃣ Verificar se já é membro da campanha (campanha_membros)
+  const membroQuery = query(
+   collection(db, "campanha_membros"),
    where("campanha_id", "==", campanhaIdReal),
    where("jogador_uid", "==", currentUser.uid)
   );
-  const vinculoSnap = await getDocs(vinculoQuery);
+  const membroSnap = await getDocs(membroQuery);
   
-  if (!vinculoSnap.empty) {
-   showToast('Você já está nesta campanha!');
-   await deleteDoc(conviteRef);
-   await carregarNotificacoes();
-   hideLoading();
-   return;
+  // 4️⃣ Se não for membro, criar registro em campanha_membros
+  if (membroSnap.empty) {
+   await addDoc(collection(db, "campanha_membros"), {
+    campanha_id: campanhaIdReal,
+    jogador_uid: currentUser.uid,
+    status: "ativo",
+    data_entrada: new Date().toISOString()
+   });
+   console.log("✅ Jogador adicionado à campanha_membros");
   }
   
-  // 4️⃣ Criar vínculo SEM personagem (só com dados do usuário)
-  const vinculoData = {
-   campanha_id: campanhaIdReal,
-   campanha_nome: nomeRealCampanha,
-   jogador_uid: currentUser.uid,
-   jogador_nick: userData?.nickname || 'Jogador',
-   personagem_id: null,
-   personagem_nome: null,
-   data_vinculo: serverTimestamp(),
-   status: 'ativo'
-  };
+  // 5️⃣ Verificar se já tem personagem vinculado
+  const vinculoQuery = query(
+   collection(db, "campanha_personagens"),
+   where("campanha_id", "==", campanhaIdReal),
+   where("jogador_uid", "==", currentUser.uid),
+   where("status", "==", "ativo")
+  );
+  const vinculoSnap = await getDocs(vinculoQuery);
   
-  await addDoc(collection(db, "campanha_personagens"), vinculoData);
+  if (vinculoSnap.empty) {
+   // Criar vínculo SEM personagem (só com dados do usuário)
+   const vinculoData = {
+    campanha_id: campanhaIdReal,
+    campanha_nome: nomeRealCampanha,
+    jogador_uid: currentUser.uid,
+    jogador_nick: userData?.nickname || 'Jogador',
+    personagem_id: null,
+    personagem_nome: null,
+    data_vinculo: serverTimestamp(),
+    status: 'ativo'
+   };
+   await addDoc(collection(db, "campanha_personagens"), vinculoData);
+   console.log("✅ Vínculo inicial criado em campanha_personagens");
+  }
   
-  // 5️⃣ Atualizar vagas ocupadas
-  const vagasOcupadasAtuais = campanhaData.vagas_ocupadas || 0;
-  await updateDoc(campanhaRef, { vagas_ocupadas: vagasOcupadasAtuais + 1 });
+  // 6️⃣ Atualizar vagas ocupadas na campanha (usando campanha_membros)
+  const membrosCountQuery = query(
+   collection(db, "campanha_membros"),
+   where("campanha_id", "==", campanhaIdReal),
+   where("status", "==", "ativo")
+  );
+  const membrosCountSnap = await getDocs(membrosCountQuery);
+  const totalMembros = membrosCountSnap.size;
   
-  // 6️⃣ Deletar o convite
+  await updateDoc(campanhaRef, { vagas_ocupadas: totalMembros });
+  
+  // 7️⃣ Deletar o convite
   await deleteDoc(conviteRef);
   
   showToast(`✅ Você entrou na campanha "${nomeRealCampanha}"!`);
   
-  // 7️⃣ Redirecionar para a campanha (lá ele vai vincular o personagem)
-  if (confirm(`Deseja ir para a campanha agora? Lá você poderá vincular seu personagem.`)) {
+  // 8️⃣ Redirecionar para a campanha
+  if (confirm(`Deseja ir para a campanha agora? Lá você poderá vincular seus personagens.`)) {
    window.location.href = `campanha-pc.html?id=${campanhaIdReal}`;
   } else {
    await carregarNotificacoes();

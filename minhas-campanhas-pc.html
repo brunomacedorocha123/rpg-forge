@@ -745,7 +745,7 @@
   </div>
 
 
- <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -760,7 +760,8 @@ import {
   query,
   where,
   getDocs,
-  deleteDoc
+  deleteDoc,
+  addDoc
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -799,11 +800,11 @@ function showToast(message, isError = false) {
   setTimeout(() => { toast.classList.remove('show'); }, 3000);
 }
 
-// ===== CONTAR VAGAS OCUPADAS (EM TEMPO REAL) =====
+// ===== CONTAR VAGAS OCUPADAS (MEMBROS ATIVOS) =====
 async function contarVagasOcupadas(campanhaId) {
   try {
     const q = query(
-      collection(db, "campanha_personagens"),
+      collection(db, "campanha_membros"),
       where("campanha_id", "==", campanhaId),
       where("status", "==", "ativo")
     );
@@ -815,22 +816,23 @@ async function contarVagasOcupadas(campanhaId) {
   }
 }
 
-// ===== CARREGAR CAMPANHAS DO JOGADOR =====
+// ===== CARREGAR CAMPANHAS DO JOGADOR (VIA CAMPANHA_MEMBROS) =====
 async function carregarCampanhas() {
   if (!currentUser) return;
   
   showLoading();
   
   try {
-    const q = query(
-      collection(db, "campanha_personagens"),
+    // Buscar campanhas onde o jogador é membro
+    const membrosQuery = query(
+      collection(db, "campanha_membros"),
       where("jogador_uid", "==", currentUser.uid),
       where("status", "==", "ativo")
     );
     
-    const vinculosSnap = await getDocs(q);
+    const membrosSnap = await getDocs(membrosQuery);
     
-    if (vinculosSnap.empty) {
+    if (membrosSnap.empty) {
       renderizarEmptyState();
       hideLoading();
       return;
@@ -838,28 +840,40 @@ async function carregarCampanhas() {
     
     const campanhasArray = [];
     
-    for (const vinculoDoc of vinculosSnap.docs) {
-      const vinculo = vinculoDoc.data();
+    for (const membroDoc of membrosSnap.docs) {
+      const membro = membroDoc.data();
+      const campanhaId = membro.campanha_id;
       
-      const campanhaQuery = query(
-        collection(db, "campanhas"),
-        where("id", "==", vinculo.campanha_id)
-      );
-      const campanhaSnap = await getDocs(campanhaQuery);
+      // Buscar dados da campanha
+      const campanhaRef = doc(db, "campanhas", campanhaId);
+      const campanhaDoc = await getDoc(campanhaRef);
       
-      if (!campanhaSnap.empty) {
-        const campanhaDoc = campanhaSnap.docs[0];
+      if (campanhaDoc.exists()) {
         const campanhaData = campanhaDoc.data();
         
-        const vagasOcupadas = await contarVagasOcupadas(vinculo.campanha_id);
+        // Buscar personagens do jogador nesta campanha
+        const personagensQuery = query(
+          collection(db, "campanha_personagens"),
+          where("campanha_id", "==", campanhaId),
+          where("jogador_uid", "==", currentUser.uid),
+          where("status", "==", "ativo")
+        );
+        const personagensSnap = await getDocs(personagensQuery);
+        
+        const personagensLista = personagensSnap.docs.map(doc => doc.data().personagem_nome);
+        const personagemDisplay = personagensLista.length > 0 
+          ? personagensLista.join(', ') 
+          : 'Sem personagem vinculado';
+        
+        const vagasOcupadas = await contarVagasOcupadas(campanhaId);
         
         campanhasArray.push({
+          id: campanhaId,
           docId: campanhaDoc.id,
-          vinculoId: vinculoDoc.id,
           ...campanhaData,
           vagasOcupadasReal: vagasOcupadas,
-          personagemNome: vinculo.personagem_nome,
-          personagemId: vinculo.personagem_id
+          personagemDisplay: personagemDisplay,
+          totalPersonagens: personagensLista.length
         });
       }
     }
@@ -892,14 +906,9 @@ function renderizarCampanhas(campanhas) {
              campanha.status === 'andamento' ? 'Em Andamento' :
              campanha.status === 'fechado' ? 'Fechado' : 'Encerrado';
     
-    const personagemDisplay = campanha.personagemNome && campanha.personagemNome !== 'null' 
-      ? campanha.personagemNome 
-      : 'Nenhum personagem vinculado';
-    
     const vagasMax = campanha.vagas_max || 5;
     const vagasOcupadas = campanha.vagasOcupadasReal || 0;
     
-    // 🔥 CORREÇÃO: Quebrar em partes para evitar conflito de template strings
     const imagemCapaStyle = campanha.imagem_capa 
       ? "background-image: url('" + campanha.imagem_capa + "'); background-size: cover;" 
       : '';
@@ -912,20 +921,23 @@ function renderizarCampanhas(campanhas) {
           iconePadrao +
         '</div>' +
         '<div class="campanha-info">' +
-          '<h2>' + (campanha.nome || 'Sem nome') + '</h2>' +
+          '<h2>' + this.escapeHtml(campanha.nome || 'Sem nome') + '</h2>' +
           '<div class="campanha-meta">' +
-            '<span><i class="fas fa-user-shield"></i> ' + (campanha.gm_nick || 'GM') + '</span>' +
+            '<span><i class="fas fa-user-shield"></i> ' + this.escapeHtml(campanha.gm_nick || 'GM') + '</span>' +
             '<span><i class="fas fa-users"></i> ' + vagasOcupadas + '/' + vagasMax + ' jogadores</span>' +
-            '<span><i class="fas fa-dragon"></i> ' + personagemDisplay + '</span>' +
+            '<span><i class="fas fa-mask"></i> ' + campanha.totalPersonagens + ' personagem(ns)</span>' +
           '</div>' +
-          '<p class="campanha-descricao">' + (campanha.descricao_curta || 'Sem descrição') + '</p>' +
+          '<p class="campanha-descricao">' + this.escapeHtml(campanha.descricao_curta || 'Sem descrição') + '</p>' +
+          '<div class="campanha-personagens" style="margin-bottom: 15px; font-size: 0.85rem; color: rgba(255,255,255,0.6);">' +
+            '<i class="fas fa-users"></i> Seus personagens: ' + this.escapeHtml(campanha.personagemDisplay) +
+          '</div>' +
           '<div class="campanha-footer">' +
             '<span class="campanha-status ' + statusClass + '">' + statusText + '</span>' +
-            '<button class="btn-acessar" onclick="acessarCampanha(\'' + campanha.id + '\')">' +
+            '<button class="btn-acessar" onclick="window.acessarCampanha(\'' + campanha.id + '\')">' +
               '<i class="fas fa-door-open"></i> Acessar' +
             '</button>' +
-            '<button class="btn-abandonar" onclick="abandonarCampanha(\'' + campanha.id + '\', \'' + (campanha.nome || 'Sem nome') + '\')">' +
-              '<i class="fas fa-sign-out-alt"></i> Sair' +
+            '<button class="btn-abandonar" onclick="window.abandonarCampanha(\'' + campanha.id + '\', \'' + this.escapeHtml(campanha.nome || 'Sem nome') + '\')">' +
+              '<i class="fas fa-sign-out-alt"></i> Sair da Campanha' +
             '</button>' +
           '</div>' +
         '</div>' +
@@ -933,6 +945,14 @@ function renderizarCampanhas(campanhas) {
   });
   
   campanhasContainer.innerHTML = html;
+}
+
+// Função auxiliar para escapar HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // ===== EMPTY STATE =====
@@ -967,19 +987,35 @@ document.getElementById('btnConfirmarAbandonar').addEventListener('click', async
   showLoading();
   
   try {
-    const q = query(
+    // Verificar se o jogador tem personagens na campanha
+    const personagensQuery = query(
       collection(db, "campanha_personagens"),
       where("campanha_id", "==", campanhaParaAbandonar.id),
       where("jogador_uid", "==", currentUser.uid),
       where("status", "==", "ativo")
     );
     
-    const snapshot = await getDocs(q);
+    const personagensSnap = await getDocs(personagensQuery);
     
-    if (!snapshot.empty) {
-      const vinculoDoc = snapshot.docs[0];
-      await deleteDoc(doc(db, "campanha_personagens", vinculoDoc.id));
-      
+    if (!personagensSnap.empty) {
+      showToast('Você precisa desvincular seus personagens antes de sair da campanha', true);
+      document.getElementById('modalAbandonar').classList.remove('active');
+      campanhaParaAbandonar = null;
+      hideLoading();
+      return;
+    }
+    
+    // Remover o jogador da campanha_membros
+    const membroQuery = query(
+      collection(db, "campanha_membros"),
+      where("campanha_id", "==", campanhaParaAbandonar.id),
+      where("jogador_uid", "==", currentUser.uid)
+    );
+    
+    const membroSnap = await getDocs(membroQuery);
+    
+    if (!membroSnap.empty) {
+      await deleteDoc(doc(db, "campanha_membros", membroSnap.docs[0].id));
       showToast('Você saiu da campanha');
       await carregarCampanhas();
     }
