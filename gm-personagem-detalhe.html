@@ -1034,7 +1034,7 @@
         </div>
     </div>
 
-    <script type="module">
+  <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { 
             getAuth, 
@@ -1081,7 +1081,6 @@
         const pmBarra = document.getElementById('pmBarra');
         const pfBarra = document.getElementById('pfBarra');
         
-        // NOVO: Elemento do dano
         const danoBase = document.getElementById('danoBase');
         
         const atributosContainer = document.getElementById('atributosContainer');
@@ -1093,20 +1092,21 @@
         const desvantagensContainer = document.getElementById('desvantagensContainer');
         const inventarioContainer = document.getElementById('inventarioContainer');
         
-       const magiasContainerAgua = document.getElementById('magiasContainerAgua');
-const magiasContainerAr = document.getElementById('magiasContainerAr');
-const magiasContainerGelo = document.getElementById('magiasContainerGelo');
-const magiasContainerFogo = document.getElementById('magiasContainerFogo');
-const magiasContainerTerra = document.getElementById('magiasContainerTerra');
-const magiasContainerCorpo = document.getElementById('magiasContainerCorpo');
-const magiasContainerNatureza = document.getElementById('magiasContainerNatureza'); 
-const magiasContainerTrevas = document.getElementById('magiasContainerTrevas');
-const magiasContainerLuz = document.getElementById('magiasContainerLuz');
-const magiasContainerAnimais = document.getElementById('magiasContainerAnimais');   
+        const magiasContainerAgua = document.getElementById('magiasContainerAgua');
+        const magiasContainerAr = document.getElementById('magiasContainerAr');
+        const magiasContainerGelo = document.getElementById('magiasContainerGelo');
+        const magiasContainerFogo = document.getElementById('magiasContainerFogo');
+        const magiasContainerTerra = document.getElementById('magiasContainerTerra');
+        const magiasContainerCorpo = document.getElementById('magiasContainerCorpo');
+        const magiasContainerNatureza = document.getElementById('magiasContainerNatureza'); 
+        const magiasContainerTrevas = document.getElementById('magiasContainerTrevas');
+        const magiasContainerLuz = document.getElementById('magiasContainerLuz');
+        const magiasContainerAnimais = document.getElementById('magiasContainerAnimais');   
         
         const timestamp = document.getElementById('timestamp');
 
         let escolaAtual = 'agua';
+        let personagemAtual = null;
 
         function showLoading() { loadingOverlay.classList.add('active'); }
         function hideLoading() { loadingOverlay.classList.remove('active'); }
@@ -1116,34 +1116,44 @@ const magiasContainerAnimais = document.getElementById('magiasContainerAnimais')
             return urlParams.get('personagemId');
         }
 
-        // Dados das magias (MANTIDO IGUAL)
-       const dadosMagiasAgua = {
-    purificarAgua: { nome: "Purificar Água", custoPM: 2, tempoConjuracao: "1 minuto" },
-    criarAgua: { nome: "Criar Água", custoPM: 2, tempoConjuracao: "2 turnos" },
-    dissiparAgua: { nome: "Dissipar Água", custoPM: 4, tempoConjuracao: "2 turnos" },
-    flechaLiquida: { nome: "Flecha Líquida", custoPM: 3, tempoConjuracao: "Instantânea" },
-    respirarNaAgua: { nome: "Respirar na Água", custoPM: 4, tempoConjuracao: "2 turnos" },
-    moldarAgua: { nome: "Moldar Água", custoPM: 2, tempoConjuracao: "1 turno" },
-    nevoeiro: { nome: "Nevoeiro", custoPM: 4, tempoConjuracao: "2 turnos" },
-    jatoDagua: { nome: "Jato d'Água", custoPM: 4, tempoConjuracao: "Instantânea" },
-    ondaExpulsora: { nome: "Onda Expulsora", custoPM: 5, tempoConjuracao: "2 turnos" },
-    golemDeAgua: { nome: "Golem de Água", custoPM: 6, tempoConjuracao: "1 minuto" },
-    cortinaDagua: { nome: "Cortina d'Água", custoPM: 3, tempoConjuracao: "Instantânea" }
-};
+        // ============================================
+        // TABELA DE DANO (igual à ficha do PC)
+        // ============================================
+        const tabelaDano = {
+            0: "1d-3", 1: "1d-2", 2: "1d-1", 3: "1d", 4: "1d+1", 5: "1d+2",
+            6: "1d+2", 7: "2d-1", 8: "2d", 9: "2d+1", 10: "2d+2"
+        };
 
-       const dadosMagiasAr = {
-    criarAr: { nome: "Criar Ar", custoPM: 2, tempoConjuracao: "1 turno" },
-    controlarVento: { nome: "Controlar Vento", custoPM: 2, tempoConjuracao: "1 turno" },
-    rajadaVento: { nome: "Rajada de Vento", custoPM: 4, tempoConjuracao: "Instantânea" },
-    laminasAr: { nome: "Lâminas de Ar", custoPM: 3, tempoConjuracao: "Instantânea" },
-    respirarNaAguaAr: { nome: "Respirar na Água", custoPM: 4, tempoConjuracao: "1 turno" },
-    andarNoAr: { nome: "Andar no Ar", custoPM: 5, tempoConjuracao: "1 turno" },
-    corpoDeAr: { nome: "Corpo de Ar", custoPM: 6, tempoConjuracao: "5 turnos" },
-    relampago: { nome: "Relâmpago", custoPM: 4, tempoConjuracao: "Instantânea" },
-    tempestade: { nome: "Tempestade", custoPM: 6, tempoConjuracao: "5 turnos" },
-    furacao: { nome: "Furacão Cortante", custoPM: 6, tempoConjuracao: "3 turnos" },
-    cupulaDeAr: { nome: "Cúpula de Ar", custoPM: 4, tempoConjuracao: "1 turno" }
-};
+        // ============================================
+        // DADOS DAS MAGIAS
+        // ============================================
+        const dadosMagiasAgua = {
+            purificarAgua: { nome: "Purificar Água", custoPM: 2, tempoConjuracao: "1 minuto" },
+            criarAgua: { nome: "Criar Água", custoPM: 2, tempoConjuracao: "2 turnos" },
+            dissiparAgua: { nome: "Dissipar Água", custoPM: 4, tempoConjuracao: "2 turnos" },
+            flechaLiquida: { nome: "Flecha Líquida", custoPM: 3, tempoConjuracao: "Instantânea" },
+            respirarNaAgua: { nome: "Respirar na Água", custoPM: 4, tempoConjuracao: "2 turnos" },
+            moldarAgua: { nome: "Moldar Água", custoPM: 2, tempoConjuracao: "1 turno" },
+            nevoeiro: { nome: "Nevoeiro", custoPM: 4, tempoConjuracao: "2 turnos" },
+            jatoDagua: { nome: "Jato d'Água", custoPM: 4, tempoConjuracao: "Instantânea" },
+            ondaExpulsora: { nome: "Onda Expulsora", custoPM: 5, tempoConjuracao: "2 turnos" },
+            golemDeAgua: { nome: "Golem de Água", custoPM: 6, tempoConjuracao: "1 minuto" },
+            cortinaDagua: { nome: "Cortina d'Água", custoPM: 3, tempoConjuracao: "Instantânea" }
+        };
+
+        const dadosMagiasAr = {
+            criarAr: { nome: "Criar Ar", custoPM: 2, tempoConjuracao: "1 turno" },
+            controlarVento: { nome: "Controlar Vento", custoPM: 2, tempoConjuracao: "1 turno" },
+            rajadaVento: { nome: "Rajada de Vento", custoPM: 4, tempoConjuracao: "Instantânea" },
+            laminasAr: { nome: "Lâminas de Ar", custoPM: 3, tempoConjuracao: "Instantânea" },
+            respirarNaAguaAr: { nome: "Respirar na Água", custoPM: 4, tempoConjuracao: "1 turno" },
+            andarNoAr: { nome: "Andar no Ar", custoPM: 5, tempoConjuracao: "1 turno" },
+            corpoDeAr: { nome: "Corpo de Ar", custoPM: 6, tempoConjuracao: "5 turnos" },
+            relampago: { nome: "Relâmpago", custoPM: 4, tempoConjuracao: "Instantânea" },
+            tempestade: { nome: "Tempestade", custoPM: 6, tempoConjuracao: "5 turnos" },
+            furacao: { nome: "Furacão Cortante", custoPM: 6, tempoConjuracao: "3 turnos" },
+            cupulaDeAr: { nome: "Cúpula de Ar", custoPM: 4, tempoConjuracao: "1 turno" }
+        };
 
         const dadosMagiasGelo = {
             criarFrio: { nome: "Criar Frio", custoPM: 1, tempoConjuracao: "1 turno" },
@@ -1205,228 +1215,85 @@ const magiasContainerAnimais = document.getElementById('magiasContainerAnimais')
             paralisiaTotal: { nome: "Paralisia Total", custoPM: 2, tempoConjuracao: "2 turnos" }
         };
 
-        // DADOS DAS MAGIAS - ESCOLA DA NATUREZA
-const dadosMagiasNatureza = {
-    identificarPlantas: { nome: "Identificar Plantas", custoPM: 1, tempoConjuracao: "1 turno" },
-    criarPlantas: { nome: "Criar Plantas", custoPM: 2, tempoConjuracao: "1 turno" },
-    enraizar: { nome: "Enraizar", custoPM: 3, tempoConjuracao: "1 turno" },
-    olhosDaFloresta: { nome: "Olhos da Floresta", custoPM: 3, tempoConjuracao: "2 turnos" },
-    espinhosPerfurantes: { nome: "Espinhos Perfurantes", custoPM: 3, tempoConjuracao: "Instantânea" },
-    paredeVegetal: { nome: "Parede Vegetal", custoPM: 3, tempoConjuracao: "1 turno" },
-    peleDeCorteza: { nome: "Pele de Corteza", custoPM: 3, tempoConjuracao: "1 turno" },
-    poSonifero: { nome: "Pó Sonífero", custoPM: 4, tempoConjuracao: "1 turno" },
-    plantasCarnivoras: { nome: "Plantas Carnívoras", custoPM: 5, tempoConjuracao: "2 turnos" },
-    formaVegetal: { nome: "Forma Vegetal", custoPM: 3, tempoConjuracao: "1 turno" },
-    toxinasDaNatureza: { nome: "Toxinas da Natureza", custoPM: 4, tempoConjuracao: "2 turnos" },
-    furiaDasRaizes: { nome: "Fúria das Raízes", custoPM: 4, tempoConjuracao: "2 turnos" },
-    criarAlimentos: { nome: "Criar Alimentos", custoPM: 2, tempoConjuracao: "1 minuto" }
-};
+        const dadosMagiasNatureza = {
+            identificarPlantas: { nome: "Identificar Plantas", custoPM: 1, tempoConjuracao: "1 turno" },
+            criarPlantas: { nome: "Criar Plantas", custoPM: 2, tempoConjuracao: "1 turno" },
+            enraizar: { nome: "Enraizar", custoPM: 3, tempoConjuracao: "1 turno" },
+            olhosDaFloresta: { nome: "Olhos da Floresta", custoPM: 3, tempoConjuracao: "2 turnos" },
+            espinhosPerfurantes: { nome: "Espinhos Perfurantes", custoPM: 3, tempoConjuracao: "Instantânea" },
+            paredeVegetal: { nome: "Parede Vegetal", custoPM: 3, tempoConjuracao: "1 turno" },
+            peleDeCorteza: { nome: "Pele de Corteza", custoPM: 3, tempoConjuracao: "1 turno" },
+            poSonifero: { nome: "Pó Sonífero", custoPM: 4, tempoConjuracao: "1 turno" },
+            plantasCarnivoras: { nome: "Plantas Carnívoras", custoPM: 5, tempoConjuracao: "2 turnos" },
+            formaVegetal: { nome: "Forma Vegetal", custoPM: 3, tempoConjuracao: "1 turno" },
+            toxinasDaNatureza: { nome: "Toxinas da Natureza", custoPM: 4, tempoConjuracao: "2 turnos" },
+            furiaDasRaizes: { nome: "Fúria das Raízes", custoPM: 4, tempoConjuracao: "2 turnos" },
+            criarAlimentos: { nome: "Criar Alimentos", custoPM: 2, tempoConjuracao: "1 minuto" }
+        };
 
-// DADOS DAS MAGIAS - ESCOLA DAS TREVAS
-const dadosMagiasTrevas = {
-    trevas: { nome: "Trevas", custoPM: 2, tempoConjuracao: "1 turno" },
-    moverNasSombras: { nome: "Mover-se nas Sombras", custoPM: 3, tempoConjuracao: "1 turno" },
-    convocarZumbis: { nome: "Convocar Zumbis", custoPM: 6, tempoConjuracao: "2 turnos" },
-    drenarVitalidade: { nome: "Drenar Vitalidade", custoPM: 3, tempoConjuracao: "Instantânea" },
-    absorverForca: { nome: "Absorver Força", custoPM: 3, tempoConjuracao: "1 turno" },
-    invocarDemonios: { nome: "Invocar Demônios", custoPM: 8, tempoConjuracao: "3 turnos" },
-    lacoSombrio: { nome: "Laço Sombrio", custoPM: 3, tempoConjuracao: "1 turno" },
-    mantoDaNoite: { nome: "Manto da Noite", custoPM: 3, tempoConjuracao: "1 turno" },
-    esferaAniquilacao: { nome: "Esfera de Aniquilação Silenciosa", custoPM: 5, tempoConjuracao: "2 turnos" },
-    pavor: { nome: "Pavor", custoPM: 4, tempoConjuracao: "Instantânea" },
-    pesoTrevas: { nome: "Peso das Trevas", custoPM: 4, tempoConjuracao: "2 turnos" },
-    espiritosDevoradores: { nome: "Espíritos Devoradores", custoPM: 5, tempoConjuracao: "2 turnos" }
-};
-// DADOS DAS MAGIAS - ESCOLA DA LUZ
-const dadosMagiasLuz = {
-    jatoDeLuz: { nome: "Jato de Luz", custoPM: 1, tempoConjuracao: "1 turno" },
-    lampejo: { nome: "Lampejo", custoPM: 2, tempoConjuracao: "Instantânea" },
-    feixeLuminar: { nome: "Feixe Luminar", custoPM: 3, tempoConjuracao: "Instantânea" },
-    curaRadiante: { nome: "Cura Radiante", custoPM: 2, tempoConjuracao: "1 turno" },
-    luzSolar: { nome: "Luz Solar", custoPM: 3, tempoConjuracao: "2 turnos" },
-    armaAbencoada: { nome: "Arma Abençoada", custoPM: 3, tempoConjuracao: "1 turno" },
-    circuloAlvorecer: { nome: "Círculo do Alvorecer", custoPM: 4, tempoConjuracao: "2 turnos" },
-    globoPrismatico: { nome: "Globo Prismático", custoPM: 4, tempoConjuracao: "2 turnos" },
-    laminasDeLuz: { nome: "Lâminas de Luz", custoPM: 4, tempoConjuracao: "2 turnos" },
-    ondaRadiante: { nome: "Onda Radiante", custoPM: 5, tempoConjuracao: "2 turnos" },
-    libertacao: { nome: "Libertação", custoPM: 3, tempoConjuracao: "1 turno" },
-    formaLuminosa: { nome: "Forma Luminosa", custoPM: 4, tempoConjuracao: "2 turnos" },
-    justicaCelestial: { nome: "Justiça Celestial", custoPM: 6, tempoConjuracao: "3 turnos" }
-};
+        const dadosMagiasTrevas = {
+            trevas: { nome: "Trevas", custoPM: 2, tempoConjuracao: "1 turno" },
+            moverNasSombras: { nome: "Mover-se nas Sombras", custoPM: 3, tempoConjuracao: "1 turno" },
+            convocarZumbis: { nome: "Convocar Zumbis", custoPM: 6, tempoConjuracao: "2 turnos" },
+            drenarVitalidade: { nome: "Drenar Vitalidade", custoPM: 3, tempoConjuracao: "Instantânea" },
+            absorverForca: { nome: "Absorver Força", custoPM: 3, tempoConjuracao: "1 turno" },
+            invocarDemonios: { nome: "Invocar Demônios", custoPM: 8, tempoConjuracao: "3 turnos" },
+            lacoSombrio: { nome: "Laço Sombrio", custoPM: 3, tempoConjuracao: "1 turno" },
+            mantoDaNoite: { nome: "Manto da Noite", custoPM: 3, tempoConjuracao: "1 turno" },
+            esferaAniquilacao: { nome: "Esfera de Aniquilação Silenciosa", custoPM: 5, tempoConjuracao: "2 turnos" },
+            pavor: { nome: "Pavor", custoPM: 4, tempoConjuracao: "Instantânea" },
+            pesoTrevas: { nome: "Peso das Trevas", custoPM: 4, tempoConjuracao: "2 turnos" },
+            espiritosDevoradores: { nome: "Espíritos Devoradores", custoPM: 5, tempoConjuracao: "2 turnos" }
+        };
 
-// DADOS DAS MAGIAS - ESCOLA DOS ANIMAIS
-const dadosMagiasAnimais = {
-    acalmarAnimais: { nome: "Acalmar Animais", custoPM: 2, tempoConjuracao: "1 turno" },
-    convocarAnimais: { nome: "Convocar Animais", custoPM: 3, tempoConjuracao: "2 turnos" },
-    compartilharSentidos: { nome: "Compartilhar Sentidos", custoPM: 2, tempoConjuracao: "1 turno" },
-    controlarAnimal: { nome: "Controlar Animal", custoPM: 3, tempoConjuracao: "1 turno" },
-    controlarInsetos: { nome: "Controlar Insetos", custoPM: 3, tempoConjuracao: "1 turno" },
-    metamorfose: { nome: "Metamorfose", custoPM: 4, tempoConjuracao: "2 turnos" },
-    metamorfoseParcial: { nome: "Metamorfose Parcial", custoPM: 3, tempoConjuracao: "1 turno" },
-    forcaAnimal: { nome: "Força Animal", custoPM: 2, tempoConjuracao: "1 turno" },
-    sentidosAgucadosAnimais: { nome: "Sentidos Aguçados", custoPM: 2, tempoConjuracao: "1 turno" },
-    peleEspessa: { nome: "Pele Espessa", custoPM: 2, tempoConjuracao: "1 turno" },
-    agilidadeFelina: { nome: "Agilidade Felina", custoPM: 2, tempoConjuracao: "1 turno" },
-    regeneracaoAcelerada: { nome: "Regeneração Acelerada", custoPM: 3, tempoConjuracao: "1 turno" },
-    bradoPrimal: { nome: "Brado Primal", custoPM: 4, tempoConjuracao: "Instantânea" }
-};
+        const dadosMagiasLuz = {
+            jatoDeLuz: { nome: "Jato de Luz", custoPM: 1, tempoConjuracao: "1 turno" },
+            lampejo: { nome: "Lampejo", custoPM: 2, tempoConjuracao: "Instantânea" },
+            feixeLuminar: { nome: "Feixe Luminar", custoPM: 3, tempoConjuracao: "Instantânea" },
+            curaRadiante: { nome: "Cura Radiante", custoPM: 2, tempoConjuracao: "1 turno" },
+            luzSolar: { nome: "Luz Solar", custoPM: 3, tempoConjuracao: "2 turnos" },
+            armaAbencoada: { nome: "Arma Abençoada", custoPM: 3, tempoConjuracao: "1 turno" },
+            circuloAlvorecer: { nome: "Círculo do Alvorecer", custoPM: 4, tempoConjuracao: "2 turnos" },
+            globoPrismatico: { nome: "Globo Prismático", custoPM: 4, tempoConjuracao: "2 turnos" },
+            laminasDeLuz: { nome: "Lâminas de Luz", custoPM: 4, tempoConjuracao: "2 turnos" },
+            ondaRadiante: { nome: "Onda Radiante", custoPM: 5, tempoConjuracao: "2 turnos" },
+            libertacao: { nome: "Libertação", custoPM: 3, tempoConjuracao: "1 turno" },
+            formaLuminosa: { nome: "Forma Luminosa", custoPM: 4, tempoConjuracao: "2 turnos" },
+            justicaCelestial: { nome: "Justiça Celestial", custoPM: 6, tempoConjuracao: "3 turnos" }
+        };
 
-    const dadosPorEscola = {
-    agua: dadosMagiasAgua,
-    ar: dadosMagiasAr,
-    gelo: dadosMagiasGelo,
-    fogo: dadosMagiasFogo,
-    terra: dadosMagiasTerra,
-    corpo: dadosMagiasCorpo,
-    natureza: dadosMagiasNatureza,
-    trevas: dadosMagiasTrevas,
-    luz: dadosMagiasLuz,      // NOVO
-    animais: dadosMagiasAnimais // NOVO
-};
+        const dadosMagiasAnimais = {
+            acalmarAnimais: { nome: "Acalmar Animais", custoPM: 2, tempoConjuracao: "1 turno" },
+            convocarAnimais: { nome: "Convocar Animais", custoPM: 3, tempoConjuracao: "2 turnos" },
+            compartilharSentidos: { nome: "Compartilhar Sentidos", custoPM: 2, tempoConjuracao: "1 turno" },
+            controlarAnimal: { nome: "Controlar Animal", custoPM: 3, tempoConjuracao: "1 turno" },
+            controlarInsetos: { nome: "Controlar Insetos", custoPM: 3, tempoConjuracao: "1 turno" },
+            metamorfose: { nome: "Metamorfose", custoPM: 4, tempoConjuracao: "2 turnos" },
+            metamorfoseParcial: { nome: "Metamorfose Parcial", custoPM: 3, tempoConjuracao: "1 turno" },
+            forcaAnimal: { nome: "Força Animal", custoPM: 2, tempoConjuracao: "1 turno" },
+            sentidosAgucadosAnimais: { nome: "Sentidos Aguçados", custoPM: 2, tempoConjuracao: "1 turno" },
+            peleEspessa: { nome: "Pele Espessa", custoPM: 2, tempoConjuracao: "1 turno" },
+            agilidadeFelina: { nome: "Agilidade Felina", custoPM: 2, tempoConjuracao: "1 turno" },
+            regeneracaoAcelerada: { nome: "Regeneração Acelerada", custoPM: 3, tempoConjuracao: "1 turno" },
+            bradoPrimal: { nome: "Brado Primal", custoPM: 4, tempoConjuracao: "Instantânea" }
+        };
 
-       const nomesMagias = {
-    // ÁGUA
-    purificarAgua: "Purificar Água",
-    criarAgua: "Criar Água",
-    dissiparAgua: "Dissipar Água",
-    flechaLiquida: "Flecha Líquida",
-    respirarNaAgua: "Respirar na Água",
-    moldarAgua: "Moldar Água",
-    nevoeiro: "Nevoeiro",
-    jatoDagua: "Jato d'água",
-    ondaExpulsora: "Onda Expulsora",
-    golemDeAgua: "Golem de Água",
-    cortinaDagua: "Cortina d'Água",
-    
-    // AR
-    criarAr: "Criar Ar",
-    controlarVento: "Controlar Vento",
-    rajadaVento: "Rajada de Vento",
-    laminasAr: "Lâminas de Ar",
-    respirarNaAguaAr: "Respirar na Água",
-    andarNoAr: "Andar no Ar",
-    corpoDeAr: "Corpo de Ar",
-    relampago: "Relâmpago",
-    tempestade: "Tempestade",
-    furacao: "Furacão",
-    cupulaDeAr: "Cúpula de Ar",
-    
-    // GELO
-    criarFrio: "Criar Frio",
-    criarGelo: "Criar Gelo",
-    camadaNeve: "Camada de Neve",
-    soproCongelante: "Sopro Congelante",
-    adagaGelo: "Adaga de Gelo",
-    armaduraGelo: "Armadura de Gelo",
-    pisoGelo: "Piso de Gelo",
-    tempestadeGranizo: "Tempestade de Granizo",
-    barreiraGelo: "Barreira de Gelo",
-    golemGelo: "Golem de Gelo",
-    
-    // FOGO
-    criarFogo: "Criar Fogo",
-    moldarFogo: "Moldar Fogo",
-    apagarFogo: "Apagar Fogo",
-    calor: "Calor",
-    bolaDeFogo: "Bola de Fogo",
-    armaFlamejante: "Arma Flamejante",
-    protecaoAoFogo: "Proteção ao Fogo",
-    anelDeFogo: "Anel de Fogo",
-    toqueArdente: "Toque Ardente",
-    soproDeFogo: "Sopro de Fogo",
-    chamasCadentes: "Chamas Cadentes",
-    detectarCalor: "Detectar Calor",
-    chamaVagante: "Chama Vagante",
-    
-    // TERRA
-    criarTerra: "Criar Terra",
-    moldarTerra: "Moldar Terra",
-    jatoDeAreia: "Jato de Areia",
-    pocoDeAreia: "Poço de Areia",
-    projetilDePedra: "Projétil de Pedra",
-    terremoto: "Terremoto",
-    corpoDePedra: "Corpo de Pedra",
-    moldarTerreno: "Moldar Terreno",
-    golemDePedra: "Golem de Pedra",
-    lancasDePedra: "Lanças de Pedra",
-    
-    // CORPO
-    espasmo: "Espasmo",
-    atordoamento: "Atordoamento",
-    manipularST: "Manipular ST",
-    manipularDX: "Manipular DX",
-    resistencia: "Resistência",
-    toqueDrenante: "Toque Drenante",
-    sentirDor: "Sentir Dor",
-    imunidadeDor: "Imunidade à Dor",
-    enraizar: "Enraizar",
-    silencio: "Silêncio",
-    paralisiaParcial: "Paralisia Parcial",
-    cegueira: "Cegueira",
-    surdez: "Surdez",
-    regenerar: "Regenerar",
-    paralisiaTotal: "Paralisia Total",
-    
-    // NATUREZA
-    identificarPlantas: "Identificar Plantas",
-    criarPlantas: "Criar Plantas",
-    olhosDaFloresta: "Olhos da Floresta",
-    espinhosPerfurantes: "Espinhos Perfurantes",
-    paredeVegetal: "Parede Vegetal",
-    peleDeCorteza: "Pele de Corteza",
-    poSonifero: "Pó Sonífero",
-    plantasCarnivoras: "Plantas Carnívoras",
-    formaVegetal: "Forma Vegetal",
-    toxinasDaNatureza: "Toxinas da Natureza",
-    furiaDasRaizes: "Fúria das Raízes",
-    criarAlimentos: "Criar Alimentos",
-    
-    // TREVAS
-    trevas: "Trevas",
-    moverNasSombras: "Mover-se nas Sombras",
-    convocarZumbis: "Convocar Zumbis",
-    drenarVitalidade: "Drenar Vitalidade",
-    absorverForca: "Absorver Força",
-    invocarDemonios: "Invocar Demônios",
-    lacoSombrio: "Laço Sombrio",
-    mantoDaNoite: "Manto da Noite",
-    esferaAniquilacao: "Esfera de Aniquilação Silenciosa",
-    pavor: "Pavor",
-    pesoTrevas: "Peso das Trevas",
-    espiritosDevoradores: "Espíritos Devoradores",
+        const dadosPorEscola = {
+            agua: dadosMagiasAgua,
+            ar: dadosMagiasAr,
+            gelo: dadosMagiasGelo,
+            fogo: dadosMagiasFogo,
+            terra: dadosMagiasTerra,
+            corpo: dadosMagiasCorpo,
+            natureza: dadosMagiasNatureza,
+            trevas: dadosMagiasTrevas,
+            luz: dadosMagiasLuz,
+            animais: dadosMagiasAnimais
+        };
 
-    // LUZ
-jatoDeLuz: "Jato de Luz",
-lampejo: "Lampejo",
-feixeLuminar: "Feixe Luminar",
-curaRadiante: "Cura Radiante",
-luzSolar: "Luz Solar",
-armaAbencoada: "Arma Abençoada",
-circuloAlvorecer: "Círculo do Alvorecer",
-globoPrismatico: "Globo Prismático",
-laminasDeLuz: "Lâminas de Luz",
-ondaRadiante: "Onda Radiante",
-libertacao: "Libertação",
-formaLuminosa: "Forma Luminosa",
-justicaCelestial: "Justiça Celestial",
-
-// ANIMAIS
-acalmarAnimais: "Acalmar Animais",
-convocarAnimais: "Convocar Animais",
-compartilharSentidos: "Compartilhar Sentidos",
-controlarAnimal: "Controlar Animal",
-controlarInsetos: "Controlar Insetos",
-metamorfose: "Metamorfose",
-metamorfoseParcial: "Metamorfose Parcial",
-forcaAnimal: "Força Animal",
-sentidosAgucadosAnimais: "Sentidos Aguçados",
-peleEspessa: "Pele Espessa",
-agilidadeFelina: "Agilidade Felina",
-regeneracaoAcelerada: "Regeneração Acelerada",
-bradoPrimal: "Brado Primal"
-};
-       
-// Funções de cálculo (MANTIDAS IGUAIS, só adicionei mapeamento para perícias)
+        // ============================================
+        // FUNÇÕES DE CÁLCULO (CORRIGIDAS)
+        // ============================================
         function getSTFixo(personagem) { return 5 + (personagem?.atributos?.st?.esferas || 0); }
         function getDXFixo(personagem) { return 5 + (personagem?.atributos?.dx?.esferas || 0); }
         function getIQFixo(personagem) { return 5 + (personagem?.atributos?.iq?.esferas || 0); }
@@ -1437,6 +1304,10 @@ bradoPrimal: "Brado Primal"
         function getDXPercentual(personagem) { return 40 + ((personagem?.atributos?.dx?.esferas || 0) * 2); }
         function getIQPercentual(personagem) { return 40 + ((personagem?.atributos?.iq?.esferas || 0) * 2); }
         function getVIGORPercentual(personagem) { return 40 + ((personagem?.atributos?.vigor?.esferas || 0) * 3); }
+        
+        function getVTPercentual(personagem) { 
+            return 40 + ((personagem?.atributos?.vt?.esferas || 0) * 3);
+        }
 
         function calcularPV(personagem) { 
             let vtBase = getVTFixo(personagem);
@@ -1459,9 +1330,108 @@ bradoPrimal: "Brado Primal"
             return getVIGORFixo(personagem) + getIQFixo(personagem) + getVTFixo(personagem);
         }
 
-       function calcularEsquiva(personagem) {
-    return Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2);  // ← Removeu o +5
-}
+        function calcularBonusDefensivo(personagem) {
+            let bonus = 0;
+            if (personagem?.inventario?.corpo) {
+                personagem.inventario.corpo.forEach(item => {
+                    if (item.rd && !item.dano && !item.bonus) {
+                        bonus += item.rd;
+                    }
+                });
+            }
+            return bonus;
+        }
+
+        function calcularEsquiva(personagem) {
+            let esquiva = Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) - 17;
+            
+            if (personagem?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
+            
+            esquiva += calcularBonusDefensivo(personagem);
+            
+            return Math.max(0, esquiva);
+        }
+
+        function calcularAparar(personagem) {
+            let melhorBonus = 0;
+            let bonusArma = 0;
+            let temArma = false;
+            let armaEquipada = null;
+            
+            if (personagem?.inventario?.corpo) {
+                armaEquipada = personagem.inventario.corpo.find(item => item.dano);
+                if (armaEquipada) {
+                    temArma = true;
+                    if (armaEquipada.aparar) {
+                        const bonusStr = armaEquipada.aparar.toString();
+                        if (bonusStr === "--") {
+                            bonusArma = -999;
+                        } else {
+                            bonusArma = parseInt(bonusStr) || 0;
+                        }
+                    }
+                    
+                    const nome = armaEquipada.nome.toLowerCase();
+                    let periciaId = 'espada';
+                    if (nome.includes('machado')) periciaId = 'machado';
+                    else if (nome.includes('arco')) periciaId = 'arco';
+                    else if (nome.includes('besta')) periciaId = 'besta';
+                    else if (nome.includes('chicote')) periciaId = 'chicote';
+                    else if (nome.includes('lança')) periciaId = 'armasHaste';
+                    else if (nome.includes('bastão')) periciaId = 'bastao';
+                    else if (nome.includes('mangual')) periciaId = 'mangual';
+                    else if (nome.includes('martelo')) periciaId = 'machado';
+                    else if (nome.includes('foice')) periciaId = 'armasHaste';
+                    
+                    const pericia = personagem.pericias?.[periciaId];
+                    if (pericia) {
+                        melhorBonus = (pericia.nivel || 0) * 4;
+                    }
+                }
+            }
+            
+            if (!temArma) return 0;
+            if (bonusArma === -999) return 0;
+            
+            let aparar = getDXPercentual(personagem) + melhorBonus - 25;
+            aparar += bonusArma;
+            
+            if (personagem?.vantagens?.includes('reflexosRapidos')) aparar += 5;
+            
+            aparar += calcularBonusDefensivo(personagem);
+            
+            return Math.max(0, aparar);
+        }
+
+        function calcularBloqueio(personagem) {
+            let melhorBonus = 0;
+            let bonusEscudo = 0;
+            let temEscudo = false;
+            
+            if (personagem?.inventario?.corpo) {
+                personagem.inventario.corpo.forEach(item => {
+                    if (item.bonus) {
+                        temEscudo = true;
+                        bonusEscudo = item.bonus || 0;
+                        const pericia = personagem.pericias?.['escudo'];
+                        if (pericia) {
+                            const bonus = (pericia.nivel || 0) * 4;
+                            if (bonus > melhorBonus) melhorBonus = bonus;
+                        }
+                    }
+                });
+            }
+            
+            if (!temEscudo) return 0;
+            
+            let bloqueio = getDXPercentual(personagem) + melhorBonus + bonusEscudo - 25;
+            
+            if (personagem?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
+            
+            bloqueio += calcularBonusDefensivo(personagem);
+            
+            return Math.max(0, bloqueio);
+        }
 
         function calcularDeslocamento(personagem) {
             const soma = getDXFixo(personagem) + getVIGORFixo(personagem);
@@ -1481,84 +1451,45 @@ bradoPrimal: "Brado Primal"
 
         function calcularRD(personagem) {
             let rd = 0;
+            if (personagem?.vantagens?.includes('corpoResistente')) {
+                rd += 2;
+            }
             if (personagem?.inventario?.corpo) {
                 personagem.inventario.corpo.forEach(item => {
-                    if (item.rd) rd += item.rd;
+                    if (item.rd && !item.dano && !item.bonus) {
+                        rd += item.rd;
+                    }
                 });
             }
             return rd;
         }
 
-        // NOVA FUNÇÃO: Mapeamento de atributo base para perícias
-       function getAtributoBasePericia(periciaId) {
-    const mapa = {
-        // ===== PERÍCIAS FÍSICAS (DX) =====
-        'acrobacia': 'dx',
-        'arco': 'dx',
-        'armasHaste': 'dx',
-        'arremesso': 'dx',
-        'bastao': 'dx',
-        'besta': 'dx',
-        'boxe': 'dx',
-        'capa': 'dx',
-        'cavalgar': 'dx',
-        'chicote': 'dx',
-        'corrida': 'dx',
-        'esgrima': 'dx',
-        'espada': 'dx',
-        'escudo': 'dx',
-        'fuga': 'dx',
-        'furtar': 'dx',             
-        'furtividade': 'dx',
-        'kuzari': 'dx',
-        'luta': 'dx',
-        'mangual': 'dx',
-        'natacao': 'dx',
-        'zarabatana': 'dx',
-        
-        'adestramento': 'iq',
-        'alquimia': 'iq',
-        'arqueologia': 'iq',
-        'arrombamento': 'iq',       
-        'artista': 'iq',
-        'comercio': 'iq',
-        'culinaria': 'iq',
-        'detectarMentira': 'iq',
-        'esconder_se': 'iq',
-        'estrategia': 'iq',         
-        'historia': 'iq',
-        'intimidacao': 'iq',
-        'interrogatorio': 'iq',
-        'jogo': 'iq',
-        'labia': 'iq',
-        'medicina': 'iq',
-        'navegacao': 'iq',         
-        'ocultismo': 'iq',
-        'oratoria': 'iq',
-        'persuasao': 'iq',
-        'primeirosSocorros': 'iq',
-        'rastreamento': 'iq',
-        'runas': 'iq',               
-        'sobrevivencia': 'iq',
-        'sociabilidade': 'iq',
-        'armaria': 'iq',             
-        'carpintaria': 'iq',         
-        'alfaiataria': 'iq'          
-    };
-    return mapa[periciaId] || 'dx';
-}
+        function calcularDanoBase(personagem) {
+            const esferasST = personagem?.atributos?.st?.esferas || 0;
+            return tabelaDano[esferasST] || "1d-3";
+        }
 
-        // FUNÇÃO CORRIGIDA: Agora usa 40% como base
+        function getAtributoBasePericia(periciaId) {
+            const mapa = {
+                'acrobacia': 'dx', 'arco': 'dx', 'armasHaste': 'dx', 'arremesso': 'dx',
+                'bastao': 'dx', 'besta': 'dx', 'boxe': 'dx', 'capa': 'dx', 'cavalgar': 'dx',
+                'chicote': 'dx', 'corrida': 'dx', 'esgrima': 'dx', 'espada': 'dx', 'escudo': 'dx',
+                'fuga': 'dx', 'furtar': 'dx', 'furtividade': 'dx', 'kuzari': 'dx', 'luta': 'dx',
+                'mangual': 'dx', 'natacao': 'dx', 'zarabatana': 'dx',
+                'adestramento': 'iq', 'alquimia': 'iq', 'arqueologia': 'iq', 'arrombamento': 'iq',
+                'artista': 'iq', 'comercio': 'iq', 'culinaria': 'iq', 'detectarMentira': 'iq',
+                'esconder_se': 'iq', 'estrategia': 'iq', 'historia': 'iq', 'intimidacao': 'iq',
+                'interrogatorio': 'iq', 'jogo': 'iq', 'labia': 'iq', 'medicina': 'iq',
+                'navegacao': 'iq', 'ocultismo': 'iq', 'oratoria': 'iq', 'persuasao': 'iq',
+                'primeirosSocorros': 'iq', 'rastreamento': 'iq', 'runas': 'iq', 'sobrevivencia': 'iq',
+                'sociabilidade': 'iq', 'armaria': 'iq', 'carpintaria': 'iq', 'alfaiataria': 'iq'
+            };
+            return mapa[periciaId] || 'dx';
+        }
+
         function calcularNHPericia(personagem, periciaId, nivel) {
             const atributoBase = getAtributoBasePericia(periciaId);
-            let percentualBase = 40;
-            
-            if (atributoBase === 'iq') {
-                percentualBase = getIQPercentual(personagem);
-            } else {
-                percentualBase = getDXPercentual(personagem);
-            }
-            
+            let percentualBase = atributoBase === 'iq' ? getIQPercentual(personagem) : getDXPercentual(personagem);
             return percentualBase + (nivel * 4);
         }
 
@@ -1566,21 +1497,21 @@ bradoPrimal: "Brado Primal"
             return getIQPercentual(personagem) + 10 + (nivel || 0);
         }
 
-     function getIconeEscola(escola) {
-    switch(escola) {
-        case 'agua': return 'fa-water';
-        case 'ar': return 'fa-wind';
-        case 'gelo': return 'fa-snowflake';
-        case 'fogo': return 'fa-fire';
-        case 'terra': return 'fa-mountain';
-        case 'corpo': return 'fa-user';
-        case 'natureza': return 'fa-leaf';
-        case 'trevas': return 'fa-skull';
-        case 'luz': return 'fa-sun';          
-        case 'animais': return 'fa-paw';       
-        default: return 'fa-magic';
-    }
-}
+        function getIconeEscola(escola) {
+            switch(escola) {
+                case 'agua': return 'fa-water';
+                case 'ar': return 'fa-wind';
+                case 'gelo': return 'fa-snowflake';
+                case 'fogo': return 'fa-fire';
+                case 'terra': return 'fa-mountain';
+                case 'corpo': return 'fa-user';
+                case 'natureza': return 'fa-leaf';
+                case 'trevas': return 'fa-skull';
+                case 'luz': return 'fa-sun';
+                case 'animais': return 'fa-paw';
+                default: return 'fa-magic';
+            }
+        }
 
         function renderizarMagiasPorEscola(escola, container, personagem) {
             if (!personagem?.escolas?.[escola]?.magias) {
@@ -1593,8 +1524,7 @@ bradoPrimal: "Brado Primal"
             
             Object.entries(personagem.escolas[escola].magias).forEach(([id, magia]) => {
                 if (magia.desbloqueada) {
-                    const dadosMagia = dadosMagias[id] || { nome: nomesMagias[id] || id, custoPM: '?', tempoConjuracao: '?' };
-                    const nomeExibicao = dadosMagia.nome || nomesMagias[id] || id;
+                    const dadosMagia = dadosMagias[id] || { nome: id, custoPM: '?', tempoConjuracao: '?' };
                     const icone = getIconeEscola(escola);
                     const nh = calcularNHMagia(personagem, escola, magia.nivel || 1);
                     
@@ -1602,7 +1532,7 @@ bradoPrimal: "Brado Primal"
                         <div class="magia-card">
                             <div class="magia-nome">
                                 <i class="fas ${icone}"></i>
-                                ${nomeExibicao}
+                                ${dadosMagia.nome}
                             </div>
                             <div class="magia-detalhes">
                                 <span class="magia-custo">
@@ -1662,52 +1592,49 @@ bradoPrimal: "Brado Primal"
             pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
             pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
 
-            // NOVO: Mostrar dano base
-            if (personagem.derivados?.danoBase) {
-                danoBase.textContent = personagem.derivados.danoBase;
-            }
+            danoBase.textContent = calcularDanoBase(personagem);
 
-            // Atributos
             atributosContainer.innerHTML = `
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">ST</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.st?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.st?.esferas || 0))}</div>
                     </div>
                     <span class="atributo-valor">${getSTFixo(personagem)}</span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">DX</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.dx?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.dx?.esferas || 0))}</div>
                     </div>
                     <span class="atributo-valor">${getDXFixo(personagem)}</span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">IQ</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.iq?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.iq?.esferas || 0))}</div>
                     </div>
                     <span class="atributo-valor">${getIQFixo(personagem)}</span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">VIGOR</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.vigor?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.vigor?.esferas || 0))}</div>
                     </div>
                     <span class="atributo-valor">${getVIGORFixo(personagem)}</span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">VT</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(15 - (personagem.atributos?.vt?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.vt?.esferas || 0))}</div>
                     </div>
-                    <span class="atributo-valor">${getVTFixo(personagem)}</span>
+                    <span class="atributo-valor">${getVTFixo(personagem)} <span style="font-size: 11px; color: #4CAF50;">(${getVTPercentual(personagem)}%)</span></span>
                 </div>
             `;
 
             const esquiva = calcularEsquiva(personagem);
-            const desloc = calcularDeslocamento(personagem);
+            const aparar = calcularAparar(personagem);
+            const bloqueio = calcularBloqueio(personagem);
             
             defesasContainer.innerHTML = `
                 <div class="defesa-card">
@@ -1716,18 +1643,18 @@ bradoPrimal: "Brado Primal"
                 </div>
                 <div class="defesa-card">
                     <div>Aparar</div>
-                    <div class="defesa-valor">${personagem.derivados?.aparar || 0}%</div>
+                    <div class="defesa-valor">${aparar}%</div>
                 </div>
                 <div class="defesa-card">
                     <div>Bloqueio</div>
-                    <div class="defesa-valor">${personagem.derivados?.bloqueio || 0}%</div>
+                    <div class="defesa-valor">${bloqueio}%</div>
                 </div>
             `;
             
+            const desloc = calcularDeslocamento(personagem);
             deslocamento.textContent = `${desloc.andar.toFixed(1)}m / ${desloc.correr.toFixed(1)}m`;
-            rdTotal.textContent = calcularRD(personagem) + (personagem.derivados?.rdExtra || 0);
+            rdTotal.textContent = calcularRD(personagem);
 
-            // Perícias (AGORA USANDO A FUNÇÃO CORRIGIDA)
             if (personagem.pericias) {
                 let periciasHTML = '';
                 Object.entries(personagem.pericias).forEach(([id, dados]) => {
@@ -1748,7 +1675,6 @@ bradoPrimal: "Brado Primal"
                 periciasContainer.innerHTML = periciasHTML || '<p style="color: var(--text-secondary);">Nenhuma perícia</p>';
             }
 
-            // Vantagens
             if (vantagensContainer) {
                 const vantagensMap = new Map();
                 (personagem.vantagens || []).forEach(v => vantagensMap.set(v, true));
@@ -1760,7 +1686,6 @@ bradoPrimal: "Brado Primal"
                 vantagensContainer.innerHTML = vantagensHTML || '<span style="color: var(--text-secondary);">Nenhuma</span>';
             }
 
-            // Desvantagens
             if (desvantagensContainer) {
                 const desvantagensMap = new Map();
                 (personagem.desvantagens || []).forEach(d => desvantagensMap.set(d, true));
@@ -1780,13 +1705,16 @@ bradoPrimal: "Brado Primal"
                 desvantagensContainer.innerHTML = desvantagensHTML || '<span style="color: var(--text-secondary);">Nenhuma</span>';
             }
 
-            // Inventário - Corpo (padrão)
+            // Inventário
             let inventarioHTML = '';
-            if (personagem.inventario?.corpo && personagem.inventario.corpo.length > 0) {
-                personagem.inventario.corpo.forEach(item => {
+            const tabAtual = document.querySelector('.inventario-tab.ativa')?.dataset.tab || 'corpo';
+            
+            if (personagem.inventario?.[tabAtual] && personagem.inventario[tabAtual].length > 0) {
+                personagem.inventario[tabAtual].forEach(item => {
+                    const quantidade = item.quantidade > 1 ? ` (x${item.quantidade})` : '';
                     inventarioHTML += `
                         <div class="item-card">
-                            <strong>${item.nome}</strong>
+                            <strong>${item.nome}${quantidade}</strong>
                             <div style="font-size: 11px;">${item.peso ? item.peso + ' kg' : ''} ${item.rd ? `| RD ${item.rd}` : ''} ${item.dano ? `| ${item.dano}` : ''}</div>
                         </div>
                     `;
@@ -1796,17 +1724,17 @@ bradoPrimal: "Brado Primal"
             }
             inventarioContainer.innerHTML = inventarioHTML;
 
-           // Magias
-renderizarMagiasPorEscola('agua', magiasContainerAgua, personagem);
-renderizarMagiasPorEscola('ar', magiasContainerAr, personagem);
-renderizarMagiasPorEscola('gelo', magiasContainerGelo, personagem);
-renderizarMagiasPorEscola('fogo', magiasContainerFogo, personagem);
-renderizarMagiasPorEscola('terra', magiasContainerTerra, personagem);
-renderizarMagiasPorEscola('corpo', magiasContainerCorpo, personagem);
-renderizarMagiasPorEscola('natureza', magiasContainerNatureza, personagem);
-renderizarMagiasPorEscola('trevas', magiasContainerTrevas, personagem);
-renderizarMagiasPorEscola('luz', magiasContainerLuz, personagem);        // NOVO
-renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOVO
+            renderizarMagiasPorEscola('agua', magiasContainerAgua, personagem);
+            renderizarMagiasPorEscola('ar', magiasContainerAr, personagem);
+            renderizarMagiasPorEscola('gelo', magiasContainerGelo, personagem);
+            renderizarMagiasPorEscola('fogo', magiasContainerFogo, personagem);
+            renderizarMagiasPorEscola('terra', magiasContainerTerra, personagem);
+            renderizarMagiasPorEscola('corpo', magiasContainerCorpo, personagem);
+            renderizarMagiasPorEscola('natureza', magiasContainerNatureza, personagem);
+            renderizarMagiasPorEscola('trevas', magiasContainerTrevas, personagem);
+            renderizarMagiasPorEscola('luz', magiasContainerLuz, personagem);
+            renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem);
+            
             if (personagem.updatedAt) {
                 const data = personagem.updatedAt?.toDate ? 
                             personagem.updatedAt.toDate() : 
@@ -1815,7 +1743,6 @@ renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOV
             }
         }
 
-        // Buscar dados do jogador e verificar se o GM tem acesso (MANTIDO IGUAL)
         async function carregarDados(personagemId, userId) {
             showLoading();
             
@@ -1829,11 +1756,13 @@ renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOV
                 
                 if (personagemSnap.data().userId === userId) {
                     renderizarPersonagem(personagemSnap.data());
+                    personagemAtual = personagemSnap.data();
                     hideLoading();
                     
                     onSnapshot(personagemRef, (doc) => {
                         if (doc.exists()) {
                             renderizarPersonagem(doc.data());
+                            personagemAtual = doc.data();
                         }
                     });
                     return;
@@ -1868,11 +1797,13 @@ renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOV
                 
                 if (isGm) {
                     renderizarPersonagem(personagemSnap.data());
+                    personagemAtual = personagemSnap.data();
                     hideLoading();
                     
                     onSnapshot(personagemRef, (doc) => {
                         if (doc.exists()) {
                             renderizarPersonagem(doc.data());
+                            personagemAtual = doc.data();
                         }
                     });
                 } else {
@@ -1895,7 +1826,6 @@ renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOV
             }
         }
 
-        // Event listeners para as abas das escolas
         document.querySelectorAll('.escolas-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.escolas-tab').forEach(t => t.classList.remove('ativa'));
@@ -1908,20 +1838,20 @@ renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOV
             });
         });
 
-        // Event listeners para as abas de inventário
         document.querySelectorAll('.inventario-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
+            tab.addEventListener('click', (e) => {
                 document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
-                tab.classList.add('ativa');
+                e.currentTarget.classList.add('ativa');
                 
-                const tabName = tab.dataset.tab;
+                const tabName = e.currentTarget.dataset.tab;
                 let inventarioHTML = '';
                 
                 if (personagemAtual?.inventario?.[tabName] && personagemAtual.inventario[tabName].length > 0) {
                     personagemAtual.inventario[tabName].forEach(item => {
+                        const quantidade = item.quantidade > 1 ? ` (x${item.quantidade})` : '';
                         inventarioHTML += `
                             <div class="item-card">
-                                <strong>${item.nome}</strong>
+                                <strong>${item.nome}${quantidade}</strong>
                                 <div style="font-size: 11px;">${item.peso ? item.peso + ' kg' : ''} ${item.rd ? `| RD ${item.rd}` : ''} ${item.dano ? `| ${item.dano}` : ''}</div>
                             </div>
                         `;
@@ -1933,8 +1863,6 @@ renderizarMagiasPorEscola('animais', magiasContainerAnimais, personagem); // NOV
                 inventarioContainer.innerHTML = inventarioHTML;
             });
         });
-
-        let personagemAtual = null;
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
