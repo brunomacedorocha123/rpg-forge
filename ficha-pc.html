@@ -7934,10 +7934,19 @@ window.usarItem = async function(itemId, local) {
         console.error(error);
     }
 };
-
 // ============================================
 // FUNÇÕES DE AÇÃO (GLOBAIS)
 // ============================================
+
+// ===== FUNÇÃO AUXILIAR PARA CALCULAR CUSTO DO PRÓXIMO NÍVEL =====
+function getCustoProximoNivelMagiaFicha(nivelAtual) {
+    if (nivelAtual === 0) return 1;      // Desbloquear (vai para nível 1)
+    if (nivelAtual === 1) return 1;      // Nível 1 → 2
+    if (nivelAtual >= 2 && nivelAtual <= 5) return 2;  // Níveis 2→6
+    if (nivelAtual === 6) return 4;      // Nível 6 → 7
+    return 0; // Nível máximo (7)
+}
+
 window.adicionarPP = async function(valor) {
     if (!personagemAtual || !currentUser) return;
     
@@ -8018,7 +8027,8 @@ window.comprarMagia = async function(escola, magiaId) {
         return;
     }
     
-    const custo = 2;
+    // ✅ MUDANÇA: Desbloquear custa 1 PP (antes era 2)
+    const custo = 1;
     const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
     
     if (custo > ppDisponivel) {
@@ -8086,9 +8096,12 @@ window.abrirModalMagia = function(escola, magiaId) {
     let linhas = '';
     const iqPercentual = getIQPercentual();
     const nhBase = iqPercentual + 10;
+    const nivelMaximo = 7;
+    const nivelAtualMagia = magia.nivel || 1;
     
-    for (let i = 1; i <= 10; i++) {
-        const classe = i === (magia.nivel || 1) ? 'nivel-atual' : '';
+    // ✅ MUDANÇA: Agora vai até nível 7 (antes era 10)
+    for (let i = 1; i <= nivelMaximo; i++) {
+        const classe = i === nivelAtualMagia ? 'nivel-atual' : '';
         const nh = nhBase + i;
         const efeito = dados.efeitos[i] || '-';
         
@@ -8118,11 +8131,16 @@ window.abrirModalMagia = function(escola, magiaId) {
     }
     if (elements.tabelaMagia) elements.tabelaMagia.innerHTML = linhas;
     
-    const nivelAtual = magia.nivel || 1;
+    // ✅ MUDANÇA: Cálculo dinâmico do custo do próximo nível
+    const custoProximo = getCustoProximoNivelMagiaFicha(nivelAtualMagia);
     const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
     
-    if (elements.modalMagiaCusto) elements.modalMagiaCusto.textContent = nivelAtual >= 10 ? 'Nível Máximo' : '2 PP';
-    if (elements.modalMagiaComprar) elements.modalMagiaComprar.disabled = nivelAtual >= 10 || 2 > ppDisponivel;
+    if (elements.modalMagiaCusto) {
+        elements.modalMagiaCusto.textContent = nivelAtualMagia >= nivelMaximo ? 'Nível Máximo' : `${custoProximo} PP`;
+    }
+    if (elements.modalMagiaComprar) {
+        elements.modalMagiaComprar.disabled = nivelAtualMagia >= nivelMaximo || custoProximo > ppDisponivel;
+    }
     
     if (elements.modalMagia) elements.modalMagia.classList.add('active');
 };
@@ -8923,14 +8941,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ✅ BLOCO ATUALIZADO DO MODAL MAGIA COMPRAR
     if (elements.modalMagiaComprar) {
         elements.modalMagiaComprar.addEventListener('click', async () => {
             if (!magiaModalAtual || !personagemAtual) return;
             
             const magia = personagemAtual.escolas?.[escolaMagiaModalAtual]?.magias?.[magiaModalAtual];
-            if (!magia || magia.nivel >= 10) return;
+            const nivelMaximo = 7;
             
-            const custo = 2;
+            if (!magia || magia.nivel >= nivelMaximo) return;
+            
+            // ✅ CÁLCULO DINÂMICO DO CUSTO
+            let custo;
+            if (magia.nivel === 0) custo = 1;
+            else if (magia.nivel === 1) custo = 1;
+            else if (magia.nivel >= 2 && magia.nivel <= 5) custo = 2;
+            else if (magia.nivel === 6) custo = 4;
+            else custo = 0;
+            
             const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
             
             if (custo > ppDisponivel) {
