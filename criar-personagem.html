@@ -9739,7 +9739,6 @@ function diminuirPericia(periciaId) {
     atualizarInterface();
     triggerAutoSave();
 }
-
 // ============================================
 // FUNÇÕES DE NAVEGAÇÃO ENTRE ESCOLAS DE MAGIA
 // ============================================
@@ -9809,7 +9808,7 @@ function renderizarEsferas(escolaId = escolaAtual) {
         } else if (temAptidao && numero <= magiasDesbloqueadas + 1) {
             classeEsfera = 'disponivel';
             iconeCadeado = '';
-            botaoAcao = `<button class="btn-comprar-esfera" data-escola="${escolaId}" data-magia-id="${id}">Desbloquear (2 PP)</button>`;
+            botaoAcao = `<button class="btn-comprar-esfera" data-escola="${escolaId}" data-magia-id="${id}">Desbloquear (1 PP)</button>`;
         } else if (!temAptidao) {
             classeEsfera = 'aptidao-requerida';
         }
@@ -9842,6 +9841,17 @@ function renderizarEsferas(escolaId = escolaAtual) {
     gridElement._hasListeners = true;
 }
 
+// ============================================
+// FUNÇÃO AUXILIAR PARA CALCULAR CUSTO DO PRÓXIMO NÍVEL
+// ============================================
+function getCustoProximoNivelMagia(nivelAtual) {
+    if (nivelAtual === 0) return 1;
+    if (nivelAtual === 1) return 1;
+    if (nivelAtual >= 2 && nivelAtual <= 5) return 2;
+    if (nivelAtual === 6) return 4;
+    return 0;
+}
+
 function handleEsferaClick(e) {
     const target = e.target;
     
@@ -9849,7 +9859,7 @@ function handleEsferaClick(e) {
         e.stopPropagation();
         const escolaId = target.dataset.escola;
         const magiaId = target.dataset.magiaId;
-        const custo = 2;
+        const custo = 1;
         
         if (custo > (ppDisponivel - ppGastoTotal)) {
             alert('PP insuficiente!');
@@ -9893,7 +9903,7 @@ function handleEsferaClick(e) {
 }
 
 // ============================================
-// MAGIAS - DETALHE DA MAGIA (CORRIGIDO - COM MANA E TEMPO POR NÍVEL)
+// MAGIAS - DETALHE DA MAGIA (NÍVEL MÁXIMO 7)
 // ============================================
 function abrirDetalheMagia(escolaId, magiaId) {
     const escola = escolas[escolaId];
@@ -9916,14 +9926,12 @@ function abrirDetalheMagia(escolaId, magiaId) {
     
     let linhas = '';
     
-    // CRUCIAL: Verificar se efeitos é array ou objeto
     const efeitosObj = magiaDados.efeitos;
     let temArray = Array.isArray(efeitosObj);
     
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 7; i++) {
         const classe = i === magia.nivel ? 'nivel-atual' : '';
         
-        // Pega o efeito corretamente (suporta array ou objeto com chaves)
         let efeito = '-';
         if (temArray) {
             efeito = efeitosObj[i - 1] || 'Efeito não descrito';
@@ -9933,44 +9941,41 @@ function abrirDetalheMagia(escolaId, magiaId) {
         
         const nhNivel = nhBase + i;
         
-        // ===== MANA POR NÍVEL =====
-        let custoManaNivel = 2; // valor padrão
+        let custoManaNivel = 2;
         if (magiaDados.custoMana) {
             custoManaNivel = magiaDados.custoMana[i] || 2;
         } else if (magiaDados.custoPM) {
-            // Fallback para dados antigos (todos níveis iguais)
             custoManaNivel = magiaDados.custoPM;
         }
         
-        // ===== TEMPO DE CONJURAÇÃO POR NÍVEL =====
-        let tempoNivel = "1 ação padrão"; // valor padrão
+        let tempoNivel = "1 ação padrão";
         if (magiaDados.tempoConjuracao) {
             if (typeof magiaDados.tempoConjuracao === 'object') {
                 tempoNivel = magiaDados.tempoConjuracao[i] || magiaDados.tempoConjuracao[String(i)] || "1 ação padrão";
             } else {
-                // Fallback: string única (todos níveis iguais)
                 tempoNivel = magiaDados.tempoConjuracao;
             }
         }
         
-        // CONSTRUÇÃO EXPLÍCITA DAS 5 COLUNAS NA ORDEM CORRETA
         linhas += `<tr class="${classe}">
             <td style="text-align: center;">${i}</td>
             <td style="text-align: left;">${efeito}</td>
             <td style="text-align: center;">${nhNivel}%</td>
             <td style="text-align: center;">${custoManaNivel} MANA</td>
             <td style="text-align: left;">${tempoNivel}</td>
-        </td>`;
+        </tr>`;
     }
     
     if (elements.corpoTabelaDetalhe) {
         elements.corpoTabelaDetalhe.innerHTML = linhas;
     }
     
-    const custoProximoNivel = magia.nivel >= 10 ? 0 : 2;
+    const custoProximoNivel = getCustoProximoNivelMagia(magia.nivel);
+    const nivelMaximo = 7;
+    
     if (elements.comprarNivelMagia) {
-        elements.comprarNivelMagia.disabled = magia.nivel >= 10 || (custoProximoNivel > (ppDisponivel - ppGastoTotal));
-        elements.comprarNivelMagia.textContent = magia.nivel >= 10 ? 'Nível Máximo' : `Comprar Nível ${magia.nivel + 1} (${custoProximoNivel} PP)`;
+        elements.comprarNivelMagia.disabled = magia.nivel >= nivelMaximo || (custoProximoNivel > (ppDisponivel - ppGastoTotal));
+        elements.comprarNivelMagia.textContent = magia.nivel >= nivelMaximo ? 'Nível Máximo' : `Comprar Nível ${magia.nivel + 1} (${custoProximoNivel} PP)`;
     }
     
     if (elements.detalheMagiaModal) elements.detalheMagiaModal.classList.add('active');
@@ -11631,15 +11636,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // ✅ BLOCO ATUALIZADO DO COMPRAR NÍVEL DA MAGIA
     if (elements.comprarNivelMagia) {
         elements.comprarNivelMagia.addEventListener('click', () => {
             if (!magiaSelecionada || !escolaMagiaSelecionada) return;
             
             const escola = escolas[escolaMagiaSelecionada];
             const magia = escola?.magias[magiaSelecionada];
-            if (!magia || magia.nivel >= 10) return;
+            const nivelMaximo = 7;
             
-            const custo = 2;
+            if (!magia || magia.nivel >= nivelMaximo) return;
+            
+            // Cálculo dinâmico do custo baseado no nível atual
+            let custo;
+            if (magia.nivel === 0) custo = 1;
+            else if (magia.nivel === 1) custo = 1;
+            else if (magia.nivel >= 2 && magia.nivel <= 5) custo = 2;
+            else if (magia.nivel === 6) custo = 4;
+            else custo = 0;
             
             if (custo > (ppDisponivel - ppGastoTotal)) {
                 alert('PP insuficiente!');
