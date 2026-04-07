@@ -9130,10 +9130,10 @@ function comprarItem(item) {
     // Usa a função auxiliar para adicionar com quantidade
     adicionarItemAoInventario(item, 'deposito');
 }
+// ============================================
+// INVENTÁRIO - VERSÃO COMPLETAMENTE CORRIGIDA
+// ============================================
 
-// ============================================
-// INVENTÁRIO
-// ============================================
 function renderizarInventario() {
     if (!elements.inventarioCorpo) return;
     
@@ -9215,6 +9215,121 @@ function renderizarInventario() {
             if (card) descartarItem(card.dataset.itemId, card.dataset.local);
         });
     });
+}
+
+// ===== FUNÇÃO AUXILIAR PARA ENCONTRAR ITEM NO CATÁLOGO =====
+function encontrarItemNoCatalogo(itemIdBase) {
+    if (!itemIdBase) return null;
+    
+    const categorias = ['armas_ca', 'armas_dist', 'armaduras', 'escudos', 'itens_gerais', 'itens_magicos'];
+    
+    for (const categoria of categorias) {
+        const itens = catalogoItensData[categoria];
+        if (itens) {
+            const encontrado = itens.find(item => item.id === itemIdBase);
+            if (encontrado) return encontrado;
+        }
+    }
+    return null;
+}
+
+// ===== FUNÇÃO PARA OBTER PREÇO UNITÁRIO COM FALLBACK =====
+function obterPrecoUnitario(item) {
+    // 1º - Tenta pegar o preço unitário salvo
+    if (item.precoUnitario && item.precoUnitario > 0) {
+        return item.precoUnitario;
+    }
+    
+    // 2º - Tenta pegar o preço original (backup)
+    if (item.precoOriginal && item.precoOriginal > 0) {
+        return item.precoOriginal;
+    }
+    
+    // 3º - Calcula a partir do preço total e quantidade
+    if (item.preco && item.quantidade && item.preco > 0 && item.quantidade > 0) {
+        return item.preco / item.quantidade;
+    }
+    
+    // 4º - Busca no catálogo
+    const itemCatalogo = encontrarItemNoCatalogo(item.idBase || item.id);
+    if (itemCatalogo && itemCatalogo.preco) {
+        return itemCatalogo.preco;
+    }
+    
+    // 5º - Valor padrão (último recurso)
+    console.warn(`Preço não encontrado para: ${item.nome}, usando valor padrão 10`);
+    return 10;
+}
+
+// ===== FUNÇÃO PARA OBTER PESO UNITÁRIO COM FALLBACK =====
+function obterPesoUnitario(item) {
+    // 1º - Tenta pegar o peso unitário salvo
+    if (item.pesoUnitario && item.pesoUnitario > 0) {
+        return item.pesoUnitario;
+    }
+    
+    // 2º - Tenta pegar o peso original (backup)
+    if (item.pesoOriginal && item.pesoOriginal > 0) {
+        return item.pesoOriginal;
+    }
+    
+    // 3º - Calcula a partir do peso total e quantidade
+    if (item.peso && item.quantidade && item.peso > 0 && item.quantidade > 0) {
+        return item.peso / item.quantidade;
+    }
+    
+    // 4º - Busca no catálogo
+    const itemCatalogo = encontrarItemNoCatalogo(item.idBase || item.id);
+    if (itemCatalogo && itemCatalogo.peso) {
+        return itemCatalogo.peso;
+    }
+    
+    // 5º - Valor padrão (último recurso)
+    console.warn(`Peso não encontrado para: ${item.nome}, usando valor padrão 0.5`);
+    return 0.5;
+}
+
+// ===== FUNÇÃO DE MIGRAÇÃO PARA CORRIGIR ITENS ANTIGOS =====
+function migrarInventarioAntigo() {
+    let modificado = false;
+    
+    const corrigirLista = (lista) => {
+        if (!lista) return;
+        for (const item of lista) {
+            let precisaCorrigir = false;
+            
+            if (!item.pesoUnitario && item.peso) {
+                const qtd = item.quantidade || 1;
+                item.pesoUnitario = item.peso / qtd;
+                item.pesoOriginal = item.pesoUnitario;
+                precisaCorrigir = true;
+            }
+            
+            if (!item.precoUnitario && item.preco) {
+                const qtd = item.quantidade || 1;
+                item.precoUnitario = item.preco / qtd;
+                item.precoOriginal = item.precoUnitario;
+                precisaCorrigir = true;
+            }
+            
+            if (!item.idBase && item.id) {
+                const idSemSufixo = item.id.split('_')[0];
+                item.idBase = idSemSufixo;
+                precisaCorrigir = true;
+            }
+            
+            if (precisaCorrigir) modificado = true;
+        }
+    };
+    
+    corrigirLista(inventario.corpo);
+    corrigirLista(inventario.mochila);
+    corrigirLista(inventario.deposito);
+    
+    if (modificado) {
+        renderizarInventario();
+        triggerAutoSave();
+    }
 }
 
 function moverParaDeposito(itemId, local) {
@@ -9306,27 +9421,74 @@ function pegarItem(itemId) {
     }
 }
 
+// ===== FUNÇÃO VENDER ITEM - COMPLETAMENTE CORRIGIDA =====
 function venderItem(itemId, local) {
     if (!inventario[local]) return;
     const index = inventario[local].findIndex(i => i.id === itemId);
     if (index !== -1) {
         const item = inventario[local][index];
         
-        // Vende APENAS 1 unidade por vez (50% do valor unitário)
-        const valorVenda = Math.floor(item.precoUnitario * 0.5);
+        // OBTÉM O PREÇO UNITÁRIO CORRETAMENTE (COM FALLBACK)
+        const precoUnitario = obterPrecoUnitario(item);
+        
+        // CALCULA O VALOR DE VENDA (50% DO PREÇO UNITÁRIO)
+        const valorVenda = Math.floor(precoUnitario * 0.5);
+        
+        // SÓ VENDE SE TIVER VALOR POSITIVO
+        if (valorVenda <= 0) {
+            console.warn(`Item ${item.nome} não tem valor para venda`);
+            return;
+        }
+        
+        // ADICIONA O DINHEIRO
         dinheiro += valorVenda;
         atualizarDinheiroDisplay();
         
-        // Diminui a quantidade
+        // DIMINUI A QUANTIDADE
         item.quantidade--;
         
         if (item.quantidade === 0) {
-            // Remove o item se acabou
+            // REMOVE O ITEM SE ACABOU
             inventario[local].splice(index, 1);
         } else {
-            // Atualiza peso e preço total
-            item.peso = item.pesoUnitario * item.quantidade;
-            item.preco = item.precoUnitario * item.quantidade;
+            // ATUALIZA PESO E PREÇO TOTAL USANDO OS VALORES CORRETOS
+            const pesoUnitario = obterPesoUnitario(item);
+            item.peso = pesoUnitario * item.quantidade;
+            item.preco = precoUnitario * item.quantidade;
+        }
+        
+        renderizarInventario();
+        atualizarInterface();
+        triggerAutoSave();
+        
+        // FEEDBACK VISUAL (OPCIONAL)
+        const feedback = document.createElement('div');
+        feedback.textContent = `+${valorVenda} $`;
+        feedback.style.cssText = 'position:fixed; bottom:20px; right:20px; background:#4CAF50; color:white; padding:10px 20px; border-radius:30px; z-index:9999; animation:fadeOut 2s forwards;';
+        document.body.appendChild(feedback);
+        setTimeout(() => feedback.remove(), 2000);
+    }
+}
+
+// ===== FUNÇÃO DESCARTAR ITEM - COMPLETAMENTE CORRIGIDA =====
+function descartarItem(itemId, local) {
+    if (!inventario[local]) return;
+    const index = inventario[local].findIndex(i => i.id === itemId);
+    if (index !== -1) {
+        const item = inventario[local][index];
+        
+        // DIMINUI A QUANTIDADE
+        item.quantidade--;
+        
+        if (item.quantidade === 0) {
+            // REMOVE O ITEM SE ACABOU
+            inventario[local].splice(index, 1);
+        } else {
+            // ATUALIZA PESO E PREÇO TOTAL USANDO OS VALORES CORRETOS
+            const pesoUnitario = obterPesoUnitario(item);
+            const precoUnitario = obterPrecoUnitario(item);
+            item.peso = pesoUnitario * item.quantidade;
+            item.preco = precoUnitario * item.quantidade;
         }
         
         renderizarInventario();
@@ -9335,28 +9497,44 @@ function venderItem(itemId, local) {
     }
 }
 
-function descartarItem(itemId, local) {
-    if (!inventario[local]) return;
-    const index = inventario[local].findIndex(i => i.id === itemId);
-    if (index !== -1) {
-        const item = inventario[local][index];
-        
-        // Descarta APENAS 1 unidade por vez
-        item.quantidade--;
-        
-        if (item.quantidade === 0) {
-            // Remove o item se acabou
-            inventario[local].splice(index, 1);
-        } else {
-            // Atualiza peso e preço total
-            item.peso = item.pesoUnitario * item.quantidade;
-            item.preco = item.precoUnitario * item.quantidade;
-        }
-        
-        renderizarInventario();
-        atualizarInterface();
-        triggerAutoSave();
+// ===== FUNÇÃO ADICIONAR ITEM AO INVENTÁRIO - COMPLETAMENTE CORRIGIDA =====
+function adicionarItemAoInventario(item, local = 'deposito') {
+    if (!inventario[local]) inventario[local] = [];
+    
+    const itemIdBase = item.id;
+    
+    // PROCURA SE JÁ EXISTE ESSE ITEM NO INVENTÁRIO
+    const itemExistente = inventario[local].find(i => i.idBase === itemIdBase);
+    
+    // DEFINE OS VALORES UNITÁRIOS
+    const pesoUnitario = item.pesoUnitario || item.peso;
+    const precoUnitario = item.precoUnitario || item.preco;
+    
+    if (itemExistente) {
+        // SE JÁ EXISTE, AUMENTA A QUANTIDADE
+        itemExistente.quantidade++;
+        itemExistente.peso = (itemExistente.pesoUnitario || pesoUnitario) * itemExistente.quantidade;
+        itemExistente.preco = (itemExistente.precoUnitario || precoUnitario) * itemExistente.quantidade;
+    } else {
+        // SE NÃO EXISTE, CRIA UM NOVO ITEM COM ESTRUTURA COMPLETA
+        const novoItem = {
+            ...item,
+            id: item.id + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            idBase: item.id,
+            quantidade: 1,
+            pesoUnitario: pesoUnitario,
+            precoUnitario: precoUnitario,
+            pesoOriginal: pesoUnitario,  // BACKUP
+            precoOriginal: precoUnitario, // BACKUP
+            peso: pesoUnitario,
+            preco: precoUnitario
+        };
+        inventario[local].push(novoItem);
     }
+    
+    renderizarInventario();
+    atualizarInterface();
+    triggerAutoSave();
 }
 // ============================================
 // ATUALIZAR INTERFACE
@@ -10951,10 +11129,10 @@ async function exportarPDF() {
         hideLoading();
     }
 }
+// ============================================
+// CARREGAR PERSONAGEM - VERSÃO COMPLETAMENTE CORRIGIDA
+// ============================================
 
-// ============================================
-// CARREGAR PERSONAGEM
-// ============================================
 async function carregarPersonagem(id) {
     try {
         showLoading();
@@ -11067,8 +11245,10 @@ async function carregarPersonagem(id) {
             if (data.escolas.animais) escolas.animais = data.escolas.animais;
         }
         
+        // ===== INVENTÁRIO COM MIGRAÇÃO =====
         if (data.inventario) {
             inventario = data.inventario;
+            migrarInventarioAntigo();  // ← CORRIGE ITENS ANTIGOS
             renderizarInventario();
         }
         
@@ -11098,10 +11278,15 @@ async function carregarPersonagem(id) {
         hideLoading();
         
     } catch (error) {
-        alert('Erro ao carregar personagem!');
+        console.error('Erro ao carregar personagem:', error);
+        alert('Erro ao carregar personagem: ' + error.message);
         hideLoading();
     }
 }
+
+// ============================================
+// CARREGAR DADOS SALVOS (SESSION STORAGE) - VERSÃO COMPLETAMENTE CORRIGIDA
+// ============================================
 
 function carregarDadosSalvos() {
     try {
@@ -11187,8 +11372,10 @@ function carregarDadosSalvos() {
                 renderizarPericiasAdquiridas();
             }
             
+            // ===== INVENTÁRIO COM MIGRAÇÃO =====
             if (personagemTemp.inventario) {
                 inventario = personagemTemp.inventario;
+                migrarInventarioAntigo();  // ← CORRIGE ITENS ANTIGOS
                 renderizarInventario();
             }
             
@@ -11221,8 +11408,14 @@ function carregarDadosSalvos() {
             atualizarContadoresAbas();
             atualizarLimitesCards();
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('Erro ao carregar dados salvos:', e);
+    }
 }
+
+// ============================================
+// EXCLUIR PERSONAGEM
+// ============================================
 
 async function excluirPersonagem() {
     if (!personagemId) {
@@ -11247,10 +11440,15 @@ async function excluirPersonagem() {
         sessionStorage.removeItem('personagemTemp');
         window.location.href = 'personagens.html';
     } catch (error) {
+        console.error('Erro ao excluir personagem:', error);
         alert('Erro ao excluir personagem: ' + error.message);
         hideLoading();
     }
 }
+
+// ============================================
+// UPLOAD PARA IMGUR
+// ============================================
 
 async function uploadParaImgur(base64Image) {
     try {
@@ -11270,6 +11468,7 @@ async function uploadParaImgur(base64Image) {
         const dados = await resposta.json();
         return dados.success ? dados.data.link : null;
     } catch (erro) {
+        console.error('Erro no upload para Imgur:', erro);
         return null;
     }
 }
