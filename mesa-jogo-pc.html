@@ -1224,6 +1224,27 @@ canvas.modo-movimento {
 .token-com-imagem {
     animation: avatarLoad 0.2s ease-out;
 }
+
+/* Cores da barra de PV conforme nível de vida */
+.barra-pv.saudavel { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+.barra-pv.ferido { background: linear-gradient(90deg, #f39c12, #e67e22); }
+.barra-pv.critico { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+.barra-pv.morto { background: linear-gradient(90deg, #8e44ad, #2c3e50); }
+
+/* Efeito de pulsação para vida crítica */
+@keyframes pulse-critical {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.barra-pv.critico {
+    animation: pulse-critical 1s ease-in-out infinite;
+}
+
+/* Texto do PV com cores */
+.pv-texto-normal { color: #2ecc71; }
+.pv-texto-ferido { color: #f39c12; }
+.pv-texto-critico { color: #e74c3c; font-weight: bold; text-shadow: 0 0 5px rgba(231, 76, 60, 0.5); }
+.pv-texto-morte { color: #9b59b6; font-weight: bold; text-decoration: line-through; }
     </style>
 </head>
 <body>
@@ -3545,7 +3566,6 @@ function pararTodosListeners() {
     if (unsubscribeParticipantes) { unsubscribeParticipantes(); unsubscribeParticipantes = null; }
     if (unsubscribeItens) { unsubscribeItens(); unsubscribeItens = null; }
 }
-
 // ============================================
 // FUNÇÕES DE AÇÃO
 // ============================================
@@ -3555,11 +3575,13 @@ window.alterarRecurso = async function(tipo, valor) {
     let campo = '';
     let valorMax = 0;
     let valorAtual = 0;
+    let isPV = false;
 
     if (tipo === 'pv') {
         campo = 'statusCombate.vidaAtual';
         valorMax = calcularPV();
         valorAtual = personagemAtual.statusCombate?.vidaAtual ?? valorMax;
+        isPV = true;
     } else if (tipo === 'pm') {
         campo = 'statusCombate.manaAtual';
         valorMax = calcularPM();
@@ -3573,27 +3595,83 @@ window.alterarRecurso = async function(tipo, valor) {
     }
 
     const novoValor = Math.min(Math.max(valorAtual + valor, 0), valorMax);
+    const morreu = (isPV && novoValor === 0);
 
     try {
         const personagemRef = doc(db, "personagens", personagemAtual.id);
         await updateDoc(personagemRef, { [campo]: novoValor });
 
-        if (tipo === 'pv') personagemAtual.statusCombate.vidaAtual = novoValor;
-        if (tipo === 'pm') personagemAtual.statusCombate.manaAtual = novoValor;
-        if (tipo === 'pf') personagemAtual.statusCombate.fadigaAtual = novoValor;
-
         if (tipo === 'pv') {
-            if (pvTexto) pvTexto.textContent = `${novoValor}/${valorMax}`;
-            if (pvBarra) pvBarra.style.width = (novoValor / valorMax) * 100 + '%';
-        } else if (tipo === 'pm') {
+            personagemAtual.statusCombate.vidaAtual = novoValor;
+            
+            // ATUALIZA BARRA COM COR
+            const porcentagem = (novoValor / valorMax) * 100;
+            const pvBarra = document.getElementById('pvBarra');
+            const pvTexto = document.getElementById('pvTexto');
+            
+            pvBarra.classList.remove('saudavel', 'ferido', 'critico', 'morto');
+            
+            if (novoValor <= 0) {
+                pvBarra.classList.add('morto');
+                pvTexto.classList.add('pv-texto-morte');
+                showToast(`💀 ${personagemAtual.nome} MORREU!`, true);
+                
+                await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                    tipo: 'morte',
+                    jogador: personagemAtual.nome,
+                    mensagem: `${personagemAtual.nome} morreu!`,
+                    timestamp: serverTimestamp()
+                });
+            } 
+            else if (porcentagem <= 30) {
+                pvBarra.classList.add('critico');
+                pvTexto.classList.add('pv-texto-critico');
+                
+                const roll = Math.floor(Math.random() * 10) + 1;
+                const vt = personagemAtual.atributos?.vt?.esferas || 0;
+                const resultado = roll + vt;
+                const sucesso = resultado >= 7;
+                
+                await addDoc(collection(db, "sessoes", sessaoAtual.id, "rolagens"), {
+                    tipo: 'teste_morte',
+                    jogador: personagemAtual.nome,
+                    roll: roll,
+                    vt: vt,
+                    resultado: resultado,
+                    sucesso: sucesso,
+                    timestamp: serverTimestamp()
+                });
+                
+                if (sucesso) {
+                    showToast(`💪 Teste de Morte: ${resultado} - Estabilizou!`, false);
+                } else {
+                    showToast(`💀 Teste de Morte FALHOU! ${resultado}`, true);
+                }
+            }
+            else if (porcentagem <= 50) {
+                pvBarra.classList.add('ferido');
+                pvTexto.classList.add('pv-texto-ferido');
+            }
+            else {
+                pvBarra.classList.add('saudavel');
+                pvTexto.classList.add('pv-texto-normal');
+            }
+            
+            pvBarra.style.width = `${porcentagem}%`;
+            pvTexto.textContent = `${novoValor}/${valorMax}`;
+        } 
+        else if (tipo === 'pm') {
+            personagemAtual.statusCombate.manaAtual = novoValor;
             if (pmTexto) pmTexto.textContent = `${novoValor}/${valorMax}`;
             if (pmBarra) pmBarra.style.width = (novoValor / valorMax) * 100 + '%';
-        } else if (tipo === 'pf') {
+        } 
+        else if (tipo === 'pf') {
+            personagemAtual.statusCombate.fadigaAtual = novoValor;
             if (pfTexto) pfTexto.textContent = `${novoValor}/${valorMax}`;
             if (pfBarra) pfBarra.style.width = (novoValor / valorMax) * 100 + '%';
         }
 
-        showToast(`${tipo.toUpperCase()} alterado!`);
+        showToast(`${tipo.toUpperCase()} alterado!`, morreu);
 
     } catch (error) {
         console.error('Erro:', error);
