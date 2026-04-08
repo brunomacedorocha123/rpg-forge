@@ -8248,38 +8248,77 @@ function calcularDeslocamento() {
 }
 
 // ============================================
-// DEFESAS
+// VALOR DEFENSIVO (ARMADURA) - SÓ ABATE DANO
+// NÃO AFETA ESQUIVA, APARAR OU BLOQUEIO
 // ============================================
-// Calcula o bônus defensivo das armaduras equipadas
-function calcularBonusDefensivo() {
-    let bonus = 0;
+function calcularValorDefensivo() {
+    let valor = 0;
+    
+    // Armadura equipada (itens com rd, SEM dano, SEM bonus)
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
-            // ✅ CORRETO: Só armaduras (tem rd, NÃO tem dano, NÃO tem bonus)
-            // Isso exclui armas (têm dano) e escudos (têm bonus)
             if (item.rd && !item.dano && !item.bonus) {
-                bonus += item.rd;
+                valor += item.rd;
             }
         });
     }
     
-    // ⭐ BÔNUS DA VANTAGEM CORPO RESISTENTE ⭐
+    // Bônus da vantagem Corpo Resistente
     if (vantagensSelecionadas.has('corpoResistente')) {
-        bonus += 2;
+        valor += 2;
     }
     
+    return valor;
+}
+
+// ============================================
+// DEFESAS ATIVAS
+// ============================================
+
+// ESCUDO: Fornece bônus no BLOQUEIO
+function calcularBonusEscudoBloqueio() {
+    let bonus = 0;
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            if (item.bonus && !item.dano) {
+                bonus += item.bonus || 0;
+            }
+        });
+    }
+    return bonus;
+}
+
+// ESCUDO: Fornece bônus na ESQUIVA (escudo ajuda a desviar)
+function calcularBonusEscudoEsquiva() {
+    let bonus = 0;
+    if (inventario.corpo && inventario.corpo.length > 0) {
+        inventario.corpo.forEach(item => {
+            if (item.bonus && !item.dano) {
+                // Escudo leve: +2% | Médio: +1% | Pesado: 0% | Reforçado: 0%
+                if (item.nome && item.nome.toLowerCase().includes('leve')) bonus += 2;
+                else if (item.nome && item.nome.toLowerCase().includes('médio')) bonus += 1;
+                // Escudos pesados e reforçados não dão bônus na esquiva
+            }
+        });
+    }
     return bonus;
 }
 
 function calcularEsquiva() {
     let esquiva = Math.floor((getDXPercentual() + getVIGORPercentual()) / 2) - 17;
+    
+    // Vantagens
     if (vantagensSelecionadas.has('reflexosRapidos')) esquiva += 5;
     
-    // Adiciona o bônus defensivo da armadura
-    esquiva += calcularBonusDefensivo();
+    // ⭐ Bônus do escudo na esquiva
+    esquiva += calcularBonusEscudoEsquiva();
     
+    // Penalidade de carga
     const carga = calcularCarga();
     esquiva -= carga.penalidadeEsquiva;
+    
+    // ⚠️ ARMADURA NÃO AFETA MAIS A ESQUIVA
+    
     return Math.min(75, Math.max(0, esquiva));
 }
 
@@ -8319,23 +8358,20 @@ function calcularAparar() {
     aparar += bonusArma;
     
     if (vantagensSelecionadas.has('reflexosRapidos')) aparar += 5;
-   
     
-    aparar += calcularBonusDefensivo();
+    // ⚠️ ARMADURA NÃO AFETA MAIS O APARAR
     
-    return Math.max(0, aparar);  // ← SEM LIMITE
+    return Math.max(0, aparar);
 }
 
 function calcularBloqueio() {
     let melhorBonus = 0;
-    let bonusEscudo = 0;
     let temEscudo = false;
     
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
-            if (item.bonus) {
+            if (item.bonus && !item.dano) {
                 temEscudo = true;
-                bonusEscudo = item.bonus || 0;
                 const pericia = pericias['escudo'];
                 if (pericia) {
                     const bonus = (pericia.nivel || 0) * 4;
@@ -8347,12 +8383,14 @@ function calcularBloqueio() {
     
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 25;
+    let bloqueio = getDXPercentual() + melhorBonus - 25;
+    
+    // ⭐ Bônus do escudo no bloqueio
+    bloqueio += calcularBonusEscudoBloqueio();
     
     if (vantagensSelecionadas.has('reflexosRapidos')) bloqueio += 5;
     
-    // Adiciona o bônus defensivo da armadura
-    bloqueio += calcularBonusDefensivo();
+    // ⚠️ ARMADURA NÃO AFETA MAIS O BLOQUEIO
     
     return Math.min(85, Math.max(0, bloqueio));
 }
@@ -9160,18 +9198,30 @@ function atualizarArmaEquipada() {
     }
 }
 
-function calcularRD() {
-    let rd = getRDExtra();
+function calcularValorDefensivo() {
+    let valor = 0;
+    
+    // Armadura equipada (itens com rd, SEM dano, SEM bonus)
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
-            if (item.rd) rd += item.rd;
+            if (item.rd && !item.dano && !item.bonus) {
+                valor += item.rd;
+            }
         });
     }
-    if (elements.rdTotal) elements.rdTotal.textContent = rd;
-    return rd;
+    
+    // Bônus da vantagem Corpo Resistente
+    if (vantagensSelecionadas.has('corpoResistente')) {
+        valor += 2;
+    }
+    
+    return valor;
 }
 
 function atualizarInterface() {
+    // ============================================
+    // 1. ATRIBUTOS PRIMÁRIOS
+    // ============================================
     // ST
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
     if (elements.stFixo) elements.stFixo.textContent = getSTFixo();
@@ -9192,27 +9242,32 @@ function atualizarInterface() {
     if (elements.vigorFixo) elements.vigorFixo.textContent = getVIGORFixo();
     if (elements.vigorPercentual) elements.vigorPercentual.textContent = getVIGORPercentual() + '%';
     
-    // VT (Vitalidade) - COMPLETO
+    // VT (Vitalidade)
     if (elements.vtValor) elements.vtValor.textContent = getVTFixo();
     if (elements.vtFixo) elements.vtFixo.textContent = getVTFixo();
     if (elements.vtPercentual) elements.vtPercentual.textContent = getVTPercentual() + '%';
     
-    // Esferas Restantes
+    // ============================================
+    // 2. ESFERAS E NÍVEL
+    // ============================================
     if (elements.esferasRestantesSpan) {
         elements.esferasRestantesSpan.textContent = esferasRestantes;
     }
     
-    // Nível
     if (elements.nivelPersonagemSpan) {
         elements.nivelPersonagemSpan.textContent = calcularNivel();
     }
     
-    // Dano Base
+    // ============================================
+    // 3. DANO BASE
+    // ============================================
     const danoBase = calcularDanoBase();
     if (elements.stDano) elements.stDano.textContent = danoBase;
     if (elements.statusDano) elements.statusDano.textContent = danoBase;
     
-    // PV, PF, PM
+    // ============================================
+    // 4. STATUS (PV, PF, PM)
+    // ============================================
     const pv = calcularPV();
     const pf = calcularPF();
     const pm = calcularPM();
@@ -9225,7 +9280,18 @@ function atualizarInterface() {
     if (elements.combatePM) elements.combatePM.textContent = pm;
     if (elements.vtVida) elements.vtVida.textContent = `PV ${pv}`;
     
-    // Defesas
+    // ============================================
+    // 5. VALOR DEFENSIVO (abate dano, NÃO afeta defesas)
+    // ============================================
+    const valorDefensivo = calcularValorDefensivo();
+    const valorDefensivoElem = document.getElementById('valorDefensivo');
+    if (valorDefensivoElem) {
+        valorDefensivoElem.textContent = `+${valorDefensivo}`;
+    }
+    
+    // ============================================
+    // 6. DEFESAS ATIVAS (Esquiva, Aparar, Bloqueio)
+    // ============================================
     if (elements.defesaEsquiva) {
         elements.defesaEsquiva.textContent = calcularEsquiva() + '%';
     }
@@ -9236,7 +9302,9 @@ function atualizarInterface() {
         elements.defesaBloqueio.textContent = calcularBloqueio() + '%';
     }
     
-    // Deslocamento
+    // ============================================
+    // 7. DESLOCAMENTO
+    // ============================================
     const desloc = calcularDeslocamento();
     const carga = calcularCarga();
     const andarFinal = Math.max(1, desloc.andar - carga.reducaoDeslocamento);
@@ -9249,7 +9317,9 @@ function atualizarInterface() {
         elements.deslocamentoCorrer.textContent = correrFinal.toFixed(1);
     }
     
-    // Carga
+    // ============================================
+    // 8. CARGA
+    // ============================================
     if (elements.cargaAtual) {
         elements.cargaAtual.textContent = carga.pesoTotal.toFixed(1);
     }
@@ -9265,22 +9335,18 @@ function atualizarInterface() {
         elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
     }
     
-    // Arma e RD
+    // ============================================
+    // 9. ARMA EQUIPADA
+    // ============================================
     atualizarArmaEquipada();
-    calcularRD();
     
-    // Contadores e atualizações finais
+    // ============================================
+    // 10. CONTADORES E ATUALIZAÇÕES FINAIS
+    // ============================================
     atualizarContadoresAbas();
     atualizarReacaoSocial();
     atualizarDinheiroDisplay();
     atualizarAparenciaRiquezaDisplay();
-    
-    // ===== VALOR DEFENSIVO =====
-    const bonusDefensivo = calcularBonusDefensivo();
-    const valorDefensivoElem = document.getElementById('valorDefensivo');
-    if (valorDefensivoElem) {
-        valorDefensivoElem.textContent = `+${bonusDefensivo}`;
-    }
 }
 
 // ============================================
