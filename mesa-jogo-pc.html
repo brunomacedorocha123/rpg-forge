@@ -4016,56 +4016,61 @@ function pararTodosListeners() {
     if (unsubscribeItens) { unsubscribeItens(); unsubscribeItens = null; }
     if (unsubscribeNotas) { unsubscribeNotas(); unsubscribeNotas = null; } // 🆕 ADICIONADO
 }
-
 // ============================================
 // 🆕 EVENT LISTENERS DO MODAL DE NOTAS
 // ============================================
 
+// Botão abrir modal (pode ficar aqui pois não depende do modal estar inicializado)
 const btnNotas = document.getElementById('btnNotas');
 if (btnNotas) {
     btnNotas.addEventListener('click', abrirModalNotas);
 }
 
-const modalNotasFechar = document.getElementById('modalNotasFechar');
-if (modalNotasFechar) {
-    modalNotasFechar.addEventListener('click', fecharModalNotas);
-}
-
-const btnFecharModalNotas = document.getElementById('btnFecharModalNotas');
-if (btnFecharModalNotas) {
-    btnFecharModalNotas.addEventListener('click', fecharModalNotas);
-}
-
-const btnLimparNotas = document.getElementById('btnLimparNotas');
-if (btnLimparNotas) {
-    btnLimparNotas.addEventListener('click', limparNotas);
-}
-
-if (modalOverlay) {
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) {
+// Os outros listeners serão inicializados depois que o modal for carregado
+function inicializarEventListenersModal() {
+    const modalNotasFechar = document.getElementById('modalNotasFechar');
+    if (modalNotasFechar) {
+        modalNotasFechar.addEventListener('click', fecharModalNotas);
+    }
+    
+    const btnFecharModalNotas = document.getElementById('btnFecharModalNotas');
+    if (btnFecharModalNotas) {
+        btnFecharModalNotas.addEventListener('click', fecharModalNotas);
+    }
+    
+    const btnLimparNotas = document.getElementById('btnLimparNotas');
+    if (btnLimparNotas) {
+        btnLimparNotas.addEventListener('click', limparNotas);
+    }
+    
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                fecharModalNotas();
+            }
+        });
+    }
+    
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('ativo')) {
             fecharModalNotas();
         }
     });
-}
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('ativo')) {
-        fecharModalNotas();
+    
+    if (notasTextarea) {
+        notasTextarea.addEventListener('input', (e) => {
+            const conteudo = e.target.value;
+            
+            if (modalNotasStatus) {
+                modalNotasStatus.className = 'modal-notas-status salvando';
+                if (statusTexto) statusTexto.textContent = 'Digitando...';
+            }
+            
+            debounceSalvar(conteudo);
+        });
     }
-});
-
-if (notasTextarea) {
-    notasTextarea.addEventListener('input', (e) => {
-        const conteudo = e.target.value;
-        
-        if (modalNotasStatus) {
-            modalNotasStatus.className = 'modal-notas-status salvando';
-            if (statusTexto) statusTexto.textContent = 'Digitando...';
-        }
-        
-        debounceSalvar(conteudo);
-    });
+    
+    console.log('✅ Event listeners do modal inicializados!');
 }
 // ============================================
 // FUNÇÕES DE AÇÃO
@@ -4588,6 +4593,22 @@ async function carregarSessao() {
         await entrarNaSessaoAutomaticamente();
         iniciarListenerParticipantes();
         renderizarFichaResumida();
+
+        // 🆕 INICIALIZAR ELEMENTOS DO MODAL
+        modalOverlay = document.getElementById('modalNotasOverlay');
+        notasTextarea = document.getElementById('notasTextarea');
+        modalNotasStatus = document.getElementById('modalNotasStatus');
+        statusTexto = document.getElementById('statusTexto');
+        
+        // 🆕 INICIALIZAR EVENT LISTENERS DO MODAL
+        if (typeof inicializarEventListenersModal === 'function') {
+            inicializarEventListenersModal();
+        }
+        
+        // 🆕 INICIAR LISTENER DE NOTAS
+        if (typeof iniciarListenerNotas === 'function') {
+            iniciarListenerNotas();
+        }
 
         setTimeout(() => {
             if (sessaoAtual && sessaoAtual.id) {
