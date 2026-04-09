@@ -6297,7 +6297,6 @@ const catalogoEquipamentos = {
     { id: 'bolsa_componentes', nome: 'Bolsa de Componentes', preco: 80, peso: 1.0, consumivel: false, tipo: 'magico', efeito: 'Armazena componentes mágicos' }
 ]
 };
-
 // ============================================
 // FUNÇÕES UTILITÁRIAS
 // ============================================
@@ -6323,12 +6322,33 @@ function getPersonagemIdFromUrl() {
     return urlParams.get('personagemId') || urlParams.get('id');
 }
 
-function getXpProximoNivel(nivelAtual) {
+// ============================================
+// FUNÇÃO DE XP PARA SISTEMA DE ESFERAS
+// ============================================
+function getXpProximoNivel(esferasAtuais) {
+    // TABELA: Quantas ESFERAS você tem atualmente → XP necessário para a PRÓXIMA esfera
+    // Exemplo: Se você tem 0 esferas, precisa de 100 XP para ganhar a 1ª esfera
+    //          Se você tem 1 esfera, precisa de 120 XP para ganhar a 2ª esfera
+    //          Se você tem 49 esferas, precisa de 700 XP para ganhar a 50ª (máxima)
     const tabela = {
-        1: 100, 2: 120, 3: 150, 4: 180, 5: 220,
-        6: 270, 7: 340, 8: 400, 9: 500, 10: 700
+        0: 100,   // 0 esferas → 1ª esfera (antes era nível 1 → 2)
+        1: 120,   // 1 esfera  → 2ª esfera (antes era nível 2 → 3)
+        2: 150,   // 2 esferas → 3ª esfera (antes era nível 3 → 4)
+        3: 180,   // 3 esferas → 4ª esfera
+        4: 220,   // 4 esferas → 5ª esfera
+        5: 270,   // 5 esferas → 6ª esfera
+        6: 340,   // 6 esferas → 7ª esfera
+        7: 400,   // 7 esferas → 8ª esfera
+        8: 500,   // 8 esferas → 9ª esfera
+        9: 700,   // 9 esferas → 10ª esfera
+        
     };
-    return tabela[nivelAtual] || 1000;
+    
+    // Se já tem 50 esferas (máximo), retorna 0 (não precisa mais XP)
+    if (esferasAtuais >= 50) return 0;
+    
+    // Se tem mais de 9 esferas, usa 700 XP
+    return tabela[esferasAtuais] || 700;
 }
 // ============================================
 // FUNÇÕES DE ATRIBUTOS
@@ -6347,6 +6367,20 @@ function getVIGORPercentual() { return 50 + ((personagemAtual?.atributos?.vigor?
 // ===== NOVA FUNÇÃO - VT PERCENTUAL =====
 function getVTPercentual() { 
     return 40 + ((personagemAtual?.atributos?.vt?.esferas || 0) * 3);
+}
+
+// ===== FUNÇÃO PARA CALCULAR TOTAL DE ESFERAS =====
+function getTotalEsferas() {
+    return (personagemAtual?.atributos?.st?.esferas || 0) +
+           (personagemAtual?.atributos?.dx?.esferas || 0) +
+           (personagemAtual?.atributos?.iq?.esferas || 0) +
+           (personagemAtual?.atributos?.vigor?.esferas || 0) +
+           (personagemAtual?.atributos?.vt?.esferas || 0);
+}
+
+// ===== FUNÇÃO PARA OBTER O NÚMERO DE ESFERAS (antigo "nível") =====
+function getNivelEsferas() {
+    return getTotalEsferas(); // AGORA retorna o total de esferas (sem +1)
 }
 
 function getResistenciaVeneno() {
@@ -6993,15 +7027,18 @@ function renderizarFicha() {
         elements.personagemFoto.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
     }
 
+    // ===== CÁLCULO DO TOTAL DE ESFERAS (NÃO É MAIS NÍVEL) =====
     const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
                         (personagemAtual.atributos?.dx?.esferas || 0) +
                         (personagemAtual.atributos?.iq?.esferas || 0) +
                         (personagemAtual.atributos?.vigor?.esferas || 0) +
                         (personagemAtual.atributos?.vt?.esferas || 0);
-    const nivel = totalEsferas + 1;
     
-    personagemAtual.nivel = nivel;
-    if (elements.nivelPersonagem) elements.nivelPersonagem.textContent = nivel;
+    // ===== MUDANÇA IMPORTANTE: AGORA "esferas" é o total (sem +1) =====
+    const esferas = totalEsferas;  // ANTES era: const nivel = totalEsferas + 1;
+    
+    personagemAtual.nivel = esferas;  // Mantém compatibilidade com código existente
+    if (elements.nivelPersonagem) elements.nivelPersonagem.textContent = esferas;
     if (elements.dinheiroHeader) elements.dinheiroHeader.textContent = personagemAtual.dinheiro || 0;
     if (elements.dinheiroValor) elements.dinheiroValor.textContent = personagemAtual.dinheiro || 0;
 
@@ -7024,9 +7061,10 @@ function renderizarFicha() {
     if (elements.pmBarra) elements.pmBarra.style.width = (pmAtual / pmMax) * 100 + '%';
     if (elements.pfBarra) elements.pfBarra.style.width = (pfAtual / pfMax) * 100 + '%';
 
+    // ===== XP AGORA USA O TOTAL DE ESFERAS COMO REFERÊNCIA =====
     const xpAtual = personagemAtual.xpAtual || 0;
-    const xpNecessario = getXpProximoNivel(nivel);
-    const percentualXp = (xpAtual / xpNecessario) * 100;
+    const xpNecessario = getXpProximoNivel(esferas);  // AGORA passa "esferas" (0-50)
+    const percentualXp = xpNecessario > 0 ? (xpAtual / xpNecessario) * 100 : 100;
     
     if (elements.xpTexto) elements.xpTexto.textContent = `${xpAtual} / ${xpNecessario}`;
     if (elements.xpBarra) {
@@ -7624,7 +7662,6 @@ function handleInventarioTabClick(e) {
     const target = document.getElementById(targetId);
     if (target) target.classList.add('ativa');
 }
-
 // ============================================
 // FUNÇÕES DE PV DOS EQUIPAMENTOS
 // ============================================
@@ -7984,7 +8021,7 @@ window.abrirModalMagia = function(escola, magiaId) {
               <td>${nh}%</td>
               <td>${custoManaNivel} MANA</td>
               <td>${tempoNivel}</td>
-           </tr>`;
+            </tr>`;
     }
     if (elements.tabelaMagia) elements.tabelaMagia.innerHTML = linhas;
     
@@ -8131,22 +8168,36 @@ window.mudarAbaMagia = function(aba) {
     }
 };
 
+// ============================================
+// FUNÇÃO ALTERAR XP (CORRIGIDA PARA O SISTEMA DE ESFERAS)
+// ============================================
 window.alterarXP = async function(valor) {
     if (!personagemAtual || !currentUser) return;
     let novoXP = (personagemAtual.xpAtual || 0) + valor;
     if (novoXP < 0) novoXP = 0;
     
-    const xpNecessario = getXpProximoNivel(personagemAtual.nivel);
+    // ===== CALCULA O TOTAL DE ESFERAS ATUAL =====
+    const totalEsferasAtual = (personagemAtual.atributos?.st?.esferas || 0) +
+                              (personagemAtual.atributos?.dx?.esferas || 0) +
+                              (personagemAtual.atributos?.iq?.esferas || 0) +
+                              (personagemAtual.atributos?.vigor?.esferas || 0) +
+                              (personagemAtual.atributos?.vt?.esferas || 0);
     
-    if (novoXP >= xpNecessario && !esferaPendente) {
+    // ===== USA O TOTAL DE ESFERAS PARA BUSCAR O XP NECESSÁRIO =====
+    const xpNecessario = getXpProximoNivel(totalEsferasAtual);
+    
+    // ===== VERIFICA SE GANHOU UMA ESFERA =====
+    if (novoXP >= xpNecessario && xpNecessario > 0 && !esferaPendente) {
         esferaPendente = true;
-        novoXP = 0;
+        const xpExcedente = novoXP - xpNecessario;
+        novoXP = xpExcedente;  // Mantém o XP excedente para a próxima esfera
+        
         try {
             const personagemRef = doc(db, "personagens", personagemAtual.id);
             await updateDoc(personagemRef, { xpAtual: novoXP });
             personagemAtual.xpAtual = novoXP;
             if (elements.modalGanharEsfera) elements.modalGanharEsfera.classList.add('active');
-            showToast('Ganhou 1 esfera! Escolha onde gastar.');
+            showToast('🎉 Ganhou 1 esfera! Escolha onde gastar.');
         } catch (error) {
             showToast('Erro ao ganhar esfera', true);
             esferaPendente = false;
@@ -8161,8 +8212,11 @@ window.alterarXP = async function(valor) {
         }
     }
     
-    const percentual = (novoXP / xpNecessario) * 100;
-    if (elements.xpTexto) elements.xpTexto.textContent = `${novoXP} / ${xpNecessario}`;
+    // ===== ATUALIZA A BARRA DE XP NA TELA =====
+    const novoXpNecessario = getXpProximoNivel(totalEsferasAtual);
+    const percentual = novoXpNecessario > 0 ? (personagemAtual.xpAtual / novoXpNecessario) * 100 : 100;
+    
+    if (elements.xpTexto) elements.xpTexto.textContent = `${personagemAtual.xpAtual} / ${novoXpNecessario}`;
     if (elements.xpBarra) {
         elements.xpBarra.style.width = Math.min(100, Math.max(0, percentual)) + '%';
         elements.xpBarra.textContent = Math.round(percentual) + '%';
@@ -8171,18 +8225,39 @@ window.alterarXP = async function(valor) {
 
 window.gastarEsfera = async function(atributo) {
     if (!esferaPendente || !personagemAtual || !currentUser) return;
+    
+    // ===== VERIFICA LIMITE MÁXIMO DE ESFERAS POR ATRIBUTO (10 cada, total 50) =====
+    const valorAtual = personagemAtual.atributos?.[atributo]?.esferas || 0;
+    if (valorAtual >= 10) {
+        showToast(`❌ ${atributo.toUpperCase()} já está no máximo (10 esferas)!`, true);
+        return;
+    }
+    
+    // ===== VERIFICA TOTAL MÁXIMO DE 50 ESFERAS =====
+    const totalAtual = (personagemAtual.atributos?.st?.esferas || 0) +
+                       (personagemAtual.atributos?.dx?.esferas || 0) +
+                       (personagemAtual.atributos?.iq?.esferas || 0) +
+                       (personagemAtual.atributos?.vigor?.esferas || 0) +
+                       (personagemAtual.atributos?.vt?.esferas || 0);
+    
+    if (totalAtual >= 50) {
+        showToast(`❌ Você já atingiu o máximo de 50 esferas!`, true);
+        return;
+    }
+    
     try {
         const personagemRef = doc(db, "personagens", personagemAtual.id);
         const campo = `atributos.${atributo}.esferas`;
-        const valorAtual = personagemAtual.atributos?.[atributo]?.esferas || 0;
         await updateDoc(personagemRef, { [campo]: valorAtual + 1 });
+        
         if (!personagemAtual.atributos) personagemAtual.atributos = {};
         if (!personagemAtual.atributos[atributo]) personagemAtual.atributos[atributo] = {};
         personagemAtual.atributos[atributo].esferas = valorAtual + 1;
+        
         if (elements.modalGanharEsfera) elements.modalGanharEsfera.classList.remove('active');
         esferaPendente = false;
         renderizarFicha();
-        showToast(`Esfera gasta em ${atributo.toUpperCase()}!`);
+        showToast(`✨ Esfera gasta em ${atributo.toUpperCase()}! Total: ${totalAtual + 1}/50 esferas`);
     } catch (error) {
         showToast('Erro ao gastar esfera', true);
     }
@@ -8262,7 +8337,7 @@ window.abrirModalPericia = function(periciaId) {
     for (let i = 1; i <= 5; i++) {
         const classe = i === nivelAtual ? 'nivel-atual' : '';
         const custo = tabelaCustosPericias[i];
-        linhas += `<tr class="${classe}">}<td>${i}</td><td>+${i*3}%</td><td>${custo} PP</td></tr>`;
+        linhas += `<tr class="${classe}"><td>${i}</td><td>+${i*3}%</td><td>${custo} PP</td></tr>`;
     }
     if (elements.tabelaPericia) elements.tabelaPericia.innerHTML = linhas;
     
@@ -8554,12 +8629,15 @@ async function carregarPersonagem() {
             console.log('Erro ao buscar vínculo:', vinculoError);
         }
 
+        // ===== MUDANÇA IMPORTANTE: AGORA O NÍVEL É O TOTAL DE ESFERAS (SEM +1) =====
         const totalEsferas = (personagemAtual.atributos?.st?.esferas || 0) +
                             (personagemAtual.atributos?.dx?.esferas || 0) +
                             (personagemAtual.atributos?.iq?.esferas || 0) +
                             (personagemAtual.atributos?.vigor?.esferas || 0) +
                             (personagemAtual.atributos?.vt?.esferas || 0);
-        personagemAtual.nivel = totalEsferas + 1;
+        
+        // ANTES ERA: personagemAtual.nivel = totalEsferas + 1;
+        personagemAtual.nivel = totalEsferas;  // AGORA É O TOTAL DE ESFERAS
 
         if (!personagemAtual.ppDisponivel) personagemAtual.ppDisponivel = 0;
         if (!personagemAtual.ppGasto) personagemAtual.ppGasto = 0;
