@@ -9218,7 +9218,6 @@ if (document.readyState === 'loading') {
 } else {
     setTimeout(adicionarEventosInfoCards, 500);
 }
-
 // ============================================
 // BOLINHAS (COM DÉBITO VERMELHO E BÔNUS VERDE)
 // ============================================
@@ -9240,11 +9239,11 @@ function criarBolinhas(atributoId) {
             const bonusPositivo = bonusRacial > 0 ? bonusRacial : 0;
             const esferasAtuais = atributos[atributoId].esferas;
             
-            // Se clicou em uma bolinha de débito (vermelha)
+            // CASO 1: Clicou em uma bolinha de débito (vermelha)
             if (i < debito) {
-                // Paga o débito: converte débito em 0 e gasta uma esfera
+                // Paga o débito: converte o valor negativo em 0
                 if (esferasRestantes > 0) {
-                    atributos[atributoId].bonusRacial++;
+                    atributos[atributoId].bonusRacial = 0;
                     esferasRestantes--;
                     atualizarInterface();
                     atualizarBolinhas(atributoId);
@@ -9258,17 +9257,30 @@ function criarBolinhas(atributoId) {
             const totalPontos = bonusPositivo + esferasAtuais;
             const clicada = iAjustado < totalPontos;
             
-            // Não permite remover bolinhas do bônus positivo (verdes)
+            // CASO 2: Clicou em uma bolinha de bônus positivo (verde) - não pode remover
             if (iAjustado < bonusPositivo) {
                 return;
             }
             
+            // CASO 3: Clicou em uma bolinha de esfera gasta (dourada) ou disponível
             if (!clicada && esferasRestantes > 0) {
+                // Adiciona esfera
                 atributos[atributoId].esferas++;
                 esferasRestantes--;
             } else if (clicada && iAjustado >= bonusPositivo) {
+                // Remove esfera
                 atributos[atributoId].esferas--;
                 esferasRestantes++;
+                
+                // Se o bônus racial era 0 (porque pagou o débito) e removeu todas as esferas
+                // Restaura o débito original da raça
+                const racaOriginal = RACAS[racaAtual];
+                if (racaOriginal && racaOriginal.atributos && racaOriginal.atributos[atributoId] < 0) {
+                    const debitoOriginal = racaOriginal.atributos[atributoId];
+                    if (atributos[atributoId].bonusRacial === 0 && atributos[atributoId].esferas === 0 && debitoOriginal < 0) {
+                        atributos[atributoId].bonusRacial = debitoOriginal;
+                    }
+                }
             }
             
             atualizarInterface();
