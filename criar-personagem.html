@@ -2628,6 +2628,17 @@ body {
     transform: none;
     box-shadow: none;
 }
+.bolinha.debito {
+    background: #ff0000;
+    border-color: #ff0000;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    cursor: pointer;
+}
+
+.bolinha.debito:hover {
+    transform: scale(1.1);
+    background: #ff4444;
+}
 </style>
 </head>
 <body>
@@ -9209,7 +9220,7 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================
-// BOLINHAS (COM SUPORTE A BÔNUS RACIAL)
+// BOLINHAS (COM DÉBITO VERMELHO E BÔNUS VERDE)
 // ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
@@ -9225,19 +9236,37 @@ function criarBolinhas(atributoId) {
         
         bolinha.addEventListener('click', () => {
             const bonusRacial = atributos[atributoId].bonusRacial || 0;
+            const debito = bonusRacial < 0 ? Math.abs(bonusRacial) : 0;
+            const bonusPositivo = bonusRacial > 0 ? bonusRacial : 0;
             const esferasAtuais = atributos[atributoId].esferas;
-            const totalPontos = bonusRacial + esferasAtuais;
-            const clicada = i < totalPontos;
             
-            // Não permite remover bolinhas do bônus racial
-            if (i < bonusRacial) {
+            // Se clicou em uma bolinha de débito (vermelha)
+            if (i < debito) {
+                // Paga o débito: converte débito em 0 e gasta uma esfera
+                if (esferasRestantes > 0) {
+                    atributos[atributoId].bonusRacial++;
+                    esferasRestantes--;
+                    atualizarInterface();
+                    atualizarBolinhas(atributoId);
+                    triggerAutoSave();
+                }
+                return;
+            }
+            
+            // Índice ajustado para esferas normais
+            const iAjustado = i - debito;
+            const totalPontos = bonusPositivo + esferasAtuais;
+            const clicada = iAjustado < totalPontos;
+            
+            // Não permite remover bolinhas do bônus positivo (verdes)
+            if (iAjustado < bonusPositivo) {
                 return;
             }
             
             if (!clicada && esferasRestantes > 0) {
                 atributos[atributoId].esferas++;
                 esferasRestantes--;
-            } else if (clicada && i >= bonusRacial) {
+            } else if (clicada && iAjustado >= bonusPositivo) {
                 atributos[atributoId].esferas--;
                 esferasRestantes++;
             }
@@ -9261,20 +9290,30 @@ function atualizarBolinhas(atributoId) {
     const esferasGastas = atributos[atributoId].esferas;
     const bonusRacial = atributos[atributoId].bonusRacial || 0;
     
+    // Débito = valor negativo do bônus racial
+    const debito = bonusRacial < 0 ? Math.abs(bonusRacial) : 0;
+    // Bônus positivo = valor positivo do bônus racial
+    const bonusPositivo = bonusRacial > 0 ? bonusRacial : 0;
+    
     for (let i = 0; i < bolinhas.length; i++) {
-        // Bolinhas do bônus racial (fixas, verdes)
-        if (i < bonusRacial) {
+        // BOLINHAS DE DÉBITO (VERMELHAS)
+        if (i < debito) {
+            bolinhas[i].classList.add('debito');
+            bolinhas[i].classList.remove('preenchida', 'raca-fixa');
+        }
+        // BOLINHAS DE BÔNUS POSITIVO (VERDES FIXAS)
+        else if (i < debito + bonusPositivo) {
             bolinhas[i].classList.add('preenchida', 'raca-fixa');
             bolinhas[i].classList.remove('debito');
         }
-        // Bolinhas de esferas gastas (douradas)
-        else if (i < bonusRacial + esferasGastas) {
+        // BOLINHAS DE ESFERAS GASTAS (DOURADAS)
+        else if (i < debito + bonusPositivo + esferasGastas) {
             bolinhas[i].classList.add('preenchida');
-            bolinhas[i].classList.remove('raca-fixa', 'debito');
+            bolinhas[i].classList.remove('debito', 'raca-fixa');
         }
-        // Bolinhas disponíveis (vazias)
+        // BOLINHAS DISPONÍVEIS (VAZIAS)
         else {
-            bolinhas[i].classList.remove('preenchida', 'raca-fixa', 'debito');
+            bolinhas[i].classList.remove('preenchida', 'debito', 'raca-fixa');
         }
     }
 }
