@@ -8599,7 +8599,7 @@ function atualizarAparenciaRiquezaDisplay() {
 }
 
 // ============================================
-// FUNÇÃO APLICAR RAÇA
+// FUNÇÃO APLICAR RAÇA (CORRIGIDA)
 // ============================================
 
 function aplicarRaca(racaId) {
@@ -8609,11 +8609,14 @@ function aplicarRaca(racaId) {
     // 1. Guarda a raça atual
     racaAtual = racaId;
     
-    // 2. Aplica modificador de esferas (DÉBITO)
-    const totalEsferas = parseInt(elements.esferasIniciaisInput?.value) || 6;
-    esferasRestantes = totalEsferas + raca.esferas;
-    if (elements.esferasRestantesSpan) {
-        elements.esferasRestantesSpan.textContent = esferasRestantes;
+    // ===== CORREÇÃO: SÓ APLICA MODIFICADOR DE ESFERAS SE FOR CRIAÇÃO NOVA =====
+    // Se já existe personagemId (editando), NÃO recalcula as esferas
+    if (!personagemId && !modoEdicao) {
+        const totalEsferas = parseInt(elements.esferasIniciaisInput?.value) || 6;
+        esferasRestantes = totalEsferas + raca.esferas;
+        if (elements.esferasRestantesSpan) {
+            elements.esferasRestantesSpan.textContent = esferasRestantes;
+        }
     }
     
     // 3. Guarda modificadores de carga e deslocamento
@@ -8623,9 +8626,16 @@ function aplicarRaca(racaId) {
     // 4. Guarda modificador de reações
     modReacoesRacial = raca.reacoes;
     
-    // 5. Aplica modificadores de atributos (bônus racial)
+    // ===== CORREÇÃO: SÓ APLICA DÉBITO RACIAL SE AINDA NÃO FOI PAGO =====
     for (let attr in atributos) {
-        atributos[attr].bonusRacial = raca.atributos?.[attr] || 0;
+        const debitoRacial = raca.atributos?.[attr] || 0;
+        
+        // Se o débito já foi pago (debitoPago === true), NÃO aplica novamente
+        if (debitoRacial < 0 && atributos[attr].debitoPago) {
+            atributos[attr].bonusRacial = 0;
+        } else {
+            atributos[attr].bonusRacial = debitoRacial;
+        }
     }
     
     // 6. Adiciona vantagens fixas
