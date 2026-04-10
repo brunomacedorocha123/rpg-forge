@@ -2616,6 +2616,18 @@ body {
         padding: 12px 15px;
     }
 }
+
+.bolinha.raca-fixa {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    cursor: default;
+    opacity: 0.8;
+}
+
+.bolinha.raca-fixa:hover {
+    transform: none;
+    box-shadow: none;
+}
 </style>
 </head>
 <body>
@@ -9198,7 +9210,7 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================
-// BOLINHAS
+// BOLINHAS (COM SUPORTE A BÔNUS RACIAL)
 // ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
@@ -9213,12 +9225,20 @@ function criarBolinhas(atributoId) {
         bolinha.dataset.atributo = atributoId;
         
         bolinha.addEventListener('click', () => {
-            const clicada = i < atributos[atributoId].esferas;
+            const bonusRacial = atributos[atributoId].bonusRacial || 0;
+            const esferasAtuais = atributos[atributoId].esferas;
+            const totalPontos = bonusRacial + esferasAtuais;
+            const clicada = i < totalPontos;
+            
+            // Não permite remover bolinhas do bônus racial
+            if (i < bonusRacial) {
+                return;
+            }
             
             if (!clicada && esferasRestantes > 0) {
                 atributos[atributoId].esferas++;
                 esferasRestantes--;
-            } else if (clicada) {
+            } else if (clicada && i >= bonusRacial) {
                 atributos[atributoId].esferas--;
                 esferasRestantes++;
             }
@@ -9239,17 +9259,26 @@ function atualizarBolinhas(atributoId) {
     if (!container) return;
     
     const bolinhas = container.children;
-    const preenchidas = atributos[atributoId].esferas;
+    const esferasGastas = atributos[atributoId].esferas;
+    const bonusRacial = atributos[atributoId].bonusRacial || 0;
     
     for (let i = 0; i < bolinhas.length; i++) {
-        if (i < preenchidas) {
+        // Bolinhas do bônus racial (fixas, verdes)
+        if (i < bonusRacial) {
+            bolinhas[i].classList.add('preenchida', 'raca-fixa');
+            bolinhas[i].classList.remove('debito');
+        }
+        // Bolinhas de esferas gastas (douradas)
+        else if (i < bonusRacial + esferasGastas) {
             bolinhas[i].classList.add('preenchida');
-        } else {
-            bolinhas[i].classList.remove('preenchida');
+            bolinhas[i].classList.remove('raca-fixa', 'debito');
+        }
+        // Bolinhas disponíveis (vazias)
+        else {
+            bolinhas[i].classList.remove('preenchida', 'raca-fixa', 'debito');
         }
     }
 }
-
 // ============================================
 // FUNÇÃO AUXILIAR PARA ADICIONAR ITENS COM QUANTIDADE
 // ============================================
