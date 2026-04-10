@@ -11056,32 +11056,77 @@ async function carregarPersonagem(id) {
         }
         if (data.ppGasto !== undefined) ppGastoTotal = data.ppGasto;
         
-        // ===== CARREGAR RAÇA =====
+               // ===== CARREGAR RAÇA (SEM RECRIAR DÉBITO) =====
+        // IMPORTANTE: Só carrega a raça, NÃO aplica os débitos novamente
         if (data.raca) {
-            // Guarda quais débitos já foram pagos antes de aplicar a raça
-            const stDebitoPago = atributos.st.debitoPago;
-            const dxDebitoPago = atributos.dx.debitoPago;
-            const vigorDebitoPago = atributos.vigor.debitoPago;
+            // 1. Guarda a raça atual
+            racaAtual = data.raca;
             
-            aplicarRaca(data.raca);
+            // 2. Atualiza o display do nome da raça
+            const racaNomeSpan = document.querySelector('#racaDisplay .raca-nome');
+            if (racaNomeSpan) {
+                const racasNomes = { humano: 'Humano', elfo: 'Elfo', anao: 'Anão', goblin: 'Goblin' };
+                racaNomeSpan.textContent = racasNomes[data.raca] || 'Humano';
+            }
             
-            // Se o débito já foi pago, remove o débito racial
-            if (stDebitoPago && atributos.st.bonusRacial < 0) {
-                atributos.st.bonusRacial = 0;
-            }
-            if (dxDebitoPago && atributos.dx.bonusRacial < 0) {
-                atributos.dx.bonusRacial = 0;
-            }
-            if (vigorDebitoPago && atributos.vigor.bonusRacial < 0) {
-                atributos.vigor.bonusRacial = 0;
+            // 3. Aplica os modificadores que NÃO SÃO ATRIBUTOS (carga, deslocamento, reações, perícias)
+            const raca = RACAS[data.raca];
+            if (raca) {
+                tipoCarga = raca.carga;
+                tipoDeslocamento = raca.deslocamento;
+                modReacoesRacial = raca.reacoes;
+                bonusPericiasRacial = raca.pericias || {};
+                
+                // Adiciona vantagens fixas da raça (se não tiver sido adicionada ainda)
+                if (raca.vantagensFixas) {
+                    raca.vantagensFixas.forEach(vantagemId => {
+                        if (!vantagensSelecionadas.has(vantagemId)) {
+                            vantagensSelecionadas.add(vantagemId);
+                            const card = document.querySelector(`.vantagem-card[data-vantagem="${vantagemId}"]`);
+                            if (card) {
+                                card.classList.add('selecionada', 'raca-fixa');
+                            }
+                        }
+                    });
+                }
+                
+                // Adiciona desvantagens fixas da raça
+                if (raca.desvantagensFixas) {
+                    raca.desvantagensFixas.forEach(desvantagemId => {
+                        if (!desvantagensSelecionadas.has(desvantagemId)) {
+                            desvantagensSelecionadas.add(desvantagemId);
+                            const card = document.querySelector(`.desvantagem-card[data-desvantagem="${desvantagemId}"]`);
+                            if (card) {
+                                card.classList.add('selecionada', 'raca-fixa');
+                            }
+                        }
+                    });
+                }
+                
+                // Ajusta limite de vantagens extras (Elfo)
+                if (raca.vantagensExtras) {
+                    maxVantagens += raca.vantagensExtras;
+                    if (elements.maxVantagens) elements.maxVantagens.value = maxVantagens;
+                    if (elements.maxVantagensDisplay) elements.maxVantagensDisplay.textContent = maxVantagens;
+                    atualizarContadoresAbas();
+                }
             }
         } else {
-            aplicarRaca("humano");
+            racaAtual = "humano";
+            const racaNomeSpan = document.querySelector('#racaDisplay .raca-nome');
+            if (racaNomeSpan) racaNomeSpan.textContent = 'Humano';
         }
         
         if (elements.breadcrumbCurrent) elements.breadcrumbCurrent.textContent = `Editando: ${data.nome}`;
         if (elements.pageTitle) elements.pageTitle.textContent = `Editando: ${data.nome}`;
         if (elements.personagemIdHidden) elements.personagemIdHidden.value = id;
+        
+        // ATUALIZA AS BOLINHAS NOVAMENTE para refletir o estado correto
+        atualizarBolinhas('st');
+        atualizarBolinhas('dx');
+        atualizarBolinhas('iq');
+        atualizarBolinhas('vigor');
+        atualizarBolinhas('vt');
         
         atualizarInterface();
         atualizarContadoresAbas();
@@ -11138,6 +11183,18 @@ function carregarDadosSalvos() {
                 atributos.iq.esferas = personagemTemp.atributos.iq?.esferas || 0;
                 atributos.vigor.esferas = personagemTemp.atributos.vigor?.esferas || 0;
                 atributos.vt.esferas = personagemTemp.atributos.vt?.esferas || 0;
+                
+                // Carrega débito pago do temp
+                atributos.st.bonusRacial = personagemTemp.atributos.st?.bonusRacial || 0;
+                atributos.st.debitoPago = personagemTemp.atributos.st?.debitoPago || false;
+                atributos.dx.bonusRacial = personagemTemp.atributos.dx?.bonusRacial || 0;
+                atributos.dx.debitoPago = personagemTemp.atributos.dx?.debitoPago || false;
+                atributos.iq.bonusRacial = personagemTemp.atributos.iq?.bonusRacial || 0;
+                atributos.iq.debitoPago = personagemTemp.atributos.iq?.debitoPago || false;
+                atributos.vigor.bonusRacial = personagemTemp.atributos.vigor?.bonusRacial || 0;
+                atributos.vigor.debitoPago = personagemTemp.atributos.vigor?.debitoPago || false;
+                atributos.vt.bonusRacial = personagemTemp.atributos.vt?.bonusRacial || 0;
+                atributos.vt.debitoPago = personagemTemp.atributos.vt?.debitoPago || false;
                 
                 esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
                 
@@ -11208,8 +11265,22 @@ function carregarDadosSalvos() {
             }
             if (personagemTemp.ppGasto !== undefined) ppGastoTotal = personagemTemp.ppGasto;
             
+            // CARREGA RAÇA DO TEMP (sem recriar débito)
             if (personagemTemp.raca) {
-                aplicarRaca(personagemTemp.raca);
+                racaAtual = personagemTemp.raca;
+                const racaNomeSpan = document.querySelector('#racaDisplay .raca-nome');
+                if (racaNomeSpan) {
+                    const racasNomes = { humano: 'Humano', elfo: 'Elfo', anao: 'Anão', goblin: 'Goblin' };
+                    racaNomeSpan.textContent = racasNomes[personagemTemp.raca] || 'Humano';
+                }
+                
+                const raca = RACAS[personagemTemp.raca];
+                if (raca) {
+                    tipoCarga = raca.carga;
+                    tipoDeslocamento = raca.deslocamento;
+                    modReacoesRacial = raca.reacoes;
+                    bonusPericiasRacial = raca.pericias || {};
+                }
             }
             
             atualizarInterface();
