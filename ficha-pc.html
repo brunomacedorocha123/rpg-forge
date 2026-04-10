@@ -2319,18 +2319,19 @@ body {
             <span id="breadcrumbPersonagem">Ficha</span>
         </div>
 
-        <div class="personagem-header" id="personagemHeader">
-            <div class="personagem-foto" id="personagemFoto"></div>
-            <div class="personagem-info">
-                <h1 id="personagemNome">Carregando...</h1>
-                <div class="classe" id="personagemClasse">-</div>
-                <div class="personagem-meta" id="personagemMeta">
-                    <span class="meta-item"><i class="fas fa-level-up-alt"></i> Nível <span id="nivelPersonagem">1</span></span>
-                    <span class="meta-item"><i class="fas fa-star"></i> PP <span id="ppDisponivelHeader">0</span></span>
-                    <span class="meta-item"><i class="fas fa-coins"></i> $<span id="dinheiroHeader">0</span></span>
-                </div>
-            </div>
+       <div class="personagem-header" id="personagemHeader">
+    <div class="personagem-foto" id="personagemFoto"></div>
+    <div class="personagem-info">
+        <h1 id="personagemNome">Carregando...</h1>
+        <div class="classe" id="personagemClasse">-</div>
+        <div class="personagem-meta" id="personagemMeta">
+            <span class="meta-item"><i class="fas fa-level-up-alt"></i> Nível <span id="nivelPersonagem">1</span></span>
+            <span class="meta-item"><i class="fas fa-users"></i> Raça: <span id="racaPersonagem">Carregando...</span></span>
+            <span class="meta-item"><i class="fas fa-star"></i> PP <span id="ppDisponivelHeader">0</span></span>
+            <span class="meta-item"><i class="fas fa-coins"></i> $<span id="dinheiroHeader">0</span></span>
         </div>
+    </div>
+</div>
 
         <!-- MAIN GRID - REORGANIZADO -->
         <div class="main-grid">
@@ -6286,12 +6287,7 @@ function getPersonagemIdFromUrl() {
 // FUNÇÃO DE XP PARA SISTEMA DE ESFERAS
 // ============================================
 function getXpProximoNivel(esferasAtuais) {
-    // 0 a 9 esferas: usa tabela original
-    // 10 a 19 esferas: 1000 XP cada
-    // 20 a 34 esferas: 1500 XP cada
-    // 35 a 49 esferas: 2000 XP cada
-    // 50 esferas: máximo
-    
+   
     if (esferasAtuais >= 50) return 0;
     
     // Faixa 0-9: tabela original
@@ -6313,18 +6309,116 @@ function getXpProximoNivel(esferasAtuais) {
     return 2000;
 }
 // ============================================
-// FUNÇÕES DE ATRIBUTOS
+// FUNÇÕES DE RAÇA (BÔNUS RACIAIS)
 // ============================================
-function getSTFixo() { return 5 + (personagemAtual?.atributos?.st?.esferas || 0); }
-function getDXFixo() { return 5 + (personagemAtual?.atributos?.dx?.esferas || 0); }
-function getIQFixo() { return 5 + (personagemAtual?.atributos?.iq?.esferas || 0); }
-function getVIGORFixo() { return 5 + (personagemAtual?.atributos?.vigor?.esferas || 0); }
-function getVTFixo() { return 5 + (personagemAtual?.atributos?.vt?.esferas || 0); }
 
-function getSTPercentual() { return 50 + ((personagemAtual?.atributos?.st?.esferas || 0) * 3); }
-function getDXPercentual() { return 50 + ((personagemAtual?.atributos?.dx?.esferas || 0) * 2); }
-function getIQPercentual() { return 50 + ((personagemAtual?.atributos?.iq?.esferas || 0) * 2); }
-function getVIGORPercentual() { return 50 + ((personagemAtual?.atributos?.vigor?.esferas || 0) * 3); }
+function getRacaAtual() {
+    return personagemAtual?.raca || 'humano';
+}
+
+function getBonusRacialAtributo(atributo) {
+    const raca = getRacaAtual();
+    const bonusRaciais = {
+        elfo: { st: -1, dx: 1, vigor: -1 },
+        anao: { st: 2, vigor: 1 },
+        goblin: { st: -1, dx: 1 },
+        humano: {}
+    };
+    return bonusRaciais[raca]?.[atributo] || 0;
+}
+
+function getBonusPericiaRacial(periciaId) {
+    const raca = getRacaAtual();
+    const bonusRaciais = {
+        elfo: { arco: 3, sociabilidade: 2 },
+        anao: { armasHaste: 3, arremesso: -2 },
+        goblin: { furtividade: 3, esconder_se: 3 },
+        humano: {}
+    };
+    return bonusRaciais[raca]?.[periciaId] || 0;
+}
+
+function getModificadorReacaoRacial() {
+    const raca = getRacaAtual();
+    const reacoes = {
+        goblin: -10,
+        elfo: 0,
+        anao: 0,
+        humano: 0
+    };
+    return reacoes[raca] || 0;
+}
+
+function getMultiplicadoresCargaRacial() {
+    const raca = getRacaAtual();
+    const multiplicadores = {
+        anao: { leve: 2.5, medio: 5, pesado: 9, limite: 13 },
+        goblin: { leve: 1.5, medio: 3, pesado: 6, limite: 10 },
+        humano: { leve: 2, medio: 4, pesado: 8, limite: 12 },
+        elfo: { leve: 2, medio: 4, pesado: 8, limite: 12 }
+    };
+    return multiplicadores[raca] || multiplicadores.humano;
+}
+
+function getModificadorDeslocamentoRacial() {
+    const raca = getRacaAtual();
+    const modificadores = {
+        anao: { andar: -1, correrMultiplicador: 0.5 },
+        humano: { andar: 0, correrMultiplicador: 1 },
+        elfo: { andar: 0, correrMultiplicador: 1 },
+        goblin: { andar: 0, correrMultiplicador: 1 }
+    };
+    return modificadores[raca] || modificadores.humano;
+}
+
+// ============================================
+// FUNÇÕES DE ATRIBUTOS (COM BÔNUS RACIAL)
+// ============================================
+
+function getSTFixo() { 
+    const base = 5 + (personagemAtual?.atributos?.st?.esferas || 0);
+    const bonusRacial = getBonusRacialAtributo('st');
+    return base + bonusRacial;
+}
+
+function getDXFixo() { 
+    const base = 5 + (personagemAtual?.atributos?.dx?.esferas || 0);
+    const bonusRacial = getBonusRacialAtributo('dx');
+    return base + bonusRacial;
+}
+
+function getIQFixo() { 
+    return 5 + (personagemAtual?.atributos?.iq?.esferas || 0);
+}
+
+function getVIGORFixo() { 
+    const base = 5 + (personagemAtual?.atributos?.vigor?.esferas || 0);
+    const bonusRacial = getBonusRacialAtributo('vigor');
+    return base + bonusRacial;
+}
+
+function getVTFixo() { 
+    return 5 + (personagemAtual?.atributos?.vt?.esferas || 0);
+}
+
+function getSTPercentual() { 
+    const totalPontos = (personagemAtual?.atributos?.st?.esferas || 0) + (getBonusRacialAtributo('st') || 0);
+    return 50 + (totalPontos * 3);
+}
+
+function getDXPercentual() { 
+    const totalPontos = (personagemAtual?.atributos?.dx?.esferas || 0) + (getBonusRacialAtributo('dx') || 0);
+    return 50 + (totalPontos * 2);
+}
+
+function getIQPercentual() { 
+    return 50 + ((personagemAtual?.atributos?.iq?.esferas || 0) * 2);
+}
+
+function getVIGORPercentual() { 
+    const totalPontos = (personagemAtual?.atributos?.vigor?.esferas || 0) + (getBonusRacialAtributo('vigor') || 0);
+    return 50 + (totalPontos * 3);
+}
 
 // ===== NOVA FUNÇÃO - VT PERCENTUAL =====
 function getVTPercentual() { 
@@ -6342,7 +6436,7 @@ function getTotalEsferas() {
 
 // ===== FUNÇÃO PARA OBTER O NÚMERO DE ESFERAS (antigo "nível") =====
 function getNivelEsferas() {
-    return getTotalEsferas(); // AGORA retorna o total de esferas (sem +1)
+    return getTotalEsferas();
 }
 
 function getResistenciaVeneno() {
@@ -6394,10 +6488,13 @@ function getBonusPericia(periciaId) {
         }
     }
     
- // ===== MAUS MODOS =====
+    // ===== MAUS MODOS =====
     if (personagemAtual?.desvantagens?.includes('mausModos')) {
         if (periciaId === 'sociabilidade') bonus -= 5;
     }
+    
+    // ===== BÔNUS RACIAL DE PERÍCIA =====
+    bonus += getBonusPericiaRacial(periciaId);
     
     return bonus;
 }
@@ -6421,12 +6518,17 @@ function getBonusReacao() {
         bonus -= 2;
     }
     
+    // ===== BÔNUS RACIAL DE REAÇÃO =====
+    bonus += getModificadorReacaoRacial();
+    
     return bonus;
 }
 
 function calcularDanoBase() {
     const esferasST = personagemAtual?.atributos?.st?.esferas || 0;
-    return tabelaDano[esferasST] || "1d-3";
+    const bonusRacial = getBonusRacialAtributo('st') || 0;
+    const stEfetivo = esferasST + bonusRacial;
+    return tabelaDano[stEfetivo] || "1d-3";
 }
 
 function calcularPV() { 
@@ -6595,24 +6697,28 @@ function calcularBloqueio() {
     
     return Math.max(0, bloqueio);
 }
+// ============================================
+// CARGA E DESLOCAMENTO (COM BÔNUS RACIAL)
+// ============================================
 
-// ============================================
-// CARGA (mantida original - SEM MUDANÇAS)
-// ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
+    const mod = getModificadorDeslocamentoRacial();
     
-    const andarBruto = soma * 0.1;
-    const correrBruto = soma * 0.3;
+    let andarBruto = soma * 0.1;
+    let correrBruto = soma * 0.3;
+    
+    andarBruto = andarBruto + mod.andar;
+    correrBruto = correrBruto * mod.correrMultiplicador;
     
     function arredondarDeslocamento(valor) {
         const parteInteira = Math.floor(valor);
         const parteDecimal = valor - parteInteira;
         
         if (parteDecimal < 0.5) {
-            return parteInteira; 
+            return parteInteira;
         } else {
-            return parteInteira + 1; 
+            return parteInteira + 1;
         }
     }
     
@@ -6634,6 +6740,27 @@ function calcularCarga() {
         personagemAtual.inventario.deposito.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
     return pesoTotal;
+}
+
+function calcularLimitesCarga() {
+    const st = getSTFixo();
+    const mult = getMultiplicadoresCargaRacial();
+    return {
+        leve: st * mult.leve,
+        medio: st * mult.medio,
+        pesado: st * mult.pesado,
+        limite: st * mult.limite
+    };
+}
+
+function getNivelCarga() {
+    const pesoTotal = calcularCarga();
+    const limites = calcularLimitesCarga();
+    
+    if (pesoTotal > limites.pesado) return 'limite';
+    if (pesoTotal > limites.medio) return 'pesado';
+    if (pesoTotal > limites.leve) return 'medio';
+    return 'leve';
 }
 
 // ============================================
@@ -6987,6 +7114,13 @@ function renderizarFicha() {
     if (elements.personagemClasse) elements.personagemClasse.textContent = personagemAtual.classe || 'Sem classe';
     if (personagemAtual.fotoURL && elements.personagemFoto) {
         elements.personagemFoto.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
+    }
+
+    // ===== EXIBIR RAÇA =====
+    const racaElement = document.getElementById('racaPersonagem');
+    if (racaElement) {
+        const racas = { humano: 'Humano', elfo: 'Elfo', anao: 'Anão', goblin: 'Goblin' };
+        racaElement.textContent = racas[personagemAtual.raca] || 'Humano';
     }
 
     // ===== CÁLCULO DO TOTAL DE ESFERAS (NÃO É MAIS NÍVEL) =====
@@ -7624,6 +7758,7 @@ function handleInventarioTabClick(e) {
     const target = document.getElementById(targetId);
     if (target) target.classList.add('ativa');
 }
+
 // ============================================
 // FUNÇÕES DE PV DOS EQUIPAMENTOS
 // ============================================
@@ -7663,7 +7798,6 @@ window.alterarPVEquipamento = async function(itemId, local, valor) {
         showToast('Erro ao alterar PV do item', true);
     }
 };
-
 // ============================================
 // FUNÇÃO PARA USAR ITENS MÁGICOS (POÇÕES, GEMAS, KITS)
 // ============================================
