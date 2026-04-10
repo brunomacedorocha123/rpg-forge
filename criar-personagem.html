@@ -10902,7 +10902,7 @@ function salvarDadosBasicos() {
 }
 
 // ============================================
-// CARREGAR PERSONAGEM
+// CARREGAR PERSONAGEM (CORRIGIDO - COM DÉBITO RACIAL)
 // ============================================
 async function carregarPersonagem(id) {
     try {
@@ -10948,11 +10948,24 @@ async function carregarPersonagem(id) {
         }
         
         if (data.atributos) {
+            // CARREGA ESFERAS
             atributos.st.esferas = data.atributos.st?.esferas || 0;
             atributos.dx.esferas = data.atributos.dx?.esferas || 0;
             atributos.iq.esferas = data.atributos.iq?.esferas || 0;
             atributos.vigor.esferas = data.atributos.vigor?.esferas || 0;
             atributos.vt.esferas = data.atributos.vt?.esferas || 0;
+            
+            // CARREGA DÉBITO RACIAL (CORREÇÃO)
+            atributos.st.bonusRacial = data.atributos.st?.bonusRacial !== undefined ? data.atributos.st.bonusRacial : 0;
+            atributos.st.debitoPago = data.atributos.st?.debitoPago || false;
+            atributos.dx.bonusRacial = data.atributos.dx?.bonusRacial !== undefined ? data.atributos.dx.bonusRacial : 0;
+            atributos.dx.debitoPago = data.atributos.dx?.debitoPago || false;
+            atributos.iq.bonusRacial = data.atributos.iq?.bonusRacial !== undefined ? data.atributos.iq.bonusRacial : 0;
+            atributos.iq.debitoPago = data.atributos.iq?.debitoPago || false;
+            atributos.vigor.bonusRacial = data.atributos.vigor?.bonusRacial !== undefined ? data.atributos.vigor.bonusRacial : 0;
+            atributos.vigor.debitoPago = data.atributos.vigor?.debitoPago || false;
+            atributos.vt.bonusRacial = data.atributos.vt?.bonusRacial !== undefined ? data.atributos.vt.bonusRacial : 0;
+            atributos.vt.debitoPago = data.atributos.vt?.debitoPago || false;
             
             esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
             
@@ -11027,7 +11040,6 @@ async function carregarPersonagem(id) {
             dinheiro = calcularDinheiroInicial();
         }
         
-        // ⭐ CORREÇÃO: Inicializa o valor base anterior com o valor carregado
         valorBaseAnterior = data.dinheiroBase || 1000;
         
         if (data.ppDisponivel !== undefined) {
@@ -11038,7 +11050,23 @@ async function carregarPersonagem(id) {
         
         // ===== CARREGAR RAÇA =====
         if (data.raca) {
+            // Guarda quais débitos já foram pagos antes de aplicar a raça
+            const stDebitoPago = atributos.st.debitoPago;
+            const dxDebitoPago = atributos.dx.debitoPago;
+            const vigorDebitoPago = atributos.vigor.debitoPago;
+            
             aplicarRaca(data.raca);
+            
+            // Se o débito já foi pago, remove o débito racial
+            if (stDebitoPago && atributos.st.bonusRacial < 0) {
+                atributos.st.bonusRacial = 0;
+            }
+            if (dxDebitoPago && atributos.dx.bonusRacial < 0) {
+                atributos.dx.bonusRacial = 0;
+            }
+            if (vigorDebitoPago && atributos.vigor.bonusRacial < 0) {
+                atributos.vigor.bonusRacial = 0;
+            }
         } else {
             aplicarRaca("humano");
         }
@@ -11083,7 +11111,6 @@ function carregarDadosSalvos() {
             document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase || 1000;
             document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
             
-            // ⭐ CORREÇÃO: Inicializa o valor base anterior com o valor do temp
             valorBaseAnterior = personagemTemp.dinheiroBase || 1000;
             
             if (personagemTemp.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
@@ -11173,7 +11200,6 @@ function carregarDadosSalvos() {
             }
             if (personagemTemp.ppGasto !== undefined) ppGastoTotal = personagemTemp.ppGasto;
             
-            // ===== CARREGAR RAÇA DO TEMP =====
             if (personagemTemp.raca) {
                 aplicarRaca(personagemTemp.raca);
             }
@@ -11234,9 +11260,8 @@ async function uploadParaImgur(base64Image) {
         return null;
     }
 }
-
 // ============================================
-// FUNÇÃO DE SALVAMENTO
+// FUNÇÃO DE SALVAMENTO (CORRIGIDA - COM DÉBITO RACIAL)
 // ============================================
 async function salvarPersonagem(finalizar = false) {
     try {
@@ -11277,12 +11302,33 @@ async function salvarPersonagem(finalizar = false) {
             status: finalizar ? 'finalizado' : 'rascunho',
             updatedAt: new Date(),
             esferasIniciais: esferasIniciais,
+            // ===== CORREÇÃO: SALVA TAMBÉM O BÔNUS RACIAL E DÉBITO PAGO =====
             atributos: {
-                st: { esferas: atributos.st.esferas },
-                dx: { esferas: atributos.dx.esferas },
-                iq: { esferas: atributos.iq.esferas },
-                vigor: { esferas: atributos.vigor.esferas },
-                vt: { esferas: atributos.vt.esferas }
+                st: { 
+                    esferas: atributos.st.esferas,
+                    bonusRacial: atributos.st.bonusRacial || 0,
+                    debitoPago: atributos.st.debitoPago || false
+                },
+                dx: { 
+                    esferas: atributos.dx.esferas,
+                    bonusRacial: atributos.dx.bonusRacial || 0,
+                    debitoPago: atributos.dx.debitoPago || false
+                },
+                iq: { 
+                    esferas: atributos.iq.esferas,
+                    bonusRacial: atributos.iq.bonusRacial || 0,
+                    debitoPago: atributos.iq.debitoPago || false
+                },
+                vigor: { 
+                    esferas: atributos.vigor.esferas,
+                    bonusRacial: atributos.vigor.bonusRacial || 0,
+                    debitoPago: atributos.vigor.debitoPago || false
+                },
+                vt: { 
+                    esferas: atributos.vt.esferas,
+                    bonusRacial: atributos.vt.bonusRacial || 0,
+                    debitoPago: atributos.vt.debitoPago || false
+                }
             },
             statusCombate: {
                 vidaAtual: calcularPV(),
