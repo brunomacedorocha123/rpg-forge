@@ -8533,6 +8533,7 @@ function getRDExtra() {
     }
     return rd;
 }
+
 // ============================================
 // REAÇÃO SOCIAL E SALDO (COM SUPORTE A RAÇA)
 // ============================================
@@ -8640,14 +8641,6 @@ function aplicarRaca(racaId) {
         });
     }
     
-    // 6.1 Ajusta o limite de vantagens para permitir escolhas extras (Elfo)
-    if (raca.vantagensExtras) {
-        maxVantagens += raca.vantagensExtras;
-        if (elements.maxVantagens) elements.maxVantagens.value = maxVantagens;
-        if (elements.maxVantagensDisplay) elements.maxVantagensDisplay.textContent = maxVantagens;
-        atualizarContadoresAbas();
-    }
-    
     // 7. Adiciona desvantagens fixas
     if (raca.desvantagensFixas) {
         raca.desvantagensFixas.forEach(desvantagemId => {
@@ -8694,6 +8687,102 @@ function aplicarRaca(racaId) {
     
     // 12. Salva automaticamente
     triggerAutoSave();
+}
+
+// ============================================
+// FUNÇÕES DO MODAL DE RAÇAS
+// ============================================
+
+function renderizarRacasGrid() {
+    if (!elements.racasGrid) return;
+    
+    const racasLista = [
+        { id: "humano", nome: "Humano", icone: "👤" },
+        { id: "elfo", nome: "Elfo", icone: "🧝" },
+        { id: "anao", nome: "Anão", icone: "⛏️" },
+        { id: "goblin", nome: "Goblin", icone: "👺" }
+    ];
+    
+    elements.racasGrid.innerHTML = racasLista.map(raca => `
+        <div class="raca-card" data-raca-id="${raca.id}">
+            <div class="raca-card-header">
+                <div class="raca-card-icone">${raca.icone}</div>
+                <div class="raca-card-nome">${raca.nome}</div>
+            </div>
+            <div class="raca-card-custo">${RACAS[raca.id].esferas < 0 ? `Paga ${Math.abs(RACAS[raca.id].esferas)} esfera` : (RACAS[raca.id].esferas > 0 ? `Ganha ${RACAS[raca.id].esferas} esfera` : 'Neutro')}</div>
+        </div>
+    `).join('');
+    
+    document.querySelectorAll('.raca-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.raca-card').forEach(c => c.classList.remove('selecionada'));
+            card.classList.add('selecionada');
+            mostrarDetalheRaca(card.dataset.racaId);
+        });
+    });
+}
+
+function mostrarDetalheRaca(racaId) {
+    const raca = RACAS[racaId];
+    if (!raca || !elements.racaDetalhe) return;
+    
+    const atributosTexto = [];
+    if (raca.atributos) {
+        for (let [attr, valor] of Object.entries(raca.atributos)) {
+            const sinal = valor > 0 ? '+' : '';
+            atributosTexto.push(`${attr.toUpperCase()}: ${sinal}${valor}`);
+        }
+    }
+    
+    const periciasTexto = [];
+    if (raca.pericias) {
+        for (let [pericia, valor] of Object.entries(raca.pericias)) {
+            const sinal = valor > 0 ? '+' : '';
+            periciasTexto.push(`${pericia}: ${sinal}${valor}%`);
+        }
+    }
+    
+    const vantagensTexto = raca.vantagensFixas?.length ? raca.vantagensFixas.join(', ') : 'Nenhuma';
+    const desvantagensTexto = raca.desvantagensFixas?.length ? raca.desvantagensFixas.join(', ') : 'Nenhuma';
+    const custoEsferas = raca.esferas < 0 ? `Paga ${Math.abs(raca.esferas)} esfera` : (raca.esferas > 0 ? `Ganha ${raca.esferas} esfera` : 'Neutro');
+    
+    elements.racaDetalhe.style.display = 'block';
+    elements.racaDetalhe.innerHTML = `
+        <h4><i class="fas fa-info-circle"></i> ${raca.nome}</h4>
+        <p><strong>⚔️ Atributos:</strong> ${atributosTexto.join(', ') || 'Nenhum'}</p>
+        <p><strong>🏹 Perícias:</strong> ${periciasTexto.join(', ') || 'Nenhuma'}</p>
+        <p><strong>⭐ Vantagens Fixas:</strong> ${vantagensTexto}</p>
+        <p><strong>⚠️ Desvantagens Fixas:</strong> ${desvantagensTexto}</p>
+        <p><strong>💰 Custo:</strong> ${custoEsferas}</p>
+    `;
+}
+
+function abrirModalRacas() {
+    renderizarRacasGrid();
+    if (elements.modalRacas) {
+        elements.modalRacas.classList.add('active');
+    }
+}
+
+function fecharModalRacas() {
+    if (elements.modalRacas) {
+        elements.modalRacas.classList.remove('active');
+    }
+    if (elements.racaDetalhe) {
+        elements.racaDetalhe.style.display = 'none';
+    }
+}
+
+function confirmarEscolhaRaca() {
+    const cardSelecionado = document.querySelector('.raca-card.selecionada');
+    if (!cardSelecionado) {
+        alert('Selecione uma raça primeiro!');
+        return;
+    }
+    
+    const racaId = cardSelecionado.dataset.racaId;
+    aplicarRaca(racaId);
+    fecharModalRacas();
 }
 
 
