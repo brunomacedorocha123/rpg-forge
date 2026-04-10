@@ -8689,115 +8689,102 @@ function aplicarRaca(racaId) {
 }
 
 // ============================================
-// FUNÇÕES DO MODAL DE RAÇAS
+// FUNÇÃO APLICAR RAÇA
 // ============================================
 
-/**
- * Renderiza as raças no grid do modal
- */
-function renderizarRacasGrid() {
-    if (!elements.racasGrid) return;
-    
-   const racasLista = [
-    { id: "humano", nome: "Humano", icone: "👤", descricao: "" },
-    { id: "elfo", nome: "Elfo", icone: "🧝", descricao: "" },
-    { id: "anao", nome: "Anão", icone: "⛏️", descricao: "" },
-    { id: "goblin", nome: "Goblin", icone: "👺", descricao: "" }
-];
-    
-    elements.racasGrid.innerHTML = racasLista.map(raca => `
-        <div class="raca-card" data-raca-id="${raca.id}">
-            <div class="raca-card-header">
-                <div class="raca-card-icone">${raca.icone}</div>
-                <div class="raca-card-nome">${raca.nome}</div>
-            </div>
-            <div class="raca-card-descricao">${raca.descricao}</div>
-            <div class="raca-card-custo">${RACAS[raca.id].esferas < 0 ? `Paga ${Math.abs(RACAS[raca.id].esferas)} esfera` : (RACAS[raca.id].esferas > 0 ? `Ganha ${RACAS[raca.id].esferas} esfera` : 'Neutro')}</div>
-        </div>
-    `).join('');
-    
-    document.querySelectorAll('.raca-card').forEach(card => {
-        card.addEventListener('click', () => {
-            document.querySelectorAll('.raca-card').forEach(c => c.classList.remove('selecionada'));
-            card.classList.add('selecionada');
-            mostrarDetalheRaca(card.dataset.racaId);
-        });
-    });
-}
-
-/**
- * Mostra os detalhes da raça selecionada
- */
-function mostrarDetalheRaca(racaId) {
+function aplicarRaca(racaId) {
     const raca = RACAS[racaId];
-    if (!raca || !elements.racaDetalhe) return;
+    if (!raca) return;
     
-    const atributosTexto = [];
-    if (raca.atributos) {
-        for (let [attr, valor] of Object.entries(raca.atributos)) {
-            const sinal = valor > 0 ? '+' : '';
-            atributosTexto.push(`${attr.toUpperCase()}: ${sinal}${valor}`);
-        }
-    }
+    // 1. Guarda a raça atual
+    racaAtual = racaId;
     
-    const periciasTexto = [];
-    if (raca.pericias) {
-        for (let [pericia, valor] of Object.entries(raca.pericias)) {
-            const sinal = valor > 0 ? '+' : '';
-            periciasTexto.push(`${pericia}: ${sinal}${valor}%`);
-        }
+    // 2. Aplica modificador de esferas (DÉBITO)
+    const totalEsferas = parseInt(elements.esferasIniciaisInput?.value) || 6;
+    esferasRestantes = totalEsferas + raca.esferas;
+    if (elements.esferasRestantesSpan) {
+        elements.esferasRestantesSpan.textContent = esferasRestantes;
     }
     
-    const vantagensTexto = raca.vantagensFixas?.length ? raca.vantagensFixas.join(', ') : 'Nenhuma';
-    const desvantagensTexto = raca.desvantagensFixas?.length ? raca.desvantagensFixas.join(', ') : 'Nenhuma';
-    const custoEsferas = raca.esferas < 0 ? `Paga ${Math.abs(raca.esferas)} esfera` : (raca.esferas > 0 ? `Ganha ${raca.esferas} esfera` : 'Neutro');
+    // 3. Guarda modificadores de carga e deslocamento
+    tipoCarga = raca.carga;
+    tipoDeslocamento = raca.deslocamento;
     
-    elements.racaDetalhe.style.display = 'block';
-    elements.racaDetalhe.innerHTML = `
-        <h4><i class="fas fa-info-circle"></i> ${raca.nome}</h4>
-        <p><strong>⚔️ Atributos:</strong> ${atributosTexto.join(', ') || 'Nenhum'}</p>
-        <p><strong>🏹 Perícias:</strong> ${periciasTexto.join(', ') || 'Nenhuma'}</p>
-        <p><strong>⭐ Vantagens Fixas:</strong> ${vantagensTexto}</p>
-        <p><strong>⚠️ Desvantagens Fixas:</strong> ${desvantagensTexto}</p>
-        <p><strong>💰 Custo:</strong> ${custoEsferas}</p>
-    `;
-}
-
-/**
- * Abre o modal de raças
- */
-function abrirModalRacas() {
-    renderizarRacasGrid();
-    if (elements.modalRacas) {
-        elements.modalRacas.classList.add('active');
-    }
-}
-
-/**
- * Fecha o modal de raças
- */
-function fecharModalRacas() {
-    if (elements.modalRacas) {
-        elements.modalRacas.classList.remove('active');
-    }
-    if (elements.racaDetalhe) {
-        elements.racaDetalhe.style.display = 'none';
-    }
-}
-
-/**
- * Confirma a escolha da raça
- */
-function confirmarEscolhaRaca() {
-    const cardSelecionado = document.querySelector('.raca-card.selecionada');
-    if (!cardSelecionado) {
-        alert('Selecione uma raça primeiro!');
-        return;
+    // 4. Guarda modificador de reações
+    modReacoesRacial = raca.reacoes;
+    
+    // 5. Aplica modificadores de atributos (bônus racial)
+    for (let attr in atributos) {
+        atributos[attr].bonusRacial = raca.atributos?.[attr] || 0;
     }
     
-    const racaId = cardSelecionado.dataset.racaId;
-    aplicarRaca(racaId);
-    fecharModalRacas();
+    // 6. Adiciona vantagens fixas
+    if (raca.vantagensFixas) {
+        raca.vantagensFixas.forEach(vantagemId => {
+            if (!vantagensSelecionadas.has(vantagemId)) {
+                vantagensSelecionadas.add(vantagemId);
+                const card = document.querySelector(`.vantagem-card[data-vantagem="${vantagemId}"]`);
+                if (card) {
+                    card.classList.add('selecionada', 'raca-fixa');
+                }
+            }
+        });
+    }
+    
+    // 6.1 Ajusta o limite de vantagens para permitir escolhas extras
+    if (raca.vantagensExtras) {
+        maxVantagens += raca.vantagensExtras;
+        if (elements.maxVantagens) elements.maxVantagens.value = maxVantagens;
+        if (elements.maxVantagensDisplay) elements.maxVantagensDisplay.textContent = maxVantagens;
+        atualizarContadoresAbas();
+    }
+    
+    // 7. Adiciona desvantagens fixas
+    if (raca.desvantagensFixas) {
+        raca.desvantagensFixas.forEach(desvantagemId => {
+            if (!desvantagensSelecionadas.has(desvantagemId)) {
+                desvantagensSelecionadas.add(desvantagemId);
+                const card = document.querySelector(`.desvantagem-card[data-desvantagem="${desvantagemId}"]`);
+                if (card) {
+                    card.classList.add('selecionada', 'raca-fixa');
+                }
+            }
+        });
+    }
+    
+    // 8. Guarda bônus de perícias
+    bonusPericiasRacial = raca.pericias || {};
+    
+    // 9. Se tem desvantagens opcionais (Anão: Avareza ou Cobiça)
+    if (raca.desvantagensOpcionais && raca.desvantagensOpcionais.length > 0) {
+        setTimeout(() => {
+            const opcao = confirm(`Escolha uma desvantagem:\n\n1 - ${raca.desvantagensOpcionais[0]}\n2 - ${raca.desvantagensOpcionais[1]}\n\nClique OK para ${raca.desvantagensOpcionais[0]} ou Cancelar para ${raca.desvantagensOpcionais[1]}`);
+            const desvantagemEscolhida = opcao ? raca.desvantagensOpcionais[0] : raca.desvantagensOpcionais[1];
+            
+            if (!desvantagensSelecionadas.has(desvantagemEscolhida)) {
+                desvantagensSelecionadas.add(desvantagemEscolhida);
+                const card = document.querySelector(`.desvantagem-card[data-desvantagem="${desvantagemEscolhida}"]`);
+                if (card) card.classList.add('selecionada');
+            }
+            atualizarContadoresAbas();
+        }, 100);
+    }
+    
+    // 10. Atualiza o display no campo de texto
+    const racaNomeSpan = document.querySelector('#racaDisplay .raca-nome');
+    if (racaNomeSpan) racaNomeSpan.textContent = raca.nome;
+    
+    // 11. Atualiza toda a interface
+    atualizarInterface();
+    atualizarContadoresAbas();
+    atualizarBolinhas('st');
+    atualizarBolinhas('dx');
+    atualizarBolinhas('iq');
+    atualizarBolinhas('vigor');
+    atualizarBolinhas('vt');
+    
+    // 12. Salva automaticamente
+    triggerAutoSave();
 }
 
 // ============================================

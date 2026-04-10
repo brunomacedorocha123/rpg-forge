@@ -19,33 +19,34 @@ const RACAS = {
         pericias: {}             // sem bônus de perícias
     },
     
-    elfo: {
-        id: "elfo",
-        nome: "Elfo",
-        esferas: -1,             // paga 1 esfera (6-1=5)
-        pp: 0,
-        carga: "padrao",
-        deslocamento: "padrao",
-        reacoes: 0,
-        atributos: {
-            dx: 1,               // +1 Destreza
-            st: -1,              // -1 Força
-            vigor: -1            // -1 Vigor
-        },
-        vantagensFixas: [
-            "aptidaoMagica",     // Aptidão Mágica
-            "maosRapidas",       // Mãos Rápidas
-            "carisma",           // Carisma
-            "sentidosAgucados"   // Sentidos Aguçados
-        ],
-        desvantagensFixas: [
-            "sensoDever"         // Senso do Dever (precisa criar)
-        ],
-        pericias: {
-            arco: 3,             // +3% em Arco
-            sociabilidade: 2     // +2% em Sociabilidade
-        }
+   elfo: {
+    id: "elfo",
+    nome: "Elfo",
+    esferas: -1,             // paga 1 esfera (6-1=5)
+    pp: 0,
+    carga: "padrao",
+    deslocamento: "padrao",
+    reacoes: 0,
+    vantagensExtras: 1,      // ← ADICIONE ESTA LINHA
+    atributos: {
+        dx: 1,               // +1 Destreza
+        st: -1,              // -1 Força
+        vigor: -1            // -1 Vigor
     },
+    vantagensFixas: [
+        "aptidaoMagica",     // Aptidão Mágica
+        "maosRapidas",       // Mãos Rápidas
+        "carisma",           // Carisma
+        "sentidosAgucados"   // Sentidos Aguçados
+    ],
+    desvantagensFixas: [
+        "sensoDever"         // Senso do Dever
+    ],
+    pericias: {
+        arco: 3,             // +3% em Arco
+        sociabilidade: 2     // +2% em Sociabilidade
+    }
+},
     
     anao: {
         id: "anao",
