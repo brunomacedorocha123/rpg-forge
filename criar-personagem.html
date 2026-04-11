@@ -8651,9 +8651,11 @@ function calcularDanoBase() {
 // ============================================
 
 function calcularGastoAtributo(valor) {
-    if (valor === 5) return 0;
-    if (valor > 5) return valor - 5;
-    return valor - 5;
+    // Só gasta pontos se for MAIOR que 5
+    if (valor > 5) {
+        return valor - 5;
+    }
+    return 0;  // Valores 5 ou menos NÃO ganham pontos
 }
 
 function atualizarSaldoPontos() {
@@ -8668,6 +8670,12 @@ function atualizarSaldoPontos() {
     
     if (elements.saldoPontosSpan) {
         elements.saldoPontosSpan.textContent = saldoPontos;
+        // Muda a cor se estiver negativo
+        if (saldoPontos < 0) {
+            elements.saldoPontosSpan.style.color = '#ff6b6b';
+        } else {
+            elements.saldoPontosSpan.style.color = '#ffd700';
+        }
     }
     
     return saldoPontos;
@@ -8681,19 +8689,69 @@ function atualizarDisplayGastos() {
     const vtGasto = calcularGastoAtributo(atributos.vt.valor);
     
     if (elements.stGasto) {
-        elements.stGasto.textContent = stGasto >= 0 ? `gasto: +${stGasto}` : `ganho: ${stGasto}`;
+        elements.stGasto.textContent = `gasto: ${stGasto}`;
     }
     if (elements.dxGasto) {
-        elements.dxGasto.textContent = dxGasto >= 0 ? `gasto: +${dxGasto}` : `ganho: ${dxGasto}`;
+        elements.dxGasto.textContent = `gasto: ${dxGasto}`;
     }
     if (elements.iqGasto) {
-        elements.iqGasto.textContent = iqGasto >= 0 ? `gasto: +${iqGasto}` : `ganho: ${iqGasto}`;
+        elements.iqGasto.textContent = `gasto: ${iqGasto}`;
     }
     if (elements.vigorGasto) {
-        elements.vigorGasto.textContent = vigorGasto >= 0 ? `gasto: +${vigorGasto}` : `ganho: ${vigorGasto}`;
+        elements.vigorGasto.textContent = `gasto: ${vigorGasto}`;
     }
     if (elements.vtGasto) {
-        elements.vtGasto.textContent = vtGasto >= 0 ? `gasto: +${vtGasto}` : `ganho: ${vtGasto}`;
+        elements.vtGasto.textContent = `gasto: ${vtGasto}`;
+    }
+}
+
+function podeAumentar(atributoId) {
+    const valor = atributos[atributoId].valor;
+    if (valor >= 15) return false;
+    
+    const novoValor = valor + 1;
+    const gastoAtual = calcularGastoAtributo(valor);
+    const novoGasto = calcularGastoAtributo(novoValor);
+    const custo = novoGasto - gastoAtual;
+    
+    return saldoPontos >= custo;
+}
+
+function podeDiminuir(atributoId) {
+    const valor = atributos[atributoId].valor;
+    // Não pode diminuir abaixo de 5
+    return valor > 5;
+}
+
+function aumentarAtributo(atributoId) {
+    const atributo = atributos[atributoId];
+    if (atributo.valor < 15) {
+        if (podeAumentar(atributoId)) {
+            atributo.valor++;
+            atualizarInterface();
+            atualizarBotoesAtributo(atributoId);
+            atualizarSaldoPontos();
+            atualizarDisplayGastos();
+            triggerAutoSave();
+        } else {
+            alert(`❌ Pontos insuficientes! Você só tem ${saldoPontos} ponto(s) restante(s).`);
+        }
+    } else {
+        alert(`❌ ${atributoId.toUpperCase()} já está no valor máximo (15)!`);
+    }
+}
+
+function diminuirAtributo(atributoId) {
+    const atributo = atributos[atributoId];
+    if (atributo.valor > 5 && podeDiminuir(atributoId)) {
+        atributo.valor--;
+        atualizarInterface();
+        atualizarBotoesAtributo(atributoId);
+        atualizarSaldoPontos();
+        atualizarDisplayGastos();
+        triggerAutoSave();
+    } else if (atributo.valor <= 5) {
+        alert(`❌ Não é possível reduzir ${atributoId.toUpperCase()} abaixo de 5.`);
     }
 }
 
