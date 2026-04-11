@@ -2307,6 +2307,104 @@ body {
     background: #ff0000;
     transform: scale(1.1);
 }
+
+/* ===== CAIXA DE INFORMAÇÃO DA RAÇA ===== */
+.raca-info-box {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
+    border-left: 4px solid #ffd700;
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin: 15px 0;
+    font-size: 0.9rem;
+}
+
+.raca-info-box i {
+    color: #ffd700;
+}
+
+/* ===== BOLINHA VERMELHA PARA DÉBITO ===== */
+.bolinha.debito {
+    background: rgba(255, 0, 0, 0.3);
+    border-color: #ff4444;
+    position: relative;
+}
+
+.bolinha.debito::after {
+    content: '-';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ff4444;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.bolinha.debito.preenchida {
+    background: #ff4444;
+    border-color: #ff0000;
+}
+
+.bolinha.debito.preenchida::after {
+    content: '✓';
+    color: white;
+}
+
+/* Tooltip para débito */
+.atributo-row[data-debito-st="true"] .atributo-nome::after,
+.atributo-row[data-debito-dx="true"] .atributo-nome::after,
+.atributo-row[data-debito-vigor="true"] .atributo-nome::after {
+    content: " ⚠️";
+    color: #ff4444;
+    font-size: 0.7rem;
+    cursor: help;
+}
+
+/* Modal de raça - estilo adicional */
+#modalRacaDetalhes {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 15px;
+    padding: 5px;
+}
+
+.raca-detalhe-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.raca-detalhe-item h4 {
+    color: #ffd700;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.raca-detalhe-item ul {
+    margin-left: 20px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+}
+
+.raca-detalhe-item li {
+    margin: 5px 0;
+}
+
+.raca-bonus { color: #4CAF50; }
+.raca-penalidade { color: #ff6b6b; }
+.raca-custo { color: #ffd700; font-weight: bold; }
+
+/* Responsivo para raça */
+@media (max-width: 768px) {
+    .raca-info-box {
+        font-size: 0.8rem;
+        padding: 10px 12px;
+    }
+    
+    #modalRacaDetalhes {
+        max-height: 50vh;
+    }
+}
 </style>
 </head>
 <body>
@@ -2472,6 +2570,22 @@ body {
         </div>
     </div>
 
+         <!-- MODAL DE CONFIRMAÇÃO DE RAÇA -->
+<div class="modal" id="modalConfirmarRaca">
+    <div class="modal-content" style="max-width: 550px;">
+        <h3 id="modalRacaTitulo" style="color: #ffd700; margin-bottom: 15px;">
+            <i class="fas fa-users"></i> Confirmar Escolha de Raça
+        </h3>
+        <div id="modalRacaDetalhes" style="max-height: 60vh; overflow-y: auto;">
+            <!-- Conteúdo dinâmico via JS -->
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-secondary" id="btnCancelarRaca" style="flex: 1;">Cancelar</button>
+            <button class="btn-primary" id="btnConfirmarRaca" style="flex: 2;">Confirmar Raça</button>
+        </div>
+    </div>
+</div>
+
     <!-- Modal de sucesso ao salvar -->
     <div class="modal" id="modalSalvarSucesso" style="display: none;">
         <div class="modal-content" style="text-align: center; background: #1a3a1a; border-color: #4CAF50;">
@@ -2539,7 +2653,7 @@ body {
             <button class="aba" data-aba="equipamentos"><i class="fas fa-backpack"></i> Equipamentos</button>
         </div>
 
-       <!-- ABA DADOS BÁSICOS -->
+      <!-- ABA DADOS BÁSICOS -->
 <div id="abaBasicos" class="conteudo-aba ativa">
     <div class="card">
         <div class="card-section">
@@ -2561,11 +2675,35 @@ body {
                 </div>
             </div>
             
+            <!-- NOVO: SELETOR DE RAÇA -->
             <div class="form-row">
+                <div class="form-group">
+                    <label for="racaPersonagem"><i class="fas fa-users"></i> Raça</label>
+                    <select id="racaPersonagem">
+                        <option value="humano">👤 Humano (Padrão) - Grátis</option>
+                        <option value="elfo">🧝 Elfo - Custa 1 esfera</option>
+                        <option value="anao">⛏️ Anão - Custa 1 esfera</option>
+                        <option value="goblin">👺 Goblin - Grátis</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="idadePersonagem">Idade</label>
                     <input type="number" id="idadePersonagem" min="1" max="999" value="25">
                 </div>
+            </div>
+            
+            <!-- NOVO: CAIXA DE INFORMAÇÃO DA RAÇA -->
+            <div id="racaInfoBox" class="raca-info-box" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas fa-info-circle" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <strong id="racaInfoTitulo"></strong>
+                        <p id="racaInfoDescricao" style="margin: 5px 0 0 0; font-size: 0.85rem;"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-row">
                 <div class="form-group">
                     <label for="alturaPersonagem">Altura (cm)</label>
                     <input type="number" id="alturaPersonagem" min="50" max="300" value="170">
@@ -2613,14 +2751,14 @@ body {
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="dinheiroBase">   Valor Base ($)</label>
+                    <label for="dinheiroBase">Valor Base ($)</label>
                     <input type="number" id="dinheiroBase" min="0" value="1000" step="100">
                     <small style="color: rgba(255,255,255,0.5); display: block; margin-top: 5px;">
                         <i class="fas fa-dice-d20"></i> Defina o valor base que o GM determinar
                     </small>
                 </div>
                 <div class="form-group">
-                    <label>   Saldo Atual</label>
+                    <label>Saldo Atual</label>
                     <div style="background: linear-gradient(45deg, #ffd70020, #ffaa0020); padding: 12px 15px; border-radius: 15px; font-size: 1.2rem; font-weight: bold; color: #ffd700; text-align: center;" id="dinheiroSaldoDisplay">
                         1000 $
                     </div>
@@ -2631,7 +2769,7 @@ body {
             </div>
 
             <div class="form-group">
-                <label>   Reação Social</label>
+                <label>Reação Social</label>
                 <div style="background: linear-gradient(45deg, #ffd70020, #ffaa0020); padding: 12px 15px; border-radius: 15px; font-size: 1.5rem; font-weight: bold; color: #ffd700; text-align: center;" id="reacaoSocialDisplay">
                     0%
                 </div>
@@ -2641,7 +2779,7 @@ body {
             </div>
 
             <div class="form-group">
-                <label for="peculiaridades">   Peculiaridades</label>
+                <label for="peculiaridades">Peculiaridades</label>
                 <textarea id="peculiaridades" placeholder="Ex: Fala sozinho quando nervoso, tem tique nervoso, coleciona pedras..."></textarea>
             </div>
             
@@ -2718,22 +2856,22 @@ body {
                 <div class="bolinhas-container" id="vigorBolinhas"></div>
             </div>
 
-            <!-- VT (CORRIGIDO) -->
-    <div class="atributo-row" data-atributo="vt">
-        <div class="atributo-info">
-            <span class="atributo-nome">VT (Vitalidade)</span>
-            <span class="atributo-valor" id="vtValor">5</span>
+            <!-- VT -->
+            <div class="atributo-row" data-atributo="vt">
+                <div class="atributo-info">
+                    <span class="atributo-nome">VT (Vitalidade)</span>
+                    <span class="atributo-valor" id="vtValor">5</span>
+                </div>
+                <div class="atributo-dual">
+                    <span><span class="valor-fixo" id="vtFixo">5</span> <span class="atributo-desc">fixo</span></span>
+                    <span><span class="valor-percentual" id="vtPercentual">40%</span> <span class="atributo-desc">teste</span></span>
+                </div>
+                <div class="bolinhas-container" id="vtBolinhas"></div>
+                <div class="atributo-detalhes">
+                    <span class="vida" id="vtVida">PV 40</span>
+                </div>
+            </div>
         </div>
-        <div class="atributo-dual">
-            <span><span class="valor-fixo" id="vtFixo">5</span> <span class="atributo-desc">fixo</span></span>
-            <span><span class="valor-percentual" id="vtPercentual">40%</span> <span class="atributo-desc">teste </span></span>
-        </div>
-        <div class="bolinhas-container" id="vtBolinhas"></div>
-        <div class="atributo-detalhes">
-            <span class="vida" id="vtVida">PV 40</span>
-        </div>
-    </div>
-</div>
 
         <div class="card-section status-grid">
             <div class="status-item">
@@ -2745,7 +2883,7 @@ body {
                 <span class="value" id="statusPF">10</span>
             </div>
             <div class="status-item">
-                <span class="label"> Mana:</span>
+                <span class="label">Mana:</span>
                 <span class="value" id="statusPM">15</span>
             </div>
             <div class="status-item">
@@ -2806,11 +2944,11 @@ body {
             </div>
 
             <div class="rd-grid">
-    <div class="rd-item">
-        <div class="rd-tipo">Valor Defensivo</div>
-        <div class="rd-valor" id="valorDefensivo">+0</div>
-    </div>
-</div>
+                <div class="rd-item">
+                    <div class="rd-tipo">Valor Defensivo</div>
+                    <div class="rd-valor" id="valorDefensivo">+0</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -3855,7 +3993,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-
 // ============================================
 // VARIÁVEIS GLOBAIS
 // ============================================
@@ -3882,7 +4019,84 @@ let magiaSelecionada = null;
 let escolaMagiaSelecionada = 'agua';
 let inventario = { corpo: [], mochila: [], deposito: [] };
 let dinheiro = 0;
-let valorBaseAnterior = 1000;  
+let valorBaseAnterior = 1000;
+
+// ===== NOVAS VARIÁVEIS DE RAÇA =====
+let racaSelecionada = 'humano';
+let racaConfirmada = false;
+let modificadoresRacaAplicados = false;
+let custoEsferaRaca = 0;
+
+// Objeto com os dados da raça atual (inicializa com Humano)
+let racaInfo = {
+    nome: 'Humano',
+    icone: '👤',
+    atributos: { st: 0, dx: 0, iq: 0, vigor: 0, vt: 0 },
+    vantagensObrigatorias: [],
+    desvantagensObrigatorias: [],
+    bonusPericias: {},
+    penalidadePericias: {},
+    cargaMultiplicador: { leve: 2, medio: 4, pesado: 8, limite: 12 },
+    deslocamento: { andar: 0, correrMultiplicador: 1 },
+    custoEsferas: 0,
+    descricao: 'Raça padrão, sem bônus ou penalidades'
+};
+
+// Dados COMPLETOS de todas as raças (para consulta)
+const racasData = {
+    humano: {
+        nome: 'Humano',
+        icone: '👤',
+        atributos: { st: 0, dx: 0, iq: 0, vigor: 0, vt: 0 },
+        vantagensObrigatorias: [],
+        desvantagensObrigatorias: [],
+        bonusPericias: {},
+        penalidadePericias: {},
+        cargaMultiplicador: { leve: 2, medio: 4, pesado: 8, limite: 12 },
+        deslocamento: { andar: 0, correrMultiplicador: 1 },
+        custoEsferas: 0,
+        descricao: 'Raça padrão, sem bônus ou penalidades'
+    },
+    elfo: {
+        nome: 'Elfo',
+        icone: '🧝',
+        atributos: { st: -1, dx: 1, iq: 0, vigor: -1, vt: 0 },
+        vantagensObrigatorias: ['aptidaoMagica', 'maosRapidas', 'carisma', 'sentidosAgucados'],
+        desvantagensObrigatorias: ['sensoDever'],
+        bonusPericias: { 'arco': 3, 'sociabilidade': 2 },
+        penalidadePericias: {},
+        cargaMultiplicador: { leve: 2, medio: 4, pesado: 8, limite: 12 },
+        deslocamento: { andar: 0, correrMultiplicador: 1 },
+        custoEsferas: 1,
+        descricao: 'Ágeis e mágicos, mas fisicamente frágeis. Possuem visão noturna e sentidos apurados.'
+    },
+    anao: {
+        nome: 'Anão',
+        icone: '⛏️',
+        atributos: { st: 2, dx: -1, iq: 0, vigor: 1, vt: 0 },
+        vantagensObrigatorias: ['corpoResistente'],
+        desvantagensObrigatorias: null, // escolher entre avareza ou cobiça
+        bonusPericias: { 'armaria': 3, 'armasHaste': 3 },
+        penalidadePericias: { 'arco': -2, 'besta': -2, 'arremesso': -2 },
+        cargaMultiplicador: { leve: 2.5, medio: 5, pesado: 9, limite: 13 },
+        deslocamento: { andar: -1, correrMultiplicador: 0.5 },
+        custoEsferas: 1,
+        descricao: 'Forte e resistente, mas lento e teimoso. Têm afinidade com armas e armaduras pesadas.'
+    },
+    goblin: {
+        nome: 'Goblin',
+        icone: '👺',
+        atributos: { st: -1, dx: 2, iq: 0, vigor: -1, vt: 0 },
+        vantagensObrigatorias: ['visaoNoturna'],
+        desvantagensObrigatorias: ['magro'],
+        bonusPericias: { 'furtividade': 3, 'esconder_se': 3 },
+        penalidadePericias: {},
+        cargaMultiplicador: { leve: 1.5, medio: 3.5, pesado: 7, limite: 10.5 },
+        deslocamento: { andar: 0, correrMultiplicador: 1 },
+        custoEsferas: 0,
+        descricao: 'Rápidos e furtivos, mas frágeis. Pequenos e ágeis, excelentes para emboscadas.'
+    }
+};
 
 // ============================================
 // ATRIBUTOS
@@ -7811,8 +8025,6 @@ const elements = {
     modalPericiaConfirmar: document.getElementById('modalPericiaConfirmar'),
     detalheMagiaModal: document.getElementById('detalheMagiaModal'),
     detalheMagiaTitulo: document.getElementById('detalheMagiaTitulo'),
-    // detalheMagiaCusto: document.getElementById('detalheMagiaCusto'),  // ← REMOVIDO
-    // detalheMagiaTempo: document.getElementById('detalheMagiaTempo'), // ← REMOVIDO
     corpoTabelaDetalhe: document.getElementById('corpoTabelaDetalhe'),
     fecharDetalheMagia: document.getElementById('fecharDetalheMagia'),
     comprarNivelMagia: document.getElementById('comprarNivelMagia'),
@@ -7926,32 +8138,90 @@ const elements = {
     modalCodigoHonra: document.getElementById('modalCodigoHonra'),
     fecharModalCodigoHonra: document.getElementById('fecharModalCodigoHonra'),
     cardCodigoHonra: document.getElementById('cardCodigoHonra'),
-    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido')
+    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido'),
+
+    // ===== NOVOS ELEMENTOS DE RAÇA =====
+    racaPersonagem: document.getElementById('racaPersonagem'),
+    racaInfoBox: document.getElementById('racaInfoBox'),
+    racaInfoTitulo: document.getElementById('racaInfoTitulo'),
+    racaInfoDescricao: document.getElementById('racaInfoDescricao'),
+    modalConfirmarRaca: document.getElementById('modalConfirmarRaca'),
+    modalRacaTitulo: document.getElementById('modalRacaTitulo'),
+    modalRacaDetalhes: document.getElementById('modalRacaDetalhes'),
+    btnCancelarRaca: document.getElementById('btnCancelarRaca'),
+    btnConfirmarRaca: document.getElementById('btnConfirmarRaca')
 };
 
 // ============================================
-// FUNÇÕES DE ATRIBUTOS
+// FUNÇÕES DE ATRIBUTOS COM RAÇA
 // ============================================
-function getSTFixo() { return 5 + atributos.st.esferas; }
-function getSTPercentual() { return 50 + (atributos.st.esferas * 3); }
 
-function getDXFixo() { return 5 + atributos.dx.esferas; }
-function getDXPercentual() { return 50 + (atributos.dx.esferas * 2); }
+// Função auxiliar para calcular valor base do atributo
+function getValorBaseAtributo(atributo, esferas) {
+    let racaBonus = racasData[racaSelecionada]?.atributos[atributo] || 0;
+    let esferasPositivas = esferas || 0;
+    return 6 + racaBonus + esferasPositivas;
+}
 
-function getIQFixo() { return 5 + atributos.iq.esferas; }
-function getIQPercentual() { return 50 + (atributos.iq.esferas * 2); }
+// ST (Força)
+function getSTFixo() { 
+    return getValorBaseAtributo('st', atributos.st.esferas);
+}
 
-function getVIGORFixo() { return 5 + atributos.vigor.esferas; }
-function getVIGORPercentual() { return 50 + (atributos.vigor.esferas * 3); }
+function getSTPercentual() { 
+    let valor = getSTFixo();
+    return 50 + ((valor - 6) * 3);
+}
 
+// DX (Destreza)
+function getDXFixo() { 
+    return getValorBaseAtributo('dx', atributos.dx.esferas);
+}
+
+function getDXPercentual() { 
+    let valor = getDXFixo();
+    return 50 + ((valor - 6) * 2);
+}
+
+// IQ (Inteligência)
+function getIQFixo() { 
+    return getValorBaseAtributo('iq', atributos.iq.esferas);
+}
+
+function getIQPercentual() { 
+    let valor = getIQFixo();
+    return 50 + ((valor - 6) * 2);
+}
+
+// VIGOR
+function getVIGORFixo() { 
+    return getValorBaseAtributo('vigor', atributos.vigor.esferas);
+}
+
+function getVIGORPercentual() { 
+    let valor = getVIGORFixo();
+    return 50 + ((valor - 6) * 3);
+}
+
+// VT (Vitalidade)
 function getVTFixo() { 
-    return 5 + atributos.vt.esferas;
+    return getValorBaseAtributo('vt', atributos.vt.esferas);
 }
 
 function getVTPercentual() { 
-    return 40 + (atributos.vt.esferas * 3);
+    let valor = getVTFixo();
+    return 40 + ((valor - 6) * 3);
 }
 
+// ===== FUNÇÃO PARA VERIFICAR SE ATRIBUTO ESTÁ EM DÉBITO =====
+function isAtributoDebito(atributo) {
+    let racaBonus = racasData[racaSelecionada]?.atributos[atributo] || 0;
+    let esferasPositivas = atributos[atributo]?.esferas || 0;
+    let valorTotal = 6 + racaBonus + esferasPositivas;
+    return valorTotal < 6;
+}
+
+// ===== CÁLCULOS DERIVADOS =====
 function calcularPV() { 
     let vtBase = getVTFixo();
     let pvBase = vtBase * 7;
@@ -7984,12 +8254,33 @@ function calcularNivel() {
     return totalEsferas + 1;
 }
 
+// ===== RESISTÊNCIAS =====
 function getResistenciaMagia() {
     let resistencia = getVIGORPercentual();
     if (vantagensSelecionadas.has('resistenciaMagia')) {
         resistencia += 5;
     }
+    // Bônus racial do Anão
+    if (racaSelecionada === 'anao') {
+        resistencia += 10;
+    }
     return Math.min(90, resistencia);
+}
+
+function getResistenciaVeneno() {
+    let resistencia = 0;
+    if (vantagensSelecionadas.has('corpoResistente')) {
+        resistencia += 10;
+    }
+    return resistencia;
+}
+
+function getRDExtra() {
+    let rd = 0;
+    if (vantagensSelecionadas.has('corpoResistente')) {
+        rd += 2;
+    }
+    return rd;
 }
 
 // ===== FUNÇÕES PARA APARÊNCIA E RIQUEZA (AUTOMÁTICAS) =====
@@ -8018,7 +8309,6 @@ function getBonusReacao() {
     if (riqueza === 'rico') bonus += 5;
     else if (riqueza === 'pobre') bonus -= 10;
     
-    // ===== MAUS MODOS =====
     if (desvantagensSelecionadas.has('mausModos')) {
         bonus -= 2;
     }
@@ -8026,16 +8316,19 @@ function getBonusReacao() {
     return bonus;
 }
 
+// ===== BÔNUS DE PERÍCIA (COM BÔNUS RACIAL) =====
 function getBonusPericia(periciaId) {
     let bonus = 0;
     const aparencia = getAparencia();
     const riqueza = getRiqueza();
     
+    // Bônus de Aparência
     if (aparencia === 'atraente') {
         if (periciaId === 'persuasao') bonus += 3;
         if (periciaId === 'sociabilidade') bonus += 3;
     }
     
+    // Bônus de Carisma
     if (vantagensSelecionadas.has('carisma')) {
         if (periciaId === 'persuasao') bonus += 3;
         if (periciaId === 'sociabilidade') bonus += 3;
@@ -8043,56 +8336,75 @@ function getBonusPericia(periciaId) {
         if (periciaId === 'oratoria') bonus += 2;
     }
     
+    // Bônus de Riqueza
     if (riqueza === 'rico' && periciaId === 'sociabilidade') bonus += 5;
     else if (riqueza === 'pobre' && periciaId === 'sociabilidade') bonus -= 10;
     
+    // Bônus de Orientação do Explorador
     if (vantagensSelecionadas.has('orientacaoExplorador')) {
         if (periciaId === 'sobrevivencia') bonus += 5;
         if (periciaId === 'rastreamento') bonus += 3;
     }
     
+    // Bônus de Mãos Rápidas
     if (vantagensSelecionadas.has('maosRapidas')) {
         if (periciaId === 'furtar') bonus += 5;
         if (periciaId === 'arrombamento') bonus += 5;
     }
     
-    // ===== ANATOMISTA =====
+    // Bônus de Anatomista
     if (vantagensSelecionadas.has('anatomista')) {
         if (periciaId === 'medicina' || periciaId === 'primeirosSocorros') {
             bonus += 5;
         }
     }
     
-    // ===== MAUS MODOS =====
-    if (desvantagensSelecionadas.has('mausModos')) {
-        if (periciaId === 'sociabilidade') bonus -= 5;
+    // ===== BÔNUS RACIAIS =====
+    const racaBonusObj = racasData[racaSelecionada]?.bonusPericias || {};
+    if (racaBonusObj[periciaId]) {
+        bonus += racaBonusObj[periciaId];
     }
     
-    // ===== PENALIDADE DO CAOLHO =====
+    // ===== PENALIDADES RACIAIS =====
+    const racaPenalidadeObj = racasData[racaSelecionada]?.penalidadePericias || {};
+    if (racaPenalidadeObj[periciaId]) {
+        bonus += racaPenalidadeObj[periciaId];
+    }
+    
+    // Penalidade específica para armas de arremesso (Anão)
+    if (racaSelecionada === 'anao') {
+        const armasArremesso = ['arco', 'besta', 'arremesso', 'funda', 'zarabatana'];
+        if (armasArremesso.includes(periciaId)) {
+            bonus -= 2;
+        }
+    }
+    
+    // Penalidade do Caolho
     if (desvantagensSelecionadas.has('caolho')) {
         if (periciaId === 'rastreamento' || periciaId === 'sobrevivencia' || periciaId === 'detectarMentira') {
             bonus -= 5;
         }
     }
     
+    // Maus Modos
+    if (desvantagensSelecionadas.has('mausModos')) {
+        if (periciaId === 'sociabilidade') bonus -= 5;
+    }
+    
     return bonus;
 }
 
-function getResistenciaVeneno() {
-    let resistencia = 0;
-    if (vantagensSelecionadas.has('corpoResistente')) {
-        resistencia += 10;
-    }
-    return resistencia;
+// ===== FUNÇÃO PARA CALCULAR DANO BASE (baseado no ST final) =====
+const tabelaDano = {
+    5: "1d-3", 6: "1d-2", 7: "1d-1", 8: "1d", 9: "1d+1", 10: "1d+2",
+    11: "2d-1", 12: "2d", 13: "2d+1", 14: "2d+2", 15: "3d-1"
+};
+
+function calcularDanoBase() {
+    let stFinal = getSTFixo();
+    return tabelaDano[stFinal] || "1d-3";
 }
 
-function getRDExtra() {
-    let rd = 0;
-    if (vantagensSelecionadas.has('corpoResistente')) {
-        rd += 2;
-    }
-    return rd;
-}
 // ============================================
 // REAÇÃO SOCIAL E SALDO
 // ============================================
@@ -8109,7 +8421,6 @@ function atualizarReacaoSocial() {
     if (riqueza === 'rico') reacao += 5;
     else if (riqueza === 'pobre') reacao -= 10;
     
-    // ===== MAUS MODOS =====
     if (desvantagensSelecionadas.has('mausModos')) {
         reacao -= 2;
     }
@@ -8158,13 +8469,13 @@ function atualizarAparenciaRiquezaDisplay() {
         let texto = '';
         let cor = '#ffd700';
         if (riqueza === 'rico') {
-            texto = '   Rico (5x dinheiro base)';
+            texto = '💰 Rico (5x dinheiro base)';
             cor = '#ffd700';
         } else if (riqueza === 'pobre') {
-            texto = '   Pobre (metade dinheiro base)';
+            texto = '🪙 Pobre (metade dinheiro base)';
             cor = '#ff6b6b';
         } else {
-            texto = '   Médio (valor base)';
+            texto = '💰 Médio (valor base)';
             cor = '#aaa';
         }
         riquezaDisplay.textContent = texto;
@@ -8173,34 +8484,32 @@ function atualizarAparenciaRiquezaDisplay() {
 }
 
 // ============================================
-// TABELA DE DANO
-// ============================================
-const tabelaDano = {
-    0: "1d-3", 1: "1d-2", 2: "1d-1", 3: "1d", 4: "1d+1", 5: "1d+2",
-    6: "1d+2", 7: "2d-1", 8: "2d", 9: "2d+1", 10: "2d+2", 
-};
-
-function calcularDanoBase() {
-    return tabelaDano[atributos.st.esferas] || "1d-3";
-}
-
-// ============================================
-// CÁLCULO DE DESLOCAMENTO
+// CÁLCULO DE DESLOCAMENTO (COM BÔNUS/PENALIDADE RACIAL)
 // ============================================
 function calcularDeslocamento() {
-    const soma = getDXFixo() + getVIGORFixo();
+    let soma = getDXFixo() + getVIGORFixo();
     
-    const andarBruto = soma * 0.1;
-    const correrBruto = soma * 0.3;
+    let andarBruto = soma * 0.1;
+    let correrBruto = soma * 0.3;
+    
+    // Aplica modificadores raciais
+    const deslocamentoRaca = racasData[racaSelecionada]?.deslocamento || { andar: 0, correrMultiplicador: 1 };
+    
+    andarBruto += deslocamentoRaca.andar;
+    correrBruto = correrBruto * deslocamentoRaca.correrMultiplicador;
+    
+    // Garante valores mínimos
+    andarBruto = Math.max(1, andarBruto);
+    correrBruto = Math.max(3, correrBruto);
     
     function arredondarDeslocamento(valor) {
         const parteInteira = Math.floor(valor);
         const parteDecimal = valor - parteInteira;
         
         if (parteDecimal < 0.5) {
-            return parteInteira; 
+            return parteInteira;
         } else {
-            return parteInteira + 1; 
+            return parteInteira + 1;
         }
     }
     
@@ -8209,7 +8518,6 @@ function calcularDeslocamento() {
     
     return { andar, correr };
 }
-
 // ============================================
 // DEFESAS
 // ============================================
@@ -8331,15 +8639,19 @@ function mapearPericiaArma(nome) {
 }
 
 // ============================================
-// CARGA
+// CARGA (COM MULTIPLICADORES RACIAIS)
 // ============================================
 function calcularLimitesCarga() {
     const st = getSTFixo();
+    
+    // Pega os multiplicadores da raça (padrão Humano: 2, 4, 8, 12)
+    const multi = racasData[racaSelecionada]?.cargaMultiplicador || { leve: 2, medio: 4, pesado: 8, limite: 12 };
+    
     return {
-        leve: st * 2,
-        medio: st * 4,
-        pesado: st * 8,
-        limite: st * 12
+        leve: st * multi.leve,
+        medio: st * multi.medio,
+        pesado: st * multi.pesado,
+        limite: st * multi.limite
     };
 }
 
@@ -8357,7 +8669,11 @@ function calcularCarga() {
     let penalidadeEsquiva = 0;
     let reducaoDeslocamento = 0;
     
-    if (pesoTotal > limites.pesado) {
+    if (pesoTotal > limites.limite) {
+        nivel = 'excesso';
+        penalidadeEsquiva = 20;
+        reducaoDeslocamento = 4;
+    } else if (pesoTotal > limites.pesado) {
         nivel = 'limite';
         penalidadeEsquiva = 15;
         reducaoDeslocamento = 3;
@@ -8545,7 +8861,7 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================
-// BOLINHAS
+// BOLINHAS (COM SUPORTE A DÉBITO VERMELHO)
 // ============================================
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
@@ -8553,21 +8869,36 @@ function criarBolinhas(atributoId) {
     
     container.innerHTML = '';
     
+    // Calcula o valor base do atributo (sem esferas do jogador)
+    const racaBonus = racasData[racaSelecionada]?.atributos[atributoId] || 0;
+    const valorBaseRaca = 6 + racaBonus;
+    const quantidadeDebito = valorBaseRaca < 6 ? (6 - valorBaseRaca) : 0;
+    
     for (let i = 0; i < 10; i++) {
         const bolinha = document.createElement('div');
         bolinha.className = 'bolinha';
         bolinha.dataset.index = i;
         bolinha.dataset.atributo = atributoId;
         
+        // Marca se é uma bolinha de débito (i < quantidadeDebito)
+        if (i < quantidadeDebito) {
+            bolinha.classList.add('debito');
+        }
+        
         bolinha.addEventListener('click', () => {
-            const clicada = i < atributos[atributoId].esferas;
+            const esferasAtuais = atributos[atributoId].esferas;
+            const clicada = i < (quantidadeDebito + esferasAtuais);
             
             if (!clicada && esferasRestantes > 0) {
+                // Pagar débito ou adicionar bônus
                 atributos[atributoId].esferas++;
                 esferasRestantes--;
-            } else if (clicada) {
-                atributos[atributoId].esferas--;
-                esferasRestantes++;
+            } else if (clicada && (i >= quantidadeDebito || esferasAtuais > 0)) {
+                // Só pode remover se não for débito obrigatório ou se tiver esferas extras
+                if (i >= quantidadeDebito || esferasAtuais > 0) {
+                    atributos[atributoId].esferas--;
+                    esferasRestantes++;
+                }
             }
             
             atualizarInterface();
@@ -8586,15 +8917,47 @@ function atualizarBolinhas(atributoId) {
     if (!container) return;
     
     const bolinhas = container.children;
-    const preenchidas = atributos[atributoId].esferas;
+    const esferasJogador = atributos[atributoId].esferas;
+    
+    // Calcula débito da raça
+    const racaBonus = racasData[racaSelecionada]?.atributos[atributoId] || 0;
+    const valorBaseRaca = 6 + racaBonus;
+    const quantidadeDebito = valorBaseRaca < 6 ? (6 - valorBaseRaca) : 0;
+    
+    // Total de bolinhas preenchidas = débito + esferas do jogador
+    const totalPreenchidas = quantidadeDebito + esferasJogador;
     
     for (let i = 0; i < bolinhas.length; i++) {
-        if (i < preenchidas) {
-            bolinhas[i].classList.add('preenchida');
+        const bolinha = bolinhas[i];
+        
+        // Determina se é débito
+        const isDebito = i < quantidadeDebito;
+        
+        if (isDebito) {
+            bolinha.classList.add('debito');
+            if (i < totalPreenchidas) {
+                bolinha.classList.add('preenchida');
+            } else {
+                bolinha.classList.remove('preenchida');
+            }
         } else {
-            bolinhas[i].classList.remove('preenchida');
+            bolinha.classList.remove('debito');
+            if (i < totalPreenchidas) {
+                bolinha.classList.add('preenchida');
+            } else {
+                bolinha.classList.remove('preenchida');
+            }
         }
     }
+}
+
+// Função para recalcular todas as bolinhas quando a raça mudar
+function recarregarTodasBolinhas() {
+    criarBolinhas('st');
+    criarBolinhas('dx');
+    criarBolinhas('iq');
+    criarBolinhas('vigor');
+    criarBolinhas('vt');
 }
 
 // ============================================
@@ -9131,7 +9494,32 @@ function calcularRD() {
     return rd;
 }
 
+// ===== NOVA FUNÇÃO PARA ATUALIZAR INFO DA RAÇA NA INTERFACE =====
+function atualizarInfoRaca() {
+    const dadosRaca = racasData[racaSelecionada];
+    if (!dadosRaca) return;
+    
+    if (elements.racaInfoBox) {
+        elements.racaInfoBox.style.display = 'block';
+    }
+    if (elements.racaInfoTitulo) {
+        elements.racaInfoTitulo.innerHTML = `${dadosRaca.icone} ${dadosRaca.nome}`;
+    }
+    if (elements.racaInfoDescricao) {
+        let desc = dadosRaca.descricao;
+        if (dadosRaca.custoEsferas > 0) {
+            desc += ` | Custa ${dadosRaca.custoEsferas} esfera`;
+        } else {
+            desc += ` | Grátis`;
+        }
+        elements.racaInfoDescricao.textContent = desc;
+    }
+}
+
 function atualizarInterface() {
+    // ===== ATUALIZA INFO DA RAÇA =====
+    atualizarInfoRaca();
+    
     // ST
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
     if (elements.stFixo) elements.stFixo.textContent = getSTFixo();
@@ -9711,10 +10099,34 @@ function abrirDetalheMagia(escolaId, magiaId) {
     if (elements.detalheMagiaModal) elements.detalheMagiaModal.classList.add('active');
 }
 // ============================================
-// VANTAGENS E DESVANTAGENS
+// VANTAGENS E DESVANTAGENS (COM RAÇA)
 // ============================================
+
+// ===== FUNÇÃO AUXILIAR PARA VERIFICAR SE É VANTAGEM OBRIGATÓRIA DA RAÇA =====
+function isVantagemObrigatoriaRaca(vantagemId) {
+    const vantagensRaca = racasData[racaSelecionada]?.vantagensObrigatorias || [];
+    return vantagensRaca.includes(vantagemId);
+}
+
+function isDesvantagemObrigatoriaRaca(desvantagemId) {
+    const desvantagensRaca = racasData[racaSelecionada]?.desvantagensObrigatorias || [];
+    if (!desvantagensRaca) return false;
+    
+    // Para desvantagens que são arrays (ex: Anão pode escolher entre Avareza ou Cobiça)
+    if (Array.isArray(desvantagensRaca)) {
+        return desvantagensRaca.includes(desvantagemId);
+    }
+    return desvantagensRaca === desvantagemId;
+}
+
 function selecionarVantagem(card) {
     const vantagemId = card.dataset.vantagem;
+    
+    // ===== VERIFICA SE É VANTAGEM OBRIGATÓRIA DA RAÇA =====
+    if (isVantagemObrigatoriaRaca(vantagemId)) {
+        alert(`⚠️ Esta é uma vantagem obrigatória da raça ${racasData[racaSelecionada]?.nome} e não pode ser removida!`);
+        return;
+    }
     
     if (vantagensSelecionadas.has(vantagemId)) {
         vantagensSelecionadas.delete(vantagemId);
@@ -9763,6 +10175,12 @@ function selecionarVantagem(card) {
 
 function selecionarDesvantagem(card) {
     const desvantagemId = card.dataset.desvantagem;
+    
+    // ===== VERIFICA SE É DESVANTAGEM OBRIGATÓRIA DA RAÇA =====
+    if (isDesvantagemObrigatoriaRaca(desvantagemId)) {
+        alert(`⚠️ Esta é uma desvantagem obrigatória da raça ${racasData[racaSelecionada]?.nome} e não pode ser removida!`);
+        return;
+    }
     
     // ===== GORDO x MAGRO (mutuamente exclusivos) =====
     if (desvantagemId === 'gordo' && desvantagensSelecionadas.has('magro')) {
@@ -9814,6 +10232,15 @@ function selecionarDesvantagem(card) {
 
 function atualizarLimitesCards() {
     document.querySelectorAll('.vantagem-card').forEach(card => {
+        const vantagemId = card.dataset.vantagem;
+        const isObrigatoria = isVantagemObrigatoriaRaca(vantagemId);
+        
+        // Vantagens obrigatórias ficam sempre selecionadas e não contam para o limite
+        if (isObrigatoria) {
+            card.classList.add('selecionada', 'vantagem-racal');
+            card.style.opacity = '0.8';
+        }
+        
         if (!card.classList.contains('selecionada') && vantagensSelecionadas.size >= maxVantagens) {
             card.classList.add('limite-atingido');
         } else {
@@ -9822,6 +10249,15 @@ function atualizarLimitesCards() {
     });
     
     document.querySelectorAll('.desvantagem-card').forEach(card => {
+        const desvantagemId = card.dataset.desvantagem;
+        const isObrigatoria = isDesvantagemObrigatoriaRaca(desvantagemId);
+        
+        // Desvantagens obrigatórias ficam sempre selecionadas e não contam para o limite
+        if (isObrigatoria) {
+            card.classList.add('selecionada', 'desvantagem-racial');
+            card.style.opacity = '0.8';
+        }
+        
         if (!card.classList.contains('selecionada') && desvantagensSelecionadas.size >= maxDesvantagens) {
             card.classList.add('limite-atingido');
         } else {
@@ -10027,26 +10463,47 @@ function getTotalMagiasPossiveis() {
 }
 
 // ============================================
-// CONTADORES
+// CONTADORES (COM RAÇA)
 // ============================================
 function atualizarContadoresAbas() {
+    // Conta apenas vantagens NÃO obrigatórias da raça para o limite
+    let vantagensNormais = 0;
+    for (let v of vantagensSelecionadas) {
+        if (!isVantagemObrigatoriaRaca(v)) {
+            vantagensNormais++;
+        }
+    }
+    
+    // Conta apenas desvantagens NÃO obrigatórias da raça para o limite
+    let desvantagensNormais = 0;
+    for (let d of desvantagensSelecionadas) {
+        // Pula desvantagens compostas (ex: codigoHonra:xxx)
+        const desvantagemBase = d.split(':')[0];
+        if (!isDesvantagemObrigatoriaRaca(desvantagemBase) && !isDesvantagemObrigatoriaRaca(d)) {
+            desvantagensNormais++;
+        }
+    }
+    
+    // Total de vantagens (incluindo obrigatórias)
+    const totalVantagens = vantagensSelecionadas.size;
+    
     if (elements.contadorVantagensAba) {
-        elements.contadorVantagensAba.textContent = `${vantagensSelecionadas.size}/${maxVantagens}`;
+        elements.contadorVantagensAba.textContent = `${totalVantagens}/${maxVantagens + contarVantagensObrigatoriasRaca()}`;
     }
     if (elements.contadorDesvantagensAba) {
-        elements.contadorDesvantagensAba.textContent = `${desvantagensSelecionadas.size}/${maxDesvantagens}`;
+        elements.contadorDesvantagensAba.textContent = `${desvantagensSelecionadas.size}/${maxDesvantagens + contarDesvantagensObrigatoriasRaca()}`;
     }
     if (elements.contadorVantagensSpan) {
-        elements.contadorVantagensSpan.textContent = `${vantagensSelecionadas.size}/${maxVantagens}`;
+        elements.contadorVantagensSpan.textContent = `${totalVantagens}/${maxVantagens + contarVantagensObrigatoriasRaca()}`;
     }
     if (elements.contadorDesvantagensSpan) {
-        elements.contadorDesvantagensSpan.textContent = `${desvantagensSelecionadas.size}/${maxDesvantagens}`;
+        elements.contadorDesvantagensSpan.textContent = `${desvantagensSelecionadas.size}/${maxDesvantagens + contarDesvantagensObrigatoriasRaca()}`;
     }
     if (elements.maxVantagensDisplay) {
-        elements.maxVantagensDisplay.textContent = maxVantagens;
+        elements.maxVantagensDisplay.textContent = maxVantagens + contarVantagensObrigatoriasRaca();
     }
     if (elements.maxDesvantagensDisplay) {
-        elements.maxDesvantagensDisplay.textContent = maxDesvantagens;
+        elements.maxDesvantagensDisplay.textContent = maxDesvantagens + contarDesvantagensObrigatoriasRaca();
     }
     if (elements.contadorPericiasAba) {
         elements.contadorPericiasAba.textContent = `${ppGastoTotal} PP`;
@@ -10067,6 +10524,19 @@ function atualizarContadoresAbas() {
     if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
     
     atualizarDinheiroDisplay();
+}
+
+// ===== FUNÇÕES AUXILIARES PARA CONTAR VANTAGENS/DESVANTAGENS OBRIGATÓRIAS =====
+function contarVantagensObrigatoriasRaca() {
+    const vantagensRaca = racasData[racaSelecionada]?.vantagensObrigatorias || [];
+    return vantagensRaca.length;
+}
+
+function contarDesvantagensObrigatoriasRaca() {
+    const desvantagensRaca = racasData[racaSelecionada]?.desvantagensObrigatorias || [];
+    if (!desvantagensRaca) return 0;
+    if (Array.isArray(desvantagensRaca)) return desvantagensRaca.length;
+    return 1;
 }
 
 // ============================================
@@ -10183,7 +10653,7 @@ function salvarDadosBasicos() {
 }
 
 // ============================================
-// FUNÇÃO DE SALVAMENTO
+// FUNÇÃO DE SALVAMENTO (COM RAÇA)
 // ============================================
 async function salvarPersonagem(finalizar = false) {
     try {
@@ -10212,6 +10682,7 @@ async function salvarPersonagem(finalizar = false) {
         const personagemData = {
             nome: dadosBasicos.nome,
             classe: dadosBasicos.classe,
+            raca: racaSelecionada,  // ← NOVO: salva a raça escolhida
             idade: dadosBasicos.idade,
             altura: dadosBasicos.altura,
             peso: dadosBasicos.peso,
@@ -10252,6 +10723,7 @@ async function salvarPersonagem(finalizar = false) {
             vantagens: Array.from(vantagensSelecionadas),
             desvantagens: Array.from(desvantagensSelecionadas),
             fobia: fobiaSelecionada,
+            codigoHonra: codigoHonraSelecionado,  // ← NOVO: salva o código de honra
             pericias: pericias,
             escolas: escolas,
             ppDisponivel: ppDisponivel,
@@ -10259,7 +10731,8 @@ async function salvarPersonagem(finalizar = false) {
             inventario: inventario,
             dinheiro: dinheiro,
             maxVantagens: maxVantagens,
-            maxDesvantagens: maxDesvantagens
+            maxDesvantagens: maxDesvantagens,
+            racaConfirmada: racaConfirmada  // ← NOVO: se a raça foi confirmada
         };
         
         if (!personagemId) {
@@ -10285,6 +10758,7 @@ async function salvarPersonagem(finalizar = false) {
         
         if (personagemTemp) {
             personagemTemp.fotoURL = fotoURL;
+            personagemTemp.raca = racaSelecionada;
             sessionStorage.setItem('personagemTemp', JSON.stringify(personagemTemp));
         }
         
@@ -10700,7 +11174,7 @@ async function exportarPDF() {
 }
 
 // ============================================
-// CARREGAR PERSONAGEM
+// CARREGAR PERSONAGEM (COM RAÇA)
 // ============================================
 async function carregarPersonagem(id) {
     try {
@@ -10726,6 +11200,7 @@ async function carregarPersonagem(id) {
         personagemId = id;
         modoEdicao = true;
         
+        // ===== DADOS BÁSICOS =====
         document.getElementById('nomePersonagem').value = data.nome || '';
         document.getElementById('classePersonagem').value = data.classe || 'guerreiro';
         document.getElementById('idadePersonagem').value = data.idade || 25;
@@ -10734,17 +11209,39 @@ async function carregarPersonagem(id) {
         document.getElementById('dinheiroBase').value = data.dinheiroBase || 1000;
         document.getElementById('peculiaridades').value = data.peculiaridades || '';
         
+        // ===== RAÇA (NOVO) =====
+        if (data.raca) {
+            racaSelecionada = data.raca;
+            if (elements.racaPersonagem) {
+                elements.racaPersonagem.value = data.raca;
+            }
+            racaConfirmada = data.racaConfirmada || true;
+            
+            // Atualiza a caixa de informação da raça
+            atualizarInfoRaca();
+            
+            // Bloqueia o select de raça se já confirmado
+            if (racaConfirmada && elements.racaPersonagem) {
+                elements.racaPersonagem.disabled = true;
+                elements.racaPersonagem.style.opacity = '0.7';
+                elements.racaPersonagem.style.cursor = 'not-allowed';
+            }
+        }
+        
+        // ===== FOTO =====
         if (data.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
             elements.previewImage.src = data.fotoURL;
             elements.previewArea.style.display = 'block';
             elements.uploadArea.style.display = 'none';
         }
         
+        // ===== ESFERAS INICIAIS =====
         if (data.esferasIniciais !== undefined) {
             esferasIniciais = data.esferasIniciais;
             if (elements.esferasIniciaisInput) elements.esferasIniciaisInput.value = esferasIniciais;
         }
         
+        // ===== ATRIBUTOS =====
         if (data.atributos) {
             atributos.st.esferas = data.atributos.st?.esferas || 0;
             atributos.dx.esferas = data.atributos.dx?.esferas || 0;
@@ -10752,7 +11249,15 @@ async function carregarPersonagem(id) {
             atributos.vigor.esferas = data.atributos.vigor?.esferas || 0;
             atributos.vt.esferas = data.atributos.vt?.esferas || 0;
             
-            esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
+            // Calcula esferas restantes considerando o custo da raça
+            const totalGasto = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + 
+                              atributos.vigor.esferas + atributos.vt.esferas;
+            const custoRaca = racasData[racaSelecionada]?.custoEsferas || 0;
+            esferasRestantes = esferasIniciais - custoRaca - totalGasto;
+            
+            if (elements.esferasRestantesSpan) {
+                elements.esferasRestantesSpan.textContent = esferasRestantes;
+            }
             
             atualizarBolinhas('st');
             atualizarBolinhas('dx');
@@ -10761,6 +11266,7 @@ async function carregarPersonagem(id) {
             atualizarBolinhas('vt');
         }
         
+        // ===== VANTAGENS =====
         if (data.vantagens) {
             data.vantagens.forEach(v => vantagensSelecionadas.add(v));
             document.querySelectorAll('.vantagem-card').forEach(card => {
@@ -10770,6 +11276,15 @@ async function carregarPersonagem(id) {
             });
         }
         
+        // Adiciona vantagens obrigatórias da raça (se não estiverem já)
+        const vantagensRaca = racasData[racaSelecionada]?.vantagensObrigatorias || [];
+        vantagensRaca.forEach(v => {
+            if (!vantagensSelecionadas.has(v)) {
+                vantagensSelecionadas.add(v);
+            }
+        });
+        
+        // ===== DESVANTAGENS =====
         if (data.desvantagens) {
             data.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
             document.querySelectorAll('.desvantagem-card').forEach(card => {
@@ -10779,6 +11294,23 @@ async function carregarPersonagem(id) {
             });
         }
         
+        // Adiciona desvantagens obrigatórias da raça
+        const desvantagensRaca = racasData[racaSelecionada]?.desvantagensObrigatorias || [];
+        if (desvantagensRaca) {
+            if (Array.isArray(desvantagensRaca)) {
+                desvantagensRaca.forEach(d => {
+                    if (!desvantagensSelecionadas.has(d)) {
+                        desvantagensSelecionadas.add(d);
+                    }
+                });
+            } else if (typeof desvantagensRaca === 'string') {
+                if (!desvantagensSelecionadas.has(desvantagensRaca)) {
+                    desvantagensSelecionadas.add(desvantagensRaca);
+                }
+            }
+        }
+        
+        // ===== LIMITES =====
         if (data.maxVantagens !== undefined) {
             maxVantagens = data.maxVantagens;
             if (elements.maxVantagens) elements.maxVantagens.value = maxVantagens;
@@ -10789,6 +11321,7 @@ async function carregarPersonagem(id) {
             if (elements.maxDesvantagens) elements.maxDesvantagens.value = maxDesvantagens;
         }
         
+        // ===== FOBIA =====
         if (data.fobia && elements.fobiaEscolhida && elements.cardFobia) {
             fobiaSelecionada = data.fobia;
             elements.fobiaEscolhida.style.display = 'inline-block';
@@ -10796,11 +11329,37 @@ async function carregarPersonagem(id) {
             elements.cardFobia.classList.add('selecionada');
         }
         
+        // ===== CÓDIGO DE HONRA =====
+        if (data.codigoHonra) {
+            codigoHonraSelecionado = data.codigoHonra;
+            if (elements.codigoHonraEscolhido && elements.cardCodigoHonra) {
+                const codigos = {
+                    cavaleiro: 'Código do Cavaleiro',
+                    ladrao: 'Código do Ladrão',
+                    mercenario: 'Código do Mercenário',
+                    samurai: 'Código do Samurai',
+                    justiceiro: 'Código do Justiceiro'
+                };
+                elements.codigoHonraEscolhido.style.display = 'inline-block';
+                elements.codigoHonraEscolhido.textContent = codigos[data.codigoHonra] || data.codigoHonra;
+                elements.cardCodigoHonra.classList.add('selecionada');
+            }
+        }
+        
+        // ===== PERÍCIAS =====
         if (data.pericias) {
             pericias = data.pericias;
             renderizarPericiasAdquiridas();
         }
         
+        // ===== PP =====
+        if (data.ppDisponivel !== undefined) {
+            ppDisponivel = data.ppDisponivel;
+            if (elements.ppInicial) elements.ppInicial.value = ppDisponivel;
+        }
+        if (data.ppGasto !== undefined) ppGastoTotal = data.ppGasto;
+        
+        // ===== ESCOLAS DE MAGIA =====
         if (data.escolas) {
             if (data.escolas.agua) escolas.agua = data.escolas.agua;
             if (data.escolas.ar) escolas.ar = data.escolas.ar;
@@ -10814,26 +11373,23 @@ async function carregarPersonagem(id) {
             if (data.escolas.animais) escolas.animais = data.escolas.animais;
         }
         
+        // ===== INVENTÁRIO =====
         if (data.inventario) {
             inventario = data.inventario;
             renderizarInventario();
         }
         
+        // ===== DINHEIRO =====
         if (data.dinheiro !== undefined) {
             dinheiro = data.dinheiro;
         } else {
             dinheiro = calcularDinheiroInicial();
         }
         
-        // ⭐ CORREÇÃO: Inicializa o valor base anterior com o valor carregado
+        // ===== VALOR BASE ANTERIOR =====
         valorBaseAnterior = data.dinheiroBase || 1000;
         
-        if (data.ppDisponivel !== undefined) {
-            ppDisponivel = data.ppDisponivel;
-            if (elements.ppInicial) elements.ppInicial.value = ppDisponivel;
-        }
-        if (data.ppGasto !== undefined) ppGastoTotal = data.ppGasto;
-        
+        // ===== ATUALIZA INTERFACE =====
         if (elements.breadcrumbCurrent) elements.breadcrumbCurrent.textContent = `Editando: ${data.nome}`;
         if (elements.pageTitle) elements.pageTitle.textContent = `Editando: ${data.nome}`;
         if (elements.personagemIdHidden) elements.personagemIdHidden.value = id;
@@ -10842,11 +11398,46 @@ async function carregarPersonagem(id) {
         atualizarContadoresAbas();
         atualizarLimitesCards();
         
+        // Re-renderiza as magias
+        renderizarEsferas('agua');
+        renderizarEsferas('ar');
+        renderizarEsferas('gelo');
+        renderizarEsferas('fogo');
+        renderizarEsferas('terra');
+        renderizarEsferas('corpo');
+        renderizarEsferas('natureza');
+        renderizarEsferas('trevas');
+        renderizarEsferas('luz');
+        renderizarEsferas('animais');
+        
         hideLoading();
         
     } catch (error) {
-        alert('Erro ao carregar personagem!');
+        console.error('Erro ao carregar personagem:', error);
+        alert('Erro ao carregar personagem: ' + error.message);
         hideLoading();
+    }
+}
+
+// ===== FUNÇÃO AUXILIAR PARA ATUALIZAR INFO DA RAÇA NA INTERFACE =====
+function atualizarInfoRaca() {
+    const dadosRaca = racasData[racaSelecionada];
+    if (!dadosRaca) return;
+    
+    if (elements.racaInfoBox) {
+        elements.racaInfoBox.style.display = 'block';
+    }
+    if (elements.racaInfoTitulo) {
+        elements.racaInfoTitulo.innerHTML = `${dadosRaca.icone} ${dadosRaca.nome}`;
+    }
+    if (elements.racaInfoDescricao) {
+        let desc = dadosRaca.descricao;
+        if (dadosRaca.custoEsferas > 0) {
+            desc += ` | Custa ${dadosRaca.custoEsferas} esfera(s)`;
+        } else {
+            desc += ` | Grátis`;
+        }
+        elements.racaInfoDescricao.textContent = desc;
     }
 }
 
@@ -10874,7 +11465,15 @@ function carregarDadosSalvos() {
             document.getElementById('dinheiroBase').value = personagemTemp.dinheiroBase || 1000;
             document.getElementById('peculiaridades').value = personagemTemp.peculiaridades || '';
             
-            // ⭐ CORREÇÃO: Inicializa o valor base anterior com o valor do temp
+            // Carrega raça do sessionStorage se existir
+            if (personagemTemp.raca) {
+                racaSelecionada = personagemTemp.raca;
+                if (elements.racaPersonagem) {
+                    elements.racaPersonagem.value = personagemTemp.raca;
+                }
+                atualizarInfoRaca();
+            }
+            
             valorBaseAnterior = personagemTemp.dinheiroBase || 1000;
             
             if (personagemTemp.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
@@ -10895,7 +11494,10 @@ function carregarDadosSalvos() {
                 atributos.vigor.esferas = personagemTemp.atributos.vigor?.esferas || 0;
                 atributos.vt.esferas = personagemTemp.atributos.vt?.esferas || 0;
                 
-                esferasRestantes = esferasIniciais - (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas);
+                const custoRaca = racasData[racaSelecionada]?.custoEsferas || 0;
+                const totalGasto = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + 
+                                  atributos.vigor.esferas + atributos.vt.esferas;
+                esferasRestantes = esferasIniciais - custoRaca - totalGasto;
                 
                 atualizarBolinhas('st');
                 atualizarBolinhas('dx');
@@ -10908,8 +11510,32 @@ function carregarDadosSalvos() {
                 personagemTemp.vantagens.forEach(v => vantagensSelecionadas.add(v));
             }
             
+            // Adiciona vantagens obrigatórias da raça
+            const vantagensRaca = racasData[racaSelecionada]?.vantagensObrigatorias || [];
+            vantagensRaca.forEach(v => {
+                if (!vantagensSelecionadas.has(v)) {
+                    vantagensSelecionadas.add(v);
+                }
+            });
+            
             if (personagemTemp.desvantagens) {
                 personagemTemp.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
+            }
+            
+            // Adiciona desvantagens obrigatórias da raça
+            const desvantagensRaca = racasData[racaSelecionada]?.desvantagensObrigatorias || [];
+            if (desvantagensRaca) {
+                if (Array.isArray(desvantagensRaca)) {
+                    desvantagensRaca.forEach(d => {
+                        if (!desvantagensSelecionadas.has(d)) {
+                            desvantagensSelecionadas.add(d);
+                        }
+                    });
+                } else if (typeof desvantagensRaca === 'string') {
+                    if (!desvantagensSelecionadas.has(desvantagensRaca)) {
+                        desvantagensSelecionadas.add(desvantagensRaca);
+                    }
+                }
             }
             
             if (personagemTemp.maxVantagens !== undefined) {
@@ -10927,6 +11553,22 @@ function carregarDadosSalvos() {
                 elements.fobiaEscolhida.style.display = 'inline-block';
                 elements.fobiaEscolhida.textContent = personagemTemp.fobia;
                 elements.cardFobia.classList.add('selecionada');
+            }
+            
+            if (personagemTemp.codigoHonra) {
+                codigoHonraSelecionado = personagemTemp.codigoHonra;
+                if (elements.codigoHonraEscolhido && elements.cardCodigoHonra) {
+                    const codigos = {
+                        cavaleiro: 'Código do Cavaleiro',
+                        ladrao: 'Código do Ladrão',
+                        mercenario: 'Código do Mercenário',
+                        samurai: 'Código do Samurai',
+                        justiceiro: 'Código do Justiceiro'
+                    };
+                    elements.codigoHonraEscolhido.style.display = 'inline-block';
+                    elements.codigoHonraEscolhido.textContent = codigos[personagemTemp.codigoHonra] || personagemTemp.codigoHonra;
+                    elements.cardCodigoHonra.classList.add('selecionada');
+                }
             }
             
             if (personagemTemp.pericias) {
@@ -10968,7 +11610,9 @@ function carregarDadosSalvos() {
             atualizarContadoresAbas();
             atualizarLimitesCards();
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('Erro ao carregar dados salvos:', e);
+    }
 }
 
 async function excluirPersonagem() {
@@ -11034,8 +11678,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.esferasIniciaisInput) {
         elements.esferasIniciaisInput.addEventListener('change', () => {
             esferasIniciais = parseInt(elements.esferasIniciaisInput.value) || 6;
-            const totalGasto = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas;
-            esferasRestantes = esferasIniciais - totalGasto;
+            const custoRaca = racasData[racaSelecionada]?.custoEsferas || 0;
+            const totalGasto = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + 
+                              atributos.vigor.esferas + atributos.vt.esferas;
+            esferasRestantes = esferasIniciais - custoRaca - totalGasto;
             if (elements.esferasRestantesSpan) elements.esferasRestantesSpan.textContent = esferasRestantes;
             triggerAutoSave();
         });
@@ -11229,7 +11875,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => selecionarDesvantagem(card));
     });
     
-          // MODAL DE FOBIAS
+    // MODAL DE FOBIAS
     if (elements.cardFobia && elements.modalFobias) {
         elements.cardFobia.addEventListener('click', () => {
             elements.modalFobias.classList.add('active');
@@ -11268,7 +11914,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elements.modalFobias) elements.modalFobias.classList.remove('active');
             triggerAutoSave();
             
-            // ===== ADICIONA BOTÃO DE REMOVER FOBIA =====
             setTimeout(() => {
                 if (elements.cardFobia && !elements.cardFobia.querySelector('.btn-remover-escolha')) {
                     const btnRemover = document.createElement('button');
@@ -11304,7 +11949,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const codigoId = item.dataset.codigo;
             selecionarCodigoHonra(codigoId);
             
-            // ===== ADICIONA BOTÃO DE REMOVER CÓDIGO DE HONRA =====
             setTimeout(() => {
                 if (elements.cardCodigoHonra && !elements.cardCodigoHonra.querySelector('.btn-remover-escolha')) {
                     const btnRemover = document.createElement('button');
@@ -11366,7 +12010,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // ✅ BLOCO ATUALIZADO DO COMPRAR NÍVEL DA MAGIA
     if (elements.comprarNivelMagia) {
         elements.comprarNivelMagia.addEventListener('click', () => {
             if (!magiaSelecionada || !escolaMagiaSelecionada) return;
@@ -11377,7 +12020,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!magia || magia.nivel >= nivelMaximo) return;
             
-            // Cálculo dinâmico do custo baseado no nível atual
             let custo;
             if (magia.nivel === 0) custo = 1;
             else if (magia.nivel === 1) custo = 1;
@@ -11466,7 +12108,6 @@ document.addEventListener('DOMContentLoaded', () => {
     atualizarLimitesCards();
     renderizarTabelas('armas_ca');
     
-    // INICIALIZA OS BOTÕES DE INFO
     setTimeout(() => {
         adicionarEventosInfoCards();
     }, 500);
