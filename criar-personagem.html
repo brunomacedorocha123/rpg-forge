@@ -8645,7 +8645,6 @@ function calcularDanoBase() {
     const st = atributos.st.valor;
     return tabelaDano[st] || "1d-2";
 }
-
 // ============================================
 // FUNÇÕES DO SISTEMA DE PONTOS
 // ============================================
@@ -8653,7 +8652,7 @@ function calcularDanoBase() {
 function calcularGastoAtributo(valor) {
     if (valor === 5) return 0;
     if (valor > 5) return valor - 5;
-    return 0;
+    return valor - 5;  // valores abaixo de 5 (ganha pontos)
 }
 
 function atualizarSaldoPontos() {
@@ -8670,6 +8669,9 @@ function atualizarSaldoPontos() {
         elements.saldoPontosSpan.textContent = saldoPontos;
     }
     
+    // ⭐ ATUALIZA BOTÕES BASEADO NO SALDO ⭐
+    atualizarBotoesPorSaldo();
+    
     return saldoPontos;
 }
 
@@ -8681,54 +8683,109 @@ function atualizarDisplayGastos() {
     const vtGasto = calcularGastoAtributo(atributos.vt.valor);
     
     if (elements.stGasto) {
-        elements.stGasto.textContent = `gasto: ${stGasto}`;
+        elements.stGasto.textContent = stGasto >= 0 ? `gasto: +${stGasto}` : `ganho: ${stGasto}`;
     }
     if (elements.dxGasto) {
-        elements.dxGasto.textContent = `gasto: ${dxGasto}`;
+        elements.dxGasto.textContent = dxGasto >= 0 ? `gasto: +${dxGasto}` : `ganho: ${dxGasto}`;
     }
     if (elements.iqGasto) {
-        elements.iqGasto.textContent = `gasto: ${iqGasto}`;
+        elements.iqGasto.textContent = iqGasto >= 0 ? `gasto: +${iqGasto}` : `ganho: ${iqGasto}`;
     }
     if (elements.vigorGasto) {
-        elements.vigorGasto.textContent = `gasto: ${vigorGasto}`;
+        elements.vigorGasto.textContent = vigorGasto >= 0 ? `gasto: +${vigorGasto}` : `ganho: ${vigorGasto}`;
     }
     if (elements.vtGasto) {
-        elements.vtGasto.textContent = `gasto: ${vtGasto}`;
+        elements.vtGasto.textContent = vtGasto >= 0 ? `gasto: +${vtGasto}` : `ganho: ${vtGasto}`;
     }
 }
 
+// ⭐ NOVA FUNÇÃO: ATUALIZA BOTÕES BASEADO NO SALDO ⭐
+function atualizarBotoesPorSaldo() {
+    const atributosIds = ['st', 'dx', 'iq', 'vigor', 'vt'];
+    
+    atributosIds.forEach(attrId => {
+        const valorAtual = atributos[attrId].valor;
+        const btnMais = document.querySelector(`.btn-aumentar-atributo[data-atributo="${attrId}"]`);
+        const btnMenos = document.querySelector(`.btn-diminuir-atributo[data-atributo="${attrId}"]`);
+        
+        if (btnMais) {
+            // Calcula custo para aumentar
+            const gastoAtual = calcularGastoAtributo(valorAtual);
+            const gastoFuturo = calcularGastoAtributo(valorAtual + 1);
+            const custo = gastoFuturo - gastoAtual;
+            
+            // Verifica se pode aumentar
+            const podeAumentar = (valorAtual < 15) && (custo <= saldoPontos);
+            btnMais.disabled = !podeAumentar;
+            
+            // Tooltip explicativo
+            if (!podeAumentar && valorAtual < 15) {
+                btnMais.title = `⚠️ Precisa de ${custo} ponto(s) - Saldo: ${saldoPontos}`;
+            } else if (valorAtual >= 15) {
+                btnMais.title = '❌ Máximo atingido (15)';
+            } else {
+                btnMais.title = `➕ Aumentar (custa ${custo} ponto)`;
+            }
+        }
+        
+        if (btnMenos) {
+            btnMenos.disabled = (valorAtual <= 1);
+        }
+    });
+}
+
+// ⭐ FUNÇÃO AUMENTAR ATRIBUTO CORRIGIDA ⭐
 function aumentarAtributo(atributoId) {
-    if (saldoPontos <= 0) {
-        alert(`❌ Sem pontos! Você já gastou todos os ${pontosIniciais} pontos.`);
+    const atributo = atributos[atributoId];
+    const valorAtual = atributo.valor;
+    
+    // Verifica limite máximo
+    if (valorAtual >= 15) {
+        alert('❌ Atributo já está no máximo (15)!');
         return;
     }
     
-    const atributo = atributos[atributoId];
-    if (atributo.valor < 15) {
-        atributo.valor++;
-        atualizarInterface();
-        atualizarBotoesAtributo(atributoId);
-        atualizarSaldoPontos();
-        atualizarDisplayGastos();
-        triggerAutoSave();
-    } else {
-        alert(`❌ ${atributoId.toUpperCase()} já está no máximo (15)!`);
+    // Calcula custo para aumentar
+    const gastoAtual = calcularGastoAtributo(valorAtual);
+    const gastoFuturo = calcularGastoAtributo(valorAtual + 1);
+    const custo = gastoFuturo - gastoAtual;
+    
+    // ⭐ VERIFICA SE TEM PONTOS SUFICIENTES ⭐
+    if (custo > saldoPontos) {
+        alert(`⚠️ Pontos insuficientes!\n\nVocê precisa de ${custo} ponto(s) para aumentar, mas tem apenas ${saldoPontos} ponto(s).\n\nDiminua outro atributo ou aumente os pontos iniciais.`);
+        return;
     }
+    
+    // Se tiver pontos, aumenta
+    atributo.valor++;
+    atualizarInterface();
+    atualizarBotoesAtributo(atributoId);
+    atualizarBotoesPorSaldo();  // Atualiza todos os botões
+    triggerAutoSave();
 }
 
+// ⭐ FUNÇÃO DIMINUIR ATRIBUTO (já funciona, mas vamos garantir) ⭐
 function diminuirAtributo(atributoId) {
     const atributo = atributos[atributoId];
-    if (atributo.valor > 5) {
+    if (atributo.valor > 1) {
         atributo.valor--;
         atualizarInterface();
         atualizarBotoesAtributo(atributoId);
-        atualizarSaldoPontos();
-        atualizarDisplayGastos();
+        atualizarBotoesPorSaldo();  // Atualiza todos os botões
         triggerAutoSave();
-    } else {
-        alert(`❌ Não é possível reduzir ${atributoId.toUpperCase()} abaixo de 5.`);
     }
 }
+
+// ⭐ FUNÇÃO PARA ATUALIZAR BOTÕES INDIVIDUAL (já existente, mantemos) ⭐
+function atualizarBotoesAtributo(atributoId) {
+    const valor = atributos[atributoId].valor;
+    const btnMais = document.querySelector(`.btn-aumentar-atributo[data-atributo="${atributoId}"]`);
+    const btnMenos = document.querySelector(`.btn-diminuir-atributo[data-atributo="${atributoId}"]`);
+    
+    if (btnMais) btnMais.disabled = valor >= 15;
+    if (btnMenos) btnMenos.disabled = valor <= 1;
+}
+
 // ============================================
 // CÁLCULO DE DESLOCAMENTO
 // ============================================
@@ -12068,6 +12125,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
-
-
