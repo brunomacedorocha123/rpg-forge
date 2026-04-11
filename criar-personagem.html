@@ -2560,37 +2560,63 @@ body {
 }
 
 /* ============================================ */
-/* ESFERAS COM PENALIDADE (VERMELHA/PRETA) */
+/* ESFERAS COM PENALIDADE (VERMELHA/PRETA/AMARELA) */
 /* ============================================ */
 
+.bolinha {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #666;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-block;
+    margin: 3px;
+    position: relative;
+}
+
+/* VERMELHA = Penalidade ativa (devendo) */
 .bolinha.vermelha {
     background: #ff6b6b;
     border-color: #ff6b6b;
     box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
-    animation: pulse-vermelho 1s ease-in-out;
+    animation: pulse-vermelho 1.5s ease-in-out infinite;
 }
 
+/* PRETA = Penalidade neutralizada (pago o débito) */
 .bolinha.preta {
     background: #333;
     border-color: #555;
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
 }
 
+/* AMARELA/DOURADA = Evolução real (além da penalidade) */
+.bolinha.preenchida {
+    background: #ffd700;
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+    animation: pulse-dourado 2s ease-in-out infinite;
+}
+
+/* NUNCA deve ter preta + preenchida ao mesmo tempo */
 .bolinha.preta.preenchida {
-    background: #555;
-    border-color: #888;
+    /* Se acontecer, força amarelo */
+    background: #ffd700;
+    border-color: #ffd700;
 }
 
 @keyframes pulse-vermelho {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2); box-shadow: 0 0 20px rgba(255, 107, 107, 0.8); }
+    50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 107, 107, 0.8); }
 }
 
-/* Tooltip para explicar a penalidade */
-.bolinha[data-tooltip] {
-    position: relative;
+@keyframes pulse-dourado {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(255, 215, 0, 0.6); }
+    50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 215, 0, 0.9); }
 }
 
+/* Tooltip */
 .bolinha[data-tooltip]:hover::after {
     content: attr(data-tooltip);
     position: absolute;
@@ -2600,12 +2626,13 @@ body {
     background: #0a0a1a;
     border: 1px solid #ffd700;
     color: #ffd700;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-radius: 8px;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     white-space: nowrap;
     z-index: 100;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
 /* Indicador de raça ativa */
@@ -2662,6 +2689,12 @@ body {
     
     .modal-raca-actions {
         flex-direction: column;
+    }
+    
+    .bolinha {
+        width: 20px;
+        height: 20px;
+        margin: 2px;
     }
 }
 </style>
@@ -9035,50 +9068,20 @@ function criarBolinhas(atributoId) {
             
             // ========== AUMENTAR ==========
             if (estaAumentando && esferasRestantes > 0) {
-                // CASO 1: Está em débito (esferas < penalidade) - vai para PREto (neutraliza)
-                if (temPenalidade && esferasAtuais < valorPenalidade) {
-                    atributos[atributoId].esferas++;
-                    esferasRestantes--;
-                } 
-                // CASO 2: Está na neutralização (esferas == penalidade) - vai para AMARELO (primeira evolução REAL)
-                else if (temPenalidade && esferasAtuais === valorPenalidade) {
-                    atributos[atributoId].esferas++;
-                    esferasRestantes--;
-                }
-                // CASO 3: Evolução normal (já passou da penalidade)
-                else {
-                    atributos[atributoId].esferas++;
-                    esferasRestantes--;
-                }
+                atributos[atributoId].esferas++;
+                esferasRestantes--;
             } 
             // ========== DIMINUIR ==========
-            else if (estaDiminuindo) {
-                // CASO A: Saindo da primeira evolução (esferas == penalidade + 1) - volta para PREto
-                if (temPenalidade && esferasAtuais === valorPenalidade + 1) {
-                    atributos[atributoId].esferas--;
-                    esferasRestantes++;
-                }
-                // CASO B: Saindo da neutralização (esferas == penalidade) - volta para VERMELHO
-                else if (temPenalidade && esferasAtuais === valorPenalidade) {
-                    atributos[atributoId].esferas--;
-                    esferasRestantes++;
-                }
-                // CASO C: Redução normal (esferas > penalidade + 1)
-                else if (esferasAtuais > 0) {
-                    atributos[atributoId].esferas--;
-                    esferasRestantes++;
-                }
+            else if (estaDiminuindo && esferasAtuais > 0) {
+                atributos[atributoId].esferas--;
+                esferasRestantes++;
             }
             
             // Recalcula esferasRestantes para garantir consistência
             const totalGasto = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + 
                                atributos.vigor.esferas + atributos.vt.esferas;
             const novoRestante = esferasIniciais - totalGasto;
-            if (novoRestante >= 0) {
-                esferasRestantes = novoRestante;
-            } else {
-                esferasRestantes = 0;
-            }
+            esferasRestantes = Math.max(0, novoRestante);
             
             // Garante que esferas não fique negativo
             if (atributos[atributoId].esferas < 0) {
@@ -9114,34 +9117,35 @@ function atualizarBolinhas(atributoId) {
         
         // ========== LÓGICA DE EXIBIÇÃO CORRIGIDA ==========
         if (temPenalidade) {
+            // Dentro da zona de penalidade (índices 0 até valorPenalidade-1)
             if (i < valorPenalidade) {
-                // Posições que sofrem penalidade
                 if (esferasGastas === 0) {
                     // Nenhum ponto gasto -> VERMELHO (penalidade ativa)
                     bolinhas[i].classList.add('vermelha');
                 }
-                else if (esferasGastas <= valorPenalidade) {
-                    // Pontos gastos apenas para neutralizar -> PRETO
+                else if (esferasGastas < valorPenalidade) {
+                    // Neutralizando parcialmente
                     if (i < esferasGastas) {
-                        bolinhas[i].classList.add('preta');
+                        bolinhas[i].classList.add('preta');      // Pago
                     } else {
-                        bolinhas[i].classList.add('vermelha');
+                        bolinhas[i].classList.add('vermelha');   // Devendo
                     }
                 }
                 else {
-                    // Pontos além da penalidade -> PRETO (neutralizado) + AMARELO (evolução)
-                    if (i < valorPenalidade) {
-                        bolinhas[i].classList.add('preta');
-                    }
+                    // esferasGastas >= valorPenalidade -> Tudo preto (penalidade paga)
+                    bolinhas[i].classList.add('preta');
                 }
-            } else {
-                // Posições normais (acima da penalidade)
-                const pontosEvolucao = esferasGastas - valorPenalidade;
-                const posicaoReal = i - valorPenalidade;
-                if (pontosEvolucao > 0 && posicaoReal < pontosEvolucao) {
-                    // Evolução real -> AMARELO
+            } 
+            // Fora da zona de penalidade (evolução real)
+            else {
+                const pontosEvolucao = Math.max(0, esferasGastas - valorPenalidade);
+                const posicaoEvolucao = i - valorPenalidade; // 0, 1, 2...
+                
+                if (posicaoEvolucao < pontosEvolucao) {
+                    // Tem evolução nesta posição -> AMARELO
                     bolinhas[i].classList.add('preenchida');
                 }
+                // else: sem classe = bolinha vazia/default
             }
         } else {
             // Sem penalidade, comportamento normal
@@ -9155,15 +9159,20 @@ function atualizarBolinhas(atributoId) {
             if (esferasGastas === 0) {
                 bolinhas[i].setAttribute('data-tooltip', `Penalidade: -${valorPenalidade} ${atributoId.toUpperCase()} - Precisa de ${valorPenalidade} esfera(s) para neutralizar`);
             }
-            else if (esferasGastas <= valorPenalidade) {
+            else if (esferasGastas < valorPenalidade) {
                 const deficit = valorPenalidade - esferasGastas;
-                if (deficit > 0) {
-                    bolinhas[i].setAttribute('data-tooltip', `Penalidade: -${valorPenalidade} ${atributoId.toUpperCase()} - Faltam ${deficit} esfera(s) para neutralizar`);
-                } else {
-                    bolinhas[i].setAttribute('data-tooltip', `Penalidade neutralizada`);
-                }
+                bolinhas[i].setAttribute('data-tooltip', `Penalidade: -${valorPenalidade} ${atributoId.toUpperCase()} - Faltam ${deficit} esfera(s) para neutralizar`);
             } else {
-                bolinhas[i].setAttribute('data-tooltip', `Penalidade neutralizada (+${esferasGastas - valorPenalidade} evolução)`);
+                const evolucao = esferasGastas - valorPenalidade;
+                bolinhas[i].setAttribute('data-tooltip', `Penalidade neutralizada${evolucao > 0 ? ` (+${evolucao} evolução)` : ''}`);
+            }
+        } else if (temPenalidade && i >= valorPenalidade) {
+            const pontosEvolucao = Math.max(0, esferasGastas - valorPenalidade);
+            const posicaoEvolucao = i - valorPenalidade;
+            if (posicaoEvolucao < pontosEvolucao) {
+                bolinhas[i].setAttribute('data-tooltip', `Evolução real (+${posicaoEvolucao + 1})`);
+            } else {
+                bolinhas[i].removeAttribute('data-tooltip');
             }
         } else {
             bolinhas[i].removeAttribute('data-tooltip');
