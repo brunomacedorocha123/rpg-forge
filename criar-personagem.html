@@ -8331,29 +8331,90 @@ const elements = {
     cardCodigoHonra: document.getElementById('cardCodigoHonra'),
     codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido')
 };
-
 // ============================================
-// FUNÇÕES DE ATRIBUTOS
+// FUNÇÕES DE ATRIBUTOS CORRIGIDAS
 // ============================================
-function getSTFixo() { return 5 + atributos.st.esferas; }
-function getSTPercentual() { return 50 + (atributos.st.esferas * 3); }
 
-function getDXFixo() { return 5 + atributos.dx.esferas; }
-function getDXPercentual() { return 50 + (atributos.dx.esferas * 2); }
+// Função auxiliar para calcular o valor real do atributo (considerando penalidade da raça)
+function getValorRealAtributo(atributo, esferasGastas) {
+    const penalidade = getPenalidadeAtributo({ raca: racaSelecionada }, atributo);
+    const base = 5;
+    
+    if (penalidade.temPenalidade) {
+        const valorPenalidade = penalidade.valor;
+        // Valor real = base + (esferasGastas - valorPenalidade)
+        // Se esferasGastas = 0 -> base - valorPenalidade (ex: 5 - 1 = 4)
+        // Se esferasGastas = 1 -> base + (1 - 1) = 5 (neutralizou)
+        // Se esferasGastas = 2 -> base + (2 - 1) = 6 (evoluiu 1)
+        const esferasEfetivas = Math.max(0, esferasGastas - valorPenalidade);
+        return base + esferasEfetivas;
+    }
+    
+    return base + esferasGastas;
+}
 
-function getIQFixo() { return 5 + atributos.iq.esferas; }
-function getIQPercentual() { return 50 + (atributos.iq.esferas * 2); }
+// Função auxiliar para calcular o percentual do atributo
+function getPercentualRealAtributo(atributo, esferasGastas) {
+    const valorReal = getValorRealAtributo(atributo, esferasGastas);
+    const incremento = valorReal - 5;
+    
+    if (atributo === 'st' || atributo === 'vigor') {
+        return 50 + (incremento * 3);
+    } else if (atributo === 'dx' || atributo === 'iq') {
+        return 50 + (incremento * 2);
+    } else if (atributo === 'vt') {
+        return 40 + (incremento * 3);
+    }
+    
+    return 50;
+}
 
-function getVIGORFixo() { return 5 + atributos.vigor.esferas; }
-function getVIGORPercentual() { return 50 + (atributos.vigor.esferas * 3); }
+// ST (Força)
+function getSTFixo() { 
+    return getValorRealAtributo('st', atributos.st.esferas);
+}
 
+function getSTPercentual() { 
+    return getPercentualRealAtributo('st', atributos.st.esferas);
+}
+
+// DX (Destreza)
+function getDXFixo() { 
+    return getValorRealAtributo('dx', atributos.dx.esferas);
+}
+
+function getDXPercentual() { 
+    return getPercentualRealAtributo('dx', atributos.dx.esferas);
+}
+
+// IQ (Inteligência)
+function getIQFixo() { 
+    return getValorRealAtributo('iq', atributos.iq.esferas);
+}
+
+function getIQPercentual() { 
+    return getPercentualRealAtributo('iq', atributos.iq.esferas);
+}
+
+// VIGOR
+function getVIGORFixo() { 
+    return getValorRealAtributo('vigor', atributos.vigor.esferas);
+}
+
+function getVIGORPercentual() { 
+    return getPercentualRealAtributo('vigor', atributos.vigor.esferas);
+}
+
+// VT (Vitalidade)
 function getVTFixo() { 
-    return 5 + atributos.vt.esferas;
+    return getValorRealAtributo('vt', atributos.vt.esferas);
 }
 
 function getVTPercentual() { 
-    return 40 + (atributos.vt.esferas * 3);
+    return getPercentualRealAtributo('vt', atributos.vt.esferas);
 }
+
+// ===== DERIVADOS =====
 
 function calcularPV() { 
     let vtBase = getVTFixo();
@@ -8947,8 +9008,9 @@ if (document.readyState === 'loading') {
     setTimeout(adicionarEventosInfoCards, 500);
 }
 // ============================================
-// BOLINHAS
+// BOLINHAS - VERSÃO CORRIGIDA
 // ============================================
+
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
     if (!container) return;
@@ -8962,36 +9024,54 @@ function criarBolinhas(atributoId) {
         bolinha.dataset.atributo = atributoId;
         
         bolinha.addEventListener('click', () => {
-            const clicada = i < atributos[atributoId].esferas;
+            const esferasAtuais = atributos[atributoId].esferas;
             const penalidade = getPenalidadeAtributo({ raca: racaSelecionada }, atributoId);
             const temPenalidade = penalidade.temPenalidade;
             const valorPenalidade = penalidade.valor;
             
-            // Se está aumentando
-            if (!clicada && esferasRestantes > 0) {
-                // Se tem penalidade e ainda está em débito
-                if (temPenalidade && atributos[atributoId].esferas < valorPenalidade) {
-                    // Está neutralizando a penalidade (custa 1 ponto, mas não aumenta efetivamente)
-                    atributos[atributoId].esferas++;
-                    esferasRestantes--;
-                } else {
-                    // Evolução normal
-                    atributos[atributoId].esferas++;
-                    esferasRestantes--;
-                }
+            // Verifica se o clique é na bolinha atual (marcada ou não)
+            const estaMarcada = i < esferasAtuais;
+            
+            // ===== LÓGICA CORRIGIDA =====
+            if (!estaMarcada && esferasRestantes > 0) {
+                // AUMENTANDO
+                atributos[atributoId].esferas++;
+                esferasRestantes--;
             } 
-            // Se está diminuindo
-            else if (clicada) {
-                // Se tem penalidade e está saindo da neutralização
-                if (temPenalidade && atributos[atributoId].esferas === valorPenalidade) {
-                    // Remove a neutralização (volta a ficar em débito)
-                    atributos[atributoId].esferas--;
-                    esferasRestantes++;
-                } else {
-                    // Redução normal
+            else if (estaMarcada) {
+                // DIMINUINDO - Verifica se pode remover
+                let podeRemover = true;
+                
+                if (temPenalidade) {
+                    // Calcula quantas esferas estão na zona de penalidade
+                    const esferasNaPenalidade = Math.min(esferasAtuais, valorPenalidade);
+                    const esferasEfetivas = Math.max(0, esferasAtuais - valorPenalidade);
+                    
+                    // Se só tem esferas na penalidade e nenhuma efetiva
+                    if (esferasNaPenalidade > 0 && esferasEfetivas === 0) {
+                        // Pode remover (vai voltar a ter penalidade ativa)
+                        podeRemover = true;
+                    } else {
+                        // Tem esferas efetivas, pode remover normal
+                        podeRemover = true;
+                    }
+                }
+                
+                if (podeRemover) {
                     atributos[atributoId].esferas--;
                     esferasRestantes++;
                 }
+            } else {
+                // Sem esferas restantes, não faz nada
+                return;
+            }
+            
+            // Garante que não fique negativo
+            if (atributos[atributoId].esferas < 0) {
+                atributos[atributoId].esferas = 0;
+                esferasRestantes = esferasIniciais - 
+                    (atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + 
+                     atributos.vigor.esferas + atributos.vt.esferas);
             }
             
             atualizarInterface();
@@ -9010,7 +9090,7 @@ function atualizarBolinhas(atributoId) {
     if (!container) return;
     
     const bolinhas = container.children;
-    const preenchidas = atributos[atributoId].esferas;
+    const esferasGastas = atributos[atributoId].esferas;
     
     // Verifica penalidade de raça para este atributo
     const penalidade = getPenalidadeAtributo({ raca: racaSelecionada }, atributoId);
@@ -9019,40 +9099,44 @@ function atualizarBolinhas(atributoId) {
     
     for (let i = 0; i < bolinhas.length; i++) {
         // Remove classes existentes
-        bolinhas[i].classList.remove('vermelha', 'preta');
-        bolinhas[i].classList.remove('preenchida');
+        bolinhas[i].classList.remove('vermelha', 'preta', 'preenchida');
         
-        // Lógica de exibição
         if (temPenalidade) {
             if (i < valorPenalidade) {
-                // Posições que sofrem penalidade
-                if (i < preenchidas) {
-                    // Penalidade neutralizada (gastou ponto)
+                // Zona de penalidade (posições 0, 1, 2... até valorPenalidade-1)
+                if (esferasGastas > i) {
+                    // Penalidade neutralizada para esta posição (esfera PRETA)
                     bolinhas[i].classList.add('preta');
                 } else {
-                    // Penalidade ativa
+                    // Penalidade ativa para esta posição (esfera VERMELHA)
                     bolinhas[i].classList.add('vermelha');
                 }
             } else {
-                // Posições normais (acima da penalidade)
+                // Zona normal (acima da penalidade)
                 const posicaoReal = i - valorPenalidade;
-                const pontosEvolucao = preenchidas - valorPenalidade;
-                if (posicaoReal < pontosEvolucao) {
+                const pontosEvolucao = Math.max(0, esferasGastas - valorPenalidade);
+                if (pontosEvolucao > 0 && posicaoReal < pontosEvolucao) {
                     bolinhas[i].classList.add('preenchida');
                 }
             }
         } else {
             // Sem penalidade, comportamento normal
-            if (i < preenchidas) {
+            if (i < esferasGastas) {
                 bolinhas[i].classList.add('preenchida');
             }
         }
         
-        // Tooltip
-        if (temPenalidade && i < valorPenalidade && i >= preenchidas) {
-            bolinhas[i].setAttribute('data-tooltip', `Penalidade: -${valorPenalidade} ${atributoId.toUpperCase()}`);
-        } else if (temPenalidade && i < valorPenalidade && i < preenchidas) {
-            bolinhas[i].setAttribute('data-tooltip', `Penalidade neutralizada`);
+        // Adiciona tooltip para explicar o estado
+        if (temPenalidade && i < valorPenalidade) {
+            if (i < esferasGastas) {
+                bolinhas[i].setAttribute('data-tooltip', `⚫ Penalidade neutralizada (gastou 1 esfera)`);
+            } else {
+                const deficit = valorPenalidade - esferasGastas;
+                bolinhas[i].setAttribute('data-tooltip', `🔴 Penalidade ativa! Faltam ${deficit} esfera(s) para neutralizar o déficit de -${valorPenalidade} ${atributoId.toUpperCase()}`);
+            }
+        } else if (temPenalidade && i >= valorPenalidade && i < esferasGastas) {
+            const nivelEfetivo = esferasGastas - valorPenalidade;
+            bolinhas[i].setAttribute('data-tooltip', `🟡 Evolução real: Nível ${nivelEfetivo} (gastou ${esferasGastas} esferas no total, ${valorPenalidade} para neutralizar penalidade)`);
         } else {
             bolinhas[i].removeAttribute('data-tooltip');
         }
@@ -11223,14 +11307,64 @@ function confirmarRaca(racaId) {
     const config = RACAS_CONFIG[racaId];
     if (!config) return;
     
-    // Remove raça anterior (apenas limpa a variável)
-    racaSelecionada = null;
+    // Se já tem uma raça, reverte os efeitos dela primeiro
+    if (racaSelecionada) {
+        const configAntiga = RACAS_CONFIG[racaSelecionada];
+        if (configAntiga && configAntiga.atributos) {
+            Object.entries(configAntiga.atributos).forEach(([atributo, mod]) => {
+                if (atributos[atributo]) {
+                    let novoValor = atributos[atributo].esferas - mod.modificador;
+                    if (novoValor < 0) novoValor = 0;
+                    atributos[atributo].esferas = novoValor;
+                }
+            });
+        }
+        
+        if (configAntiga && configAntiga.vantagem) {
+            if (vantagensSelecionadas.has(configAntiga.vantagem)) {
+                vantagensSelecionadas.delete(configAntiga.vantagem);
+                document.querySelectorAll('.vantagem-card').forEach(card => {
+                    if (card.dataset.vantagem === configAntiga.vantagem) {
+                        card.classList.remove('selecionada');
+                    }
+                });
+            }
+        }
+        
+        if (configAntiga && configAntiga.desvantagensObrigatorias) {
+            configAntiga.desvantagensObrigatorias.forEach(desv => {
+                if (desvantagensSelecionadas.has(desv)) {
+                    desvantagensSelecionadas.delete(desv);
+                    document.querySelectorAll('.desvantagem-card').forEach(card => {
+                        if (card.dataset.desvantagem === desv) {
+                            card.classList.remove('selecionada');
+                        }
+                    });
+                }
+            });
+        }
+    }
     
     // Aplica nova raça
     racaSelecionada = racaId;
     
-    // NÃO MEXE nos atributos.st.esferas, atributos.dx.esferas, etc.
-    // O débito da DX é controlado APENAS pelas cores das bolinhas
+    // Aplica modificadores de atributos
+    if (config.atributos) {
+        Object.entries(config.atributos).forEach(([atributo, mod]) => {
+            if (atributos[atributo]) {
+                let novoValor = atributos[atributo].esferas + mod.modificador;
+                if (novoValor < 0) novoValor = 0;
+                atributos[atributo].esferas = novoValor;
+            }
+        });
+    }
+    
+    // Recalcula esferas restantes
+    const totalGasto = atributos.st.esferas + atributos.dx.esferas + atributos.iq.esferas + atributos.vigor.esferas + atributos.vt.esferas;
+    esferasRestantes = esferasIniciais - totalGasto;
+    if (elements.esferasRestantesSpan) {
+        elements.esferasRestantesSpan.textContent = esferasRestantes;
+    }
     
     // Aplica vantagem automática
     if (config.vantagem) {
@@ -11293,7 +11427,7 @@ function atualizarDisplayRaca() {
         if (racaNomeDisplay) racaNomeDisplay.style.display = 'none';
         if (racaAtivaBadge) racaAtivaBadge.style.display = 'none';
     }
-}
+}  
 
 // ============================================
 // CARREGAR PERSONAGEM
