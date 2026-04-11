@@ -9075,35 +9075,35 @@ function criarBolinhas(atributoId) {
         bolinha.dataset.index = i;
         bolinha.dataset.atributo = atributoId;
         
-        bolinha.addEventListener('click', () => {
+        bolinha.addEventListener('click', (e) => {
             const esferasAtuais = atributos[atributoId].esferas;
+            const penalidade = getPenalidadeAtributo({ raca: racaSelecionada }, atributoId);
+            const temPenalidade = penalidade.temPenalidade;
+            const valorPenalidade = penalidade.valor || 0;
             
-            // LÓGICA SIMPLES: Clicar na bolinha define o valor diretamente
+            // LÓGICA CORRIGIDA: 
+            // - Se clicou em bolinha NÃO preenchida -> AUMENTAR para esse índice + 1
+            // - Se clicou em bolinha JÁ preenchida -> DIMINUIR para esse índice
+            
+            const estaPreenchida = i < esferasAtuais;
             let novoValor;
             
-            if (i >= esferasAtuais) {
-                // Clicou em bolinha à frente ou na atual = AUMENTAR
-                if (esferasRestantes > 0) {
-                    novoValor = esferasAtuais + 1;
-                } else {
-                    return; // Sem esferas para gastar
-                }
+            if (estaPreenchida) {
+                // Clicou em bolinha já preenchida = DIMINUIR
+                novoValor = i; // Define como o valor da bolinha clicada (0-based, então i)
             } else {
-                // Clicou em bolinha anterior = DIMINUIR para aquele valor
-                novoValor = i;
+                // Clicou em bolinha vazia = AUMENTAR
+                if (esferasRestantes <= 0) return; // Sem esferas disponíveis
+                novoValor = i + 1; // Preenche até essa bolinha (1-based)
             }
             
-            // Atualiza esferasRestantes
+            // Calcula diferença e atualiza
             const diferenca = novoValor - esferasAtuais;
             esferasRestantes -= diferenca;
             
-            // Aplica o novo valor
-            atributos[atributoId].esferas = novoValor;
-            
-            // Garante limites
-            if (atributos[atributoId].esferas < 0) atributos[atributoId].esferas = 0;
-            if (atributos[atributoId].esferas > 10) atributos[atributoId].esferas = 10;
-            if (esferasRestantes < 0) esferasRestantes = 0;
+            // Aplica
+            atributos[atributoId].esferas = Math.max(0, novoValor);
+            esferasRestantes = Math.max(0, esferasRestantes);
             
             atualizarInterface();
             atualizarBolinhas(atributoId);
@@ -9133,6 +9133,9 @@ function atualizarBolinhas(atributoId) {
         bolinhas[i].classList.remove('vermelha', 'preta', 'preenchida');
         bolinhas[i].removeAttribute('data-tooltip');
         
+        // Determina se esta bolinha específica está preenchida
+        const bolinhaPreenchida = i < esferasGastas;
+        
         // LÓGICA DE CORES POR POSIÇÃO
         if (temPenalidade && valorPenalidade > 0) {
             // === COM PENALIDADE ===
@@ -9140,51 +9143,41 @@ function atualizarBolinhas(atributoId) {
             if (i < valorPenalidade) {
                 // Posições dentro da zona de penalidade
                 
-                if (esferasGastas === 0) {
-                    // Nada pago = VERMELHO
+                if (!bolinhaPreenchida) {
+                    // Não preenchida = VERMELHO (penalidade ativa ou pendente)
                     bolinhas[i].classList.add('vermelha');
-                    bolinhas[i].setAttribute('data-tooltip', `Penalidade ativa: -${valorPenalidade} ${atributoId.toUpperCase()}`);
-                } else if (esferasGastas <= valorPenalidade) {
-                    // Pagando parcialmente
-                    if (i < esferasGastas) {
-                        bolinhas[i].classList.add('preta');    // Já pago
-                        bolinhas[i].setAttribute('data-tooltip', `Neutralizado ${i+1}/${valorPenalidade}`);
+                    if (esferasGastas === 0) {
+                        bolinhas[i].setAttribute('data-tooltip', `Penalidade: -${valorPenalidade} ${atributoId.toUpperCase()}`);
                     } else {
-                        bolinhas[i].classList.add('vermelha'); // Ainda devendo
                         bolinhas[i].setAttribute('data-tooltip', `Falta neutralizar`);
                     }
                 } else {
-                    // Já pagou tudo = PRETO
+                    // Preenchida = PRETO (neutralizado)
                     bolinhas[i].classList.add('preta');
-                    const evoluiu = esferasGastas - valorPenalidade;
-                    bolinhas[i].setAttribute('data-tooltip', `Penalidade paga (+${evoluiu} evolução)`);
+                    const evoluiu = Math.max(0, esferasGastas - valorPenalidade);
+                    bolinhas[i].setAttribute('data-tooltip', `Penalidade paga${evoluiu > 0 ? ` (+${evoluiu} evolução)` : ''}`);
                 }
                 
             } else {
                 // Posições FORA da zona de penalidade (evolução real)
                 
-                // Calcula quantas esferas de evolução real existem
-                const evolucaoReal = esferasGastas - valorPenalidade;
-                // Posição relativa na zona de evolução (0, 1, 2...)
-                const posicaoNaEvolucao = i - valorPenalidade;
-                
-                if (posicaoNaEvolucao < evolucaoReal && evolucaoReal > 0) {
-                    // Tem evolução nesta posição = AMARELO
+                if (bolinhaPreenchida) {
+                    // Preenchida = AMARELO (evolução real)
                     bolinhas[i].classList.add('preenchida');
-                    bolinhas[i].setAttribute('data-tooltip', `Evolução +${posicaoNaEvolucao + 1}`);
+                    const numEvolucao = i - valorPenalidade + 1;
+                    bolinhas[i].setAttribute('data-tooltip', `Evolução +${numEvolucao}`);
                 }
-                // else: sem classe = vazia
+                // else: vazia = sem classe (default)
             }
             
         } else {
             // === SEM PENALIDADE ===
-            if (i < esferasGastas) {
+            if (bolinhaPreenchida) {
                 bolinhas[i].classList.add('preenchida');
             }
         }
     }
 }
-
 // ============================================
 // FUNÇÃO AUXILIAR PARA ADICIONAR ITENS COM QUANTIDADE
 // ============================================
