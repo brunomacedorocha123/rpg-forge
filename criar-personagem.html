@@ -8861,8 +8861,19 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================
-// BOLINHAS (COM SUPORTE A DÉBITO VERMELHO)
+// BOLINHAS (COM SUPORTE A DÉBITO VERMELHO - CORRIGIDO)
 // ============================================
+
+// Função auxiliar para calcular esferas disponíveis
+function getEsferasDisponiveis() {
+    const totalGasto = atributos.st.esferas + atributos.dx.esferas + 
+                       atributos.iq.esferas + atributos.vigor.esferas + 
+                       atributos.vt.esferas;
+    const custoRaca = (racaSelecionada === 'elfo' || racaSelecionada === 'anao') ? 1 : 0;
+    const disponiveis = esferasIniciais - custoRaca - totalGasto;
+    return Math.max(0, disponiveis);
+}
+
 function criarBolinhas(atributoId) {
     const container = document.getElementById(`${atributoId}Bolinhas`);
     if (!container) return;
@@ -8888,17 +8899,28 @@ function criarBolinhas(atributoId) {
         bolinha.addEventListener('click', () => {
             const esferasAtuais = atributos[atributoId].esferas;
             const clicada = i < (quantidadeDebito + esferasAtuais);
+            const esferasDisponiveis = getEsferasDisponiveis();
             
-            if (!clicada && esferasRestantes > 0) {
+            if (!clicada && esferasDisponiveis > 0) {
                 // Pagar débito ou adicionar bônus
                 atributos[atributoId].esferas++;
-                esferasRestantes--;
             } else if (clicada && (i >= quantidadeDebito || esferasAtuais > 0)) {
                 // Só pode remover se não for débito obrigatório ou se tiver esferas extras
                 if (i >= quantidadeDebito || esferasAtuais > 0) {
                     atributos[atributoId].esferas--;
-                    esferasRestantes++;
                 }
+            }
+            
+            // Recalcula esferasRestantes corretamente
+            const novoTotalGasto = atributos.st.esferas + atributos.dx.esferas + 
+                                   atributos.iq.esferas + atributos.vigor.esferas + 
+                                   atributos.vt.esferas;
+            const custoRaca = (racaSelecionada === 'elfo' || racaSelecionada === 'anao') ? 1 : 0;
+            esferasRestantes = esferasIniciais - custoRaca - novoTotalGasto;
+            if (esferasRestantes < 0) esferasRestantes = 0;
+            
+            if (elements.esferasRestantesSpan) {
+                elements.esferasRestantesSpan.textContent = esferasRestantes;
             }
             
             atualizarInterface();
@@ -9464,7 +9486,7 @@ function descartarItem(itemId, local) {
     }
 }
 // ============================================
-// ATUALIZAR INTERFACE
+// ATUALIZAR INTERFACE (CORRIGIDO)
 // ============================================
 function atualizarArmaEquipada() {
     if (!elements.armaNome || !elements.armaDano) return;
@@ -9494,7 +9516,7 @@ function calcularRD() {
     return rd;
 }
 
-// ===== NOVA FUNÇÃO PARA ATUALIZAR INFO DA RAÇA NA INTERFACE =====
+// ===== FUNÇÃO PARA ATUALIZAR INFO DA RAÇA NA INTERFACE =====
 function atualizarInfoRaca() {
     const dadosRaca = racasData[racaSelecionada];
     if (!dadosRaca) return;
@@ -9508,7 +9530,7 @@ function atualizarInfoRaca() {
     if (elements.racaInfoDescricao) {
         let desc = dadosRaca.descricao;
         if (dadosRaca.custoEsferas > 0) {
-            desc += ` | Custa ${dadosRaca.custoEsferas} esfera`;
+            desc += ` | Custa ${dadosRaca.custoEsferas} esfera(s)`;
         } else {
             desc += ` | Grátis`;
         }
@@ -9519,6 +9541,21 @@ function atualizarInfoRaca() {
 function atualizarInterface() {
     // ===== ATUALIZA INFO DA RAÇA =====
     atualizarInfoRaca();
+    
+    // ===== CORREÇÃO DAS ESFERAS RESTANTES =====
+    const totalGastoAtributos = atributos.st.esferas + atributos.dx.esferas + 
+                                atributos.iq.esferas + atributos.vigor.esferas + 
+                                atributos.vt.esferas;
+    const custoRaca = racasData[racaSelecionada]?.custoEsferas || 0;
+    
+    // Fórmula CORRETA: Esferas Restantes = Esferas Iniciais - Custo da Raça - Gastos nos Atributos
+    esferasRestantes = esferasIniciais - custoRaca - totalGastoAtributos;
+    if (esferasRestantes < 0) esferasRestantes = 0;
+    
+    if (elements.esferasRestantesSpan) {
+        elements.esferasRestantesSpan.textContent = esferasRestantes;
+    }
+    // ===== FIM DA CORREÇÃO =====
     
     // ST
     if (elements.stValor) elements.stValor.textContent = getSTFixo();
@@ -9540,15 +9577,10 @@ function atualizarInterface() {
     if (elements.vigorFixo) elements.vigorFixo.textContent = getVIGORFixo();
     if (elements.vigorPercentual) elements.vigorPercentual.textContent = getVIGORPercentual() + '%';
     
-    // VT (Vitalidade) - COMPLETO
+    // VT (Vitalidade)
     if (elements.vtValor) elements.vtValor.textContent = getVTFixo();
     if (elements.vtFixo) elements.vtFixo.textContent = getVTFixo();
     if (elements.vtPercentual) elements.vtPercentual.textContent = getVTPercentual() + '%';
-    
-    // Esferas Restantes
-    if (elements.esferasRestantesSpan) {
-        elements.esferasRestantesSpan.textContent = esferasRestantes;
-    }
     
     // Nível
     if (elements.nivelPersonagemSpan) {
@@ -10601,12 +10633,13 @@ function mudarAba(abaId) {
 }
 
 // ============================================
-// FUNÇÕES DE COLETA DE DADOS
+// FUNÇÕES DE COLETA DE DADOS (COM RAÇA)
 // ============================================
 function coletarDadosBasicos() {
     return {
         nome: document.getElementById('nomePersonagem')?.value || '',
         classe: document.getElementById('classePersonagem')?.value || 'guerreiro',
+        raca: racaSelecionada,  // ← NOVO
         idade: parseInt(document.getElementById('idadePersonagem')?.value) || 25,
         altura: parseInt(document.getElementById('alturaPersonagem')?.value) || 170,
         peso: parseFloat(document.getElementById('pesoPersonagem')?.value) || 70,
@@ -10627,6 +10660,8 @@ function salvarDadosBasicos() {
     
     personagemTemp = {
         ...dados,
+        raca: racaSelecionada,  // ← NOVO
+        racaConfirmada: racaConfirmada,  // ← NOVO
         esferasIniciais: esferasIniciais,
         atributos: {
             st: { esferas: atributos.st.esferas },
@@ -10640,6 +10675,7 @@ function salvarDadosBasicos() {
         vantagens: Array.from(vantagensSelecionadas),
         desvantagens: Array.from(desvantagensSelecionadas),
         fobia: fobiaSelecionada,
+        codigoHonra: codigoHonraSelecionado,  // ← NOVO
         pericias: pericias,
         ppDisponivel: ppDisponivel,
         ppGasto: ppGastoTotal,
