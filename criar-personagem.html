@@ -8665,6 +8665,221 @@ document.querySelectorAll('.btn-diminuir-atributo').forEach(btn => {
 });
 
 // ============================================
+// FUNÇÕES DO SISTEMA DE PONTOS (CUSTO 2 POR NÍVEL)
+// ============================================
+
+function calcularGastoAtributo(valor) {
+    // Abaixo de 5: ganha pontos (valor negativo)
+    if (valor < 5) {
+        return (valor - 5) * 2;  // Ex: 4 → -2, 3 → -4, 2 → -6, 1 → -8
+    }
+    // Acima de 5: gasta 2 pontos por nível
+    if (valor > 5) {
+        return (valor - 5) * 2;  // Ex: 6 → 2, 7 → 4, 8 → 6...
+    }
+    // Igual a 5: custo zero
+    return 0;
+}
+
+function atualizarSaldoPontos() {
+    const stGasto = calcularGastoAtributo(atributos.st.valor);
+    const dxGasto = calcularGastoAtributo(atributos.dx.valor);
+    const iqGasto = calcularGastoAtributo(atributos.iq.valor);
+    const vigorGasto = calcularGastoAtributo(atributos.vigor.valor);
+    const vtGasto = calcularGastoAtributo(atributos.vt.valor);
+    
+    const totalGasto = stGasto + dxGasto + iqGasto + vigorGasto + vtGasto;
+    saldoPontos = pontosIniciais - totalGasto;
+    
+    const saldoSpan = document.getElementById('saldoPontos');
+    if (saldoSpan) saldoSpan.textContent = saldoPontos;
+    
+    atualizarEstadoBotoesAtributos();
+    
+    return saldoPontos;
+}
+
+function atualizarDisplayGastos() {
+    const stGasto = calcularGastoAtributo(atributos.st.valor);
+    const dxGasto = calcularGastoAtributo(atributos.dx.valor);
+    const iqGasto = calcularGastoAtributo(atributos.iq.valor);
+    const vigorGasto = calcularGastoAtributo(atributos.vigor.valor);
+    const vtGasto = calcularGastoAtributo(atributos.vt.valor);
+    
+    const stSpan = document.getElementById('stGasto');
+    const dxSpan = document.getElementById('dxGasto');
+    const iqSpan = document.getElementById('iqGasto');
+    const vigorSpan = document.getElementById('vigorGasto');
+    const vtSpan = document.getElementById('vtGasto');
+    
+    if (stSpan) {
+        if (stGasto > 0) stSpan.textContent = `gasto: +${stGasto}`;
+        else if (stGasto < 0) stSpan.textContent = `ganho: ${stGasto}`;
+        else stSpan.textContent = `gasto: 0`;
+    }
+    if (dxSpan) {
+        if (dxGasto > 0) dxSpan.textContent = `gasto: +${dxGasto}`;
+        else if (dxGasto < 0) dxSpan.textContent = `ganho: ${dxGasto}`;
+        else dxSpan.textContent = `gasto: 0`;
+    }
+    if (iqSpan) {
+        if (iqGasto > 0) iqSpan.textContent = `gasto: +${iqGasto}`;
+        else if (iqGasto < 0) iqSpan.textContent = `ganho: ${iqGasto}`;
+        else iqSpan.textContent = `gasto: 0`;
+    }
+    if (vigorSpan) {
+        if (vigorGasto > 0) vigorSpan.textContent = `gasto: +${vigorGasto}`;
+        else if (vigorGasto < 0) vigorSpan.textContent = `ganho: ${vigorGasto}`;
+        else vigorSpan.textContent = `gasto: 0`;
+    }
+    if (vtSpan) {
+        if (vtGasto > 0) vtSpan.textContent = `gasto: +${vtGasto}`;
+        else if (vtGasto < 0) vtSpan.textContent = `ganho: ${vtGasto}`;
+        else vtSpan.textContent = `gasto: 0`;
+    }
+}
+
+function atualizarEstadoBotoesAtributos() {
+    const atributosLista = ['st', 'dx', 'iq', 'vigor', 'vt'];
+    
+    for (let attr of atributosLista) {
+        const valorAtual = atributos[attr].valor;
+        const btnMais = document.querySelector(`.btn-aumentar-atributo[data-atributo="${attr}"]`);
+        const btnMenos = document.querySelector(`.btn-diminuir-atributo[data-atributo="${attr}"]`);
+        
+        if (btnMenos) {
+            btnMenos.disabled = (valorAtual <= 1);
+        }
+        
+        if (btnMais) {
+            if (valorAtual >= 15) {
+                btnMais.disabled = true;
+                btnMais.title = 'Máximo 15';
+                continue;
+            }
+            
+            // Calcula custo para o próximo nível
+            const gastoAtual = calcularGastoAtributo(valorAtual);
+            const gastoProximo = calcularGastoAtributo(valorAtual + 1);
+            const custo = gastoProximo - gastoAtual;
+            
+            if (custo > 0) {
+                // Está acima de 5: gasta pontos
+                btnMais.disabled = (custo > saldoPontos);
+                btnMais.title = btnMais.disabled ? `Precisa de ${custo} pontos (saldo: ${saldoPontos})` : `Aumentar (custa ${custo} pontos)`;
+            } else {
+                // Está abaixo de 5: ganha pontos (sempre pode aumentar)
+                btnMais.disabled = false;
+                btnMais.title = `Aumentar (você GANHA ${Math.abs(custo)} pontos)`;
+            }
+        }
+    }
+}
+
+function aumentarAtributo(atributoId) {
+    const atributo = atributos[atributoId];
+    const valorAtual = atributo.valor;
+    
+    if (valorAtual >= 15) {
+        alert('❌ Atributo já está no máximo (15)!');
+        return;
+    }
+    
+    // Calcula custo/ganho
+    const gastoAtual = calcularGastoAtributo(valorAtual);
+    const gastoProximo = calcularGastoAtributo(valorAtual + 1);
+    const variacao = gastoProximo - gastoAtual;  // Positivo = gasta, Negativo = ganha
+    
+    // Se for gastar pontos, verifica se tem saldo
+    if (variacao > 0 && variacao > saldoPontos) {
+        alert(`⚠️ Pontos insuficientes!\n\nAumentar ${atributoId.toUpperCase()} de ${valorAtual} para ${valorAtual + 1} custa ${variacao} ponto(s).\nSeu saldo: ${saldoPontos} ponto(s).`);
+        return;
+    }
+    
+    // Aplica o aumento
+    atributo.valor++;
+    
+    // Feedback
+    if (variacao > 0) {
+        console.log(`✅ ${atributoId.toUpperCase()} aumentou para ${atributo.valor} (gastou ${variacao} pontos)`);
+    } else {
+        console.log(`✅ ${atributoId.toUpperCase()} aumentou para ${atributo.valor} (GANHOU ${Math.abs(variacao)} pontos)`);
+    }
+    
+    // Recalcula tudo
+    const stGasto = calcularGastoAtributo(atributos.st.valor);
+    const dxGasto = calcularGastoAtributo(atributos.dx.valor);
+    const iqGasto = calcularGastoAtributo(atributos.iq.valor);
+    const vigorGasto = calcularGastoAtributo(atributos.vigor.valor);
+    const vtGasto = calcularGastoAtributo(atributos.vt.valor);
+    const totalGasto = stGasto + dxGasto + iqGasto + vigorGasto + vtGasto;
+    saldoPontos = pontosIniciais - totalGasto;
+    
+    const saldoSpan = document.getElementById('saldoPontos');
+    if (saldoSpan) saldoSpan.textContent = saldoPontos;
+    
+    atualizarInterface();
+    atualizarEstadoBotoesAtributos();
+    atualizarDisplayGastos();
+    triggerAutoSave();
+}
+
+function diminuirAtributo(atributoId) {
+    const atributo = atributos[atributoId];
+    const valorAtual = atributo.valor;
+    
+    if (valorAtual <= 1) {
+        alert('❌ Atributo já está no mínimo (1)!');
+        return;
+    }
+    
+    // Aplica a diminuição
+    atributo.valor--;
+    
+    // Recalcula tudo
+    const stGasto = calcularGastoAtributo(atributos.st.valor);
+    const dxGasto = calcularGastoAtributo(atributos.dx.valor);
+    const iqGasto = calcularGastoAtributo(atributos.iq.valor);
+    const vigorGasto = calcularGastoAtributo(atributos.vigor.valor);
+    const vtGasto = calcularGastoAtributo(atributos.vt.valor);
+    const totalGasto = stGasto + dxGasto + iqGasto + vigorGasto + vtGasto;
+    saldoPontos = pontosIniciais - totalGasto;
+    
+    const saldoSpan = document.getElementById('saldoPontos');
+    if (saldoSpan) saldoSpan.textContent = saldoPontos;
+    
+    atualizarInterface();
+    atualizarEstadoBotoesAtributos();
+    atualizarDisplayGastos();
+    triggerAutoSave();
+}
+
+function atualizarBotoesAtributo(atributoId) {
+    const valor = atributos[atributoId].valor;
+    const btnMais = document.querySelector(`.btn-aumentar-atributo[data-atributo="${atributoId}"]`);
+    const btnMenos = document.querySelector(`.btn-diminuir-atributo[data-atributo="${atributoId}"]`);
+    
+    if (btnMais) {
+        if (valor >= 15) {
+            btnMais.disabled = true;
+        } else {
+            const gastoAtual = calcularGastoAtributo(valor);
+            const gastoProximo = calcularGastoAtributo(valor + 1);
+            const custo = gastoProximo - gastoAtual;
+            
+            if (custo > 0) {
+                btnMais.disabled = (custo > saldoPontos);
+            } else {
+                btnMais.disabled = false;
+            }
+        }
+    }
+    if (btnMenos) btnMenos.disabled = valor <= 1;
+}
+
+
+
+// ============================================
 // CÁLCULO DE DESLOCAMENTO
 // ============================================
 function calcularDeslocamento() {
