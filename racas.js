@@ -41,13 +41,13 @@ export const RACAS_CONFIG = {
     movimento: {
       tipo: 'reducao_parcial',
       descricao: 'Redução de 2m no deslocamento de corrida',
-      reducaoCorrer: 2  // reduz 2 metros no correr
+      reducaoCorrer: 2
     },
     
     // Capacidade de carga (substitui os valores padrão)
     carga: {
       modificado: true,
-      limites: [2.5, 5.0, 9.0, 13.0],  // [leve, medio, pesado, limite]
+      limites: [2.5, 5.0, 9.0, 13.0],
       descricao: 'Capacidade de carga reduzida devido à baixa estatura'
     },
     
@@ -385,8 +385,7 @@ export function getPenalidadeAtributo(personagem, atributo) {
   if (mod && mod.modificador < 0) {
     return { 
       temPenalidade: true, 
-      valor: Math.abs(mod.modificador),
-      tipo: 'penalidade'
+      valor: Math.abs(mod.modificador)
     };
   }
   
