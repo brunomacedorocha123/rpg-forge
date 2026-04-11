@@ -8963,13 +8963,35 @@ function criarBolinhas(atributoId) {
         
         bolinha.addEventListener('click', () => {
             const clicada = i < atributos[atributoId].esferas;
+            const penalidade = getPenalidadeAtributo({ raca: racaSelecionada }, atributoId);
+            const temPenalidade = penalidade.temPenalidade;
+            const valorPenalidade = penalidade.valor;
             
+            // Se está aumentando
             if (!clicada && esferasRestantes > 0) {
-                atributos[atributoId].esferas++;
-                esferasRestantes--;
-            } else if (clicada) {
-                atributos[atributoId].esferas--;
-                esferasRestantes++;
+                // Se tem penalidade e ainda está em débito
+                if (temPenalidade && atributos[atributoId].esferas < valorPenalidade) {
+                    // Está neutralizando a penalidade (custa 1 ponto, mas não aumenta efetivamente)
+                    atributos[atributoId].esferas++;
+                    esferasRestantes--;
+                } else {
+                    // Evolução normal
+                    atributos[atributoId].esferas++;
+                    esferasRestantes--;
+                }
+            } 
+            // Se está diminuindo
+            else if (clicada) {
+                // Se tem penalidade e está saindo da neutralização
+                if (temPenalidade && atributos[atributoId].esferas === valorPenalidade) {
+                    // Remove a neutralização (volta a ficar em débito)
+                    atributos[atributoId].esferas--;
+                    esferasRestantes++;
+                } else {
+                    // Redução normal
+                    atributos[atributoId].esferas--;
+                    esferasRestantes++;
+                }
             }
             
             atualizarInterface();
@@ -8992,31 +9014,45 @@ function atualizarBolinhas(atributoId) {
     
     // Verifica penalidade de raça para este atributo
     const penalidade = getPenalidadeAtributo({ raca: racaSelecionada }, atributoId);
+    const temPenalidade = penalidade.temPenalidade;
+    const valorPenalidade = penalidade.valor;
     
     for (let i = 0; i < bolinhas.length; i++) {
         // Remove classes existentes
         bolinhas[i].classList.remove('vermelha', 'preta');
+        bolinhas[i].classList.remove('preenchida');
         
-        if (i < preenchidas) {
-            bolinhas[i].classList.add('preenchida');
+        // Lógica de exibição
+        if (temPenalidade) {
+            if (i < valorPenalidade) {
+                // Posições que sofrem penalidade
+                if (i < preenchidas) {
+                    // Penalidade neutralizada (gastou ponto)
+                    bolinhas[i].classList.add('preta');
+                } else {
+                    // Penalidade ativa
+                    bolinhas[i].classList.add('vermelha');
+                }
+            } else {
+                // Posições normais (acima da penalidade)
+                const posicaoReal = i - valorPenalidade;
+                const pontosEvolucao = preenchidas - valorPenalidade;
+                if (posicaoReal < pontosEvolucao) {
+                    bolinhas[i].classList.add('preenchida');
+                }
+            }
         } else {
-            bolinhas[i].classList.remove('preenchida');
+            // Sem penalidade, comportamento normal
+            if (i < preenchidas) {
+                bolinhas[i].classList.add('preenchida');
+            }
         }
         
-        // Aplica cores de penalidade
-        if (penalidade.temPenalidade) {
-            if (i === 0 && preenchidas === 0) {
-                bolinhas[i].classList.add('vermelha');
-                bolinhas[i].setAttribute('data-tooltip', `Penalidade de raça: -${penalidade.valor} ${atributoId.toUpperCase()}`);
-            } else if (i < penalidade.valor && preenchidas <= i) {
-                bolinhas[i].classList.add('vermelha');
-                bolinhas[i].setAttribute('data-tooltip', `Penalidade de raça: -${penalidade.valor} ${atributoId.toUpperCase()}`);
-            } else if (i === penalidade.valor - 1 && preenchidas >= penalidade.valor) {
-                bolinhas[i].classList.add('preta');
-                bolinhas[i].setAttribute('data-tooltip', `Penalidade neutralizada`);
-            } else {
-                bolinhas[i].removeAttribute('data-tooltip');
-            }
+        // Tooltip
+        if (temPenalidade && i < valorPenalidade && i >= preenchidas) {
+            bolinhas[i].setAttribute('data-tooltip', `Penalidade: -${valorPenalidade} ${atributoId.toUpperCase()}`);
+        } else if (temPenalidade && i < valorPenalidade && i < preenchidas) {
+            bolinhas[i].setAttribute('data-tooltip', `Penalidade neutralizada`);
         } else {
             bolinhas[i].removeAttribute('data-tooltip');
         }
