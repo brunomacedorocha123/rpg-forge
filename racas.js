@@ -1,527 +1,293 @@
 // ============================================
-// SISTEMA DE RAÇAS - RPGFORCE
+// SISTEMA DE RAÇAS - RPGForce
 // ============================================
 
-const RACAS_CONFIG = {
-  anao: {
-    id: "anao",
-    nome: "Anão",
-    nomeExibido: "Anão",
-    custo: 3,
-    descricao: "Anões são robustos, resistentes e conhecidos por sua habilidade com forja e armas de haste. São teimosos, mas leais.",
-    
-    // Modificadores de Atributos (aplicados diretamente ao valor base)
-    atributos: {
-      st: 3,      // Força +3
-      vigor: 1,   // Vigor +1
-      vt: 1,      // Vitalidade +1
-      dx: -1      // Destreza -1
-    },
-    
-    // Vantagens concedidas
-    vantagens: ["corpoResistente"],
-    
-    // Desvantagens obrigatórias
-    desvantagens: ["avareza", "nanismo"],
-    
-    // Modificadores de Perícias (percentuais)
-    pericias: {
-      bonus: {
-        "armasHaste": 3,
-        "armaria": 3
-      },
-      penalidade: {
-        "arco": -2,
-        "besta": -2,
-        "funda": -2,
-        "arremesso": -2
-      }
-    },
-    
-    // Movimento - redução de 25% no correr (arredondado para baixo)
-    movimento: {
-      correr: {
-        modificador: -25,
-        tipo: "percentual",
-        arredondamento: "floor"
-      }
-    },
-    
-    // Capacidade de Carga (substitui os valores padrão)
-    carga: {
-      leve: 2.5,
-      media: 5.0,
-      pesada: 9.0,
-      maxima: 13.0
+const racas = {
+    anao: {
+        id: 'anao',
+        nome: 'Anão',
+        descricao: 'Povo robusto das montanhas, conhecido por sua resistência, habilidade com forjas e teimosia inabalável. São baixos, fortes e extremamente resilientes.',
+        
+        custo: 4,
+        
+        modificadoresAtributos: {
+            st: 3,
+            vt: 1,
+            vigor: 1
+        },
+        
+        vantagens: ['corpoResistente'],
+        desvantagens: ['nanismo', 'avareza'],
+        
+        bonusPericias: {
+            'armasHaste': 3,
+            'armaria': 3
+        },
+        
+        penalidadesPericias: {
+            'arco': -2,
+            'besta': -2,
+            'arremesso': -2,
+            'funda': -2
+        },
+        
+        modificadoresDeslocamento: {
+            andar: -1,
+            correr: -25
+        },
+        
+        limitesCarga: {
+            leve: 2.5,
+            medio: 5.0,
+            pesado: 9.0,
+            limite: 13.0
+        }
     }
-  }
 };
 
-// ============================================
-// ESTADO ATUAL DA RAÇA NO PERSONAGEM
-// ============================================
-let racaAtual = null;
-let efeitosRacaAtuais = null;
+let racaSelecionada = null;
 
-// ============================================
-// FUNÇÕES PRINCIPAIS
-// ============================================
-
-/**
- * Aplica os efeitos de uma raça ao personagem
- * @param {Object} personagem - Estado atual do personagem (variáveis globais)
- * @param {string} racaId - ID da raça (ex: "anao")
- * @returns {Object} Resultado da aplicação { success, message, changes }
- */
-function aplicarRaca(personagem, racaId) {
-  // Validações
-  if (!personagem) return { success: false, message: "Personagem é obrigatório" };
-  if (!RACAS_CONFIG[racaId]) return { success: false, message: `Raça "${racaId}" não encontrada` };
-  
-  const raca = RACAS_CONFIG[racaId];
-  
-  // Verificar se a mesma raça já está aplicada
-  if (racaAtual === racaId) {
-    return { success: false, message: `Raça ${raca.nomeExibido} já está aplicada` };
-  }
-  
-  // Verificar pontos disponíveis
-  const pontosAtuais = personagem.saldoPontos !== undefined ? personagem.saldoPontos : 10;
-  if (raca.custo > pontosAtuais) {
-    return { 
-      success: false, 
-      message: `Pontos insuficientes! Precisa de ${raca.custo} pontos, restam ${pontosAtuais}` 
+function aplicarRaca(racaId) {
+    const raca = racas[racaId];
+    if (!raca) return false;
+    
+    if (saldoPontos < raca.custo) {
+        alert(`Pontos insuficientes! Você precisa de ${raca.custo} pontos.`);
+        return false;
+    }
+    
+    if (raca.modificadoresAtributos.st) {
+        atributos.st.valor = Math.min(15, atributos.st.valor + raca.modificadoresAtributos.st);
+    }
+    if (raca.modificadoresAtributos.vt) {
+        atributos.vt.valor = Math.min(15, atributos.vt.valor + raca.modificadoresAtributos.vt);
+    }
+    if (raca.modificadoresAtributos.vigor) {
+        atributos.vigor.valor = Math.min(15, atributos.vigor.valor + raca.modificadoresAtributos.vigor);
+    }
+    
+    if (raca.vantagens) {
+        raca.vantagens.forEach(vantagemId => {
+            if (!vantagensSelecionadas.has(vantagemId)) {
+                vantagensSelecionadas.add(vantagemId);
+                const card = document.querySelector(`.vantagem-card[data-vantagem="${vantagemId}"]`);
+                if (card) card.classList.add('selecionada');
+            }
+        });
+    }
+    
+    if (raca.desvantagens) {
+        raca.desvantagens.forEach(desvantagemId => {
+            if (!desvantagensSelecionadas.has(desvantagemId)) {
+                desvantagensSelecionadas.add(desvantagemId);
+                const card = document.querySelector(`.desvantagem-card[data-desvantagem="${desvantagemId}"]`);
+                if (card) card.classList.add('selecionada');
+            }
+        });
+    }
+    
+    pontosIniciais -= raca.custo;
+    if (elements.pontosIniciaisInput) {
+        elements.pontosIniciaisInput.value = pontosIniciais;
+    }
+    
+    racaSelecionada = {
+        id: racaId,
+        nome: raca.nome,
+        dados: raca
     };
-  }
-  
-  // Se tiver outra raça, remove primeiro
-  if (racaAtual) {
-    removerEfeitosRaca(personagem);
-  }
-  
-  // Registrar mudanças para debug/feedback
-  const changes = {
-    atributos: {},
-    vantagens: [],
-    desvantagens: [],
-    pericias: {},
-    movimento: null,
-    carga: null,
-    pontos: -raca.custo
-  };
-  
-  // 1. Aplicar modificadores de atributos
-  Object.entries(raca.atributos).forEach(([atributo, valor]) => {
-    const valorAtual = personagem.atributos?.[atributo]?.valor || 5;
-    const novoValor = valorAtual + valor;
-    // Limitar entre 1 e 15
-    const valorFinal = Math.min(15, Math.max(1, novoValor));
-    changes.atributos[atributo] = { antes: valorAtual, depois: valorFinal, delta: valor };
     
-    if (personagem.atributos && personagem.atributos[atributo]) {
-      personagem.atributos[atributo].valor = valorFinal;
-    }
-  });
-  
-  // 2. Aplicar vantagens
-  raca.vantagens.forEach(vantagem => {
-    if (!personagem.vantagensSelecionadas?.has(vantagem)) {
-      changes.vantagens.push({ nome: vantagem, acao: "adicionada" });
-      if (personagem.vantagensSelecionadas) {
-        personagem.vantagensSelecionadas.add(vantagem);
-      }
-    }
-  });
-  
-  // 3. Aplicar desvantagens
-  raca.desvantagens.forEach(desvantagem => {
-    if (!personagem.desvantagensSelecionadas?.has(desvantagem)) {
-      changes.desvantagens.push({ nome: desvantagem, acao: "adicionada" });
-      if (personagem.desvantagensSelecionadas) {
-        personagem.desvantagensSelecionadas.add(desvantagem);
-      }
-    }
-  });
-  
-  // 4. Aplicar modificadores de perícias
-  if (raca.pericias.bonus) {
-    Object.entries(raca.pericias.bonus).forEach(([pericia, bonus]) => {
-      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
-      const novoBonus = valorAtual + bonus;
-      changes.pericias[pericia] = { tipo: "bonus", antes: valorAtual, depois: novoBonus, delta: bonus };
-      
-      if (personagem.pericias && personagem.pericias[pericia]) {
-        personagem.pericias[pericia].nivelBonus = (personagem.pericias[pericia].nivelBonus || 0) + bonus;
-      } else if (personagem.pericias) {
-        personagem.pericias[pericia] = { nivel: 0, nivelBonus: bonus };
-      }
-    });
-  }
-  
-  if (raca.pericias.penalidade) {
-    Object.entries(raca.pericias.penalidade).forEach(([pericia, penalidade]) => {
-      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
-      const novoBonus = valorAtual + penalidade;
-      changes.pericias[pericia] = { tipo: "penalidade", antes: valorAtual, depois: novoBonus, delta: penalidade };
-      
-      if (personagem.pericias && personagem.pericias[pericia]) {
-        personagem.pericias[pericia].nivelBonus = (personagem.pericias[pericia].nivelBonus || 0) + penalidade;
-      } else if (personagem.pericias) {
-        personagem.pericias[pericia] = { nivel: 0, nivelBonus: penalidade };
-      }
-    });
-  }
-  
-  // 5. Aplicar modificador de movimento
-  if (raca.movimento && raca.movimento.correr) {
-    const movimentoAtual = personagem.movimentoCorrer || 0;
-    let novoMovimento = movimentoAtual;
-    
-    if (raca.movimento.correr.tipo === "percentual") {
-      const percentual = (100 + raca.movimento.correr.modificador) / 100;
-      novoMovimento = movimentoAtual * percentual;
-      
-      if (raca.movimento.correr.arredondamento === "floor") {
-        novoMovimento = Math.floor(novoMovimento);
-      }
+    const racaDisplay = document.getElementById('racaDisplay');
+    if (racaDisplay) {
+        racaDisplay.textContent = raca.nome;
+        racaDisplay.style.color = '#ffd700';
     }
     
-    changes.movimento = { antes: movimentoAtual, depois: novoMovimento, delta: novoMovimento - movimentoAtual };
-    personagem.movimentoCorrer = novoMovimento;
-    personagem.movimentoModificadoPorRaca = true;
-  }
-  
-  // 6. Aplicar capacidade de carga
-  if (raca.carga) {
-    changes.carga = { ...raca.carga };
-    personagem.cargaPersonalizada = { ...raca.carga };
-    personagem.cargaModificadaPorRaca = true;
-  }
-  
-  // 7. Atualizar pontos do personagem
-  if (personagem.saldoPontos !== undefined) {
-    personagem.saldoPontos -= raca.custo;
-    changes.pontosRestantes = personagem.saldoPontos;
-  }
-  
-  // 8. Salvar estado da raça
-  racaAtual = racaId;
-  efeitosRacaAtuais = {
-    id: racaId,
-    atributos: { ...raca.atributos },
-    vantagens: [...raca.vantagens],
-    desvantagens: [...raca.desvantagens],
-    periciasBonus: { ...(raca.pericias.bonus || {}) },
-    periciasPenalidade: { ...(raca.pericias.penalidade || {}) },
-    movimento: raca.movimento ? { ...raca.movimento } : null,
-    carga: raca.carga ? { ...raca.carga } : null,
-    custo: raca.custo
-  };
-  
-  personagem.racaAtual = racaId;
-  personagem.racaNome = raca.nomeExibido;
-  
-  return { 
-    success: true, 
-    message: `Raça ${raca.nomeExibido} aplicada com sucesso! Custo: ${raca.custo} pontos.`,
-    changes: changes
-  };
+    const racaSelecionadaInput = document.getElementById('racaSelecionada');
+    if (racaSelecionadaInput) {
+        racaSelecionadaInput.value = raca.nome;
+    }
+    
+    atualizarInterface();
+    atualizarContadoresAbas();
+    atualizarLimitesCards();
+    atualizarBotoesAtributo('st');
+    atualizarBotoesAtributo('vt');
+    atualizarBotoesAtributo('vigor');
+    renderizarPericiasAdquiridas();
+    atualizarDeslocamentoPorRaca();
+    atualizarLimitesCargaPorRaca();
+    
+    triggerAutoSave();
+    return true;
 }
 
-/**
- * Remove todos os efeitos da raça atual do personagem
- * @param {Object} personagem - Estado atual do personagem
- * @returns {Object} Resultado da remoção
- */
-function removerEfeitosRaca(personagem) {
-  if (!racaAtual || !efeitosRacaAtuais) {
-    return { success: false, message: "Nenhuma raça aplicada para remover" };
-  }
-  
-  const raca = RACAS_CONFIG[racaAtual];
-  if (!raca) {
-    // Limpar estado inconsistente
-    racaAtual = null;
-    efeitosRacaAtuais = null;
-    return { success: false, message: "Estado de raça inconsistente, limpo." };
-  }
-  
-  const changes = {
-    atributos: {},
-    vantagens: [],
-    desvantagens: [],
-    pericias: {},
-    movimento: null,
-    carga: null,
-    pontos: +raca.custo
-  };
-  
-  // 1. Remover modificadores de atributos
-  Object.entries(raca.atributos).forEach(([atributo, valor]) => {
-    const valorAtual = personagem.atributos?.[atributo]?.valor || 5;
-    const novoValor = valorAtual - valor;
-    const valorFinal = Math.min(15, Math.max(1, novoValor));
-    changes.atributos[atributo] = { antes: valorAtual, depois: valorFinal, delta: -valor };
+function getBonusPericiaPorRaca(periciaId) {
+    if (!racaSelecionada) return 0;
+    const bonus = racaSelecionada.dados.bonusPericias || {};
+    return bonus[periciaId] || 0;
+}
+
+function getPenalidadePericiaPorRaca(periciaId) {
+    if (!racaSelecionada) return 0;
+    const penalidades = racaSelecionada.dados.penalidadesPericias || {};
+    return penalidades[periciaId] || 0;
+}
+
+function calcularDeslocamentoComRaca() {
+    const deslocBase = calcularDeslocamento();
+    let andar = deslocBase.andar;
+    let correr = deslocBase.correr;
     
-    if (personagem.atributos && personagem.atributos[atributo]) {
-      personagem.atributos[atributo].valor = valorFinal;
-    }
-  });
-  
-  // 2. Remover vantagens
-  raca.vantagens.forEach(vantagem => {
-    if (personagem.vantagensSelecionadas?.has(vantagem)) {
-      changes.vantagens.push({ nome: vantagem, acao: "removida" });
-      personagem.vantagensSelecionadas.delete(vantagem);
-    }
-  });
-  
-  // 3. Remover desvantagens
-  raca.desvantagens.forEach(desvantagem => {
-    if (personagem.desvantagensSelecionadas?.has(desvantagem)) {
-      changes.desvantagens.push({ nome: desvantagem, acao: "removida" });
-      personagem.desvantagensSelecionadas.delete(desvantagem);
-    }
-  });
-  
-  // 4. Remover modificadores de perícias
-  if (raca.pericias.bonus) {
-    Object.entries(raca.pericias.bonus).forEach(([pericia, bonus]) => {
-      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
-      const novoBonus = valorAtual - bonus;
-      changes.pericias[pericia] = { tipo: "bonus", antes: valorAtual, depois: novoBonus, delta: -bonus };
-      
-      if (personagem.pericias && personagem.pericias[pericia]) {
-        personagem.pericias[pericia].nivelBonus = novoBonus;
-        
-        // Se o bônus ficou 0 e não tem nível, remove a entrada
-        if (novoBonus === 0 && (!personagem.pericias[pericia].nivel || personagem.pericias[pericia].nivel === 0)) {
-          delete personagem.pericias[pericia];
+    if (racaSelecionada && racaSelecionada.dados.modificadoresDeslocamento) {
+        const mod = racaSelecionada.dados.modificadoresDeslocamento;
+        if (mod.andar) andar = Math.max(1, andar + mod.andar);
+        if (mod.correr) {
+            const reducao = Math.abs(mod.correr) / 100;
+            correr = correr - (correr * reducao);
+            correr = Math.max(1, Math.floor(correr));
         }
-      }
-    });
-  }
-  
-  if (raca.pericias.penalidade) {
-    Object.entries(raca.pericias.penalidade).forEach(([pericia, penalidade]) => {
-      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
-      const novoBonus = valorAtual - penalidade;
-      changes.pericias[pericia] = { tipo: "penalidade", antes: valorAtual, depois: novoBonus, delta: -penalidade };
-      
-      if (personagem.pericias && personagem.pericias[pericia]) {
-        personagem.pericias[pericia].nivelBonus = novoBonus;
-        
-        if (novoBonus === 0 && (!personagem.pericias[pericia].nivel || personagem.pericias[pericia].nivel === 0)) {
-          delete personagem.pericias[pericia];
-        }
-      }
-    });
-  }
-  
-  // 5. Restaurar movimento original
-  if (personagem.movimentoModificadoPorRaca) {
-    delete personagem.movimentoModificadoPorRaca;
-    changes.movimento = { restaurado: true };
-  }
-  
-  // 6. Restaurar carga original
-  if (personagem.cargaModificadaPorRaca) {
-    delete personagem.cargaPersonalizada;
-    delete personagem.cargaModificadaPorRaca;
-    changes.carga = { restaurado: true };
-  }
-  
-  // 7. Devolver pontos
-  if (personagem.saldoPontos !== undefined) {
-    personagem.saldoPontos += raca.custo;
-    changes.pontosRestantes = personagem.saldoPontos;
-  }
-  
-  // 8. Limpar estado da raça
-  delete personagem.racaAtual;
-  delete personagem.racaNome;
-  racaAtual = null;
-  efeitosRacaAtuais = null;
-  
-  return { 
-    success: true, 
-    message: `Efeitos da raça ${raca.nomeExibido} removidos. ${raca.custo} pontos devolvidos.`,
-    changes: changes
-  };
-}
-
-/**
- * Verifica se uma raça pode ser aplicada
- * @param {Object} personagem - Estado atual do personagem
- * @param {string} racaId - ID da raça desejada
- * @returns {Object} { podeAplicar: boolean, motivo: string, custo: number }
- */
-function podeAplicarRaca(personagem, racaId) {
-  if (!RACAS_CONFIG[racaId]) {
-    return { podeAplicar: false, motivo: "Raça não encontrada", custo: 0 };
-  }
-  
-  const raca = RACAS_CONFIG[racaId];
-  
-  if (racaAtual === racaId) {
-    return { podeAplicar: false, motivo: `Raça ${raca.nomeExibido} já está aplicada`, custo: raca.custo };
-  }
-  
-  const pontosAtuais = personagem.saldoPontos !== undefined ? personagem.saldoPontos : 10;
-  
-  if (raca.custo > pontosAtuais) {
-    return { 
-      podeAplicar: false, 
-      motivo: `Pontos insuficientes. Precisa de ${raca.custo} pontos, restam ${pontosAtuais}`,
-      custo: raca.custo,
-      pontosRestantes: pontosAtuais
-    };
-  }
-  
-  return { podeAplicar: true, motivo: "", custo: raca.custo, pontosRestantes: pontosAtuais - raca.custo };
-}
-
-/**
- * Retorna todas as raças disponíveis
- * @returns {Array} Lista de raças
- */
-function listarRacas() {
-  return Object.values(RACAS_CONFIG).map(raca => ({
-    id: raca.id,
-    nome: raca.nomeExibido,
-    custo: raca.custo,
-    descricao: raca.descricao
-  }));
-}
-
-/**
- * Retorna os detalhes completos de uma raça
- * @param {string} racaId - ID da raça
- * @returns {Object} Detalhes da raça
- */
-function getDetalhesRaca(racaId) {
-  if (!RACAS_CONFIG[racaId]) return null;
-  
-  const raca = RACAS_CONFIG[racaId];
-  return {
-    id: raca.id,
-    nome: raca.nomeExibido,
-    custo: raca.custo,
-    descricao: raca.descricao,
-    atributos: Object.entries(raca.atributos).map(([attr, valor]) => ({
-      nome: attr.toUpperCase(),
-      valor: valor,
-      sinal: valor > 0 ? `+${valor}` : `${valor}`
-    })),
-    vantagens: raca.vantagens.map(v => ({
-      id: v,
-      nome: obterNomeVantagem(v)
-    })),
-    desvantagens: raca.desvantagens.map(d => ({
-      id: d,
-      nome: obterNomeDesvantagem(d)
-    })),
-    pericias: {
-      bonus: Object.entries(raca.pericias.bonus || {}).map(([p, b]) => ({
-        id: p,
-        nome: obterNomePericia(p),
-        bonus: `+${b}%`
-      })),
-      penalidade: Object.entries(raca.pericias.penalidade || {}).map(([p, b]) => ({
-        id: p,
-        nome: obterNomePericia(p),
-        penalidade: `${b}%`
-      }))
-    },
-    movimento: `Redução de ${Math.abs(raca.movimento.correr.modificador)}% na corrida (arredondado para baixo)`,
-    carga: {
-      leve: raca.carga.leve,
-      media: raca.carga.media,
-      pesada: raca.carga.pesada,
-      maxima: raca.carga.maxima
     }
-  };
+    return { andar, correr };
 }
 
-/**
- * Retorna a raça atual aplicada
- * @returns {Object|null}
- */
-function getRacaAtual() {
-  if (!racaAtual || !RACAS_CONFIG[racaAtual]) return null;
-  return {
-    id: racaAtual,
-    ...RACAS_CONFIG[racaAtual]
-  };
+function atualizarDeslocamentoPorRaca() {
+    const desloc = calcularDeslocamentoComRaca();
+    const carga = calcularCarga();
+    const andarFinal = Math.max(1, desloc.andar - carga.reducaoDeslocamento);
+    const correrFinal = Math.max(3, desloc.correr - (carga.reducaoDeslocamento * 3));
+    
+    if (elements.deslocamentoAndar) elements.deslocamentoAndar.textContent = andarFinal.toFixed(1);
+    if (elements.deslocamentoCorrer) elements.deslocamentoCorrer.textContent = correrFinal.toFixed(1);
 }
 
-/**
- * Verifica se há uma raça aplicada
- * @returns {boolean}
- */
-function temRacaAplicada() {
-  return racaAtual !== null;
+function getLimitesCargaPorRaca() {
+    if (racaSelecionada && racaSelecionada.dados.limitesCarga) {
+        return racaSelecionada.dados.limitesCarga;
+    }
+    const st = getSTFixo();
+    return { leve: st * 2, medio: st * 4, pesado: st * 8, limite: st * 12 };
 }
 
-// ============================================
-// FUNÇÕES AUXILIARES PARA NOMES
-// ============================================
-
-function obterNomeVantagem(id) {
-  const nomes = {
-    corpoResistente: "Corpo Resistente"
-  };
-  return nomes[id] || id;
+function atualizarLimitesCargaPorRaca() {
+    const limites = getLimitesCargaPorRaca();
+    if (elements.stCarga) {
+        elements.stCarga.textContent = `Carga: ${limites.leve}/${limites.medio}/${limites.pesado}/${limites.limite} kg`;
+    }
+    if (elements.cargaLimite) elements.cargaLimite.textContent = limites.limite;
+    
+    const carga = calcularCarga();
+    if (elements.cargaAtual) elements.cargaAtual.textContent = carga.pesoTotal.toFixed(1);
+    if (elements.cargaBarra) {
+        const percentual = (carga.pesoTotal / limites.limite) * 100;
+        elements.cargaBarra.style.width = Math.min(100, percentual) + '%';
+    }
+    if (elements.cargaNivel) {
+        elements.cargaNivel.textContent = carga.nivel.charAt(0).toUpperCase() + carga.nivel.slice(1);
+        elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
+    }
 }
 
-function obterNomeDesvantagem(id) {
-  const nomes = {
-    avareza: "Avareza",
-    nanismo: "Nanismo"
-  };
-  return nomes[id] || id;
+function isVantagemObrigatoria(vantagemId) {
+    if (!racaSelecionada) return false;
+    const vantagens = racaSelecionada.dados.vantagens || [];
+    return vantagens.includes(vantagemId);
 }
 
-function obterNomePericia(id) {
-  const nomes = {
-    armasHaste: "Armas de Haste",
-    armaria: "Armaria",
-    arco: "Arco",
-    besta: "Besta",
-    funda: "Funda",
-    arremesso: "Arremesso"
-  };
-  return nomes[id] || id;
+function isDesvantagemObrigatoria(desvantagemId) {
+    if (!racaSelecionada) return false;
+    const desvantagens = racaSelecionada.dados.desvantagens || [];
+    return desvantagens.includes(desvantagemId);
 }
 
-// ============================================
-// EXPORTAÇÃO
-// ============================================
-
-// Para uso com módulos ES6
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    RACAS_CONFIG,
-    aplicarRaca,
-    removerEfeitosRaca,
-    podeAplicarRaca,
-    listarRacas,
-    getDetalhesRaca,
-    getRacaAtual,
-    temRacaAplicada
-  };
+function abrirModalRaca() {
+    if (racaSelecionada) {
+        alert(`Você já escolheu a raça ${racaSelecionada.nome}. Não é possível trocar.`);
+        return;
+    }
+    
+    const modal = document.getElementById('modalRaca');
+    if (!modal) return;
+    
+    const container = document.getElementById('listaRacas');
+    if (container) {
+        container.innerHTML = '';
+        
+        Object.entries(racas).forEach(([id, raca]) => {
+            const div = document.createElement('div');
+            div.className = 'raca-item';
+            div.innerHTML = `
+                <h4>${raca.nome}</h4>
+                <p>${raca.descricao}</p>
+                <div class="raca-bonus">
+                    <strong>Bônus:</strong><br>
+                    ${raca.modificadoresAtributos.st ? `• +${raca.modificadoresAtributos.st} ST<br>` : ''}
+                    ${raca.modificadoresAtributos.vt ? `• +${raca.modificadoresAtributos.vt} VT<br>` : ''}
+                    ${raca.modificadoresAtributos.vigor ? `• +${raca.modificadoresAtributos.vigor} VIGOR<br>` : ''}
+                    ${raca.vantagens ? `• Vantagem: ${raca.vantagens.join(', ')}<br>` : ''}
+                    ${raca.desvantagens ? `• Desvantagens: ${raca.desvantagens.join(', ')}<br>` : ''}
+                </div>
+                <div class="raca-custo"><strong>Custo: ${raca.custo} pontos</strong></div>
+                <button class="btn-selecionar-raca" data-raca-id="${id}">Selecionar ${raca.nome}</button>
+            `;
+            container.appendChild(div);
+        });
+        
+        document.querySelectorAll('.btn-selecionar-raca').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const racaId = btn.dataset.racaId;
+                const raca = racas[racaId];
+                const confirmar = confirm(
+                    `Confirmar raça ${raca.nome}?\n\n` +
+                    `Bônus: +${raca.modificadoresAtributos.st || 0} ST, +${raca.modificadoresAtributos.vt || 0} VT, +${raca.modificadoresAtributos.vigor || 0} VIGOR\n` +
+                    `Vantagens: ${raca.vantagens?.join(', ') || 'nenhuma'}\n` +
+                    `Desvantagens: ${raca.desvantagens?.join(', ') || 'nenhuma'}\n` +
+                    `Custo: ${raca.custo} pontos\n\n` +
+                    `Após confirmar, NÃO será possível desfazer.`
+                );
+                if (confirmar && aplicarRaca(racaId)) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+    }
+    
+    modal.classList.add('active');
 }
 
-// Para uso no navegador
-if (typeof window !== 'undefined') {
-  window.RacasSystem = {
-    RACAS_CONFIG,
-    aplicarRaca,
-    removerEfeitosRaca,
-    podeAplicarRaca,
-    listarRacas,
-    getDetalhesRaca,
-    getRacaAtual,
-    temRacaAplicada
-  };
+function fecharModalRaca() {
+    const modal = document.getElementById('modalRaca');
+    if (modal) modal.classList.remove('active');
 }
+
+const originalGetBonusPericia = window.getBonusPericia;
+window.getBonusPericia = function(periciaId) {
+    let bonus = originalGetBonusPericia ? originalGetBonusPericia(periciaId) : 0;
+    bonus += getBonusPericiaPorRaca(periciaId);
+    bonus += getPenalidadePericiaPorRaca(periciaId);
+    return bonus;
+};
+
+const originalCalcularLimitesCarga = window.calcularLimitesCarga;
+window.calcularLimitesCarga = function() {
+    if (racaSelecionada && racaSelecionada.dados.limitesCarga) {
+        return racaSelecionada.dados.limitesCarga;
+    }
+    return originalCalcularLimitesCarga ? originalCalcularLimitesCarga() : { leve: 0, medio: 0, pesado: 0, limite: 0 };
+};
+
+const originalCalcularDeslocamento = window.calcularDeslocamento;
+window.calcularDeslocamento = function() {
+    const desloc = originalCalcularDeslocamento ? originalCalcularDeslocamento() : { andar: 0, correr: 0 };
+    if (racaSelecionada && racaSelecionada.dados.modificadoresDeslocamento) {
+        const mod = racaSelecionada.dados.modificadoresDeslocamento;
+        if (mod.andar) desloc.andar = Math.max(1, desloc.andar + mod.andar);
+        if (mod.correr) {
+            const reducao = Math.abs(mod.correr) / 100;
+            desloc.correr = desloc.correr - (desloc.correr * reducao);
+            desloc.correr = Math.max(1, Math.floor(desloc.correr));
+        }
+    }
+    return desloc;
+};
