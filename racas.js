@@ -1,468 +1,527 @@
 // ============================================
-// SISTEMA DE RAÇAS - RPGForce
+// SISTEMA DE RAÇAS - RPGFORCE
 // ============================================
 
-// ============================================
-// CONFIGURAÇÃO CENTRALIZADA DAS RAÇAS
-// ============================================
-export const RACAS_CONFIG = {
+const RACAS_CONFIG = {
   anao: {
-    id: 'anao',
-    nome: 'Anão',
-    descricao: 'Povo resistente das montanhas, conhecido por sua força e tenacidade.',
-    custoEsferas: 2,
+    id: "anao",
+    nome: "Anão",
+    nomeExibido: "Anão",
+    custo: 3,
+    descricao: "Anões são robustos, resistentes e conhecidos por sua habilidade com forja e armas de haste. São teimosos, mas leais.",
     
-    // Modificadores de atributos
+    // Modificadores de Atributos (aplicados diretamente ao valor base)
     atributos: {
-      st: { modificador: 2, tipo: 'bonus' },
-      vt: { modificador: 1, tipo: 'bonus' },
-      vigor: { modificador: 1, tipo: 'bonus' },
-      dx: { modificador: -1, tipo: 'penalidade' }
+      st: 3,      // Força +3
+      vigor: 1,   // Vigor +1
+      vt: 1,      // Vitalidade +1
+      dx: -1      // Destreza -1
     },
     
-    // Vantagem automática
-    vantagem: 'corpo_resistente',
-    
-    // Modificadores de perícias
-    pericias: {
-      bonus: {
-        'armasHaste': 3,
-        'armaria': 3
-      },
-      penalidade: {
-        'arco': -2,
-        'besta': -2,
-        'funda': -2,
-        'arremesso': -2
-      }
-    },
-    
-    // Movimento
-    movimento: {
-      tipo: 'reducao_parcial',
-      descricao: 'Redução de 2m no deslocamento de corrida',
-      reducaoCorrer: 2
-    },
-    
-    // Capacidade de carga (substitui os valores padrão)
-    carga: {
-      modificado: true,
-      limites: [2.5, 5.0, 9.0, 13.0],
-      descricao: 'Capacidade de carga reduzida devido à baixa estatura'
-    },
+    // Vantagens concedidas
+    vantagens: ["corpoResistente"],
     
     // Desvantagens obrigatórias
-    desvantagensObrigatorias: ['avareza', 'nanismo'],
+    desvantagens: ["avareza", "nanismo"],
     
-    // Efeitos especiais
-    efeitosEspeciais: {
-      nanismo: {
-        descricao: 'Devido ao nanismo, o deslocamento de corrida é reduzido em 2m',
-        aplicaMovimento: true
+    // Modificadores de Perícias (percentuais)
+    pericias: {
+      bonus: {
+        "armasHaste": 3,
+        "armaria": 3
+      },
+      penalidade: {
+        "arco": -2,
+        "besta": -2,
+        "funda": -2,
+        "arremesso": -2
       }
+    },
+    
+    // Movimento - redução de 25% no correr (arredondado para baixo)
+    movimento: {
+      correr: {
+        modificador: -25,
+        tipo: "percentual",
+        arredondamento: "floor"
+      }
+    },
+    
+    // Capacidade de Carga (substitui os valores padrão)
+    carga: {
+      leve: 2.5,
+      media: 5.0,
+      pesada: 9.0,
+      maxima: 13.0
     }
   }
 };
 
 // ============================================
-// FUNÇÕES AUXILIARES INTERNAS
+// ESTADO ATUAL DA RAÇA NO PERSONAGEM
 // ============================================
+let racaAtual = null;
+let efeitosRacaAtuais = null;
 
-/**
- * Remove todos os efeitos de raça atuais do personagem
- * @param {Object} personagem - Objeto do personagem
- * @returns {Object} Personagem sem efeitos de raça
- */
-function removerEfeitosRaca(personagem) {
-  if (!personagem) return personagem;
-  
-  const novoPersonagem = JSON.parse(JSON.stringify(personagem));
-  
-  // Se não tem raça, retorna
-  if (!novoPersonagem.raca) return novoPersonagem;
-  
-  const racaAnterior = novoPersonagem.raca;
-  const configAnterior = RACAS_CONFIG[racaAnterior];
-  
-  if (!configAnterior) return novoPersonagem;
-  
-  // Remove modificadores de atributos
-  if (configAnterior.atributos) {
-    Object.entries(configAnterior.atributos).forEach(([atributo, mod]) => {
-      if (novoPersonagem.atributos && novoPersonagem.atributos[atributo]) {
-        // Remove o modificador (inverte o sinal)
-        let modificador = mod.modificador;
-        novoPersonagem.atributos[atributo].esferas -= modificador;
-        
-        // Garante que não fique negativo
-        if (novoPersonagem.atributos[atributo].esferas < 0) {
-          novoPersonagem.atributos[atributo].esferas = 0;
-        }
-      }
-    });
-  }
-  
-  // Remove vantagem automática
-  if (configAnterior.vantagem && novoPersonagem.vantagens) {
-    const index = novoPersonagem.vantagens.indexOf(configAnterior.vantagem);
-    if (index !== -1) {
-      novoPersonagem.vantagens.splice(index, 1);
-    }
-  }
-  
-  // Remove desvantagens obrigatórias
-  if (configAnterior.desvantagensObrigatorias && novoPersonagem.desvantagens) {
-    configAnterior.desvantagensObrigatorias.forEach(desv => {
-      const index = novoPersonagem.desvantagens.indexOf(desv);
-      if (index !== -1) {
-        novoPersonagem.desvantagens.splice(index, 1);
-      }
-    });
-  }
-  
-  // Remove modificadores de perícias
-  if (configAnterior.pericias && novoPersonagem.pericias) {
-    // Remove bônus
-    if (configAnterior.pericias.bonus) {
-      Object.keys(configAnterior.pericias.bonus).forEach(periciaId => {
-        if (novoPersonagem.pericias[periciaId]) {
-          novoPersonagem.pericias[periciaId].bonusRaca = 
-            (novoPersonagem.pericias[periciaId].bonusRaca || 0) - configAnterior.pericias.bonus[periciaId];
-        }
-      });
-    }
-    
-    // Remove penalidades
-    if (configAnterior.pericias.penalidade) {
-      Object.keys(configAnterior.pericias.penalidade).forEach(periciaId => {
-        if (novoPersonagem.pericias[periciaId]) {
-          novoPersonagem.pericias[periciaId].penalidadeRaca = 
-            (novoPersonagem.pericias[periciaId].penalidadeRaca || 0) - configAnterior.pericias.penalidade[periciaId];
-        }
-      });
-    }
-  }
-  
-  // Marca que a carga padrão deve ser restaurada
-  novoPersonagem._cargaModificada = false;
-  
-  // Remove a raça
-  delete novoPersonagem.raca;
-  
-  return novoPersonagem;
-}
+// ============================================
+// FUNÇÕES PRINCIPAIS
+// ============================================
 
 /**
  * Aplica os efeitos de uma raça ao personagem
- * @param {Object} personagem - Objeto do personagem
- * @param {string} racaId - ID da raça a aplicar
- * @returns {Object} Personagem com efeitos aplicados
+ * @param {Object} personagem - Estado atual do personagem (variáveis globais)
+ * @param {string} racaId - ID da raça (ex: "anao")
+ * @returns {Object} Resultado da aplicação { success, message, changes }
  */
-function aplicarEfeitosRaca(personagem, racaId) {
-  const config = RACAS_CONFIG[racaId];
-  if (!config) {
-    console.error(`Raça ${racaId} não encontrada`);
-    return personagem;
+function aplicarRaca(personagem, racaId) {
+  // Validações
+  if (!personagem) return { success: false, message: "Personagem é obrigatório" };
+  if (!RACAS_CONFIG[racaId]) return { success: false, message: `Raça "${racaId}" não encontrada` };
+  
+  const raca = RACAS_CONFIG[racaId];
+  
+  // Verificar se a mesma raça já está aplicada
+  if (racaAtual === racaId) {
+    return { success: false, message: `Raça ${raca.nomeExibido} já está aplicada` };
   }
   
-  const novoPersonagem = JSON.parse(JSON.stringify(personagem));
-  
-  // Aplica modificadores de atributos
-  if (config.atributos) {
-    Object.entries(config.atributos).forEach(([atributo, mod]) => {
-      if (!novoPersonagem.atributos) novoPersonagem.atributos = {};
-      if (!novoPersonagem.atributos[atributo]) {
-        novoPersonagem.atributos[atributo] = { esferas: 0 };
-      }
-      
-      let novoValor = novoPersonagem.atributos[atributo].esferas + mod.modificador;
-      if (novoValor < 0) novoValor = 0;
-      novoPersonagem.atributos[atributo].esferas = novoValor;
-    });
+  // Verificar pontos disponíveis
+  const pontosAtuais = personagem.saldoPontos !== undefined ? personagem.saldoPontos : 10;
+  if (raca.custo > pontosAtuais) {
+    return { 
+      success: false, 
+      message: `Pontos insuficientes! Precisa de ${raca.custo} pontos, restam ${pontosAtuais}` 
+    };
   }
   
-  // Aplica vantagem automática
-  if (config.vantagem) {
-    if (!novoPersonagem.vantagens) novoPersonagem.vantagens = [];
-    if (!novoPersonagem.vantagens.includes(config.vantagem)) {
-      novoPersonagem.vantagens.push(config.vantagem);
+  // Se tiver outra raça, remove primeiro
+  if (racaAtual) {
+    removerEfeitosRaca(personagem);
+  }
+  
+  // Registrar mudanças para debug/feedback
+  const changes = {
+    atributos: {},
+    vantagens: [],
+    desvantagens: [],
+    pericias: {},
+    movimento: null,
+    carga: null,
+    pontos: -raca.custo
+  };
+  
+  // 1. Aplicar modificadores de atributos
+  Object.entries(raca.atributos).forEach(([atributo, valor]) => {
+    const valorAtual = personagem.atributos?.[atributo]?.valor || 5;
+    const novoValor = valorAtual + valor;
+    // Limitar entre 1 e 15
+    const valorFinal = Math.min(15, Math.max(1, novoValor));
+    changes.atributos[atributo] = { antes: valorAtual, depois: valorFinal, delta: valor };
+    
+    if (personagem.atributos && personagem.atributos[atributo]) {
+      personagem.atributos[atributo].valor = valorFinal;
     }
-  }
+  });
   
-  // Aplica desvantagens obrigatórias
-  if (config.desvantagensObrigatorias) {
-    if (!novoPersonagem.desvantagens) novoPersonagem.desvantagens = [];
-    config.desvantagensObrigatorias.forEach(desv => {
-      if (!novoPersonagem.desvantagens.includes(desv)) {
-        novoPersonagem.desvantagens.push(desv);
+  // 2. Aplicar vantagens
+  raca.vantagens.forEach(vantagem => {
+    if (!personagem.vantagensSelecionadas?.has(vantagem)) {
+      changes.vantagens.push({ nome: vantagem, acao: "adicionada" });
+      if (personagem.vantagensSelecionadas) {
+        personagem.vantagensSelecionadas.add(vantagem);
+      }
+    }
+  });
+  
+  // 3. Aplicar desvantagens
+  raca.desvantagens.forEach(desvantagem => {
+    if (!personagem.desvantagensSelecionadas?.has(desvantagem)) {
+      changes.desvantagens.push({ nome: desvantagem, acao: "adicionada" });
+      if (personagem.desvantagensSelecionadas) {
+        personagem.desvantagensSelecionadas.add(desvantagem);
+      }
+    }
+  });
+  
+  // 4. Aplicar modificadores de perícias
+  if (raca.pericias.bonus) {
+    Object.entries(raca.pericias.bonus).forEach(([pericia, bonus]) => {
+      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
+      const novoBonus = valorAtual + bonus;
+      changes.pericias[pericia] = { tipo: "bonus", antes: valorAtual, depois: novoBonus, delta: bonus };
+      
+      if (personagem.pericias && personagem.pericias[pericia]) {
+        personagem.pericias[pericia].nivelBonus = (personagem.pericias[pericia].nivelBonus || 0) + bonus;
+      } else if (personagem.pericias) {
+        personagem.pericias[pericia] = { nivel: 0, nivelBonus: bonus };
       }
     });
   }
   
-  // Aplica modificadores de perícias
-  if (config.pericias && novoPersonagem.pericias) {
-    // Aplica bônus
-    if (config.pericias.bonus) {
-      Object.entries(config.pericias.bonus).forEach(([periciaId, bonus]) => {
-        if (!novoPersonagem.pericias[periciaId]) {
-          novoPersonagem.pericias[periciaId] = { nivel: 0 };
-        }
-        novoPersonagem.pericias[periciaId].bonusRaca = 
-          (novoPersonagem.pericias[periciaId].bonusRaca || 0) + bonus;
-      });
+  if (raca.pericias.penalidade) {
+    Object.entries(raca.pericias.penalidade).forEach(([pericia, penalidade]) => {
+      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
+      const novoBonus = valorAtual + penalidade;
+      changes.pericias[pericia] = { tipo: "penalidade", antes: valorAtual, depois: novoBonus, delta: penalidade };
+      
+      if (personagem.pericias && personagem.pericias[pericia]) {
+        personagem.pericias[pericia].nivelBonus = (personagem.pericias[pericia].nivelBonus || 0) + penalidade;
+      } else if (personagem.pericias) {
+        personagem.pericias[pericia] = { nivel: 0, nivelBonus: penalidade };
+      }
+    });
+  }
+  
+  // 5. Aplicar modificador de movimento
+  if (raca.movimento && raca.movimento.correr) {
+    const movimentoAtual = personagem.movimentoCorrer || 0;
+    let novoMovimento = movimentoAtual;
+    
+    if (raca.movimento.correr.tipo === "percentual") {
+      const percentual = (100 + raca.movimento.correr.modificador) / 100;
+      novoMovimento = movimentoAtual * percentual;
+      
+      if (raca.movimento.correr.arredondamento === "floor") {
+        novoMovimento = Math.floor(novoMovimento);
+      }
     }
     
-    // Aplica penalidades
-    if (config.pericias.penalidade) {
-      Object.entries(config.pericias.penalidade).forEach(([periciaId, penalidade]) => {
-        if (!novoPersonagem.pericias[periciaId]) {
-          novoPersonagem.pericias[periciaId] = { nivel: 0 };
-        }
-        novoPersonagem.pericias[periciaId].penalidadeRaca = 
-          (novoPersonagem.pericias[periciaId].penalidadeRaca || 0) + penalidade;
-      });
-    }
+    changes.movimento = { antes: movimentoAtual, depois: novoMovimento, delta: novoMovimento - movimentoAtual };
+    personagem.movimentoCorrer = novoMovimento;
+    personagem.movimentoModificadoPorRaca = true;
   }
   
-  // Marca que a carga é modificada
-  novoPersonagem._cargaModificada = true;
-  novoPersonagem._cargaLimitesRaca = config.carga?.limites || null;
-  
-  // Marca que o movimento é modificado
-  novoPersonagem._movimentoModificado = true;
-  novoPersonagem._reducaoCorrerRaca = config.movimento?.reducaoCorrer || 0;
-  
-  // Aplica a raça
-  novoPersonagem.raca = racaId;
-  
-  return novoPersonagem;
-}
-
-// ============================================
-// FUNÇÕES PÚBLICAS EXPORTADAS
-// ============================================
-
-/**
- * Aplica uma raça ao personagem (remove anterior se existir)
- * @param {Object} personagem - Objeto do personagem
- * @param {string} racaId - ID da raça a aplicar
- * @returns {Object} Personagem com a nova raça aplicada
- */
-export function aplicarRaca(personagem, racaId) {
-  if (!personagem) {
-    console.error('Personagem inválido');
-    return null;
+  // 6. Aplicar capacidade de carga
+  if (raca.carga) {
+    changes.carga = { ...raca.carga };
+    personagem.cargaPersonalizada = { ...raca.carga };
+    personagem.cargaModificadaPorRaca = true;
   }
   
-  // Verifica se a raça existe
-  const config = RACAS_CONFIG[racaId];
-  if (!config) {
-    console.error(`Raça ${racaId} não encontrada`);
-    return personagem;
+  // 7. Atualizar pontos do personagem
+  if (personagem.saldoPontos !== undefined) {
+    personagem.saldoPontos -= raca.custo;
+    changes.pontosRestantes = personagem.saldoPontos;
   }
   
-  // Verifica se já tem a mesma raça
-  if (personagem.raca === racaId) {
-    console.warn(`Personagem já possui a raça ${racaId}`);
-    return personagem;
-  }
+  // 8. Salvar estado da raça
+  racaAtual = racaId;
+  efeitosRacaAtuais = {
+    id: racaId,
+    atributos: { ...raca.atributos },
+    vantagens: [...raca.vantagens],
+    desvantagens: [...raca.desvantagens],
+    periciasBonus: { ...(raca.pericias.bonus || {}) },
+    periciasPenalidade: { ...(raca.pericias.penalidade || {}) },
+    movimento: raca.movimento ? { ...raca.movimento } : null,
+    carga: raca.carga ? { ...raca.carga } : null,
+    custo: raca.custo
+  };
   
-  // Remove efeitos da raça anterior e aplica a nova
-  let novoPersonagem = removerEfeitosRaca(personagem);
-  novoPersonagem = aplicarEfeitosRaca(novoPersonagem, racaId);
+  personagem.racaAtual = racaId;
+  personagem.racaNome = raca.nomeExibido;
   
-  return novoPersonagem;
-}
-
-/**
- * Remove a raça atual do personagem
- * @param {Object} personagem - Objeto do personagem
- * @returns {Object} Personagem sem raça
- */
-export function removerRaca(personagem) {
-  if (!personagem || !personagem.raca) return personagem;
-  return removerEfeitosRaca(personagem);
-}
-
-/**
- * Obtém os modificadores de uma raça
- * @param {string} racaId - ID da raça
- * @returns {Object} Modificadores da raça
- */
-export function getModificadoresRaca(racaId) {
-  const config = RACAS_CONFIG[racaId];
-  if (!config) return null;
-  
-  return {
-    atributos: config.atributos,
-    vantagem: config.vantagem,
-    pericias: config.pericias,
-    desvantagens: config.desvantagensObrigatorias,
-    movimento: config.movimento,
-    carga: config.carga,
-    custoEsferas: config.custoEsferas
+  return { 
+    success: true, 
+    message: `Raça ${raca.nomeExibido} aplicada com sucesso! Custo: ${raca.custo} pontos.`,
+    changes: changes
   };
 }
 
 /**
- * Obtém a lista de todas as raças disponíveis
+ * Remove todos os efeitos da raça atual do personagem
+ * @param {Object} personagem - Estado atual do personagem
+ * @returns {Object} Resultado da remoção
+ */
+function removerEfeitosRaca(personagem) {
+  if (!racaAtual || !efeitosRacaAtuais) {
+    return { success: false, message: "Nenhuma raça aplicada para remover" };
+  }
+  
+  const raca = RACAS_CONFIG[racaAtual];
+  if (!raca) {
+    // Limpar estado inconsistente
+    racaAtual = null;
+    efeitosRacaAtuais = null;
+    return { success: false, message: "Estado de raça inconsistente, limpo." };
+  }
+  
+  const changes = {
+    atributos: {},
+    vantagens: [],
+    desvantagens: [],
+    pericias: {},
+    movimento: null,
+    carga: null,
+    pontos: +raca.custo
+  };
+  
+  // 1. Remover modificadores de atributos
+  Object.entries(raca.atributos).forEach(([atributo, valor]) => {
+    const valorAtual = personagem.atributos?.[atributo]?.valor || 5;
+    const novoValor = valorAtual - valor;
+    const valorFinal = Math.min(15, Math.max(1, novoValor));
+    changes.atributos[atributo] = { antes: valorAtual, depois: valorFinal, delta: -valor };
+    
+    if (personagem.atributos && personagem.atributos[atributo]) {
+      personagem.atributos[atributo].valor = valorFinal;
+    }
+  });
+  
+  // 2. Remover vantagens
+  raca.vantagens.forEach(vantagem => {
+    if (personagem.vantagensSelecionadas?.has(vantagem)) {
+      changes.vantagens.push({ nome: vantagem, acao: "removida" });
+      personagem.vantagensSelecionadas.delete(vantagem);
+    }
+  });
+  
+  // 3. Remover desvantagens
+  raca.desvantagens.forEach(desvantagem => {
+    if (personagem.desvantagensSelecionadas?.has(desvantagem)) {
+      changes.desvantagens.push({ nome: desvantagem, acao: "removida" });
+      personagem.desvantagensSelecionadas.delete(desvantagem);
+    }
+  });
+  
+  // 4. Remover modificadores de perícias
+  if (raca.pericias.bonus) {
+    Object.entries(raca.pericias.bonus).forEach(([pericia, bonus]) => {
+      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
+      const novoBonus = valorAtual - bonus;
+      changes.pericias[pericia] = { tipo: "bonus", antes: valorAtual, depois: novoBonus, delta: -bonus };
+      
+      if (personagem.pericias && personagem.pericias[pericia]) {
+        personagem.pericias[pericia].nivelBonus = novoBonus;
+        
+        // Se o bônus ficou 0 e não tem nível, remove a entrada
+        if (novoBonus === 0 && (!personagem.pericias[pericia].nivel || personagem.pericias[pericia].nivel === 0)) {
+          delete personagem.pericias[pericia];
+        }
+      }
+    });
+  }
+  
+  if (raca.pericias.penalidade) {
+    Object.entries(raca.pericias.penalidade).forEach(([pericia, penalidade]) => {
+      const valorAtual = personagem.pericias?.[pericia]?.nivelBonus || 0;
+      const novoBonus = valorAtual - penalidade;
+      changes.pericias[pericia] = { tipo: "penalidade", antes: valorAtual, depois: novoBonus, delta: -penalidade };
+      
+      if (personagem.pericias && personagem.pericias[pericia]) {
+        personagem.pericias[pericia].nivelBonus = novoBonus;
+        
+        if (novoBonus === 0 && (!personagem.pericias[pericia].nivel || personagem.pericias[pericia].nivel === 0)) {
+          delete personagem.pericias[pericia];
+        }
+      }
+    });
+  }
+  
+  // 5. Restaurar movimento original
+  if (personagem.movimentoModificadoPorRaca) {
+    delete personagem.movimentoModificadoPorRaca;
+    changes.movimento = { restaurado: true };
+  }
+  
+  // 6. Restaurar carga original
+  if (personagem.cargaModificadaPorRaca) {
+    delete personagem.cargaPersonalizada;
+    delete personagem.cargaModificadaPorRaca;
+    changes.carga = { restaurado: true };
+  }
+  
+  // 7. Devolver pontos
+  if (personagem.saldoPontos !== undefined) {
+    personagem.saldoPontos += raca.custo;
+    changes.pontosRestantes = personagem.saldoPontos;
+  }
+  
+  // 8. Limpar estado da raça
+  delete personagem.racaAtual;
+  delete personagem.racaNome;
+  racaAtual = null;
+  efeitosRacaAtuais = null;
+  
+  return { 
+    success: true, 
+    message: `Efeitos da raça ${raca.nomeExibido} removidos. ${raca.custo} pontos devolvidos.`,
+    changes: changes
+  };
+}
+
+/**
+ * Verifica se uma raça pode ser aplicada
+ * @param {Object} personagem - Estado atual do personagem
+ * @param {string} racaId - ID da raça desejada
+ * @returns {Object} { podeAplicar: boolean, motivo: string, custo: number }
+ */
+function podeAplicarRaca(personagem, racaId) {
+  if (!RACAS_CONFIG[racaId]) {
+    return { podeAplicar: false, motivo: "Raça não encontrada", custo: 0 };
+  }
+  
+  const raca = RACAS_CONFIG[racaId];
+  
+  if (racaAtual === racaId) {
+    return { podeAplicar: false, motivo: `Raça ${raca.nomeExibido} já está aplicada`, custo: raca.custo };
+  }
+  
+  const pontosAtuais = personagem.saldoPontos !== undefined ? personagem.saldoPontos : 10;
+  
+  if (raca.custo > pontosAtuais) {
+    return { 
+      podeAplicar: false, 
+      motivo: `Pontos insuficientes. Precisa de ${raca.custo} pontos, restam ${pontosAtuais}`,
+      custo: raca.custo,
+      pontosRestantes: pontosAtuais
+    };
+  }
+  
+  return { podeAplicar: true, motivo: "", custo: raca.custo, pontosRestantes: pontosAtuais - raca.custo };
+}
+
+/**
+ * Retorna todas as raças disponíveis
  * @returns {Array} Lista de raças
  */
-export function getListaRacas() {
-  return Object.entries(RACAS_CONFIG).map(([id, config]) => ({
-    id: id,
-    nome: config.nome,
-    descricao: config.descricao,
-    custoEsferas: config.custoEsferas,
-    modificadores: {
-      atributos: config.atributos,
-      vantagem: config.vantagem,
-      desvantagens: config.desvantagensObrigatorias
-    }
+function listarRacas() {
+  return Object.values(RACAS_CONFIG).map(raca => ({
+    id: raca.id,
+    nome: raca.nomeExibido,
+    custo: raca.custo,
+    descricao: raca.descricao
   }));
 }
 
 /**
- * Obtém os limites de carga modificados pela raça
- * @param {Object} personagem - Objeto do personagem
- * @returns {Object|null} Limites de carga ou null se não modificado
+ * Retorna os detalhes completos de uma raça
+ * @param {string} racaId - ID da raça
+ * @returns {Object} Detalhes da raça
  */
-export function getCargaLimitesRaca(personagem) {
-  if (!personagem || !personagem.raca) return null;
+function getDetalhesRaca(racaId) {
+  if (!RACAS_CONFIG[racaId]) return null;
   
-  const config = RACAS_CONFIG[personagem.raca];
-  if (!config || !config.carga || !config.carga.modificado) return null;
-  
-  const [leve, medio, pesado, limite] = config.carga.limites;
-  return { leve, medio, pesado, limite };
+  const raca = RACAS_CONFIG[racaId];
+  return {
+    id: raca.id,
+    nome: raca.nomeExibido,
+    custo: raca.custo,
+    descricao: raca.descricao,
+    atributos: Object.entries(raca.atributos).map(([attr, valor]) => ({
+      nome: attr.toUpperCase(),
+      valor: valor,
+      sinal: valor > 0 ? `+${valor}` : `${valor}`
+    })),
+    vantagens: raca.vantagens.map(v => ({
+      id: v,
+      nome: obterNomeVantagem(v)
+    })),
+    desvantagens: raca.desvantagens.map(d => ({
+      id: d,
+      nome: obterNomeDesvantagem(d)
+    })),
+    pericias: {
+      bonus: Object.entries(raca.pericias.bonus || {}).map(([p, b]) => ({
+        id: p,
+        nome: obterNomePericia(p),
+        bonus: `+${b}%`
+      })),
+      penalidade: Object.entries(raca.pericias.penalidade || {}).map(([p, b]) => ({
+        id: p,
+        nome: obterNomePericia(p),
+        penalidade: `${b}%`
+      }))
+    },
+    movimento: `Redução de ${Math.abs(raca.movimento.correr.modificador)}% na corrida (arredondado para baixo)`,
+    carga: {
+      leve: raca.carga.leve,
+      media: raca.carga.media,
+      pesada: raca.carga.pesada,
+      maxima: raca.carga.maxima
+    }
+  };
 }
 
 /**
- * Obtém a redução de movimento de corrida da raça
- * @param {Object} personagem - Objeto do personagem
- * @returns {number} Redução em metros (0 se não houver)
+ * Retorna a raça atual aplicada
+ * @returns {Object|null}
  */
-export function getReducaoCorrerRaca(personagem) {
-  if (!personagem || !personagem.raca) return 0;
-  
-  const config = RACAS_CONFIG[personagem.raca];
-  if (!config || !config.movimento) return 0;
-  
-  return config.movimento.reducaoCorrer || 0;
+function getRacaAtual() {
+  if (!racaAtual || !RACAS_CONFIG[racaAtual]) return null;
+  return {
+    id: racaAtual,
+    ...RACAS_CONFIG[racaAtual]
+  };
 }
 
 /**
- * Verifica se uma perícia tem modificador de raça
- * @param {Object} personagem - Objeto do personagem
- * @param {string} periciaId - ID da perícia
- * @returns {Object} Modificadores da perícia
+ * Verifica se há uma raça aplicada
+ * @returns {boolean}
  */
-export function getModificadorPericiaRaca(personagem, periciaId) {
-  if (!personagem || !personagem.raca) return { bonus: 0, penalidade: 0 };
-  
-  const config = RACAS_CONFIG[personagem.raca];
-  if (!config || !config.pericias) return { bonus: 0, penalidade: 0 };
-  
-  const bonus = config.pericias.bonus?.[periciaId] || 0;
-  const penalidade = config.pericias.penalidade?.[periciaId] || 0;
-  
-  return { bonus, penalidade };
-}
-
-/**
- * Verifica se o personagem tem penalidade de atributo que afeta esferas
- * @param {Object} personagem - Objeto do personagem
- * @param {string} atributo - Nome do atributo (st, dx, iq, vigor, vt)
- * @returns {Object} Informações sobre penalidade
- */
-export function getPenalidadeAtributo(personagem, atributo) {
-  if (!personagem || !personagem.raca) return { temPenalidade: false, valor: 0 };
-  
-  const config = RACAS_CONFIG[personagem.raca];
-  if (!config || !config.atributos) return { temPenalidade: false, valor: 0 };
-  
-  const mod = config.atributos[atributo];
-  if (mod && mod.modificador < 0) {
-    return { 
-      temPenalidade: true, 
-      valor: Math.abs(mod.modificador)
-    };
-  }
-  
-  return { temPenalidade: false, valor: 0 };
-}
-
-/**
- * Calcula o custo real em esferas para um atributo considerando penalidade de raça
- * @param {Object} personagem - Objeto do personagem
- * @param {string} atributo - Nome do atributo
- * @param {number} esferasAtuais - Esferas atuais no atributo
- * @param {number} novaQtde - Nova quantidade de esferas
- * @returns {number} Custo real em esferas
- */
-export function calcularCustoAtributoComRaca(personagem, atributo, esferasAtuais, novaQtde) {
-  const penalidade = getPenalidadeAtributo(personagem, atributo);
-  
-  if (!penalidade.temPenalidade) {
-    // Sem penalidade, custo normal
-    return novaQtde - esferasAtuais;
-  }
-  
-  // Com penalidade, os primeiros X pontos neutralizam a penalidade
-  const aumento = novaQtde - esferasAtuais;
-  let custoReal = 0;
-  
-  // Se está aumentando
-  if (aumento > 0) {
-    // Verifica quantos pontos vão para neutralizar a penalidade
-    const pontosParaNeutralizar = Math.max(0, penalidade.valor - esferasAtuais);
-    const pontosParaEvoluir = aumento - pontosParaNeutralizar;
-    
-    // Pontos para neutralizar custam 1 cada (mas não aumentam efetivamente)
-    // Pontos para evoluir custam 1 cada (aumentam efetivamente)
-    custoReal = pontosParaNeutralizar + pontosParaEvoluir;
-  } else {
-    // Diminuindo, custo negativo (ganha esferas de volta)
-    custoReal = aumento;
-  }
-  
-  return custoReal;
-}
-
-/**
- * Obtém a classe CSS para a esfera de um atributo com penalidade
- * @param {Object} personagem - Objeto do personagem
- * @param {string} atributo - Nome do atributo
- * @param {number} esferasAtuais - Esferas atuais no atributo
- * @returns {string} Classe CSS ('', 'vermelha', 'preta')
- */
-export function getClasseEsferaAtributo(personagem, atributo, esferasAtuais) {
-  const penalidade = getPenalidadeAtributo(personagem, atributo);
-  
-  if (!penalidade.temPenalidade) return '';
-  
-  if (esferasAtuais === 0) return 'vermelha';
-  
-  if (esferasAtuais < penalidade.valor) return 'vermelha';
-  
-  if (esferasAtuais === penalidade.valor) return 'preta';
-  
-  return '';
+function temRacaAplicada() {
+  return racaAtual !== null;
 }
 
 // ============================================
-// EXPORTAÇÃO PADRÃO
+// FUNÇÕES AUXILIARES PARA NOMES
 // ============================================
-export default {
-  RACAS_CONFIG,
-  aplicarRaca,
-  removerRaca,
-  getModificadoresRaca,
-  getListaRacas,
-  getCargaLimitesRaca,
-  getReducaoCorrerRaca,
-  getModificadorPericiaRaca,
-  getPenalidadeAtributo,
-  calcularCustoAtributoComRaca,
-  getClasseEsferaAtributo
-};
+
+function obterNomeVantagem(id) {
+  const nomes = {
+    corpoResistente: "Corpo Resistente"
+  };
+  return nomes[id] || id;
+}
+
+function obterNomeDesvantagem(id) {
+  const nomes = {
+    avareza: "Avareza",
+    nanismo: "Nanismo"
+  };
+  return nomes[id] || id;
+}
+
+function obterNomePericia(id) {
+  const nomes = {
+    armasHaste: "Armas de Haste",
+    armaria: "Armaria",
+    arco: "Arco",
+    besta: "Besta",
+    funda: "Funda",
+    arremesso: "Arremesso"
+  };
+  return nomes[id] || id;
+}
+
+// ============================================
+// EXPORTAÇÃO
+// ============================================
+
+// Para uso com módulos ES6
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    RACAS_CONFIG,
+    aplicarRaca,
+    removerEfeitosRaca,
+    podeAplicarRaca,
+    listarRacas,
+    getDetalhesRaca,
+    getRacaAtual,
+    temRacaAplicada
+  };
+}
+
+// Para uso no navegador
+if (typeof window !== 'undefined') {
+  window.RacasSystem = {
+    RACAS_CONFIG,
+    aplicarRaca,
+    removerEfeitosRaca,
+    podeAplicarRaca,
+    listarRacas,
+    getDetalhesRaca,
+    getRacaAtual,
+    temRacaAplicada
+  };
+}

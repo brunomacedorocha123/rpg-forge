@@ -4654,6 +4654,7 @@ body {
     </div>
 </div>
 </div>
+<script src="racas.js"></script>
  <script type="module">
 // ============================================
 // SISTEMA RPGFORCE - VERSÃO COMPLETA CORRIGIDA
@@ -4679,6 +4680,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
 // ============================================
 // VARIÁVEIS GLOBAIS - SISTEMA DE PONTOS
 // ============================================
@@ -4706,6 +4708,26 @@ let dinheiro = 0;
 let valorBaseAnterior = 1000;  
 
 // ============================================
+// VARIÁVEIS DO SISTEMA DE RAÇAS
+// ============================================
+let racaAtual = null;                    // ID da raça atual (ex: "anao")
+let racaNome = null;                     // Nome da raça atual (ex: "Anão")
+let racaCusto = 0;                       // Custo em pontos da raça
+let vantagensObrigatorias = new Set();    // Vantagens que não podem ser removidas
+let desvantagensObrigatorias = new Set(); // Desvantagens que não podem ser removidas
+let modificadoresAtributosRaca = {        // Guarda os modificadores para poder remover
+    st: 0,
+    dx: 0,
+    iq: 0,
+    vigor: 0,
+    vt: 0
+};
+let modificadoresPericiasRaca = {         // Guarda modificadores de perícias
+    bonus: {},
+    penalidade: {}
+};
+
+// ============================================
 // ATRIBUTOS - SISTEMA DE PONTOS (1 A 15)
 // ============================================
 const atributos = {
@@ -4721,7 +4743,6 @@ const atributos = {
 // ============================================
 let pontosIniciais = 10;    // Pontos que o jogador escolhe
 let saldoPontos = 10;       // Pontos restantes para gastar
-
 // ============================================
 // DADOS DAS MAGIAS - ESCOLA DA ÁGUA
 // ============================================
@@ -8773,7 +8794,19 @@ const elements = {
     modalCodigoHonra: document.getElementById('modalCodigoHonra'),
     fecharModalCodigoHonra: document.getElementById('fecharModalCodigoHonra'),
     cardCodigoHonra: document.getElementById('cardCodigoHonra'),
-    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido')
+    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido'),
+    
+    // ============================================
+    // SISTEMA DE RAÇAS - NOVOS ELEMENTOS
+    // ============================================
+    racaPersonagem: document.getElementById('racaPersonagem'),
+    btnSelecionarRaca: document.getElementById('btnSelecionarRaca'),
+    modalRaca: document.getElementById('modalRaca'),
+    fecharModalRaca: document.getElementById('fecharModalRaca'),
+    listaRacasItems: document.getElementById('listaRacasItems'),
+    racaDetalhesConteudo: document.getElementById('racaDetalhesConteudo'),
+    confirmarRacaModal: document.getElementById('confirmarRacaModal'),
+    cancelarRacaModal: document.getElementById('cancelarRacaModal')
 };
 
 // ============================================
@@ -8908,6 +8941,366 @@ function getRDExtra() {
         rd += 2;
     }
     return rd;
+}
+
+// ============================================
+// FUNÇÃO PARA APLICAR RAÇA ANÃO
+// ============================================
+function aplicarRacaoAnao() {
+    // Verificar se já tem uma raça aplicada
+    if (racaAtual !== null) {
+        alert(`Você já possui a raça ${racaNome}. Remova-a antes de aplicar outra.`);
+        return false;
+    }
+    
+    // Verificar se tem pontos suficientes (custa 3 pontos)
+    if (saldoPontos < 3) {
+        alert(`Pontos insuficientes! Você tem ${saldoPontos} pontos, mas a raça Anão custa 3 pontos.`);
+        return false;
+    }
+    
+    // ============================================
+    // 1. DEBITAR PONTOS
+    // ============================================
+    saldoPontos -= 3;
+    pontosIniciais = saldoPontos;  // Atualizar pontosIniciais também
+    racaCusto = 3;
+    
+    // ============================================
+    // 2. MODIFICAR ATRIBUTOS (Base neutra = 5)
+    // ============================================
+    // ST +3
+    atributos.st.valor += 3;
+    // VIGOR +1
+    atributos.vigor.valor += 1;
+    // VT +1
+    atributos.vt.valor += 1;
+    // DX -1
+    atributos.dx.valor -= 1;
+    
+    // Limitar entre 1 e 15
+    atributos.st.valor = Math.min(15, Math.max(1, atributos.st.valor));
+    atributos.dx.valor = Math.min(15, Math.max(1, atributos.dx.valor));
+    atributos.iq.valor = Math.min(15, Math.max(1, atributos.iq.valor));
+    atributos.vigor.valor = Math.min(15, Math.max(1, atributos.vigor.valor));
+    atributos.vt.valor = Math.min(15, Math.max(1, atributos.vt.valor));
+    
+    // Guardar modificadores para poder remover depois
+    modificadoresAtributosRaca = {
+        st: 3,
+        dx: -1,
+        iq: 0,
+        vigor: 1,
+        vt: 1
+    };
+    
+    // ============================================
+    // 3. ADICIONAR VANTAGEM OBRIGATÓRIA
+    // ============================================
+    const vantagemRaca = "corpoResistente";
+    if (!vantagensSelecionadas.has(vantagemRaca)) {
+        vantagensSelecionadas.add(vantagemRaca);
+        vantagensObrigatorias.add(vantagemRaca);
+        
+        // Marcar visualmente no card da vantagem
+        const cardVantagem = document.querySelector(`.vantagem-card[data-vantagem="${vantagemRaca}"]`);
+        if (cardVantagem && !cardVantagem.classList.contains('selecionada')) {
+            cardVantagem.classList.add('selecionada');
+        }
+    }
+    
+    // ============================================
+    // 4. ADICIONAR DESVANTAGENS OBRIGATÓRIAS
+    // ============================================
+    const desvantagensRaca = ["avareza", "nanismo"];
+    
+    desvantagensRaca.forEach(desv => {
+        if (!desvantagensSelecionadas.has(desv)) {
+            desvantagensSelecionadas.add(desv);
+            desvantagensObrigatorias.add(desv);
+            
+            // Marcar visualmente no card da desvantagem
+            const cardDesv = document.querySelector(`.desvantagem-card[data-desvantagem="${desv}"]`);
+            if (cardDesv && !cardDesv.classList.contains('selecionada')) {
+                cardDesv.classList.add('selecionada');
+            }
+        }
+    });
+    
+    // ============================================
+    // 5. MODIFICAR PERÍCIAS
+    // ============================================
+    // Bônus: +3% em armasHaste e armaria
+    const periciasBonus = {
+        "armasHaste": 3,
+        "armaria": 3
+    };
+    
+    // Penalidade: -2% em arco, besta, funda, arremesso
+    const periciasPenalidade = {
+        "arco": -2,
+        "besta": -2,
+        "funda": -2,
+        "arremesso": -2
+    };
+    
+    // Aplicar bônus
+    Object.entries(periciasBonus).forEach(([periciaId, bonus]) => {
+        if (!pericias[periciaId]) {
+            pericias[periciaId] = { nivel: 0, nivelBonus: 0 };
+        }
+        pericias[periciaId].nivelBonus = (pericias[periciaId].nivelBonus || 0) + bonus;
+        modificadoresPericiasRaca.bonus[periciaId] = bonus;
+    });
+    
+    // Aplicar penalidades
+    Object.entries(periciasPenalidade).forEach(([periciaId, penalidade]) => {
+        if (!pericias[periciaId]) {
+            pericias[periciaId] = { nivel: 0, nivelBonus: 0 };
+        }
+        pericias[periciaId].nivelBonus = (pericias[periciaId].nivelBonus || 0) + penalidade;
+        modificadoresPericiasRaca.penalidade[periciaId] = penalidade;
+    });
+    
+    // ============================================
+    // 6. MODIFICAR MOVIMENTO (Correr -25%, arredondado pra baixo)
+    // ============================================
+    const deslocamentoAtual = calcularDeslocamento();
+    const correrAtual = deslocamentoAtual.correr;
+    const novoCorrer = Math.floor(correrAtual * 0.75);
+    
+    // Salvar modificador de movimento
+    window.movimentoCorrerModificado = novoCorrer;
+    window.movimentoOriginal = correrAtual;
+    
+    // ============================================
+    // 7. MODIFICAR CAPACIDADE DE CARGA
+    // ============================================
+    // Salvar carga original para poder restaurar depois
+    window.cargaOriginal = {
+        leve: null,
+        media: null,
+        pesada: null,
+        maxima: null
+    };
+    
+    // A carga será aplicada nas funções de cálculo
+    window.cargaModificadaPorRaca = {
+        leve: 2.5,
+        media: 5.0,
+        pesada: 9.0,
+        maxima: 13.0
+    };
+    
+    // ============================================
+    // 8. ATUALIZAR VARIÁVEIS GLOBAIS DA RAÇA
+    // ============================================
+    racaAtual = "anao";
+    racaNome = "Anão";
+    
+    // ============================================
+    // 9. ATUALIZAR INTERFACE
+    // ============================================
+    // Atualizar campo de raça no HTML
+    if (elements.racaPersonagem) {
+        elements.racaPersonagem.value = "Anão";
+    }
+    
+    // Atualizar saldo de pontos na tela
+    if (elements.saldoPontosSpan) {
+        elements.saldoPontosSpan.textContent = saldoPontos;
+    }
+    if (elements.pontosIniciaisInput) {
+        elements.pontosIniciaisInput.value = saldoPontos;
+    }
+    
+    // Atualizar botões dos atributos
+    atualizarBotoesAtributo('st');
+    atualizarBotoesAtributo('dx');
+    atualizarBotoesAtributo('iq');
+    atualizarBotoesAtributo('vigor');
+    atualizarBotoesAtributo('vt');
+    
+    // Atualizar cores dos atributos
+    atualizarCorAtributo('st');
+    atualizarCorAtributo('dx');
+    atualizarCorAtributo('iq');
+    atualizarCorAtributo('vigor');
+    atualizarCorAtributo('vt');
+    
+    // Atualizar toda a interface (atributos, status, defesas, etc)
+    atualizarInterface();
+    
+    // Re-renderizar perícias adquiridas
+    renderizarPericiasAdquiridas();
+    
+    // Re-renderizar lista de vantagens/desvantagens (para mostrar as selecionadas)
+    atualizarContadoresAbas();
+    atualizarLimitesCards();
+    
+    // ============================================
+    // 10. SALVAR AUTOMATICAMENTE
+    // ============================================
+    triggerAutoSave();
+    
+    // ============================================
+    // 11. MENSAGEM DE SUCESSO
+    // ============================================
+    alert(`✅ Raça Anão aplicada com sucesso!\n\n• ST +3, VIGOR +1, VT +1, DX -1\n• Vantagem: Corpo Resistente\n• Desvantagens: Avareza e Nanismo\n• Perícias: +3% Armas de Haste e Armaria\n• Custo: 3 pontos\n\nSaldo restante: ${saldoPontos} pontos`);
+    
+    return true;
+}
+
+// ============================================
+// FUNÇÃO PARA REMOVER RAÇA (SE NECESSÁRIO)
+// ============================================
+function removerRaca() {
+    if (racaAtual === null) {
+        alert("Nenhuma raça aplicada para remover.");
+        return false;
+    }
+    
+    if (racaAtual !== "anao") {
+        alert(`Raça ${racaNome} não pode ser removida automaticamente.`);
+        return false;
+    }
+    
+    // Confirmar com o usuário
+    if (!confirm(`Deseja remover a raça ${racaNome}? Você recuperará ${racaCusto} pontos.`)) {
+        return false;
+    }
+    
+    // ============================================
+    // 1. DEVOLVER PONTOS
+    // ============================================
+    saldoPontos += racaCusto;
+    pontosIniciais = saldoPontos;
+    
+    // ============================================
+    // 2. REMOVER MODIFICADORES DE ATRIBUTOS
+    // ============================================
+    atributos.st.valor -= modificadoresAtributosRaca.st;
+    atributos.dx.valor -= modificadoresAtributosRaca.dx;
+    atributos.vigor.valor -= modificadoresAtributosRaca.vigor;
+    atributos.vt.valor -= modificadoresAtributosRaca.vt;
+    
+    // Limitar entre 1 e 15
+    atributos.st.valor = Math.min(15, Math.max(1, atributos.st.valor));
+    atributos.dx.valor = Math.min(15, Math.max(1, atributos.dx.valor));
+    atributos.vigor.valor = Math.min(15, Math.max(1, atributos.vigor.valor));
+    atributos.vt.valor = Math.min(15, Math.max(1, atributos.vt.valor));
+    
+    // ============================================
+    // 3. REMOVER VANTAGEM OBRIGATÓRIA
+    // ============================================
+    if (vantagensObrigatorias.has("corpoResistente")) {
+        vantagensSelecionadas.delete("corpoResistente");
+        vantagensObrigatorias.delete("corpoResistente");
+        
+        const cardVantagem = document.querySelector(`.vantagem-card[data-vantagem="corpoResistente"]`);
+        if (cardVantagem) {
+            cardVantagem.classList.remove('selecionada');
+        }
+    }
+    
+    // ============================================
+    // 4. REMOVER DESVANTAGENS OBRIGATÓRIAS
+    // ============================================
+    ["avareza", "nanismo"].forEach(desv => {
+        if (desvantagensObrigatorias.has(desv)) {
+            desvantagensSelecionadas.delete(desv);
+            desvantagensObrigatorias.delete(desv);
+            
+            const cardDesv = document.querySelector(`.desvantagem-card[data-desvantagem="${desv}"]`);
+            if (cardDesv) {
+                cardDesv.classList.remove('selecionada');
+            }
+        }
+    });
+    
+    // ============================================
+    // 5. REMOVER MODIFICADORES DE PERÍCIAS
+    // ============================================
+    Object.entries(modificadoresPericiasRaca.bonus).forEach(([periciaId, bonus]) => {
+        if (pericias[periciaId]) {
+            pericias[periciaId].nivelBonus = (pericias[periciaId].nivelBonus || 0) - bonus;
+            
+            // Se ficou zerado e sem nível, remove
+            if (pericias[periciaId].nivelBonus === 0 && (!pericias[periciaId].nivel || pericias[periciaId].nivel === 0)) {
+                delete pericias[periciaId];
+            }
+        }
+    });
+    
+    Object.entries(modificadoresPericiasRaca.penalidade).forEach(([periciaId, penalidade]) => {
+        if (pericias[periciaId]) {
+            pericias[periciaId].nivelBonus = (pericias[periciaId].nivelBonus || 0) - penalidade;
+            
+            if (pericias[periciaId].nivelBonus === 0 && (!pericias[periciaId].nivel || pericias[periciaId].nivel === 0)) {
+                delete pericias[periciaId];
+            }
+        }
+    });
+    
+    // Limpar modificadores guardados
+    modificadoresPericiasRaca = { bonus: {}, penalidade: {} };
+    modificadoresAtributosRaca = { st: 0, dx: 0, iq: 0, vigor: 0, vt: 0 };
+    
+    // ============================================
+    // 6. RESTAURAR MOVIMENTO
+    // ============================================
+    delete window.movimentoCorrerModificado;
+    delete window.movimentoOriginal;
+    
+    // ============================================
+    // 7. RESTAURAR CARGA
+    // ============================================
+    delete window.cargaModificadaPorRaca;
+    delete window.cargaOriginal;
+    
+    // ============================================
+    // 8. LIMPAR VARIÁVEIS GLOBAIS
+    // ============================================
+    racaAtual = null;
+    racaNome = null;
+    racaCusto = 0;
+    
+    // ============================================
+    // 9. ATUALIZAR INTERFACE
+    // ============================================
+    if (elements.racaPersonagem) {
+        elements.racaPersonagem.value = "";
+    }
+    
+    if (elements.saldoPontosSpan) {
+        elements.saldoPontosSpan.textContent = saldoPontos;
+    }
+    if (elements.pontosIniciaisInput) {
+        elements.pontosIniciaisInput.value = saldoPontos;
+    }
+    
+    atualizarBotoesAtributo('st');
+    atualizarBotoesAtributo('dx');
+    atualizarBotoesAtributo('iq');
+    atualizarBotoesAtributo('vigor');
+    atualizarBotoesAtributo('vt');
+    
+    atualizarCorAtributo('st');
+    atualizarCorAtributo('dx');
+    atualizarCorAtributo('iq');
+    atualizarCorAtributo('vigor');
+    atualizarCorAtributo('vt');
+    
+    atualizarInterface();
+    renderizarPericiasAdquiridas();
+    atualizarContadoresAbas();
+    atualizarLimitesCards();
+    
+    triggerAutoSave();
+    
+    alert(`✅ Raça ${racaNome} removida! Você recuperou ${racaCusto} pontos.\nSaldo atual: ${saldoPontos} pontos`);
+    
+    return true;
 }
 
 // ============================================
@@ -9149,7 +9542,25 @@ function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
     
     const andarBruto = soma * 0.1;
-    const correrBruto = soma * 0.3;
+    let correrBruto = soma * 0.3;
+    
+    // ============================================
+    // MODIFICADORES DE RAÇA NO MOVIMENTO
+    // ============================================
+    
+    // ANÃO: Redução de 25% na corrida (arredondado pra baixo)
+    if (racaAtual === "anao") {
+        correrBruto = Math.floor(correrBruto * 0.75);
+    }
+    
+    // FUTURAS RAÇAS (exemplo):
+    // if (racaAtual === "elfo") {
+    //     correrBruto = Math.floor(correrBruto * 1.10);  // Elfo corre 10% mais
+    // }
+    // if (racaAtual === "halfling") {
+    //     correrBruto = Math.floor(correrBruto * 0.90);  // Halfling corre 10% menos
+    //     andarBruto = andarBruto * 0.95;               // Anda 5% menos
+    // }
     
     function arredondarDeslocamento(valor) {
         const parteInteira = Math.floor(valor);
@@ -9289,9 +9700,31 @@ function mapearPericiaArma(nome) {
 }
 
 // ============================================
-// CARGA
+// LIMITES DE CARGA
 // ============================================
 function calcularLimitesCarga() {
+    
+    // ANÃO: Valores fixos (substitui o cálculo normal)
+    if (racaAtual === "anao" && window.cargaModificadaPorRaca) {
+        return {
+            leve: window.cargaModificadaPorRaca.leve,    // 2.5
+            medio: window.cargaModificadaPorRaca.media,  // 5.0
+            pesado: window.cargaModificadaPorRaca.pesada, // 9.0
+            limite: window.cargaModificadaPorRaca.maxima  // 13.0
+        };
+    }
+    
+    // FUTURAS RAÇAS (exemplo):
+    // if (racaAtual === "elfo" && window.cargaModificadaPorRaca) {
+    //     return {
+    //         leve: window.cargaModificadaPorRaca.leve,
+    //         medio: window.cargaModificadaPorRaca.media,
+    //         pesado: window.cargaModificadaPorRaca.pesada,
+    //         limite: window.cargaModificadaPorRaca.maxima
+    //     };
+    // }
+    
+    // PADRÃO (baseado na Força)
     const st = getSTFixo();
     return {
         leve: st * 2,
@@ -9301,6 +9734,9 @@ function calcularLimitesCarga() {
     };
 }
 
+// ============================================
+// CÁLCULO DE CARGA ATUAL
+// ============================================
 function calcularCarga() {
     let pesoTotal = 0;
     if (inventario.corpo) {
@@ -9502,7 +9938,160 @@ if (document.readyState === 'loading') {
     setTimeout(adicionarEventosInfoCards, 500);
 }
 
+// ============================================
+// FUNÇÕES DO MODAL DE RAÇA
+// ============================================
 
+// Abrir o modal e carregar as raças
+function abrirModalRaca() {
+    if (!elements.modalRaca) return;
+    
+    // Carregar lista de raças
+    const listaRacas = [
+        { id: "anao", nome: "Anão", custo: 3, descricao: "Anões são robustos, resistentes e conhecidos por sua habilidade com forja e armas de haste." }
+    ];
+    
+    // Renderizar lista de raças
+    if (elements.listaRacasItems) {
+        elements.listaRacasItems.innerHTML = listaRacas.map(raca => `
+            <div class="raca-item" data-raca="${raca.id}">
+                <span class="raca-item-nome">${raca.nome}</span>
+                <span class="raca-item-custo">${raca.custo} pontos</span>
+            </div>
+        `).join('');
+        
+        // Adicionar evento de clique em cada raça
+        document.querySelectorAll('.raca-item').forEach(item => {
+            item.addEventListener('click', () => {
+                // Remover seleção anterior
+                document.querySelectorAll('.raca-item').forEach(i => i.classList.remove('selecionado'));
+                // Selecionar atual
+                item.classList.add('selecionado');
+                // Guardar raça selecionada
+                racaSelecionadaModal = item.dataset.raca;
+                // Mostrar detalhes
+                mostrarDetalhesRaca(racaSelecionadaModal);
+                // Habilitar botão confirmar
+                if (elements.confirmarRacaModal) {
+                    elements.confirmarRacaModal.disabled = false;
+                }
+            });
+        });
+    }
+    
+    // Limpar seleção e detalhes
+    racaSelecionadaModal = null;
+    if (elements.racaDetalhesConteudo) {
+        elements.racaDetalhesConteudo.innerHTML = `
+            <div style="text-align: center; color: rgba(255,255,255,0.5); padding: 40px;">
+                <i class="fas fa-hand-point-left" style="font-size: 2rem;"></i>
+                <p>Selecione uma raça ao lado para ver os detalhes</p>
+            </div>
+        `;
+    }
+    if (elements.confirmarRacaModal) {
+        elements.confirmarRacaModal.disabled = true;
+    }
+    
+    // Abrir modal
+    elements.modalRaca.classList.add('active');
+}
+
+// Fechar modal
+function fecharModalRaca() {
+    if (elements.modalRaca) {
+        elements.modalRaca.classList.remove('active');
+    }
+    racaSelecionadaModal = null;
+}
+
+// Mostrar detalhes da raça selecionada
+function mostrarDetalhesRaca(racaId) {
+    if (!elements.racaDetalhesConteudo) return;
+    
+    if (racaId === "anao") {
+        elements.racaDetalhesConteudo.innerHTML = `
+            <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 12px; margin-bottom: 15px;">
+                <strong style="color: #ffd700;">📖 Descrição:</strong>
+                <p style="margin-top: 8px;">Anões são robustos, resistentes e conhecidos por sua habilidade com forja e armas de haste. São teimosos, mas leais.</p>
+            </div>
+            
+            <div class="raca-info-grid">
+                <div class="raca-info-card">
+                    <h4>📊 ATRIBUTOS</h4>
+                    <div class="raca-atributos">
+                        <span class="raca-atributo positivo">ST +3</span>
+                        <span class="raca-atributo positivo">VIGOR +1</span>
+                        <span class="raca-atributo positivo">VT +1</span>
+                        <span class="raca-atributo negativo">DX -1</span>
+                    </div>
+                </div>
+                <div class="raca-info-card">
+                    <h4>⭐ VANTAGEM</h4>
+                    <p>Corpo Resistente</p>
+                    <small style="color: rgba(255,255,255,0.6);">RD +2, +10% resistência a venenos</small>
+                </div>
+                <div class="raca-info-card">
+                    <h4>💀 DESVANTAGENS</h4>
+                    <p>Avareza e Nanismo</p>
+                    <small style="color: rgba(255,255,255,0.6);">Dificuldade em gastar dinheiro, estatura baixa</small>
+                </div>
+                <div class="raca-info-card">
+                    <h4>⚔️ PERÍCIAS</h4>
+                    <div class="raca-pericias">
+                        <div class="raca-pericia-item"><span>Armas de Haste</span><span class="positivo">+3%</span></div>
+                        <div class="raca-pericia-item"><span>Armaria</span><span class="positivo">+3%</span></div>
+                        <div class="raca-pericia-item"><span>Arco</span><span class="negativo">-2%</span></div>
+                        <div class="raca-pericia-item"><span>Besta</span><span class="negativo">-2%</span></div>
+                        <div class="raca-pericia-item"><span>Funda</span><span class="negativo">-2%</span></div>
+                        <div class="raca-pericia-item"><span>Arremesso</span><span class="negativo">-2%</span></div>
+                    </div>
+                </div>
+                <div class="raca-info-card">
+                    <h4>🏃 MOVIMENTO</h4>
+                    <p>Correr reduzido em 25%</p>
+                    <small style="color: rgba(255,255,255,0.6);">(arredondado para baixo)</small>
+                </div>
+                <div class="raca-info-card">
+                    <h4>🎒 CARGA</h4>
+                    <p>Leve: 2.5kg | Médio: 5.0kg</p>
+                    <p>Pesado: 9.0kg | Máx: 13.0kg</p>
+                </div>
+            </div>
+            
+            <div style="background: rgba(255,215,0,0.1); padding: 10px; border-radius: 10px; margin-top: 10px; text-align: center;">
+                <strong style="color: #ffd700;">💰 Custo: 3 pontos</strong>
+            </div>
+        `;
+    }
+}
+
+// Confirmar seleção da raça
+function confirmarRacaModal() {
+    if (!racaSelecionadaModal) {
+        alert("Selecione uma raça primeiro!");
+        return;
+    }
+    
+    let sucesso = false;
+    
+    if (racaSelecionadaModal === "anao") {
+        sucesso = aplicarRacaoAnao();
+    }
+    
+    if (sucesso) {
+        fecharModalRaca();
+    }
+}
+
+// Fechar modal clicando fora
+if (elements.modalRaca) {
+    elements.modalRaca.addEventListener('click', (e) => {
+        if (e.target === elements.modalRaca) {
+            fecharModalRaca();
+        }
+    });
+}
 
 // ============================================
 // FUNÇÃO AUXILIAR PARA ADICIONAR ITENS COM QUANTIDADE
@@ -12465,6 +13054,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideLoading();
             }
         });
+    }
+    
+    // ============================================
+    // EVENTOS DO SISTEMA DE RAÇA
+    // ============================================
+    
+    // Botão para abrir modal de raça
+    if (elements.btnSelecionarRaca) {
+        elements.btnSelecionarRaca.addEventListener('click', () => {
+            abrirModalRaca();
+        });
+    }
+    
+    // Botão confirmar do modal
+    if (elements.confirmarRacaModal) {
+        elements.confirmarRacaModal.addEventListener('click', confirmarRacaModal);
+    }
+    
+    // Botão cancelar do modal
+    if (elements.cancelarRacaModal) {
+        elements.cancelarRacaModal.addEventListener('click', fecharModalRaca);
+    }
+    
+    // Botão fechar do modal (X)
+    if (elements.fecharModalRaca) {
+        elements.fecharModalRaca.addEventListener('click', fecharModalRaca);
     }
     
     dinheiro = calcularDinheiroInicial();
