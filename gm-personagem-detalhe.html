@@ -1116,12 +1116,14 @@
             return urlParams.get('personagemId');
         }
 
-        // ============================================
-        // TABELA DE DANO (igual à ficha do PC)
+            // ============================================
+        // TABELA DE DANO (SISTEMA 1-15)
         // ============================================
         const tabelaDano = {
-            0: "1d-3", 1: "1d-2", 2: "1d-1", 3: "1d", 4: "1d+1", 5: "1d+2",
-            6: "1d+2", 7: "2d-1", 8: "2d", 9: "2d+1", 10: "2d+2"
+            1: "1d-4", 2: "1d-4", 3: "1d-3", 4: "1d-3",
+            5: "1d-2", 6: "1d-1", 7: "1d-1", 8: "1d",
+            9: "1d", 10: "1d+1", 11: "1d+1", 12: "1d+2",
+            13: "2d-1", 14: "2d", 15: "2d+1"
         };
 
         // ============================================
@@ -1292,22 +1294,32 @@
         };
 
         // ============================================
-        // FUNÇÕES DE CÁLCULO (CORRIGIDAS)
+        // TABELA DE PERCENTUAIS (1 a 15)
         // ============================================
-        function getSTFixo(personagem) { return 5 + (personagem?.atributos?.st?.esferas || 0); }
-        function getDXFixo(personagem) { return 5 + (personagem?.atributos?.dx?.esferas || 0); }
-        function getIQFixo(personagem) { return 5 + (personagem?.atributos?.iq?.esferas || 0); }
-        function getVIGORFixo(personagem) { return 5 + (personagem?.atributos?.vigor?.esferas || 0); }
-        function getVTFixo(personagem) { return 5 + (personagem?.atributos?.vt?.esferas || 0); }
+        const tabelaPercentuais = {
+            1: 30, 2: 35, 3: 40, 4: 45, 5: 50,
+            6: 53, 7: 56, 8: 59, 9: 62, 10: 65,
+            11: 68, 12: 71, 13: 74, 14: 77, 15: 80
+        };
 
-        function getSTPercentual(personagem) { return 40 + ((personagem?.atributos?.st?.esferas || 0) * 3); }
-        function getDXPercentual(personagem) { return 40 + ((personagem?.atributos?.dx?.esferas || 0) * 2); }
-        function getIQPercentual(personagem) { return 40 + ((personagem?.atributos?.iq?.esferas || 0) * 2); }
-        function getVIGORPercentual(personagem) { return 40 + ((personagem?.atributos?.vigor?.esferas || 0) * 3); }
-        
-        function getVTPercentual(personagem) { 
-            return 40 + ((personagem?.atributos?.vt?.esferas || 0) * 3);
+        function getPercentualPorValor(valor) {
+            return tabelaPercentuais[valor] || 50;
         }
+
+        // ============================================
+        // FUNÇÕES DE CÁLCULO (ATUALIZADAS SISTEMA 1-15)
+        // ============================================
+        function getSTFixo(personagem) { return personagem?.atributos?.st?.valor || 5; }
+        function getDXFixo(personagem) { return personagem?.atributos?.dx?.valor || 5; }
+        function getIQFixo(personagem) { return personagem?.atributos?.iq?.valor || 5; }
+        function getVIGORFixo(personagem) { return personagem?.atributos?.vigor?.valor || 5; }
+        function getVTFixo(personagem) { return personagem?.atributos?.vt?.valor || 5; }
+
+        function getSTPercentual(personagem) { return getPercentualPorValor(getSTFixo(personagem)); }
+        function getDXPercentual(personagem) { return getPercentualPorValor(getDXFixo(personagem)); }
+        function getIQPercentual(personagem) { return getPercentualPorValor(getIQFixo(personagem)); }
+        function getVIGORPercentual(personagem) { return getPercentualPorValor(getVIGORFixo(personagem)); }
+        function getVTPercentual(personagem) { return getPercentualPorValor(getVTFixo(personagem)); }
 
         function calcularPV(personagem) { 
             let vtBase = getVTFixo(personagem);
@@ -1330,6 +1342,9 @@
             return getVIGORFixo(personagem) + getIQFixo(personagem) + getVTFixo(personagem);
         }
 
+        // ============================================
+        // BÔNUS DEFENSIVO (APENAS ARMADURAS)
+        // ============================================
         function calcularBonusDefensivo(personagem) {
             let bonus = 0;
             if (personagem?.inventario?.corpo) {
@@ -1342,16 +1357,30 @@
             return bonus;
         }
 
+        // ============================================
+        // DEFESA - ESQUIVA (SEM BÔNUS DE ARMADURA)
+        // ============================================
         function calcularEsquiva(personagem) {
-            let esquiva = Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) - 17;
+            let esquiva = Math.floor((getDXPercentual(personagem) + getVIGORPercentual(personagem)) / 2) - 30;
             
             if (personagem?.vantagens?.includes('reflexosRapidos')) esquiva += 5;
             
-            esquiva += calcularBonusDefensivo(personagem);
+            // ❌ NÃO adicionar calcularBonusDefensivo aqui!
+            
+            const carga = calcularCarga(personagem);
+            const st = getSTFixo(personagem);
+            const limiteLeve = st * 2;
+            const limiteMedio = st * 4;
+            
+            if (carga > limiteMedio) esquiva -= 10;
+            else if (carga > limiteLeve) esquiva -= 5;
             
             return Math.max(0, esquiva);
         }
 
+        // ============================================
+        // DEFESA - APARAR (SEM BÔNUS DE ARMADURA)
+        // ============================================
         function calcularAparar(personagem) {
             let melhorBonus = 0;
             let bonusArma = 0;
@@ -1385,7 +1414,7 @@
                     
                     const pericia = personagem.pericias?.[periciaId];
                     if (pericia) {
-                        melhorBonus = (pericia.nivel || 0) * 4;
+                        melhorBonus = (pericia.nivel || 0) * 3;
                     }
                 }
             }
@@ -1393,16 +1422,19 @@
             if (!temArma) return 0;
             if (bonusArma === -999) return 0;
             
-            let aparar = getDXPercentual(personagem) + melhorBonus - 25;
+            let aparar = getDXPercentual(personagem) + melhorBonus - 35;
             aparar += bonusArma;
             
             if (personagem?.vantagens?.includes('reflexosRapidos')) aparar += 5;
             
-            aparar += calcularBonusDefensivo(personagem);
+            // ❌ NÃO adicionar calcularBonusDefensivo aqui!
             
             return Math.max(0, aparar);
         }
 
+        // ============================================
+        // DEFESA - BLOQUEIO (SEM BÔNUS DE ARMADURA)
+        // ============================================
         function calcularBloqueio(personagem) {
             let melhorBonus = 0;
             let bonusEscudo = 0;
@@ -1415,7 +1447,7 @@
                         bonusEscudo = item.bonus || 0;
                         const pericia = personagem.pericias?.['escudo'];
                         if (pericia) {
-                            const bonus = (pericia.nivel || 0) * 4;
+                            const bonus = (pericia.nivel || 0) * 3;
                             if (bonus > melhorBonus) melhorBonus = bonus;
                         }
                     }
@@ -1424,21 +1456,42 @@
             
             if (!temEscudo) return 0;
             
-            let bloqueio = getDXPercentual(personagem) + melhorBonus + bonusEscudo - 25;
+            let bloqueio = getDXPercentual(personagem) + melhorBonus + bonusEscudo - 35;
             
             if (personagem?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
             
-            bloqueio += calcularBonusDefensivo(personagem);
+            // ❌ NÃO adicionar calcularBonusDefensivo aqui!
             
             return Math.max(0, bloqueio);
         }
 
+        // ============================================
+        // CARGA
+        // ============================================
+        function calcularCarga(personagem) {
+            let pesoTotal = 0;
+            if (personagem?.inventario?.corpo) {
+                personagem.inventario.corpo.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+            }
+            if (personagem?.inventario?.mochila) {
+                personagem.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+            }
+            if (personagem?.inventario?.deposito) {
+                personagem.inventario.deposito.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
+            }
+            return pesoTotal;
+        }
+
+        // ============================================
+        // DESLOCAMENTO
+        // ============================================
         function calcularDeslocamento(personagem) {
             const soma = getDXFixo(personagem) + getVIGORFixo(personagem);
             const andarBruto = soma * 0.1;
             const correrBruto = soma * 0.3;
             
             function arredondarDeslocamento(valor) {
+                if (valor < 1 && valor > 0) return 1;
                 const parteInteira = Math.floor(valor);
                 const parteDecimal = valor - parteInteira;
                 return parteDecimal < 0.5 ? parteInteira : parteInteira + 1;
@@ -1449,6 +1502,9 @@
             return { andar, correr };
         }
 
+        // ============================================
+        // RD (Valor Defensivo para exibição)
+        // ============================================
         function calcularRD(personagem) {
             let rd = 0;
             if (personagem?.vantagens?.includes('corpoResistente')) {
@@ -1464,9 +1520,12 @@
             return rd;
         }
 
+        // ============================================
+        // DANO BASE (SISTEMA 1-15)
+        // ============================================
         function calcularDanoBase(personagem) {
-            const esferasST = personagem?.atributos?.st?.esferas || 0;
-            return tabelaDano[esferasST] || "1d-3";
+            const st = getSTFixo(personagem);
+            return tabelaDano[st] || "1d-2";
         }
 
         function getAtributoBasePericia(periciaId) {
@@ -1490,7 +1549,8 @@
         function calcularNHPericia(personagem, periciaId, nivel) {
             const atributoBase = getAtributoBasePericia(periciaId);
             let percentualBase = atributoBase === 'iq' ? getIQPercentual(personagem) : getDXPercentual(personagem);
-            return percentualBase + (nivel * 4);
+            const bonus = (nivel || 0) * 3;
+            return percentualBase + bonus;
         }
 
         function calcularNHMagia(personagem, escola, nivel) {
@@ -1562,12 +1622,13 @@
                 personagemFoto.style.backgroundImage = `url('${personagem.fotoURL}')`;
             }
 
-            const totalEsferas = (personagem.atributos?.st?.esferas || 0) +
-                                (personagem.atributos?.dx?.esferas || 0) +
-                                (personagem.atributos?.iq?.esferas || 0) +
-                                (personagem.atributos?.vigor?.esferas || 0) +
-                                (personagem.atributos?.vt?.esferas || 0);
-            const nivel = totalEsferas + 1;
+            // Nível baseado nos valores dos atributos (1-15)
+            const totalValores = (personagem.atributos?.st?.valor || 5) +
+                                (personagem.atributos?.dx?.valor || 5) +
+                                (personagem.atributos?.iq?.valor || 5) +
+                                (personagem.atributos?.vigor?.valor || 5) +
+                                (personagem.atributos?.vt?.valor || 5);
+            const nivel = totalValores - 25;
             
             nivelPersonagem.textContent = nivel;
             dinheiro.textContent = personagem.dinheiro || 0;
@@ -1594,41 +1655,61 @@
 
             danoBase.textContent = calcularDanoBase(personagem);
 
+            // Atributos com valores 1-15 e percentuais
+            const stValor = getSTFixo(personagem);
+            const dxValor = getDXFixo(personagem);
+            const iqValor = getIQFixo(personagem);
+            const vigorValor = getVIGORFixo(personagem);
+            const vtValor = getVTFixo(personagem);
+            
+            const stPercentual = getSTPercentual(personagem);
+            const dxPercentual = getDXPercentual(personagem);
+            const iqPercentual = getIQPercentual(personagem);
+            const vigorPercentual = getVIGORPercentual(personagem);
+            const vtPercentual = getVTPercentual(personagem);
+            
+            // Calcular esferas para exibição (antigo sistema visual)
+            const stEsferas = stValor - 5;
+            const dxEsferas = dxValor - 5;
+            const iqEsferas = iqValor - 5;
+            const vigorEsferas = vigorValor - 5;
+            const vtEsferas = vtValor - 5;
+
             atributosContainer.innerHTML = `
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">ST</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.st?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.st?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(Math.max(0, stEsferas))}${'<span class="esfera"></span>'.repeat(Math.max(0, 10 - stEsferas))}</div>
                     </div>
-                    <span class="atributo-valor">${getSTFixo(personagem)}</span>
+                    <span class="atributo-valor">${stValor} <span style="font-size: 11px; color: #4CAF50;">(${stPercentual}%)</span></span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">DX</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.dx?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.dx?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(Math.max(0, dxEsferas))}${'<span class="esfera"></span>'.repeat(Math.max(0, 10 - dxEsferas))}</div>
                     </div>
-                    <span class="atributo-valor">${getDXFixo(personagem)}</span>
+                    <span class="atributo-valor">${dxValor} <span style="font-size: 11px; color: #4CAF50;">(${dxPercentual}%)</span></span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">IQ</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.iq?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.iq?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(Math.max(0, iqEsferas))}${'<span class="esfera"></span>'.repeat(Math.max(0, 10 - iqEsferas))}</div>
                     </div>
-                    <span class="atributo-valor">${getIQFixo(personagem)}</span>
+                    <span class="atributo-valor">${iqValor} <span style="font-size: 11px; color: #4CAF50;">(${iqPercentual}%)</span></span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">VIGOR</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vigor?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.vigor?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(Math.max(0, vigorEsferas))}${'<span class="esfera"></span>'.repeat(Math.max(0, 10 - vigorEsferas))}</div>
                     </div>
-                    <span class="atributo-valor">${getVIGORFixo(personagem)}</span>
+                    <span class="atributo-valor">${vigorValor} <span style="font-size: 11px; color: #4CAF50;">(${vigorPercentual}%)</span></span>
                 </div>
                 <div class="atributo-item">
                     <div>
                         <span class="atributo-nome">VT</span>
-                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(personagem.atributos?.vt?.esferas || 0)}${'<span class="esfera"></span>'.repeat(10 - (personagem.atributos?.vt?.esferas || 0))}</div>
+                        <div class="atributo-esferas">${'<span class="esfera cheia"></span>'.repeat(Math.max(0, vtEsferas))}${'<span class="esfera"></span>'.repeat(Math.max(0, 10 - vtEsferas))}</div>
                     </div>
-                    <span class="atributo-valor">${getVTFixo(personagem)} <span style="font-size: 11px; color: #4CAF50;">(${getVTPercentual(personagem)}%)</span></span>
+                    <span class="atributo-valor">${vtValor} <span style="font-size: 11px; color: #4CAF50;">(${vtPercentual}%)</span></span>
                 </div>
             `;
 
