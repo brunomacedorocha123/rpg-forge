@@ -2721,19 +2721,35 @@ function iniciarListenerParticipantes() {
 }
 
 // ============================================
-// FUNÇÕES DE CÁLCULO (ATUALIZADAS COM BÔNUS DEFENSIVO)
+// TABELA DE PERCENTUAIS (1 a 15)
 // ============================================
-function getSTFixo() { return 5 + (personagemAtual?.atributos?.st?.esferas || 0); }
-function getDXFixo() { return 5 + (personagemAtual?.atributos?.dx?.esferas || 0); }
-function getIQFixo() { return 5 + (personagemAtual?.atributos?.iq?.esferas || 0); }
-function getVIGORFixo() { return 5 + (personagemAtual?.atributos?.vigor?.esferas || 0); }
-function getVTFixo() { return 5 + (personagemAtual?.atributos?.vt?.esferas || 0); }
+const tabelaPercentuais = {
+    1: 30, 2: 35, 3: 40, 4: 45, 5: 50,
+    6: 53, 7: 56, 8: 59, 9: 62, 10: 65,
+    11: 68, 12: 71, 13: 74, 14: 77, 15: 80
+};
 
-function getSTPercentual() { return 50 + ((personagemAtual?.atributos?.st?.esferas || 0) * 3); }
-function getDXPercentual() { return 50 + ((personagemAtual?.atributos?.dx?.esferas || 0) * 2); }
-function getIQPercentual() { return 50 + ((personagemAtual?.atributos?.iq?.esferas || 0) * 2); }
-function getVIGORPercentual() { return 50 + ((personagemAtual?.atributos?.vigor?.esferas || 0) * 3); }
+function getPercentualPorValor(valor) {
+    return tabelaPercentuais[valor] || 50;
+}
 
+// ============================================
+// FUNÇÕES DE CÁLCULO (ATUALIZADAS SISTEMA 1-15)
+// ============================================
+function getSTFixo() { return personagemAtual?.atributos?.st?.valor || 5; }
+function getDXFixo() { return personagemAtual?.atributos?.dx?.valor || 5; }
+function getIQFixo() { return personagemAtual?.atributos?.iq?.valor || 5; }
+function getVIGORFixo() { return personagemAtual?.atributos?.vigor?.valor || 5; }
+function getVTFixo() { return personagemAtual?.atributos?.vt?.valor || 5; }
+
+function getSTPercentual() { return getPercentualPorValor(getSTFixo()); }
+function getDXPercentual() { return getPercentualPorValor(getDXFixo()); }
+function getIQPercentual() { return getPercentualPorValor(getIQFixo()); }
+function getVIGORPercentual() { return getPercentualPorValor(getVIGORFixo()); }
+
+// ============================================
+// PV, PM, PF (MANTIDAS AS MESMAS FÓRMULAS)
+// ============================================
 function calcularPV() { 
     let vtBase = getVTFixo();
     let pvBase = vtBase * 7;
@@ -4536,6 +4552,27 @@ async function carregarVinculoEPersonagem() {
             id: personagemSnap.id,
             ...personagemSnap.data()
         };
+
+        // 🔥 CONVERTE ATRIBUTOS DO FORMATO ANTIGO (esferas) PARA O NOVO (valor)
+        if (personagemAtual.atributos) {
+            const atributos = ['st', 'dx', 'iq', 'vigor', 'vt'];
+            atributos.forEach(attr => {
+                if (personagemAtual.atributos[attr]) {
+                    // Se tem esferas mas não tem valor, converte
+                    if (personagemAtual.atributos[attr].esferas !== undefined && 
+                        personagemAtual.atributos[attr].valor === undefined) {
+                        personagemAtual.atributos[attr].valor = 5 + personagemAtual.atributos[attr].esferas;
+                        personagemAtual.atributos[attr].valor = Math.min(15, Math.max(1, personagemAtual.atributos[attr].valor));
+                    }
+                    // Se não tem valor nem esferas, padrão 5
+                    else if (personagemAtual.atributos[attr].valor === undefined) {
+                        personagemAtual.atributos[attr].valor = 5;
+                    }
+                } else {
+                    personagemAtual.atributos[attr] = { valor: 5 };
+                }
+            });
+        }
 
         if (!personagemAtual.statusCombate) {
             personagemAtual.statusCombate = {
