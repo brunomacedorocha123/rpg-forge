@@ -90,6 +90,7 @@ function aplicarRaca(racaId) {
     if (elements.pontosIniciaisInput) {
         elements.pontosIniciaisInput.value = pontosIniciais;
     }
+    atualizarSaldoPontos();
     
     racaSelecionada = {
         id: racaId,
@@ -100,7 +101,7 @@ function aplicarRaca(racaId) {
     const racaDisplay = document.getElementById('racaDisplay');
     if (racaDisplay) {
         racaDisplay.textContent = raca.nome;
-        racaDisplay.style.color = '#ffd700';
+        racaDisplay.classList.add('selecionada');
     }
     
     const racaSelecionadaInput = document.getElementById('racaSelecionada');
@@ -115,8 +116,6 @@ function aplicarRaca(racaId) {
     atualizarBotoesAtributo('vt');
     atualizarBotoesAtributo('vigor');
     renderizarPericiasAdquiridas();
-    atualizarDeslocamentoPorRaca();
-    atualizarLimitesCargaPorRaca();
     
     triggerAutoSave();
     return true;
@@ -132,60 +131,6 @@ function getPenalidadePericiaPorRaca(periciaId) {
     if (!racaSelecionada) return 0;
     const penalidades = racaSelecionada.dados.penalidadesPericias || {};
     return penalidades[periciaId] || 0;
-}
-
-function calcularDeslocamentoComRaca() {
-    const deslocBase = calcularDeslocamento();
-    let andar = deslocBase.andar;
-    let correr = deslocBase.correr;
-    
-    if (racaSelecionada && racaSelecionada.dados.modificadoresDeslocamento) {
-        const mod = racaSelecionada.dados.modificadoresDeslocamento;
-        if (mod.andar) andar = Math.max(1, andar + mod.andar);
-        if (mod.correr) {
-            const reducao = Math.abs(mod.correr) / 100;
-            correr = correr - (correr * reducao);
-            correr = Math.max(1, Math.floor(correr));
-        }
-    }
-    return { andar, correr };
-}
-
-function atualizarDeslocamentoPorRaca() {
-    const desloc = calcularDeslocamentoComRaca();
-    const carga = calcularCarga();
-    const andarFinal = Math.max(1, desloc.andar - carga.reducaoDeslocamento);
-    const correrFinal = Math.max(3, desloc.correr - (carga.reducaoDeslocamento * 3));
-    
-    if (elements.deslocamentoAndar) elements.deslocamentoAndar.textContent = andarFinal.toFixed(1);
-    if (elements.deslocamentoCorrer) elements.deslocamentoCorrer.textContent = correrFinal.toFixed(1);
-}
-
-function getLimitesCargaPorRaca() {
-    if (racaSelecionada && racaSelecionada.dados.limitesCarga) {
-        return racaSelecionada.dados.limitesCarga;
-    }
-    const st = getSTFixo();
-    return { leve: st * 2, medio: st * 4, pesado: st * 8, limite: st * 12 };
-}
-
-function atualizarLimitesCargaPorRaca() {
-    const limites = getLimitesCargaPorRaca();
-    if (elements.stCarga) {
-        elements.stCarga.textContent = `Carga: ${limites.leve}/${limites.medio}/${limites.pesado}/${limites.limite} kg`;
-    }
-    if (elements.cargaLimite) elements.cargaLimite.textContent = limites.limite;
-    
-    const carga = calcularCarga();
-    if (elements.cargaAtual) elements.cargaAtual.textContent = carga.pesoTotal.toFixed(1);
-    if (elements.cargaBarra) {
-        const percentual = (carga.pesoTotal / limites.limite) * 100;
-        elements.cargaBarra.style.width = Math.min(100, percentual) + '%';
-    }
-    if (elements.cargaNivel) {
-        elements.cargaNivel.textContent = carga.nivel.charAt(0).toUpperCase() + carga.nivel.slice(1);
-        elements.cargaNivel.className = `carga-nivel ${carga.nivel}`;
-    }
 }
 
 function isVantagemObrigatoria(vantagemId) {
@@ -220,14 +165,32 @@ function abrirModalRaca() {
                 <h4>${raca.nome}</h4>
                 <p>${raca.descricao}</p>
                 <div class="raca-bonus">
-                    <strong>Bônus:</strong><br>
+                    <strong>Bônus de Atributos:</strong><br>
                     ${raca.modificadoresAtributos.st ? `• +${raca.modificadoresAtributos.st} ST<br>` : ''}
                     ${raca.modificadoresAtributos.vt ? `• +${raca.modificadoresAtributos.vt} VT<br>` : ''}
                     ${raca.modificadoresAtributos.vigor ? `• +${raca.modificadoresAtributos.vigor} VIGOR<br>` : ''}
-                    ${raca.vantagens ? `• Vantagem: ${raca.vantagens.join(', ')}<br>` : ''}
-                    ${raca.desvantagens ? `• Desvantagens: ${raca.desvantagens.join(', ')}<br>` : ''}
                 </div>
-                <div class="raca-custo"><strong>Custo: ${raca.custo} pontos</strong></div>
+                <div class="raca-bonus">
+                    <strong>Vantagens Obrigatórias:</strong><br>
+                    ${raca.vantagens ? raca.vantagens.map(v => `• ${vantagensData[v]?.nome || v}<br>`).join('') : '• Nenhuma'}
+                </div>
+                <div class="raca-desvantagens">
+                    <strong>Desvantagens Obrigatórias:</strong><br>
+                    ${raca.desvantagens ? raca.desvantagens.map(d => `• ${desvantagensCompletas[d]?.nome || d}<br>`).join('') : '• Nenhuma'}
+                </div>
+                <div class="raca-bonus">
+                    <strong>Bônus em Perícias:</strong><br>
+                    ${raca.bonusPericias ? Object.entries(raca.bonusPericias).map(([p, b]) => `• +${b}% em ${catalogoPericias.find(pc => pc.id === p)?.nome || p}<br>`).join('') : '• Nenhum'}
+                </div>
+                ${raca.penalidadesPericias ? `
+                <div class="raca-desvantagens">
+                    <strong>Penalidades em Perícias:</strong><br>
+                    ${Object.entries(raca.penalidadesPericias).map(([p, b]) => `• ${b}% em ${catalogoPericias.find(pc => pc.id === p)?.nome || p}<br>`).join('')}
+                </div>
+                ` : ''}
+                <div class="raca-custo">
+                    <strong>Custo: ${raca.custo} pontos</strong>
+                </div>
                 <button class="btn-selecionar-raca" data-raca-id="${id}">Selecionar ${raca.nome}</button>
             `;
             container.appendChild(div);
@@ -241,8 +204,8 @@ function abrirModalRaca() {
                 const confirmar = confirm(
                     `Confirmar raça ${raca.nome}?\n\n` +
                     `Bônus: +${raca.modificadoresAtributos.st || 0} ST, +${raca.modificadoresAtributos.vt || 0} VT, +${raca.modificadoresAtributos.vigor || 0} VIGOR\n` +
-                    `Vantagens: ${raca.vantagens?.join(', ') || 'nenhuma'}\n` +
-                    `Desvantagens: ${raca.desvantagens?.join(', ') || 'nenhuma'}\n` +
+                    `Vantagens: ${raca.vantagens?.map(v => vantagensData[v]?.nome || v).join(', ') || 'nenhuma'}\n` +
+                    `Desvantagens: ${raca.desvantagens?.map(d => desvantagensCompletas[d]?.nome || d).join(', ') || 'nenhuma'}\n` +
                     `Custo: ${raca.custo} pontos\n\n` +
                     `Após confirmar, NÃO será possível desfazer.`
                 );
@@ -261,6 +224,7 @@ function fecharModalRaca() {
     if (modal) modal.classList.remove('active');
 }
 
+// Sobrescrever funções para incluir raça
 const originalGetBonusPericia = window.getBonusPericia;
 window.getBonusPericia = function(periciaId) {
     let bonus = originalGetBonusPericia ? originalGetBonusPericia(periciaId) : 0;
@@ -274,20 +238,34 @@ window.calcularLimitesCarga = function() {
     if (racaSelecionada && racaSelecionada.dados.limitesCarga) {
         return racaSelecionada.dados.limitesCarga;
     }
-    return originalCalcularLimitesCarga ? originalCalcularLimitesCarga() : { leve: 0, medio: 0, pesado: 0, limite: 0 };
+    const st = getSTFixo();
+    return { leve: st * 2, medio: st * 4, pesado: st * 8, limite: st * 12 };
 };
 
 const originalCalcularDeslocamento = window.calcularDeslocamento;
 window.calcularDeslocamento = function() {
-    const desloc = originalCalcularDeslocamento ? originalCalcularDeslocamento() : { andar: 0, correr: 0 };
+    let andar = 0, correr = 0;
+    
+    if (originalCalcularDeslocamento) {
+        const desloc = originalCalcularDeslocamento();
+        andar = desloc.andar;
+        correr = desloc.correr;
+    } else {
+        const soma = getDXFixo() + getVIGORFixo();
+        andar = Math.floor(soma * 0.1);
+        correr = Math.floor(soma * 0.3);
+        if (soma * 0.1 - andar >= 0.5) andar++;
+        if (soma * 0.3 - correr >= 0.5) correr++;
+    }
+    
     if (racaSelecionada && racaSelecionada.dados.modificadoresDeslocamento) {
         const mod = racaSelecionada.dados.modificadoresDeslocamento;
-        if (mod.andar) desloc.andar = Math.max(1, desloc.andar + mod.andar);
+        if (mod.andar) andar = Math.max(1, andar + mod.andar);
         if (mod.correr) {
             const reducao = Math.abs(mod.correr) / 100;
-            desloc.correr = desloc.correr - (desloc.correr * reducao);
-            desloc.correr = Math.max(1, Math.floor(desloc.correr));
+            correr = correr - (correr * reducao);
+            correr = Math.max(1, Math.floor(correr));
         }
     }
-    return desloc;
+    return { andar, correr };
 };
