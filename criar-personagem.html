@@ -4481,6 +4481,249 @@ let pontosIniciais = 10;    // Pontos que o jogador escolhe
 let saldoPontos = 10;       // Pontos restantes para gastar
 
 // ============================================
+// CATÁLOGO DE RAÇAS
+// ============================================
+const racasData = {
+    anao: {
+        id: "anao",
+        nome: "Anão",
+        custoPontos: 4,
+        bonusAtributos: {
+            st: 3,
+            dx: 0,
+            iq: 0,
+            vigor: 1,
+            vt: 1
+        },
+        vantagensAutomaticas: ["corpoResistente"],
+        desvantagensAutomaticas: ["nanismo", "avareza"],
+        bonusEspecificos: {
+            carga: {
+                leve: 2.5,
+                medio: 5.0,
+                pesado: 9.0,
+                limite: 13.0
+            },
+            deslocamento: {
+                reducaoFixa: -1,
+                reducaoPercentual: -25
+            },
+            periciasBonus: {
+                "armasHaste": 3,
+                "armaria": 2
+            },
+            periciasPenalidade: {
+                "funda": -2,
+                "arco": -2,
+                "arremesso": -2
+            }
+        },
+        descricao: "Povo resistente das montanhas, mestres da forja e da guerra. São robustos, teimosos e possuem grande afinidade com a terra e a pedra.",
+        icone: "fa-hammer"
+    },
+    elfo: {
+        id: "elfo",
+        nome: "Elfo",
+        custoPontos: 1,
+        bonusAtributos: {
+            st: -1,
+            dx: 2,
+            iq: 1,
+            vigor: -1,
+            vt: 0
+        },
+        vantagensAutomaticas: ["aptidaoMagica", "maosRapidas", "carisma", "sentidosAgucados"],
+        desvantagensAutomaticas: ["sensoDever"],
+        bonusEspecificos: {
+            carga: null,  // usa padrão
+            deslocamento: null,  // usa padrão
+            periciasBonus: {
+                "arco": 3,
+                "sociabilidade": 2
+            },
+            periciasPenalidade: {}
+        },
+        descricao: "Seres imortais da floresta, graciosos e conectados à magia. Possuem sentidos apurados, talento natural para artes arcanas e agilidade ímpar.",
+        icone: "fa-leaf",
+        vantagemExtra: true  // Indica que pode escolher uma vantagem extra
+    }
+};
+
+// ============================================
+// FUNÇÕES AUXILIARES PARA RAÇAS
+// ============================================
+
+/**
+ * Verifica se o personagem tem uma raça específica
+ */
+function temRaca(racaId) {
+    return racaSelecionada && racaSelecionada.id === racaId;
+}
+
+/**
+ * Retorna os dados completos da raça atual
+ */
+function getRacaAtual() {
+    if (!racaSelecionada || !racaSelecionada.id) return null;
+    return racasData[racaSelecionada.id];
+}
+
+/**
+ * Retorna bônus específico de perícia da raça (se houver)
+ */
+function getBonusPericiaPorRaca(periciaId) {
+    const raca = getRacaAtual();
+    if (!raca || !raca.bonusEspecificos) return 0;
+    
+    const bonus = raca.bonusEspecificos.periciasBonus?.[periciaId] || 0;
+    const penalidade = raca.bonusEspecificos.periciasPenalidade?.[periciaId] || 0;
+    
+    return bonus + penalidade;
+}
+
+/**
+ * Retorna os limites de carga modificados pela raça
+ */
+function getLimitesCargaPorRaca(st) {
+    const raca = getRacaAtual();
+    if (raca && raca.bonusEspecificos && raca.bonusEspecificos.carga) {
+        const carga = raca.bonusEspecificos.carga;
+        return {
+            leve: carga.leve,
+            medio: carga.medio,
+            pesado: carga.pesado,
+            limite: carga.limite
+        };
+    }
+    
+    // Padrão para outras raças
+    return {
+        leve: st * 2,
+        medio: st * 4,
+        pesado: st * 8,
+        limite: st * 12
+    };
+}
+
+/**
+ * Retorna o deslocamento modificado pela raça
+ */
+function getDeslocamentoPorRaca(deslocamentoBase) {
+    const raca = getRacaAtual();
+    if (raca && raca.bonusEspecificos && raca.bonusEspecificos.deslocamento) {
+        const mod = raca.bonusEspecificos.deslocamento;
+        let novo = deslocamentoBase + (mod.reducaoFixa || 0);
+        if (mod.reducaoPercentual) {
+            novo = novo * (1 + mod.reducaoPercentual / 100);
+        }
+        return Math.max(1, Math.floor(novo));
+    }
+    return deslocamentoBase;
+}
+
+// ============================================
+// FUNÇÕES DO MODAL DE RAÇA
+// ============================================
+
+function abrirModalRacas() {
+    const modal = document.getElementById('modalRacas');
+    const grid = document.getElementById('racasGrid');
+    
+    if (!modal || !grid) return;
+    
+    // Renderiza as raças
+    grid.innerHTML = Object.values(racasData).map(raca => `
+        <div class="raca-card" data-raca-id="${raca.id}">
+            <div class="raca-header">
+                <div class="raca-icone">
+                    <i class="fas ${raca.icone}"></i>
+                </div>
+                <div class="raca-nome">${raca.nome}</div>
+                <div class="raca-custo">Custo: ${raca.custoPontos} pts</div>
+            </div>
+            <div class="raca-descricao">${raca.descricao}</div>
+            <div class="raca-bonus">
+                ${Object.entries(raca.bonusAtributos)
+                    .filter(([_, val]) => val !== 0)
+                    .map(([attr, val]) => {
+                        const attrNome = {
+                            st: '💪 ST', dx: '🎯 DX', iq: '🧠 IQ', 
+                            vigor: '❤️ VIGOR', vt: '🩸 VT'
+                        }[attr];
+                        const classe = val > 0 ? 'bonus-item' : 'bonus-item negativo';
+                        const sinal = val > 0 ? `+${val}` : `${val}`;
+                        return `<span class="${classe}">${attrNome}: ${sinal}</span>`;
+                    }).join('')}
+                ${raca.vantagensAutomaticas.map(v => {
+                    const vantNome = vantagensData[v]?.nome || v;
+                    return `<span class="vantagem-raca"><i class="fas fa-star"></i> ${vantNome}</span>`;
+                }).join('')}
+                ${raca.desvantagensAutomaticas.map(d => {
+                    const desvNome = desvantagensCompletas[d]?.nome || d;
+                    return `<span class="vantagem-raca" style="background:rgba(255,68,68,0.2);color:#ff6b6b;"><i class="fas fa-skull"></i> ${desvNome}</span>`;
+                }).join('')}
+            </div>
+        </div>
+    `).join('');
+    
+    // Adiciona eventos aos cards
+    document.querySelectorAll('.raca-card').forEach(card => {
+        card.addEventListener('click', () => selecionarRaca(card.dataset.racaId));
+    });
+    
+    modal.classList.add('active');
+}
+
+function fecharModalRacas() {
+    const modal = document.getElementById('modalRacas');
+    if (modal) modal.classList.remove('active');
+}
+
+function selecionarRaca(racaId) {
+    const raca = racasData[racaId];
+    if (!raca) return;
+    
+    // Verifica se o jogador tem pontos suficientes
+    const custo = raca.custoPontos;
+    if (custo > saldoPontos) {
+        alert(`Pontos insuficientes! Você tem ${saldoPontos} pontos e esta raça custa ${custo}.`);
+        return;
+    }
+    
+    // Remove raça anterior se existir
+    if (racaSelecionada && racaSelecionada.id) {
+        removerRaca();
+    }
+    
+    // Define a nova raça
+    definirRaca(raca);
+    
+    // Atualiza o display
+    atualizarDisplayRaca();
+    
+    // Fecha o modal
+    fecharModalRacas();
+    
+    triggerAutoSave();
+}
+
+function atualizarDisplayRaca() {
+    const display = document.getElementById('racaSelecionadaDisplay');
+    if (!display) return;
+    
+    if (racaSelecionada && racaSelecionada.id) {
+        const racaData = racasData[racaSelecionada.id];
+        display.innerHTML = `
+            <i class="fas ${racaData?.icone || 'fa-users'}"></i>
+            <span class="raca-atual-nome">${racaSelecionada.nome}</span>
+            <span class="raca-atual-custo">(custo: ${racaSelecionada.custoPontos} pts)</span>
+        `;
+    } else {
+        display.innerHTML = 'Nenhuma raça selecionada';
+    }
+}
+
+// ============================================
 // DADOS DAS MAGIAS - ESCOLA DA ÁGUA
 // ============================================
 const dadosMagiasAgua = {
@@ -8919,6 +9162,9 @@ function getBonusPericia(periciaId) {
         }
     }
     
+    // ===== BÔNUS DA RAÇA =====
+    bonus += getBonusPericiaPorRaca(periciaId);
+    
     return bonus;
 }
 // ============================================
@@ -9074,15 +9320,31 @@ function atualizarDisplayGastos() {
         elements.vtGasto.textContent = vtGasto >= 0 ? `gasto: +${vtGasto}` : `ganho: ${vtGasto}`;
     }
 }
-
 // ============================================
 // CÁLCULO DE DESLOCAMENTO
 // ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
     
-    const andarBruto = soma * 0.1;
-    const correrBruto = soma * 0.3;
+    let andarBruto = soma * 0.1;
+    let correrBruto = soma * 0.3;
+    
+    // ===== APLICA MODIFICADORES DA RAÇA =====
+    const raca = getRacaAtual();
+    if (raca && raca.bonusEspecificos && raca.bonusEspecificos.deslocamento) {
+        const mod = raca.bonusEspecificos.deslocamento;
+        
+        // Aplica redução fixa
+        andarBruto = andarBruto + (mod.reducaoFixa || 0);
+        correrBruto = correrBruto + (mod.reducaoFixa || 0);
+        
+        // Aplica redução percentual
+        if (mod.reducaoPercentual) {
+            const percentual = mod.reducaoPercentual / 100;
+            andarBruto = andarBruto * (1 + percentual);
+            correrBruto = correrBruto * (1 + percentual);
+        }
+    }
     
     function arredondarDeslocamento(valor) {
         const parteInteira = Math.floor(valor);
@@ -9095,8 +9357,12 @@ function calcularDeslocamento() {
         }
     }
     
-    const andar = arredondarDeslocamento(andarBruto);
-    const correr = arredondarDeslocamento(correrBruto);
+    let andar = arredondarDeslocamento(andarBruto);
+    let correr = arredondarDeslocamento(correrBruto);
+    
+    // Garante valores mínimos
+    andar = Math.max(1, andar);
+    correr = Math.max(3, correr);
     
     return { andar, correr };
 }
@@ -9226,6 +9492,20 @@ function mapearPericiaArma(nome) {
 // ============================================
 function calcularLimitesCarga() {
     const st = getSTFixo();
+    
+    // ===== VERIFICA SE A RAÇA TEM LIMITES ESPECIAIS =====
+    const raca = getRacaAtual();
+    if (raca && raca.bonusEspecificos && raca.bonusEspecificos.carga) {
+        const carga = raca.bonusEspecificos.carga;
+        return {
+            leve: carga.leve,
+            medio: carga.medio,
+            pesado: carga.pesado,
+            limite: carga.limite
+        };
+    }
+    
+    // Padrão para humanos e outras raças
     return {
         leve: st * 2,
         medio: st * 4,
@@ -10197,6 +10477,13 @@ function renderizarPericiasAdquiridas() {
             if (riqueza === 'rico' && id === 'sociabilidade') fontes.push('Rico');
             if (riqueza === 'pobre' && id === 'sociabilidade') fontes.push('Pobre');
             if (vantagensSelecionadas.has('orientacaoExplorador') && (id === 'sobrevivencia' || id === 'rastreamento')) fontes.push('Orientação');
+            
+            // ===== NOVO: Fonte da Raça =====
+            const raca = getRacaAtual();
+            if (raca && raca.bonusEspecificos) {
+                if (raca.bonusEspecificos.periciasBonus?.[id]) fontes.push(raca.nome);
+                if (raca.bonusEspecificos.periciasPenalidade?.[id]) fontes.push(`${raca.nome} (penalidade)`);
+            }
             
             origemBonus = ` + ${bonusExtra}% (${fontes.join(', ')})`;
         }
@@ -11855,7 +12142,6 @@ async function carregarPersonagem(id) {
         hideLoading();
     }
 }
-
 // ============================================
 // INICIALIZAÇÃO - SISTEMA DE PONTOS
 // ============================================
@@ -12307,6 +12593,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.href = 'index.html';
             } catch (error) {
                 hideLoading();
+            }
+        });
+    }
+    
+    // ============================================
+    // EVENTOS DO MODAL DE RAÇA
+    // ============================================
+    
+    // Botão de escolher raça
+    const btnEscolherRaca = document.getElementById('btnEscolherRaca');
+    if (btnEscolherRaca) {
+        btnEscolherRaca.addEventListener('click', abrirModalRacas);
+    }
+    
+    // Fechar modal de raça
+    const fecharModalRacasBtn = document.getElementById('fecharModalRacas');
+    if (fecharModalRacasBtn) {
+        fecharModalRacasBtn.addEventListener('click', fecharModalRacas);
+    }
+    
+    // Fechar modal clicando fora (backdrop) - opcional
+    const modalRacas = document.getElementById('modalRacas');
+    if (modalRacas) {
+        modalRacas.addEventListener('click', (e) => {
+            if (e.target === modalRacas) {
+                fecharModalRacas();
             }
         });
     }
