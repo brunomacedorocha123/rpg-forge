@@ -114,15 +114,23 @@ let racaAtual = null;
 // FUNÇÕES AUXILIARES
 // ============================================
 
-function temPontosSuficientesParaRaca(racaId, saldoPontosAtual) {
-    const raca = racasDisponiveis[racaId];
-    if (!raca) return false;
-    return saldoPontosAtual >= raca.custoPontos;
+function getSaldoPontos() {
+    if (typeof window.saldoPontos !== 'undefined') return window.saldoPontos;
+    if (typeof saldoPontos !== 'undefined') return saldoPontos;
+    return 10;
 }
 
-function getCustoPontosRaca(racaId) {
-    const raca = racasDisponiveis[racaId];
-    return raca ? raca.custoPontos : 0;
+function getPontosIniciais() {
+    if (typeof window.pontosIniciais !== 'undefined') return window.pontosIniciais;
+    if (typeof pontosIniciais !== 'undefined') return pontosIniciais;
+    return 10;
+}
+
+function setPontosIniciais(valor) {
+    if (typeof window.pontosIniciais !== 'undefined') window.pontosIniciais = valor;
+    if (typeof pontosIniciais !== 'undefined') pontosIniciais = valor;
+    const input = document.getElementById('pontosIniciais');
+    if (input) input.value = valor;
 }
 
 // ============================================
@@ -133,47 +141,29 @@ function aplicarRacaAoPersonagem(racaId) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return false;
     
-    // Verifica pontos (usa a variável global saldoPontos)
-    let saldoAtual = 10;
-    if (typeof window.saldoPontos !== 'undefined' && window.saldoPontos !== null) {
-        saldoAtual = window.saldoPontos;
-    } else if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
-        saldoAtual = saldoPontos;
-    }
-    
-    if (saldoAtual < raca.custoPontos) {
-        alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher ${raca.nome}. Você tem ${saldoAtual} pontos.`);
-        return false;
-    }
-    
     // Remove efeitos da raça anterior
     if (racaAtual && racasDisponiveis[racaAtual]) {
         const racaAntiga = racasDisponiveis[racaAtual];
         
         if (racaAntiga.modificadoresAtributos) {
             for (const [attr, valor] of Object.entries(racaAntiga.modificadoresAtributos)) {
-                if (typeof window.atributos !== 'undefined' && window.atributos[attr]) {
-                    window.atributos[attr].valor = Math.min(15, Math.max(1, window.atributos[attr].valor - valor));
-                } else if (typeof atributos !== 'undefined' && atributos[attr]) {
-                    atributos[attr].valor = Math.min(15, Math.max(1, atributos[attr].valor - valor));
+                const attrObj = window.atributos || atributos;
+                if (attrObj && attrObj[attr]) {
+                    attrObj[attr].valor = Math.min(15, Math.max(1, attrObj[attr].valor - valor));
                 }
             }
         }
         
         if (racaAntiga.vantagemAutomatica) {
-            if (typeof window.vantagensSelecionadas !== 'undefined' && window.vantagensSelecionadas) {
-                window.vantagensSelecionadas.delete(racaAntiga.vantagemAutomatica);
-            } else if (typeof vantagensSelecionadas !== 'undefined') {
-                vantagensSelecionadas.delete(racaAntiga.vantagemAutomatica);
-            }
+            const vantagens = window.vantagensSelecionadas || vantagensSelecionadas;
+            if (vantagens) vantagens.delete(racaAntiga.vantagemAutomatica);
         }
         
         if (racaAntiga.desvantagensAutomaticas) {
-            for (const desv of racaAntiga.desvantagensAutomaticas) {
-                if (typeof window.desvantagensSelecionadas !== 'undefined' && window.desvantagensSelecionadas) {
-                    window.desvantagensSelecionadas.delete(desv);
-                } else if (typeof desvantagensSelecionadas !== 'undefined') {
-                    desvantagensSelecionadas.delete(desv);
+            const desvantagens = window.desvantagensSelecionadas || desvantagensSelecionadas;
+            if (desvantagens) {
+                for (const desv of racaAntiga.desvantagensAutomaticas) {
+                    desvantagens.delete(desv);
                 }
             }
         }
@@ -181,96 +171,69 @@ function aplicarRacaAoPersonagem(racaId) {
     
     // Aplica efeitos da nova raça
     if (raca.modificadoresAtributos) {
-        for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
-            let atributosObj = (typeof window.atributos !== 'undefined') ? window.atributos : atributos;
-            if (atributosObj && atributosObj[attr]) {
-                let novoValor = atributosObj[attr].valor + valor;
-                novoValor = Math.min(15, Math.max(1, novoValor));
-                atributosObj[attr].valor = novoValor;
+        const attrObj = window.atributos || atributos;
+        if (attrObj) {
+            for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
+                if (attrObj[attr]) {
+                    let novoValor = attrObj[attr].valor + valor;
+                    novoValor = Math.min(15, Math.max(1, novoValor));
+                    attrObj[attr].valor = novoValor;
+                }
             }
         }
     }
     
     if (raca.vantagemAutomatica) {
-        if (typeof window.vantagensSelecionadas !== 'undefined' && window.vantagensSelecionadas) {
-            window.vantagensSelecionadas.add(raca.vantagemAutomatica);
-        } else if (typeof vantagensSelecionadas !== 'undefined') {
-            vantagensSelecionadas.add(raca.vantagemAutomatica);
-        }
+        const vantagens = window.vantagensSelecionadas || vantagensSelecionadas;
+        if (vantagens) vantagens.add(raca.vantagemAutomatica);
     }
     
     if (raca.desvantagensAutomaticas) {
-        for (const desv of raca.desvantagensAutomaticas) {
-            if (typeof window.desvantagensSelecionadas !== 'undefined' && window.desvantagensSelecionadas) {
-                window.desvantagensSelecionadas.add(desv);
-            } else if (typeof desvantagensSelecionadas !== 'undefined') {
-                desvantagensSelecionadas.add(desv);
+        const desvantagens = window.desvantagensSelecionadas || desvantagensSelecionadas;
+        if (desvantagens) {
+            for (const desv of raca.desvantagensAutomaticas) {
+                desvantagens.add(desv);
             }
         }
     }
     
-    // Desconta os pontos
-    let pontosIniciaisVar = (typeof window.pontosIniciais !== 'undefined') ? window.pontosIniciais : pontosIniciais;
-    if (typeof pontosIniciaisVar !== 'undefined') {
-        pontosIniciaisVar = pontosIniciaisVar - raca.custoPontos;
-        
-        if (typeof window.pontosIniciais !== 'undefined') window.pontosIniciais = pontosIniciaisVar;
-        if (typeof pontosIniciais !== 'undefined') pontosIniciais = pontosIniciaisVar;
-        
-        const pontosInput = document.getElementById('pontosIniciais');
-        if (pontosInput) pontosInput.value = pontosIniciaisVar;
-        
-        if (typeof window.atualizarSaldoPontos === 'function') {
-            window.atualizarSaldoPontos();
-        } else if (typeof atualizarSaldoPontos === 'function') {
-            atualizarSaldoPontos();
-        }
-        
-        if (typeof window.atualizarDisplayGastos === 'function') {
-            window.atualizarDisplayGastos();
-        } else if (typeof atualizarDisplayGastos === 'function') {
-            atualizarDisplayGastos();
-        }
-    }
+    // ===== DESCONTA OS 4 PONTOS =====
+    let pontosAtuais = getPontosIniciais();
+    pontosAtuais = pontosAtuais - raca.custoPontos;
+    setPontosIniciais(pontosAtuais);
+    
+    // Recalcula saldo
+    const atualizarSaldo = window.atualizarSaldoPontos || atualizarSaldoPontos;
+    if (typeof atualizarSaldo === 'function') atualizarSaldo();
+    
+    const atualizarGastos = window.atualizarDisplayGastos || atualizarDisplayGastos;
+    if (typeof atualizarGastos === 'function') atualizarGastos();
     
     racaAtual = racaId;
     
+    // Salva no localStorage
     if (raca.bonusPericias) {
         localStorage.setItem(`racaBonusPericias_${racaId}`, JSON.stringify(raca.bonusPericias));
     }
-    
     if (raca.modificadorCarga) {
         localStorage.setItem(`racaModificadorCarga_${racaId}`, JSON.stringify(raca.modificadorCarga));
     }
-    
     if (raca.modificadorDeslocamento) {
         localStorage.setItem(`racaModificadorDeslocamento_${racaId}`, JSON.stringify(raca.modificadorDeslocamento));
     }
     
     // Atualiza interface
-    if (typeof window.atualizarInterface === 'function') {
-        window.atualizarInterface();
-    } else if (typeof atualizarInterface === 'function') {
-        atualizarInterface();
-    }
+    const atualizarInterfaceFn = window.atualizarInterface || atualizarInterface;
+    if (typeof atualizarInterfaceFn === 'function') atualizarInterfaceFn();
     
-    if (typeof window.atualizarContadoresAbas === 'function') {
-        window.atualizarContadoresAbas();
-    } else if (typeof atualizarContadoresAbas === 'function') {
-        atualizarContadoresAbas();
-    }
+    const atualizarContadores = window.atualizarContadoresAbas || atualizarContadoresAbas;
+    if (typeof atualizarContadores === 'function') atualizarContadores();
     
-    if (typeof window.atualizarLimitesCards === 'function') {
-        window.atualizarLimitesCards();
-    } else if (typeof atualizarLimitesCards === 'function') {
-        atualizarLimitesCards();
-    }
+    const atualizarLimites = window.atualizarLimitesCards || atualizarLimitesCards;
+    if (typeof atualizarLimites === 'function') atualizarLimites();
     
-    if (typeof window.atualizarDisplayRaca === 'function') {
-        window.atualizarDisplayRaca();
-    } else if (typeof atualizarDisplayRaca === 'function') {
-        atualizarDisplayRaca();
-    }
+    const atualizarDisplay = window.atualizarDisplayRaca || atualizarDisplayRaca;
+    if (typeof atualizarDisplay === 'function') atualizarDisplay();
     
     // Atualiza cards de vantagens/desvantagens
     if (typeof document !== 'undefined') {
@@ -279,7 +242,6 @@ function aplicarRacaAoPersonagem(racaId) {
                 card.classList.add('selecionada');
             }
         });
-        
         document.querySelectorAll('.desvantagem-card').forEach(card => {
             if (raca.desvantagensAutomaticas?.includes(card.dataset.desvantagem)) {
                 card.classList.add('selecionada');
@@ -287,17 +249,11 @@ function aplicarRacaAoPersonagem(racaId) {
         });
     }
     
-    if (typeof window.renderizarPericiasAdquiridas === 'function') {
-        window.renderizarPericiasAdquiridas();
-    } else if (typeof renderizarPericiasAdquiridas === 'function') {
-        renderizarPericiasAdquiridas();
-    }
+    const renderizarPericias = window.renderizarPericiasAdquiridas || renderizarPericiasAdquiridas;
+    if (typeof renderizarPericias === 'function') renderizarPericias();
     
-    if (typeof window.triggerAutoSave === 'function') {
-        window.triggerAutoSave();
-    } else if (typeof triggerAutoSave === 'function') {
-        triggerAutoSave();
-    }
+    const triggerSave = window.triggerAutoSave || triggerAutoSave;
+    if (typeof triggerSave === 'function') triggerSave();
     
     alert(`Raça ${raca.nome} aplicada com sucesso! Foram consumidos ${raca.custoPontos} pontos.`);
     
@@ -315,57 +271,42 @@ function removerRacaDoPersonagem() {
     if (!raca) return false;
     
     if (raca.modificadoresAtributos) {
-        for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
-            let atributosObj = (typeof window.atributos !== 'undefined') ? window.atributos : atributos;
-            if (atributosObj && atributosObj[attr]) {
-                let novoValor = atributosObj[attr].valor - valor;
-                novoValor = Math.min(15, Math.max(1, novoValor));
-                atributosObj[attr].valor = novoValor;
+        const attrObj = window.atributos || atributos;
+        if (attrObj) {
+            for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
+                if (attrObj[attr]) {
+                    let novoValor = attrObj[attr].valor - valor;
+                    novoValor = Math.min(15, Math.max(1, novoValor));
+                    attrObj[attr].valor = novoValor;
+                }
             }
         }
     }
     
     if (raca.vantagemAutomatica) {
-        if (typeof window.vantagensSelecionadas !== 'undefined' && window.vantagensSelecionadas) {
-            window.vantagensSelecionadas.delete(raca.vantagemAutomatica);
-        } else if (typeof vantagensSelecionadas !== 'undefined') {
-            vantagensSelecionadas.delete(raca.vantagemAutomatica);
-        }
+        const vantagens = window.vantagensSelecionadas || vantagensSelecionadas;
+        if (vantagens) vantagens.delete(raca.vantagemAutomatica);
     }
     
     if (raca.desvantagensAutomaticas) {
-        for (const desv of raca.desvantagensAutomaticas) {
-            if (typeof window.desvantagensSelecionadas !== 'undefined' && window.desvantagensSelecionadas) {
-                window.desvantagensSelecionadas.delete(desv);
-            } else if (typeof desvantagensSelecionadas !== 'undefined') {
-                desvantagensSelecionadas.delete(desv);
+        const desvantagens = window.desvantagensSelecionadas || desvantagensSelecionadas;
+        if (desvantagens) {
+            for (const desv of raca.desvantagensAutomaticas) {
+                desvantagens.delete(desv);
             }
         }
     }
     
     // Devolve os pontos
-    let pontosIniciaisVar = (typeof window.pontosIniciais !== 'undefined') ? window.pontosIniciais : pontosIniciais;
-    if (typeof pontosIniciaisVar !== 'undefined') {
-        pontosIniciaisVar = pontosIniciaisVar + raca.custoPontos;
-        
-        if (typeof window.pontosIniciais !== 'undefined') window.pontosIniciais = pontosIniciaisVar;
-        if (typeof pontosIniciais !== 'undefined') pontosIniciais = pontosIniciaisVar;
-        
-        const pontosInput = document.getElementById('pontosIniciais');
-        if (pontosInput) pontosInput.value = pontosIniciaisVar;
-        
-        if (typeof window.atualizarSaldoPontos === 'function') {
-            window.atualizarSaldoPontos();
-        } else if (typeof atualizarSaldoPontos === 'function') {
-            atualizarSaldoPontos();
-        }
-        
-        if (typeof window.atualizarDisplayGastos === 'function') {
-            window.atualizarDisplayGastos();
-        } else if (typeof atualizarDisplayGastos === 'function') {
-            atualizarDisplayGastos();
-        }
-    }
+    let pontosAtuais = getPontosIniciais();
+    pontosAtuais = pontosAtuais + raca.custoPontos;
+    setPontosIniciais(pontosAtuais);
+    
+    const atualizarSaldo = window.atualizarSaldoPontos || atualizarSaldoPontos;
+    if (typeof atualizarSaldo === 'function') atualizarSaldo();
+    
+    const atualizarGastos = window.atualizarDisplayGastos || atualizarDisplayGastos;
+    if (typeof atualizarGastos === 'function') atualizarGastos();
     
     localStorage.removeItem('racaBonusPericias');
     localStorage.removeItem('racaModificadorCarga');
@@ -373,23 +314,23 @@ function removerRacaDoPersonagem() {
     
     racaAtual = null;
     
-    if (typeof window.atualizarInterface === 'function') window.atualizarInterface();
-    else if (typeof atualizarInterface === 'function') atualizarInterface();
+    const atualizarInterfaceFn = window.atualizarInterface || atualizarInterface;
+    if (typeof atualizarInterfaceFn === 'function') atualizarInterfaceFn();
     
-    if (typeof window.atualizarContadoresAbas === 'function') window.atualizarContadoresAbas();
-    else if (typeof atualizarContadoresAbas === 'function') atualizarContadoresAbas();
+    const atualizarContadores = window.atualizarContadoresAbas || atualizarContadoresAbas;
+    if (typeof atualizarContadores === 'function') atualizarContadores();
     
-    if (typeof window.atualizarLimitesCards === 'function') window.atualizarLimitesCards();
-    else if (typeof atualizarLimitesCards === 'function') atualizarLimitesCards();
+    const atualizarLimites = window.atualizarLimitesCards || atualizarLimitesCards;
+    if (typeof atualizarLimites === 'function') atualizarLimites();
     
-    if (typeof window.atualizarDisplayRaca === 'function') window.atualizarDisplayRaca();
-    else if (typeof atualizarDisplayRaca === 'function') atualizarDisplayRaca();
+    const atualizarDisplay = window.atualizarDisplayRaca || atualizarDisplayRaca;
+    if (typeof atualizarDisplay === 'function') atualizarDisplay();
     
-    if (typeof window.renderizarPericiasAdquiridas === 'function') window.renderizarPericiasAdquiridas();
-    else if (typeof renderizarPericiasAdquiridas === 'function') renderizarPericiasAdquiridas();
+    const renderizarPericias = window.renderizarPericiasAdquiridas || renderizarPericiasAdquiridas;
+    if (typeof renderizarPericias === 'function') renderizarPericias();
     
-    if (typeof window.triggerAutoSave === 'function') window.triggerAutoSave();
-    else if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    const triggerSave = window.triggerAutoSave || triggerAutoSave;
+    if (typeof triggerSave === 'function') triggerSave();
     
     alert(`Raça removida! ${raca.custoPontos} pontos foram devolvidos.`);
     
@@ -521,57 +462,48 @@ function atualizarDisplayRaca() {
 
 function substituirFuncaoCalcularLimitesCarga() {
     window.calcularLimitesCarga = function() {
-        const st = typeof getSTFixo === 'function' ? getSTFixo() : 5;
-        const modificador = getModificadorCargaDaRaca();
+        const st = (typeof getSTFixo === 'function') ? getSTFixo() : 5;
+        const mod = getModificadorCargaDaRaca();
         return {
-            leve: st * modificador.leve,
-            medio: st * modificador.medio,
-            pesado: st * modificador.pesado,
-            limite: st * modificador.limite
+            leve: st * mod.leve,
+            medio: st * mod.medio,
+            pesado: st * mod.pesado,
+            limite: st * mod.limite
         };
     };
 }
 
 function substituirFuncaoCalcularDeslocamento() {
     window.calcularDeslocamento = function() {
-        const soma = (typeof getDXFixo === 'function' ? getDXFixo() : 5) + 
-                     (typeof getVIGORFixo === 'function' ? getVIGORFixo() : 5);
-        const modificador = getModificadorDeslocamentoDaRaca();
+        const dx = (typeof getDXFixo === 'function') ? getDXFixo() : 5;
+        const vigor = (typeof getVIGORFixo === 'function') ? getVIGORFixo() : 5;
+        const soma = dx + vigor;
+        const mod = getModificadorDeslocamentoDaRaca();
         
         let andarBruto = soma * 0.1;
         let correrBruto = soma * 0.3;
         
-        andarBruto += modificador.andar;
+        andarBruto += mod.andar;
         
-        if (modificador.correrPercentual !== 0) {
-            correrBruto = correrBruto * (1 + modificador.correrPercentual / 100);
+        if (mod.correrPercentual !== 0) {
+            correrBruto = correrBruto * (1 + mod.correrPercentual / 100);
         }
         
-        function arredondarDeslocamento(valor) {
-            const parteInteira = Math.floor(valor);
-            const parteDecimal = valor - parteInteira;
-            if (parteDecimal < 0.5) {
-                return parteInteira;
-            } else {
-                return parteInteira + 1;
-            }
-        }
+        const arredondar = (v) => {
+            const int = Math.floor(v);
+            const dec = v - int;
+            return dec < 0.5 ? int : int + 1;
+        };
         
-        const andar = arredondarDeslocamento(andarBruto);
-        const correr = arredondarDeslocamento(correrBruto);
-        
-        return { andar, correr };
+        return { andar: arredondar(andarBruto), correr: arredondar(correrBruto) };
     };
 }
 
 function substituirFuncaoGetBonusPericia() {
-    const originalGetBonusPericia = window.getBonusPericia || getBonusPericia;
-    
+    const original = window.getBonusPericia || (typeof getBonusPericia !== 'undefined' ? getBonusPericia : null);
     window.getBonusPericia = function(periciaId) {
         let bonus = 0;
-        if (typeof originalGetBonusPericia === 'function') {
-            bonus = originalGetBonusPericia(periciaId) || 0;
-        }
+        if (typeof original === 'function') bonus = original(periciaId) || 0;
         bonus += getBonusPericiaRaca(periciaId);
         return bonus;
     };
@@ -592,11 +524,10 @@ function inicializarSistemaRacas() {
     const cancelarRaca = document.getElementById('cancelarRaca');
     const confirmarRaca = document.getElementById('confirmarRaca');
     const btnRemoverRaca = document.getElementById('btnRemoverRaca');
-    const btnVoltarRacas = document.getElementById('btnVoltarRacas');
-    const btnConfirmarRacaModal = document.getElementById('btnConfirmarRacaModal');
     
     if (btnEscolherRaca) {
-        btnEscolherRaca.addEventListener('click', () => {
+        btnEscolherRaca.addEventListener('click', (e) => {
+            e.preventDefault();
             carregarRacasNoGrid();
             racaSelecionadaPreview = null;
             if (confirmarRaca) confirmarRaca.disabled = true;
@@ -607,7 +538,6 @@ function inicializarSistemaRacas() {
     if (fecharModal) {
         fecharModal.addEventListener('click', () => {
             if (modalRacas) modalRacas.classList.remove('active');
-            racaSelecionadaPreview = null;
         });
     }
     
@@ -626,14 +556,9 @@ function inicializarSistemaRacas() {
         });
     }
     
-    if (btnVoltarRacas) {
-        btnVoltarRacas.addEventListener('click', () => {
-            fecharVisualizacaoRaca();
-        });
-    }
-    
-    if (btnConfirmarRacaModal) {
-        btnConfirmarRacaModal.addEventListener('click', () => {
+    const voltarSelecao = document.getElementById('voltarSelecaoRacas');
+    if (voltarSelecao) {
+        voltarSelecao.addEventListener('click', () => {
             if (racaSelecionadaPreview) {
                 const sucesso = aplicarRacaAoPersonagem(racaSelecionadaPreview);
                 if (sucesso) {
@@ -641,30 +566,13 @@ function inicializarSistemaRacas() {
                     if (modalRacas) modalRacas.classList.remove('active');
                     racaSelecionadaPreview = null;
                     
-                    if (typeof window.atualizarBotoesAtributo === 'function') {
-                        window.atualizarBotoesAtributo('st');
-                        window.atualizarBotoesAtributo('dx');
-                        window.atualizarBotoesAtributo('iq');
-                        window.atualizarBotoesAtributo('vigor');
-                        window.atualizarBotoesAtributo('vt');
-                    } else if (typeof atualizarBotoesAtributo === 'function') {
-                        atualizarBotoesAtributo('st');
-                        atualizarBotoesAtributo('dx');
-                        atualizarBotoesAtributo('iq');
-                        atualizarBotoesAtributo('vigor');
-                        atualizarBotoesAtributo('vt');
-                    }
-                    
-                    if (typeof window.atualizarSaldoPontos === 'function') {
-                        window.atualizarSaldoPontos();
-                    } else if (typeof atualizarSaldoPontos === 'function') {
-                        atualizarSaldoPontos();
-                    }
-                    
-                    if (typeof window.atualizarDisplayGastos === 'function') {
-                        window.atualizarDisplayGastos();
-                    } else if (typeof atualizarDisplayGastos === 'function') {
-                        atualizarDisplayGastos();
+                    const atualizarBotoes = window.atualizarBotoesAtributo || atualizarBotoesAtributo;
+                    if (typeof atualizarBotoes === 'function') {
+                        atualizarBotoes('st');
+                        atualizarBotoes('dx');
+                        atualizarBotoes('iq');
+                        atualizarBotoes('vigor');
+                        atualizarBotoes('vt');
                     }
                 }
             }
@@ -673,33 +581,15 @@ function inicializarSistemaRacas() {
     
     if (btnRemoverRaca) {
         btnRemoverRaca.addEventListener('click', () => {
-            if (confirm('Deseja remover a raça do personagem? Todas as vantagens, desvantagens e bônus serão removidos.')) {
+            if (confirm('Deseja remover a raça do personagem?')) {
                 removerRacaDoPersonagem();
-                
-                if (typeof window.atualizarBotoesAtributo === 'function') {
-                    window.atualizarBotoesAtributo('st');
-                    window.atualizarBotoesAtributo('dx');
-                    window.atualizarBotoesAtributo('iq');
-                    window.atualizarBotoesAtributo('vigor');
-                    window.atualizarBotoesAtributo('vt');
-                } else if (typeof atualizarBotoesAtributo === 'function') {
-                    atualizarBotoesAtributo('st');
-                    atualizarBotoesAtributo('dx');
-                    atualizarBotoesAtributo('iq');
-                    atualizarBotoesAtributo('vigor');
-                    atualizarBotoesAtributo('vt');
-                }
-                
-                if (typeof window.atualizarSaldoPontos === 'function') {
-                    window.atualizarSaldoPontos();
-                } else if (typeof atualizarSaldoPontos === 'function') {
-                    atualizarSaldoPontos();
-                }
-                
-                if (typeof window.atualizarDisplayGastos === 'function') {
-                    window.atualizarDisplayGastos();
-                } else if (typeof atualizarDisplayGastos === 'function') {
-                    atualizarDisplayGastos();
+                const atualizarBotoes = window.atualizarBotoesAtributo || atualizarBotoesAtributo;
+                if (typeof atualizarBotoes === 'function') {
+                    atualizarBotoes('st');
+                    atualizarBotoes('dx');
+                    atualizarBotoes('iq');
+                    atualizarBotoes('vigor');
+                    atualizarBotoes('vt');
                 }
             }
         });
@@ -715,9 +605,6 @@ function inicializarSistemaRacas() {
 if (typeof window !== 'undefined') {
     window.racasDisponiveis = racasDisponiveis;
     window.racaAtual = racaAtual;
-    window.racaSelecionadaPreview = racaSelecionadaPreview;
-    window.temPontosSuficientesParaRaca = temPontosSuficientesParaRaca;
-    window.getCustoPontosRaca = getCustoPontosRaca;
     window.aplicarRacaAoPersonagem = aplicarRacaAoPersonagem;
     window.removerRacaDoPersonagem = removerRacaDoPersonagem;
     window.getBonusPericiaRaca = getBonusPericiaRaca;
