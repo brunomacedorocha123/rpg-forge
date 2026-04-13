@@ -3075,6 +3075,7 @@ const catalogoPericias = [
         { id: "bastao", nome: "Bastão", tipo: "fisica", atributo: "dx" },
         { id: "besta", nome: "Besta", tipo: "fisica", atributo: "dx" },
         { id: "equilibrio", nome: "Equilíbrio", tipo: "fisica", atributo: "dx" },
+        { id: "funda", nome: "Funda", tipo: "fisica", atributo: "dx" },
         { id: "luta", nome: "Luta (Artes Marciais)", tipo: "fisica", atributo: "dx" },
         { id: "cavalgar", nome: "Cavalgar", tipo: "fisica", atributo: "dx" },
         { id: "chicote", nome: "Chicote", tipo: "fisica", atributo: "dx" },
@@ -8590,7 +8591,6 @@ function atualizarCamposItem() {
         elements.camposEscudo.style.display = 'grid';
     }
 }
-
 // ============================================
 // FUNÇÃO PRINCIPAL DE CARREGAMENTO (ATUALIZADA)
 // ============================================
@@ -8620,6 +8620,37 @@ async function carregarPersonagem() {
             id: personagemSnap.id,
             ...data
         };
+
+        // ===== CONVERTE ATRIBUTOS DO FORMATO ANTIGO (esferas) PARA O NOVO (valor 1-15) =====
+        if (personagemAtual.atributos) {
+            const atributos = ['st', 'dx', 'iq', 'vigor', 'vt'];
+            atributos.forEach(attr => {
+                if (personagemAtual.atributos[attr]) {
+                    // Se tem "esferas" mas não tem "valor", converte
+                    if (personagemAtual.atributos[attr].esferas !== undefined && 
+                        personagemAtual.atributos[attr].valor === undefined) {
+                        const esferas = personagemAtual.atributos[attr].esferas;
+                        personagemAtual.atributos[attr].valor = 5 + esferas;
+                        // Limita entre 1 e 15
+                        personagemAtual.atributos[attr].valor = Math.min(15, Math.max(1, personagemAtual.atributos[attr].valor));
+                    }
+                    // Se não tem "valor" nem "esferas", padrão 5
+                    else if (personagemAtual.atributos[attr].valor === undefined) {
+                        personagemAtual.atributos[attr].valor = 5;
+                    }
+                } else {
+                    personagemAtual.atributos[attr] = { valor: 5 };
+                }
+            });
+        } else {
+            personagemAtual.atributos = {
+                st: { valor: 5 },
+                dx: { valor: 5 },
+                iq: { valor: 5 },
+                vigor: { valor: 5 },
+                vt: { valor: 5 }
+            };
+        }
 
         if (personagemAtual.userId !== currentUser?.uid) {
             showToast('Você não tem permissão para ver este personagem!', true);
