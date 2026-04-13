@@ -11921,7 +11921,7 @@ async function exportarPDF() {
     }
 }
 // ============================================
-// CARREGAR PERSONAGEM - SISTEMA 1 A 15
+// CARREGAR PERSONAGEM - SISTEMA 1 A 15 (CORRIGIDO)
 // ============================================
 async function carregarPersonagem(id) {
     try {
@@ -11961,7 +11961,7 @@ async function carregarPersonagem(id) {
             elements.uploadArea.style.display = 'none';
         }
         
-        // ===== CARREGAR RAÇA DO FIRESTORE =====
+        // ===== CARREGAR RAÇA DO FIRESTORE (APENAS PARA REFERÊNCIA, SEM APLICAR BÔNUS) =====
         if (data.raca && data.raca.id) {
             racaSelecionada = {
                 id: data.raca.id,
@@ -11986,7 +11986,8 @@ async function carregarPersonagem(id) {
             };
         }
         
-        // CARREGAR ATRIBUTOS - SISTEMA 1 A 15
+        // ===== CARREGAR ATRIBUTOS - SEM APLICAR BÔNUS DA RAÇA =====
+        // Os valores já estão corretos no Firestore (já incluem os bônus)
         if (data.atributos) {
             // Carrega no novo formato { valor: X }
             if (data.atributos.st?.valor !== undefined) {
@@ -12009,28 +12010,17 @@ async function carregarPersonagem(id) {
                 atributos.iq.valor = 5 + iqEsferas;
                 atributos.vigor.valor = 5 + vigorEsferas;
                 atributos.vt.valor = 5 + vtEsferas;
-                
-                atributos.st.valor = Math.min(15, Math.max(1, atributos.st.valor));
-                atributos.dx.valor = Math.min(15, Math.max(1, atributos.dx.valor));
-                atributos.iq.valor = Math.min(15, Math.max(1, atributos.iq.valor));
-                atributos.vigor.valor = Math.min(15, Math.max(1, atributos.vigor.valor));
-                atributos.vt.valor = Math.min(15, Math.max(1, atributos.vt.valor));
             }
             
-            // APLICAR BÔNUS DA RAÇA NOS ATRIBUTOS
-            if (racaSelecionada.id && racaSelecionada.bonusAtributos) {
-                atributos.st.valor += racaSelecionada.bonusAtributos.st || 0;
-                atributos.dx.valor += racaSelecionada.bonusAtributos.dx || 0;
-                atributos.iq.valor += racaSelecionada.bonusAtributos.iq || 0;
-                atributos.vigor.valor += racaSelecionada.bonusAtributos.vigor || 0;
-                atributos.vt.valor += racaSelecionada.bonusAtributos.vt || 0;
-                
-                atributos.st.valor = Math.min(15, Math.max(1, atributos.st.valor));
-                atributos.dx.valor = Math.min(15, Math.max(1, atributos.dx.valor));
-                atributos.iq.valor = Math.min(15, Math.max(1, atributos.iq.valor));
-                atributos.vigor.valor = Math.min(15, Math.max(1, atributos.vigor.valor));
-                atributos.vt.valor = Math.min(15, Math.max(1, atributos.vt.valor));
-            }
+            // ⚠️ REMOVIDO: Bônus da raça NÃO são aplicados novamente aqui!
+            // Os atributos já foram salvos com os bônus, então não deve somar de novo.
+            
+            // Garante limites (1 a 15)
+            atributos.st.valor = Math.min(15, Math.max(1, atributos.st.valor));
+            atributos.dx.valor = Math.min(15, Math.max(1, atributos.dx.valor));
+            atributos.iq.valor = Math.min(15, Math.max(1, atributos.iq.valor));
+            atributos.vigor.valor = Math.min(15, Math.max(1, atributos.vigor.valor));
+            atributos.vt.valor = Math.min(15, Math.max(1, atributos.vt.valor));
             
             atualizarBotoesAtributo('st');
             atualizarBotoesAtributo('dx');
@@ -12058,7 +12048,7 @@ async function carregarPersonagem(id) {
             });
         }
         
-        // APLICAR VANTAGENS AUTOMÁTICAS DA RAÇA
+        // APLICAR VANTAGENS AUTOMÁTICAS DA RAÇA (SE NÃO JÁ ESTIVEREM SELECIONADAS)
         if (racaSelecionada.id && racaSelecionada.vantagensAutomaticas) {
             racaSelecionada.vantagensAutomaticas.forEach(vantId => {
                 if (!vantagensSelecionadas.has(vantId)) {
@@ -12069,7 +12059,7 @@ async function carregarPersonagem(id) {
             });
         }
         
-        // APLICAR DESVANTAGENS AUTOMÁTICAS DA RAÇA
+        // APLICAR DESVANTAGENS AUTOMÁTICAS DA RAÇA (SE NÃO JÁ ESTIVEREM SELECIONADAS)
         if (racaSelecionada.id && racaSelecionada.desvantagensAutomaticas) {
             racaSelecionada.desvantagensAutomaticas.forEach(desvId => {
                 if (!desvantagensSelecionadas.has(desvId)) {
