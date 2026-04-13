@@ -14,23 +14,18 @@ const racasDisponiveis = {
         icone: 'fa-dwarf',
         iconeGrande: 'fa-dwarf',
         
-        // Custo em pontos de atributo (4 pontos)
         custoPontos: 4,
         
-        // Modificadores de atributos (SOMENTE BÔNUS)
         modificadoresAtributos: {
             st: 3,
             vt: 1,
             vigor: 1
         },
         
-        // Vantagem automática
         vantagemAutomatica: 'corpoResistente',
         
-        // Desvantagens automáticas
         desvantagensAutomaticas: ['nanismo', 'avareza'],
         
-        // Modificadores de carga (multiplicadores)
         modificadorCarga: {
             leve: 2.5,
             medio: 5.0,
@@ -38,13 +33,11 @@ const racasDisponiveis = {
             limite: 13.0
         },
         
-        // Modificadores de deslocamento
         modificadorDeslocamento: {
             andar: -1,
             correrPercentual: -25
         },
         
-        // Bônus e redutores de perícias
         bonusPericias: {
             'armasHaste': 3,
             'armaria': 2,
@@ -57,7 +50,7 @@ const racasDisponiveis = {
         
         descricaoCompleta: `
             <h4><i class="fas fa-fist-raised"></i> Características dos Anões</h4>
-            <p>Anões são uma raça estoica e resistente, conhecida por sua força física e tenacidade inabalável. Esculpindo suas grandes cidades no coração das montanhas, eles são artesãos incomparáveis e guerreiros formidáveis.</p>
+            <p>Anões são uma raça estoica e resistente, conhecida por sua força física e tenacidade inabalável.</p>
             
             <h4><i class="fas fa-coins"></i> Custo</h4>
             <p><strong>4 pontos de atributo</strong> para escolher esta raça.</p>
@@ -71,13 +64,13 @@ const racasDisponiveis = {
             
             <h4><i class="fas fa-star"></i> Vantagem Automática</h4>
             <ul>
-                <li><strong>Corpo Resistente:</strong> RD +2, +10% resistência a venenos e toxinas</li>
+                <li><strong>Corpo Resistente:</strong> RD +2, +10% resistência a venenos</li>
             </ul>
             
             <h4><i class="fas fa-skull"></i> Desvantagens Automáticas</h4>
             <ul>
-                <li><strong>Nanismo:</strong> Estatura baixa (-1 deslocamento, -5% em ataques contra inimigos com mais de 2m, +10% Furtividade)</li>
-                <li><strong>Avareza:</strong> Mesquinho, ama dinheiro acima de tudo</li>
+                <li><strong>Nanismo:</strong> -1 deslocamento, -5% contra inimigos altos</li>
+                <li><strong>Avareza:</strong> Dificuldade em gastar dinheiro</li>
             </ul>
             
             <h4><i class="fas fa-weight-hanging"></i> Capacidade de Carga</h4>
@@ -91,7 +84,7 @@ const racasDisponiveis = {
             <h4><i class="fas fa-shoe-prints"></i> Deslocamento</h4>
             <ul>
                 <li><strong>Andar:</strong> -1 metro</li>
-                <li><strong>Correr:</strong> -25% (arredondado para baixo)</li>
+                <li><strong>Correr:</strong> -25%</li>
             </ul>
             
             <h4><i class="fas fa-brain"></i> Bônus de Perícias</h4>
@@ -111,14 +104,14 @@ const racasDisponiveis = {
 };
 
 // ============================================
-// VARIÁVEIS GLOBAIS DO SISTEMA DE RAÇAS
+// VARIÁVEIS GLOBAIS
 // ============================================
 
 let racaSelecionadaPreview = null;
 let racaAtual = null;
 
 // ============================================
-// FUNÇÕES PARA VERIFICAR PONTOS SUFICIENTES
+// FUNÇÕES AUXILIARES
 // ============================================
 
 function temPontosSuficientesParaRaca(racaId, saldoPontosAtual) {
@@ -133,14 +126,25 @@ function getCustoPontosRaca(racaId) {
 }
 
 // ============================================
-// FUNÇÃO PRINCIPAL: APLICAR RAÇA AO PERSONAGEM
+// APLICAR RAÇA AO PERSONAGEM
 // ============================================
 
 function aplicarRacaAoPersonagem(racaId) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return false;
     
-    // Remove efeitos da raça anterior
+    // ===== VERIFICA SE TEM PONTOS SUFICIENTES =====
+    let saldoAtual = 10;
+    if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
+        saldoAtual = saldoPontos;
+    }
+    
+    if (saldoAtual < raca.custoPontos) {
+        alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher ${raca.nome}. Você tem ${saldoAtual} pontos.`);
+        return false;
+    }
+    
+    // ===== REMOVE EFEITOS DA RAÇA ANTERIOR =====
     if (racaAtual && racasDisponiveis[racaAtual]) {
         const racaAntiga = racasDisponiveis[racaAtual];
         
@@ -163,7 +167,7 @@ function aplicarRacaAoPersonagem(racaId) {
         }
     }
     
-    // Aplica efeitos da nova raça
+    // ===== APLICA EFEITOS DA NOVA RAÇA =====
     if (raca.modificadoresAtributos && typeof atributos !== 'undefined') {
         for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
             if (atributos[attr]) {
@@ -184,6 +188,24 @@ function aplicarRacaAoPersonagem(racaId) {
         }
     }
     
+    // ===== DESCONTA OS PONTOS DA RAÇA =====
+    if (typeof pontosIniciais !== 'undefined') {
+        pontosIniciais = pontosIniciais - raca.custoPontos;
+        
+        if (elements.pontosIniciaisInput) {
+            elements.pontosIniciaisInput.value = pontosIniciais;
+        }
+        
+        if (typeof atualizarSaldoPontos === 'function') {
+            atualizarSaldoPontos();
+        }
+        
+        if (typeof atualizarDisplayGastos === 'function') {
+            atualizarDisplayGastos();
+        }
+    }
+    
+    // ===== GUARDA A RAÇA ATUAL =====
     racaAtual = racaId;
     
     if (raca.bonusPericias) {
@@ -198,7 +220,7 @@ function aplicarRacaAoPersonagem(racaId) {
         localStorage.setItem(`racaModificadorDeslocamento_${racaId}`, JSON.stringify(raca.modificadorDeslocamento));
     }
     
-    // Atualiza interface
+    // ===== ATUALIZA INTERFACE =====
     if (typeof atualizarInterface === 'function') {
         atualizarInterface();
     }
@@ -237,11 +259,13 @@ function aplicarRacaAoPersonagem(racaId) {
         triggerAutoSave();
     }
     
+    alert(`Raça ${raca.nome} aplicada com sucesso! Foram consumidos ${raca.custoPontos} pontos.`);
+    
     return true;
 }
 
 // ============================================
-// FUNÇÃO PARA REMOVER RAÇA
+// REMOVER RAÇA
 // ============================================
 
 function removerRacaDoPersonagem() {
@@ -270,6 +294,23 @@ function removerRacaDoPersonagem() {
         }
     }
     
+    // DEVOLVE OS PONTOS
+    if (typeof pontosIniciais !== 'undefined') {
+        pontosIniciais = pontosIniciais + raca.custoPontos;
+        
+        if (elements.pontosIniciaisInput) {
+            elements.pontosIniciaisInput.value = pontosIniciais;
+        }
+        
+        if (typeof atualizarSaldoPontos === 'function') {
+            atualizarSaldoPontos();
+        }
+        
+        if (typeof atualizarDisplayGastos === 'function') {
+            atualizarDisplayGastos();
+        }
+    }
+    
     localStorage.removeItem('racaBonusPericias');
     localStorage.removeItem('racaModificadorCarga');
     localStorage.removeItem('racaModificadorDeslocamento');
@@ -282,6 +323,8 @@ function removerRacaDoPersonagem() {
     if (typeof atualizarDisplayRaca === 'function') atualizarDisplayRaca();
     if (typeof renderizarPericiasAdquiridas === 'function') renderizarPericiasAdquiridas();
     if (typeof triggerAutoSave === 'function') triggerAutoSave();
+    
+    alert(`Raça removida! ${raca.custoPontos} pontos foram devolvidos.`);
     
     return true;
 }
@@ -318,7 +361,7 @@ function getModificadorDeslocamentoDaRaca() {
 }
 
 // ============================================
-// FUNÇÕES DE UI - CARREGAR GRID E MODAIS
+// FUNÇÕES DE UI
 // ============================================
 
 function carregarRacasNoGrid() {
@@ -406,7 +449,7 @@ function atualizarDisplayRaca() {
 }
 
 // ============================================
-// FUNÇÕES PARA SUBSTITUIR FUNÇÕES ORIGINAIS
+// SUBSTITUIR FUNÇÕES ORIGINAIS
 // ============================================
 
 function substituirFuncaoCalcularLimitesCarga() {
@@ -478,7 +521,7 @@ function substituirFuncaoGetBonusPericia() {
 }
 
 // ============================================
-// INICIALIZAÇÃO DO SISTEMA DE RAÇAS
+// INICIALIZAÇÃO
 // ============================================
 
 function inicializarSistemaRacas() {
@@ -554,7 +597,7 @@ function inicializarSistemaRacas() {
     
     if (btnRemoverRaca) {
         btnRemoverRaca.addEventListener('click', () => {
-            if (confirm('Deseja remover a raça do personagem? Todas as vantagens, desvantagens e bônus serão removidos.')) {
+            if (confirm('Deseja remover a raça do personagem?')) {
                 removerRacaDoPersonagem();
                 
                 if (typeof atualizarBotoesAtributo === 'function') {
@@ -578,7 +621,7 @@ function inicializarSistemaRacas() {
 }
 
 // ============================================
-// EXPORTA AS FUNÇÕES PARA USO GLOBAL
+// EXPORTA
 // ============================================
 
 if (typeof window !== 'undefined') {
