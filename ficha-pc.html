@@ -2384,17 +2384,18 @@ body {
         </div>
 
         <div class="personagem-header" id="personagemHeader">
-            <div class="personagem-foto" id="personagemFoto"></div>
-            <div class="personagem-info">
-                <h1 id="personagemNome">Carregando...</h1>
-                <div class="classe" id="personagemClasse">-</div>
-                <div class="personagem-meta" id="personagemMeta">
-                    <span class="meta-item"><i class="fas fa-level-up-alt"></i> Nível <span id="nivelPersonagem">1</span></span>
-                    <span class="meta-item"><i class="fas fa-star"></i> PP <span id="ppDisponivelHeader">0</span></span>
-                    <span class="meta-item"><i class="fas fa-coins"></i> $<span id="dinheiroHeader">0</span></span>
-                </div>
-            </div>
+    <div class="personagem-foto" id="personagemFoto"></div>
+    <div class="personagem-info">
+        <h1 id="personagemNome">Carregando...</h1>
+        <div class="classe" id="personagemClasse">-</div>
+        <div class="personagem-meta" id="personagemMeta">
+            <span class="meta-item"><i class="fas fa-level-up-alt"></i> Nível <span id="nivelPersonagem">1</span></span>
+            <span class="meta-item"><i class="fas fa-star"></i> PP <span id="ppDisponivelHeader">0</span></span>
+            <span class="meta-item"><i class="fas fa-coins"></i> $<span id="dinheiroHeader">0</span></span>
+            <span class="meta-item"><i class="fas fa-users"></i> <span id="racaNome">Humano</span></span>
         </div>
+    </div>
+</div>
 
         <!-- MAIN GRID - REORGANIZADO -->
         <div class="main-grid">
@@ -3003,6 +3004,42 @@ let origemTransferirAtual = null;
 let destinoTransferirAtual = null;
 let itemUsarAtual = null;
 let localUsarAtual = null;
+
+// ============================================
+// CATÁLOGO DE RAÇAS
+// ============================================
+const racasData = {
+    anao: {
+        id: "anao",
+        nome: "Anão",
+        custoPontos: 4,
+        bonusAtributos: { st: 3, dx: 0, iq: 0, vigor: 1, vt: 1 },
+        vantagensAutomaticas: ["corpoResistente"],
+        desvantagensAutomaticas: ["nanismo", "avareza"],
+        bonusEspecificos: {
+            carga: { leve: 2.5, medio: 5.0, pesado: 9.0, limite: 13.0 },
+            deslocamento: { reducaoFixa: -1, reducaoPercentual: -25 },
+            periciasBonus: { "armasHaste": 3, "armaria": 2 },
+            periciasPenalidade: { "funda": -2, "arco": -2, "arremesso": -2 }
+        },
+        descricao: "Povo resistente das montanhas, mestres da forja e da guerra.",
+        icone: "fa-hammer"
+    },
+    elfo: {
+        id: "elfo",
+        nome: "Elfo",
+        custoPontos: 1,
+        bonusAtributos: { st: -1, dx: 2, iq: 1, vigor: -1, vt: 0 },
+        vantagensAutomaticas: ["aptidaoMagica", "maosRapidas", "carisma", "sentidosAgucados"],
+        desvantagensAutomaticas: ["sensoDever"],
+        bonusEspecificos: {
+            periciasBonus: { "arco": 3, "sociabilidade": 2 },
+            periciasPenalidade: {}
+        },
+        descricao: "Seres imortais da floresta, graciosos e conectados à magia.",
+        icone: "fa-leaf"
+    }
+};
 
 // ============================================
 // COR DO ATRIBUTO (1 a 15)
@@ -7068,6 +7105,17 @@ function renderizarFicha() {
         elements.personagemFoto.style.backgroundImage = `url('${personagemAtual.fotoURL}')`;
     }
 
+    // ===== EXIBIR RAÇA DO PERSONAGEM =====
+    const racaSpan = document.getElementById('racaNome');
+    if (racaSpan) {
+        const racaId = personagemAtual.raca?.id;
+        if (racaId && racasData && racasData[racaId]) {
+            racaSpan.textContent = racasData[racaId].nome;
+        } else {
+            racaSpan.textContent = 'Humano';
+        }
+    }
+
     // ===== CÁLCULO DO TOTAL DE PONTOS GASTOS (SISTEMA 1-15) =====
     const totalPontos = (personagemAtual.atributos?.st?.valor || 5) +
                         (personagemAtual.atributos?.dx?.valor || 5) +
@@ -7373,370 +7421,6 @@ function renderizarFicha() {
     renderizarInventario();
     
     atualizarDisplayPP();
-}
-
-function renderizarMinhasMagias(escola) {
-    const container = document.getElementById(`magiasContainer${escola.charAt(0).toUpperCase() + escola.slice(1)}`);
-    if (!container) return;
-    
-    const dados = escola === 'agua' ? dadosMagiasAgua :
-                  escola === 'ar' ? dadosMagiasAr :
-                  escola === 'gelo' ? dadosMagiasGelo :
-                  escola === 'fogo' ? dadosMagiasFogo :
-                  escola === 'terra' ? dadosMagiasTerra :
-                  escola === 'corpo' ? dadosMagiasCorpo :
-                  escola === 'natureza' ? dadosMagiasNatureza :
-                  escola === 'trevas' ? dadosMagiasTrevas :
-                  escola === 'luz' ? dadosMagiasLuz :
-                  escola === 'animais' ? dadosMagiasAnimais :
-                  null;
-                  
-    if (!personagemAtual.escolas?.[escola]?.magias) {
-        container.innerHTML = '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
-        return;
-    }
-    
-    let magiasHTML = '';
-    const ordemMagias = Object.keys(dados);
-    
-    ordemMagias.forEach(id => {
-        const magia = personagemAtual.escolas[escola].magias[id];
-        if (!magia || !magia.desbloqueada) return;
-        
-        const dadosMagia = dados[id];
-        if (!dadosMagia) return;
-        
-        const nh = calcularNHMagia(id, magia.nivel || 1, escola);
-        
-        let custoTexto = '2 MANA';
-        if (dadosMagia.custoMana) {
-            custoTexto = dadosMagia.custoMana[magia.nivel || 1] + ' MANA';
-        } else if (dadosMagia.custoPM) {
-            custoTexto = dadosMagia.custoPM + ' MANA';
-        }
-        
-        let tempoTexto = "1 ação";
-        if (dadosMagia.tempoConjuracao) {
-            if (typeof dadosMagia.tempoConjuracao === 'object') {
-                tempoTexto = dadosMagia.tempoConjuracao[magia.nivel || 1] || "1 ação";
-            } else {
-                tempoTexto = dadosMagia.tempoConjuracao;
-            }
-        }
-        
-        magiasHTML += `
-            <div class="magia-card" onclick="window.abrirModalMagia('${escola}', '${id}')">
-                <div class="magia-nome">
-                    <i class="fas ${dadosMagia.icone}" style="color: #4a9fff;"></i>
-                    ${dadosMagia.nome}
-                </div>
-                <div style="display: flex; gap: 10px; font-size: 11px; color: #a0a0b0; margin-bottom: 5px;">
-                    <span><i class="fas fa-bolt" style="color: #ffd700;"></i> ${custoTexto}</span>
-                    <span><i class="fas fa-clock" style="color: #4a9fff;"></i> ${tempoTexto}</span>
-                </div>
-                <div class="magia-info">
-                    <span>Nv ${magia.nivel || 1}</span>
-                    <span>${nh}%</span>
-                </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = magiasHTML || '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Nenhuma magia desbloqueada</div>';
-}
-
-function renderizarCatalogoPericias(filtro = 'todas') {
-    const container = document.getElementById('catalogoPericiasLista');
-    if (!container) return;
-    
-    const periciasFiltradas = catalogoPericias.filter(p => filtro === 'todas' || p.tipo === filtro);
-    let html = '';
-    
-    periciasFiltradas.forEach(pericia => {
-        const temPericia = personagemAtual.pericias?.[pericia.id];
-        const nivelAtual = temPericia?.nivel || 0;
-        const podeComprar = nivelAtual < 5;
-        
-        const custoProximoNivel = tabelaCustosPericias[nivelAtual + 1] || 0;
-        const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
-        const custoDiferenca = custoProximoNivel - custoAtual;
-        const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-        
-        html += `
-            <div class="pericia-card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="color: #ffd700;">${pericia.nome}</strong>
-                        <span style="font-size: 11px; background: ${pericia.tipo === 'mental' ? '#4a6da8' : '#8b4a6d'}; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">
-                            ${pericia.tipo === 'mental' ? 'IQ' : 'DX'}
-                        </span>
-                    </div>
-                    <span style="color: ${nivelAtual > 0 ? '#ffd700' : '#a0a0b0'};">
-                        Nv ${nivelAtual}/5
-                    </span>
-                </div>
-                
-                ${nivelAtual > 0 ? `
-                    <div style="font-size: 12px; color: #4CAF50; margin: 5px 0;">
-                        NH: ${calcularNHPericia(pericia.id, { nivel: nivelAtual })}%
-                    </div>
-                ` : ''}
-                
-                ${podeComprar ? `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-                        <span style="font-size: 12px;">
-                            ${nivelAtual === 0 ? 'Desbloquear' : 'Evoluir'}: <strong style="color: #ffd700;">${custoDiferenca} PP</strong>
-                        </span>
-                        <button class="btn-xp" onclick="window.comprarPericia('${pericia.id}')" 
-                                ${custoDiferenca > ppDisponivel ? 'disabled' : ''}>
-                            ${nivelAtual === 0 ? 'Comprar' : 'Evoluir'}
-                        </button>
-                    </div>
-                ` : `
-                    <div style="color: #4CAF50; font-size: 12px; margin-top: 5px;">
-                        <i class="fas fa-check-circle"></i> Nível máximo!
-                    </div>
-                `}
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
-}
-
-function renderizarCatalogoMagias(escola) {
-    const container = document.getElementById(`catalogoMagiasLista${escola.charAt(0).toUpperCase() + escola.slice(1)}`);
-    if (!container) return;
-    
-    const dados = escola === 'agua' ? dadosMagiasAgua :
-                  escola === 'ar' ? dadosMagiasAr :
-                  escola === 'gelo' ? dadosMagiasGelo :
-                  escola === 'fogo' ? dadosMagiasFogo :
-                  escola === 'terra' ? dadosMagiasTerra :
-                  escola === 'corpo' ? dadosMagiasCorpo :
-                  escola === 'natureza' ? dadosMagiasNatureza :
-                  escola === 'trevas' ? dadosMagiasTrevas :
-                  escola === 'luz' ? dadosMagiasLuz :
-                  escola === 'animais' ? dadosMagiasAnimais :
-                  null;
-                  
-    if (!personagemAtual.escolas) personagemAtual.escolas = { 
-        agua: { magias: {} }, 
-        ar: { magias: {} }, 
-        gelo: { magias: {} },
-        fogo: { magias: {} },
-        terra: { magias: {} },
-        corpo: { magias: {} }, 
-        natureza: { magias: {} },
-        trevas: { magias: {} },
-        luz: { magias: {} },
-        animais: { magias: {} }
-    };
-    if (!personagemAtual.escolas[escola]) personagemAtual.escolas[escola] = { magias: {} };
-    if (!personagemAtual.escolas[escola].magias) personagemAtual.escolas[escola].magias = {};
-    
-    const magiasDesbloqueadas = contarMagiasDesbloqueadas(escola);
-    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
-    
-    let html = '';
-    
-    Object.entries(dados).forEach(([id, magia]) => {
-        const temMagia = personagemAtual.escolas[escola].magias[id]?.desbloqueada || false;
-        const podeDesbloquear = !temMagia && magiasDesbloqueadas + 1 >= magia.nivelRequerido;
-        const botaoHabilitado = podeDesbloquear && ppDisponivel >= 2;
-        
-        let custoExibicao = '2 MANA';
-        let tempoExibicao = '1 ação';
-        
-        if (magia.custoMana) {
-            custoExibicao = magia.custoMana[1] + ' MANA';
-        } else if (magia.custoPM) {
-            custoExibicao = magia.custoPM + ' MANA';
-        }
-        
-        if (magia.tempoConjuracao) {
-            if (typeof magia.tempoConjuracao === 'object') {
-                tempoExibicao = magia.tempoConjuracao[1] || '1 ação';
-            } else {
-                tempoExibicao = magia.tempoConjuracao;
-            }
-        }
-        
-        html += `
-            <div class="magia-card-catalogo" style="margin-bottom: 12px; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid ${temMagia ? '#ffd700' : '#2a2a3c'}; border-radius: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="color: #ffd700; font-size: 16px;">
-                            <i class="fas ${magia.icone}" style="color: #4a9fff; margin-right: 8px;"></i>
-                            ${magia.nome}
-                        </strong>
-                        <span style="font-size: 11px; background: #4a6da8; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">
-                            Nível ${magia.nivelRequerido}+
-                        </span>
-                    </div>
-                    <span style="color: ${temMagia ? '#4CAF50' : '#a0a0b0'}; font-weight: 600;">
-                        ${temMagia ? '✓ DESBLOQUEADA' : ''}
-                    </span>
-                </div>
-                
-                <div style="display: flex; gap: 15px; font-size: 12px; color: #a0a0b0; margin: 8px 0;">
-                    <span><i class="fas fa-bolt" style="color: #ffd700;"></i> ${custoExibicao}</span>
-                    <span><i class="fas fa-clock" style="color: #4a9fff;"></i> ${tempoExibicao}</span>
-                </div>
-                
-                <div style="font-size: 12px; color: #a0a0b0; margin-bottom: 8px;">
-                    <span style="color: #ffd700;">Efeito inicial:</span> ${magia.efeitos[1]}
-                </div>
-                
-                ${temMagia ? `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: rgba(255,215,0,0.1); padding: 8px; border-radius: 6px;">
-                        <span style="color: #ffd700;">Nível atual: ${personagemAtual.escolas[escola].magias[id].nivel || 1}</span>
-                        <span style="color: #4CAF50;">NH: ${calcularNHMagia(id, personagemAtual.escolas[escola].magias[id].nivel || 1, escola)}%</span>
-                    </div>
-                ` : ''}
-                
-                ${!temMagia ? `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-                        <div>
-                            ${podeDesbloquear ? 
-                                `<span style="color: #ffd700;">Custo: <strong>2 PP</strong> (você tem ${ppDisponivel} PP)</span>` : 
-                                `<span style="color: #ff6b6b;">Requer ${magia.nivelRequerido} magias desbloqueadas</span>`
-                            }
-                        </div>
-                        ${podeDesbloquear ? `
-                            <button class="btn-xp" onclick="window.comprarMagia('${escola}', '${id}')" 
-                                    style="background: ${botaoHabilitado ? '#ffd700' : '#2a2a3c'}; color: ${botaoHabilitado ? '#14141f' : '#ffd700'}; padding: 6px 15px;"
-                                    ${!botaoHabilitado ? 'disabled' : ''}>
-                                Desbloquear (2 PP)
-                            </button>
-                        ` : ''}
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
-}
-
-function renderizarInventario() {
-    const renderizarLista = (itens, local) => {
-        if (!itens || itens.length === 0) {
-            return '<div style="color: #a0a0b0; text-align: center; padding: 20px;">Vazio</div>';
-        }
-        return itens.map(item => {
-            if (item.pv && item.pvAtual === undefined) {
-                item.pvAtual = item.pv;
-            }
-            
-            const temPV = item.pv && item.pv > 0;
-            const pvAtual = item.pvAtual || 0;
-            const pvMax = item.pv || 0;
-            const percentualPV = pvMax > 0 ? (pvAtual / pvMax) * 100 : 0;
-            const quebrado = pvAtual === 0 && temPV;
-            const quantidade = item.quantidade || 1;
-            
-            return `
-                <div class="item-card">
-                    <div class="item-header">
-                        <span class="item-nome">
-                            <i class="fas ${item.dano ? 'fa-sword' : (item.bonus ? 'fa-shield' : 'fa-cube')}"></i>
-                            ${item.nome}${quantidade > 1 ? ` (x${quantidade})` : ''}
-                        </span>
-                        <span class="item-tipo">${item.dano ? 'Arma' : (item.bonus ? 'Escudo' : (item.consumivel ? 'Consumível' : 'Item'))}</span>
-                    </div>
-                    
-                    <div class="item-detalhes">
-                        ${item.dano ? `<span><i class="fas fa-fist-raised"></i> ${item.dano}</span>` : ''}
-                        ${item.rd ? `<span><i class="fas fa-shield-alt"></i> RD ${item.rd}</span>` : ''}
-                        ${item.bonus ? `<span><i class="fas fa-shield"></i> +${item.bonus}</span>` : ''}
-                        ${item.st ? `<span><i class="fas fa-dumbbell"></i> ST ${item.st}</span>` : ''}
-                        ${item.aparar ? `<span><i class="fas fa-hand"></i> Aparar ${item.aparar}</span>` : ''}
-                        <span><i class="fas fa-weight-hanging"></i> ${item.peso}kg</span>
-                        <span><i class="fas fa-coins"></i> $${item.preco || 0}</span>
-                    </div>
-                    
-                    ${temPV ? `
-                        <div class="item-pv-container">
-                            <div class="item-pv-header">
-                                <span>Integridade</span>
-                                <span>${pvAtual}/${pvMax} ${quebrado ? '🔴 QUEBRADO' : ''}</span>
-                            </div>
-                            <div class="item-pv-barra-container">
-                                <div class="item-pv-barra" style="width: ${percentualPV}%"></div>
-                            </div>
-                            <div class="item-pv-botoes">
-                                <button class="btn-pv-equip dano" onclick="window.alterarPVEquipamento('${item.id}', '${local}', -5)" ${pvAtual === 0 ? 'disabled' : ''}>-5</button>
-                                <button class="btn-pv-equip dano" onclick="window.alterarPVEquipamento('${item.id}', '${local}', -1)" ${pvAtual === 0 ? 'disabled' : ''}>-1</button>
-                                <button class="btn-pv-equip reparo" onclick="window.alterarPVEquipamento('${item.id}', '${local}', 1)" ${pvAtual >= pvMax ? 'disabled' : ''}>+1</button>
-                                <button class="btn-pv-equip reparo" onclick="window.alterarPVEquipamento('${item.id}', '${local}', 5)" ${pvAtual >= pvMax ? 'disabled' : ''}>+5</button>
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="item-acoes">
-                        ${item.consumivel ? `
-                            <button class="btn-item" onclick="window.usarItem('${item.id}', '${local}')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-utensils"></i> Usar
-                            </button>
-                        ` : ''}
-                        ${local !== 'deposito' && local !== 'magicos' ? `
-                            <button class="btn-item" onclick="window.abrirModalTransferir('${item.id}', '${local}', 'deposito')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-arrow-right"></i> Depositar
-                            </button>
-                        ` : ''}
-                        ${local === 'magicos' ? `
-                            <button class="btn-item" onclick="window.abrirModalTransferir('${item.id}', '${local}', 'mochila')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-arrow-left"></i> Mover para Mochila
-                            </button>
-                        ` : ''}
-                        ${local === 'mochila' && (item.dano || item.rd || item.bonus) ? `
-                            <button class="btn-item" onclick="window.equiparItem('${item.id}')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-user"></i> Equipar
-                            </button>
-                        ` : ''}
-                        ${local === 'corpo' ? `
-                            <button class="btn-item" onclick="window.guardarItem('${item.id}')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-shopping-bag"></i> Guardar
-                            </button>
-                        ` : ''}
-                        ${local === 'deposito' ? `
-                            <button class="btn-item" onclick="window.abrirModalTransferir('${item.id}', '${local}', 'mochila')" ${quebrado ? 'disabled' : ''}>
-                                <i class="fas fa-arrow-left"></i> Pegar
-                            </button>
-                        ` : ''}
-                        <button class="btn-item" onclick="window.venderItem('${item.id}', '${local}')" ${quebrado ? 'disabled' : ''}>
-                            <i class="fas fa-coins"></i> Vender
-                        </button>
-                        <button class="btn-item" onclick="window.excluirItem('${item.id}', '${local}')">
-                            <i class="fas fa-trash"></i> Excluir
-                        </button>
-                    </div>
-                    
-                    ${quebrado ? '<div style="color: #ff4444; font-size: 11px; margin-top: 5px;"><i class="fas fa-exclamation-triangle"></i> Item quebrado - não pode ser usado</div>' : ''}
-                </div>
-            `;
-        }).join('');
-    };
-    
-    if (elements.inventarioCorpo) elements.inventarioCorpo.innerHTML = renderizarLista(personagemAtual?.inventario?.corpo, 'corpo');
-    if (elements.inventarioMochila) elements.inventarioMochila.innerHTML = renderizarLista(personagemAtual?.inventario?.mochila, 'mochila');
-    if (elements.inventarioDeposito) elements.inventarioDeposito.innerHTML = renderizarLista(personagemAtual?.inventario?.deposito, 'deposito');
-    if (elements.inventarioMagicos) elements.inventarioMagicos.innerHTML = renderizarLista(personagemAtual?.inventario?.magicos, 'magicos');
-    
-    document.querySelectorAll('.inventario-tab').forEach(tab => {
-        tab.removeEventListener('click', handleInventarioTabClick);
-        tab.addEventListener('click', handleInventarioTabClick);
-    });
-}
-
-function handleInventarioTabClick(e) {
-    document.querySelectorAll('.inventario-tab').forEach(t => t.classList.remove('ativa'));
-    e.currentTarget.classList.add('ativa');
-    document.querySelectorAll('.item-lista').forEach(l => l.classList.remove('ativa'));
-    const targetId = `inventario${e.currentTarget.dataset.tab.charAt(0).toUpperCase() + e.currentTarget.dataset.tab.slice(1)}`;
-    const target = document.getElementById(targetId);
-    if (target) target.classList.add('ativa');
 }
 
 // ============================================
