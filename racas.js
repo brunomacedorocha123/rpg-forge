@@ -1,6 +1,6 @@
 // ============================================
 // SISTEMA DE RAÇAS - RPGFORCE
-// ARQUIVO: racas.js (VERSÃO FINAL COMPLETA)
+// ARQUIVO: racas.js (VERSÃO FINAL CORRIGIDA)
 // ============================================
 
 const racasDisponiveis = {
@@ -88,7 +88,7 @@ function aplicarRacaAoPersonagem(racaId) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return false;
     
-    // Verifica pontos ANTES de aplicar
+    // Verifica se tem pontos suficientes no SALDO
     let saldoAtual = window.saldoPontos;
     if (saldoAtual < raca.custoPontos) {
         alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher ${raca.nome}. Você tem ${saldoAtual} pontos.`);
@@ -137,21 +137,19 @@ function aplicarRacaAoPersonagem(racaId) {
         }
     }
     
-    // ===== 3. DESCONTA OS PONTOS DA RAÇA =====
-    window.pontosIniciais = window.pontosIniciais - raca.custoPontos;
-    const inputPontos = document.getElementById('pontosIniciais');
-    if (inputPontos) inputPontos.value = window.pontosIniciais;
-    
-    // ===== 4. ATUALIZA O SALDO (SÓ UMA VEZ) =====
-    if (typeof window.atualizarSaldoPontos === 'function') {
-        window.atualizarSaldoPontos();
+    // ===== 3. DESCONTA OS PONTOS DO SALDO (NÃO DOS PONTOS INICIAIS) =====
+    // Atualiza o saldoPontos diretamente
+    if (typeof window.saldoPontos !== 'undefined') {
+        window.saldoPontos = window.saldoPontos - raca.custoPontos;
     }
     
-    if (typeof window.atualizarDisplayGastos === 'function') {
-        window.atualizarDisplayGastos();
+    // Atualiza o display do saldo na tela
+    const saldoSpan = document.getElementById('saldoPontos');
+    if (saldoSpan) {
+        saldoSpan.textContent = window.saldoPontos;
     }
     
-    // ===== 5. GUARDA A RAÇA =====
+    // ===== 4. GUARDA A RAÇA =====
     racaAtual = racaId;
     
     // Salva no localStorage
@@ -166,7 +164,7 @@ function aplicarRacaAoPersonagem(racaId) {
         localStorage.setItem('racaModificadorDeslocamento', JSON.stringify(raca.modificadorDeslocamento));
     }
     
-    // ===== 6. ATUALIZA INTERFACE =====
+    // ===== 5. ATUALIZA INTERFACE =====
     if (typeof window.atualizarInterface === 'function') {
         window.atualizarInterface();
     }
@@ -198,6 +196,9 @@ function aplicarRacaAoPersonagem(racaId) {
         });
     }
     
+    // ===== 6. APLICA BÔNUS DE PERÍCIAS =====
+    aplicarBonusPericiasRaca();
+    
     if (typeof window.renderizarPericiasAdquiridas === 'function') {
         window.renderizarPericiasAdquiridas();
     }
@@ -209,6 +210,26 @@ function aplicarRacaAoPersonagem(racaId) {
     alert(`Raça ${raca.nome} aplicada com sucesso! Foram consumidos ${raca.custoPontos} pontos.`);
     
     return true;
+}
+
+// ============================================
+// APLICAR BÔNUS DE PERÍCIAS
+// ============================================
+
+function aplicarBonusPericiasRaca() {
+    if (typeof window.getBonusPericia === 'function') {
+        const originalBonus = window.getBonusPericia;
+        window.getBonusPericia = function(periciaId) {
+            let bonus = originalBonus(periciaId) || 0;
+            if (racaAtual && racasDisponiveis[racaAtual]) {
+                const raca = racasDisponiveis[racaAtual];
+                if (raca.bonusPericias && raca.bonusPericias[periciaId] !== undefined) {
+                    bonus += raca.bonusPericias[periciaId];
+                }
+            }
+            return bonus;
+        };
+    }
 }
 
 // ============================================
@@ -242,17 +263,14 @@ function removerRacaDoPersonagem() {
         }
     }
     
-    // Devolve os pontos
-    window.pontosIniciais = window.pontosIniciais + raca.custoPontos;
-    const inputPontos = document.getElementById('pontosIniciais');
-    if (inputPontos) inputPontos.value = window.pontosIniciais;
-    
-    if (typeof window.atualizarSaldoPontos === 'function') {
-        window.atualizarSaldoPontos();
+    // Devolve os pontos para o SALDO
+    if (typeof window.saldoPontos !== 'undefined') {
+        window.saldoPontos = window.saldoPontos + raca.custoPontos;
     }
     
-    if (typeof window.atualizarDisplayGastos === 'function') {
-        window.atualizarDisplayGastos();
+    const saldoSpan = document.getElementById('saldoPontos');
+    if (saldoSpan) {
+        saldoSpan.textContent = window.saldoPontos;
     }
     
     // Limpa localStorage
@@ -262,6 +280,9 @@ function removerRacaDoPersonagem() {
     localStorage.removeItem('racaModificadorDeslocamento');
     
     racaAtual = null;
+    
+    // Reaplica a função de perícias original
+    restaurarBonusPericiasOriginal();
     
     // Atualiza interface
     if (typeof window.atualizarInterface === 'function') {
@@ -291,6 +312,13 @@ function removerRacaDoPersonagem() {
     alert(`Raça removida! ${raca.custoPontos} pontos foram devolvidos.`);
     
     return true;
+}
+
+function restaurarBonusPericiasOriginal() {
+    // Tenta restaurar a função original se existir
+    if (typeof window.originalGetBonusPericia === 'function') {
+        window.getBonusPericia = window.originalGetBonusPericia;
+    }
 }
 
 // ============================================
@@ -413,8 +441,6 @@ function atualizarDisplayRaca() {
 // ============================================
 
 function substituirFuncaoCalcularLimitesCarga() {
-    const original = window.calcularLimitesCarga;
-    
     window.calcularLimitesCarga = function() {
         const st = typeof window.getSTFixo === 'function' ? window.getSTFixo() : 5;
         const modificador = getModificadorCargaDaRaca();
@@ -428,8 +454,6 @@ function substituirFuncaoCalcularLimitesCarga() {
 }
 
 function substituirFuncaoCalcularDeslocamento() {
-    const original = window.calcularDeslocamento;
-    
     window.calcularDeslocamento = function() {
         const dx = typeof window.getDXFixo === 'function' ? window.getDXFixo() : 5;
         const vigor = typeof window.getVIGORFixo === 'function' ? window.getVIGORFixo() : 5;
@@ -462,19 +486,6 @@ function substituirFuncaoCalcularDeslocamento() {
     };
 }
 
-function substituirFuncaoGetBonusPericia() {
-    const original = window.getBonusPericia;
-    
-    window.getBonusPericia = function(periciaId) {
-        let bonus = 0;
-        if (typeof original === 'function') {
-            bonus = original(periciaId) || 0;
-        }
-        bonus += getBonusPericiaRaca(periciaId);
-        return bonus;
-    };
-}
-
 // ============================================
 // INICIALIZAÇÃO
 // ============================================
@@ -482,9 +493,14 @@ function substituirFuncaoGetBonusPericia() {
 function inicializarSistemaRacas() {
     // Aguarda o script principal carregar
     setTimeout(() => {
+        // Salva a função original de perícia
+        if (typeof window.getBonusPericia === 'function' && !window.originalGetBonusPericia) {
+            window.originalGetBonusPericia = window.getBonusPericia;
+        }
+        
         substituirFuncaoCalcularLimitesCarga();
         substituirFuncaoCalcularDeslocamento();
-        substituirFuncaoGetBonusPericia();
+        aplicarBonusPericiasRaca();
         
         const btnEscolherRaca = document.getElementById('btnEscolherRaca');
         const modalRacas = document.getElementById('modalRacas');
@@ -548,6 +564,11 @@ function inicializarSistemaRacas() {
                             window.atualizarBotoesAtributo('vigor');
                             window.atualizarBotoesAtributo('vt');
                         }
+                        
+                        // Força atualização das perícias
+                        if (typeof window.renderizarPericiasAdquiridas === 'function') {
+                            window.renderizarPericiasAdquiridas();
+                        }
                     }
                 }
             });
@@ -565,6 +586,10 @@ function inicializarSistemaRacas() {
                         window.atualizarBotoesAtributo('vigor');
                         window.atualizarBotoesAtributo('vt');
                     }
+                    
+                    if (typeof window.renderizarPericiasAdquiridas === 'function') {
+                        window.renderizarPericiasAdquiridas();
+                    }
                 }
             });
         }
@@ -574,6 +599,7 @@ function inicializarSistemaRacas() {
         if (racaSalva && racasDisponiveis[racaSalva]) {
             racaAtual = racaSalva;
             atualizarDisplayRaca();
+            aplicarBonusPericiasRaca();
         }
         
         atualizarDisplayRaca();
