@@ -40,23 +40,21 @@ const racasDisponiveis = {
         
         // Modificadores de deslocamento
         modificadorDeslocamento: {
-            andar: -1,           // perde 1 metro no deslocamento de andar
-            correrPercentual: -25 // perde 25% no deslocamento de correr
+            andar: -1,
+            correrPercentual: -25
         },
         
         // Bônus e redutores de perícias
         bonusPericias: {
-            'armasHaste': 3,     // +3% Arma de Haste
-            'armaria': 2,        // +2% Armaria
-            'arco': -2,          // -2% Arco
-            'arremesso': -2,     // -2% Arremesso
-            'funda': -2          // -2% Funda (vou adicionar se não existir)
+            'armasHaste': 3,
+            'armaria': 2,
+            'arco': -2,
+            'arremesso': -2,
+            'funda': -2
         },
         
-        // Descrição curta
         descricao: 'Anões são conhecidos por sua robustez, força e resistência incomparáveis.',
         
-        // Descrição completa para o modal
         descricaoCompleta: `
             <h4><i class="fas fa-fist-raised"></i> Características dos Anões</h4>
             <p>Anões são uma raça estoica e resistente, conhecida por sua força física e tenacidade inabalável. Esculpindo suas grandes cidades no coração das montanhas, eles são artesãos incomparáveis e guerreiros formidáveis.</p>
@@ -116,21 +114,19 @@ const racasDisponiveis = {
 // VARIÁVEIS GLOBAIS DO SISTEMA DE RAÇAS
 // ============================================
 
-let racaSelecionadaPreview = null;  // Raça temporária no modal
-let racaAtual = null;               // Raça já confirmada no personagem
+let racaSelecionadaPreview = null;
+let racaAtual = null;
 
 // ============================================
 // FUNÇÕES PARA VERIFICAR PONTOS SUFICIENTES
 // ============================================
 
-// Verifica se o jogador tem pontos suficientes para comprar a raça
 function temPontosSuficientesParaRaca(racaId, saldoPontosAtual) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return false;
     return saldoPontosAtual >= raca.custoPontos;
 }
 
-// Obtém o custo em pontos de uma raça
 function getCustoPontosRaca(racaId) {
     const raca = racasDisponiveis[racaId];
     return raca ? raca.custoPontos : 0;
@@ -144,17 +140,20 @@ function aplicarRacaAoPersonagem(racaId) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return false;
     
-    // Verifica se tem pontos suficientes (usando a variável global saldoPontos)
-    if (typeof saldoPontos !== 'undefined' && !temPontosSuficientesParaRaca(racaId, saldoPontos)) {
+    let saldoAtual = 10;
+    if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
+        saldoAtual = saldoPontos;
+    }
+    
+    if (!temPontosSuficientesParaRaca(racaId, saldoAtual)) {
         alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher a raça ${raca.nome}.`);
         return false;
     }
     
-    // ===== 1. REMOVE OS EFEITOS DA RAÇA ANTERIOR =====
+    // Remove efeitos da raça anterior
     if (racaAtual && racasDisponiveis[racaAtual]) {
         const racaAntiga = racasDisponiveis[racaAtual];
         
-        // Remove modificadores de atributos
         if (racaAntiga.modificadoresAtributos) {
             for (const [attr, valor] of Object.entries(racaAntiga.modificadoresAtributos)) {
                 if (typeof atributos !== 'undefined' && atributos[attr]) {
@@ -163,76 +162,60 @@ function aplicarRacaAoPersonagem(racaId) {
             }
         }
         
-        // Remove vantagem automática
         if (racaAntiga.vantagemAutomatica && typeof vantagensSelecionadas !== 'undefined') {
             vantagensSelecionadas.delete(racaAntiga.vantagemAutomatica);
         }
         
-        // Remove desvantagens automáticas
         if (racaAntiga.desvantagensAutomaticas && typeof desvantagensSelecionadas !== 'undefined') {
             for (const desv of racaAntiga.desvantagensAutomaticas) {
                 desvantagensSelecionadas.delete(desv);
             }
         }
-        
-        // DEVOLVE os pontos gastos com a raça anterior
-        if (typeof pontosIniciais !== 'undefined' && typeof saldoPontos !== 'undefined') {
-            // pontosIniciais + custo da raça antiga
-            // A lógica será feita na parte de pontos
-        }
     }
     
-    // ===== 2. APLICA OS EFEITOS DA NOVA RAÇA =====
-    
-    // Aplica modificadores de atributos
+    // Aplica efeitos da nova raça
     if (raca.modificadoresAtributos && typeof atributos !== 'undefined') {
         for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
             if (atributos[attr]) {
                 let novoValor = atributos[attr].valor + valor;
-                // Limita entre 1 e 15
                 novoValor = Math.min(15, Math.max(1, novoValor));
                 atributos[attr].valor = novoValor;
             }
         }
     }
     
-    // Adiciona vantagem automática
     if (raca.vantagemAutomatica && typeof vantagensSelecionadas !== 'undefined') {
         vantagensSelecionadas.add(raca.vantagemAutomatica);
     }
     
-    // Adiciona desvantagens automáticas
     if (raca.desvantagensAutomaticas && typeof desvantagensSelecionadas !== 'undefined') {
         for (const desv of raca.desvantagensAutomaticas) {
             desvantagensSelecionadas.add(desv);
         }
     }
     
-    // ===== 3. DESCONTA OS PONTOS DA RAÇA =====
+    // Desconta os pontos da raça
     if (typeof pontosIniciais !== 'undefined' && typeof saldoPontos !== 'undefined') {
-        // O desconto já é refletido no saldoPontos
-        // A função de atualização vai recalcular
+        if (typeof atualizarSaldoPontos === 'function') {
+            atualizarSaldoPontos();
+        }
     }
     
-    // ===== 4. GUARDA A RAÇA ATUAL =====
     racaAtual = racaId;
     
-    // Salva bônus de perícias para uso nas funções
     if (raca.bonusPericias) {
         localStorage.setItem(`racaBonusPericias_${racaId}`, JSON.stringify(raca.bonusPericias));
     }
     
-    // Salva modificador de carga
     if (raca.modificadorCarga) {
         localStorage.setItem(`racaModificadorCarga_${racaId}`, JSON.stringify(raca.modificadorCarga));
     }
     
-    // Salva modificador de deslocamento
     if (raca.modificadorDeslocamento) {
         localStorage.setItem(`racaModificadorDeslocamento_${racaId}`, JSON.stringify(raca.modificadorDeslocamento));
     }
     
-    // ===== 5. ATUALIZA A INTERFACE =====
+    // Atualiza interface
     if (typeof atualizarInterface === 'function') {
         atualizarInterface();
     }
@@ -249,7 +232,6 @@ function aplicarRacaAoPersonagem(racaId) {
         atualizarDisplayRaca();
     }
     
-    // Atualiza os cards de vantagens/desvantagens
     if (typeof document !== 'undefined') {
         document.querySelectorAll('.vantagem-card').forEach(card => {
             if (raca.vantagemAutomatica === card.dataset.vantagem) {
@@ -264,7 +246,6 @@ function aplicarRacaAoPersonagem(racaId) {
         });
     }
     
-    // Re-renderiza perícias (para aplicar bônus)
     if (typeof renderizarPericiasAdquiridas === 'function') {
         renderizarPericiasAdquiridas();
     }
@@ -286,7 +267,6 @@ function removerRacaDoPersonagem() {
     const raca = racasDisponiveis[racaAtual];
     if (!raca) return false;
     
-    // Remove modificadores de atributos
     if (raca.modificadoresAtributos && typeof atributos !== 'undefined') {
         for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
             if (atributos[attr]) {
@@ -297,26 +277,22 @@ function removerRacaDoPersonagem() {
         }
     }
     
-    // Remove vantagem automática
     if (raca.vantagemAutomatica && typeof vantagensSelecionadas !== 'undefined') {
         vantagensSelecionadas.delete(raca.vantagemAutomatica);
     }
     
-    // Remove desvantagens automáticas
     if (raca.desvantagensAutomaticas && typeof desvantagensSelecionadas !== 'undefined') {
         for (const desv of raca.desvantagensAutomaticas) {
             desvantagensSelecionadas.delete(desv);
         }
     }
     
-    // Limpa os storages
     localStorage.removeItem('racaBonusPericias');
     localStorage.removeItem('racaModificadorCarga');
     localStorage.removeItem('racaModificadorDeslocamento');
     
     racaAtual = null;
     
-    // Atualiza interface
     if (typeof atualizarInterface === 'function') atualizarInterface();
     if (typeof atualizarContadoresAbas === 'function') atualizarContadoresAbas();
     if (typeof atualizarLimitesCards === 'function') atualizarLimitesCards();
@@ -368,6 +344,11 @@ function carregarRacasNoGrid() {
     
     grid.innerHTML = '';
     
+    let saldoAtual = 10;
+    if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
+        saldoAtual = saldoPontos;
+    }
+    
     for (const [id, raca] of Object.entries(racasDisponiveis)) {
         const card = document.createElement('div');
         card.className = 'raca-card-modal';
@@ -377,16 +358,12 @@ function carregarRacasNoGrid() {
         card.dataset.racaDesc = raca.descricaoCompleta;
         card.dataset.custoPontos = raca.custoPontos;
         
-        // Verifica se tem pontos suficientes
-        let pontosSuficientes = true;
-        if (typeof saldoPontos !== 'undefined') {
-            pontosSuficientes = saldoPontos >= raca.custoPontos;
-        }
+        const pontosSuficientes = saldoAtual >= raca.custoPontos;
         
         if (!pontosSuficientes) {
             card.style.opacity = '0.5';
             card.style.cursor = 'not-allowed';
-            card.title = `Pontos insuficientes! Precisa de ${raca.custoPontos} pontos (você tem ${saldoPontos})`;
+            card.title = `Pontos insuficientes! Precisa de ${raca.custoPontos} pontos (você tem ${saldoAtual})`;
         }
         
         card.innerHTML = `
@@ -397,20 +374,22 @@ function carregarRacasNoGrid() {
         `;
         
         card.addEventListener('click', () => {
-            // Verifica novamente se tem pontos suficientes
-            if (typeof saldoPontos !== 'undefined' && saldoPontos < raca.custoPontos) {
-                alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher ${raca.nome}.`);
+            let saldoVerificacao = 10;
+            if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
+                saldoVerificacao = saldoPontos;
+            }
+            
+            if (saldoVerificacao < raca.custoPontos) {
+                alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher ${raca.nome}. Você tem ${saldoVerificacao} pontos.`);
                 return;
             }
             
-            // Remove seleção anterior
             document.querySelectorAll('.raca-card-modal').forEach(c => {
                 c.classList.remove('selecionada-preview');
             });
             card.classList.add('selecionada-preview');
             racaSelecionadaPreview = id;
             
-            // Habilita botão confirmar
             const btnConfirmar = document.getElementById('confirmarRaca');
             if (btnConfirmar) btnConfirmar.disabled = false;
         });
@@ -467,8 +446,7 @@ function atualizarDisplayRaca() {
 }
 
 // ============================================
-// FUNÇÃO PARA ATUALIZAR CÁLCULO DE CARGA
-// (DEVE SER CHAMADA PARA SOBRESCREVER A FUNÇÃO ORIGINAL)
+// FUNÇÕES PARA SUBSTITUIR FUNÇÕES ORIGINAIS
 // ============================================
 
 function substituirFuncaoCalcularLimitesCarga() {
@@ -501,15 +479,12 @@ function substituirFuncaoCalcularDeslocamento() {
         let andarBruto = soma * 0.1;
         let correrBruto = soma * 0.3;
         
-        // Aplica modificador de andar
         andarBruto += modificador.andar;
         
-        // Aplica modificador percentual de correr (-25% no caso do anão)
         if (modificador.correrPercentual !== 0) {
             correrBruto = correrBruto * (1 + modificador.correrPercentual / 100);
         }
         
-        // Arredondamento para baixo (floor) como especificado
         function arredondarDeslocamento(valor) {
             const parteInteira = Math.floor(valor);
             const parteDecimal = valor - parteInteira;
@@ -547,12 +522,10 @@ function substituirFuncaoGetBonusPericia() {
 // ============================================
 
 function inicializarSistemaRacas() {
-    // Substitui as funções originais
     substituirFuncaoCalcularLimitesCarga();
     substituirFuncaoCalcularDeslocamento();
     substituirFuncaoGetBonusPericia();
     
-    // Configura os eventos da UI
     const btnEscolherRaca = document.getElementById('btnEscolherRaca');
     const modalRacas = document.getElementById('modalRacas');
     const fecharModal = document.getElementById('fecharModalRacas');
@@ -601,14 +574,12 @@ function inicializarSistemaRacas() {
                     if (modalRacas) modalRacas.classList.remove('active');
                     racaSelecionadaPreview = null;
                     
-                    // Atualiza os botões dos atributos
                     if (typeof atualizarBotoesAtributo === 'function') {
                         ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(attr => {
                             atualizarBotoesAtributo(attr);
                         });
                     }
                     
-                    // Atualiza o saldo de pontos
                     if (typeof atualizarSaldoPontos === 'function') {
                         atualizarSaldoPontos();
                     }
@@ -626,14 +597,12 @@ function inicializarSistemaRacas() {
             if (confirm('Deseja remover a raça do personagem? Todas as vantagens, desvantagens e bônus serão removidos.')) {
                 removerRacaDoPersonagem();
                 
-                // Atualiza os botões dos atributos
                 if (typeof atualizarBotoesAtributo === 'function') {
                     ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(attr => {
                         atualizarBotoesAtributo(attr);
                     });
                 }
                 
-                // Atualiza o saldo de pontos
                 if (typeof atualizarSaldoPontos === 'function') {
                     atualizarSaldoPontos();
                 }
@@ -645,7 +614,6 @@ function inicializarSistemaRacas() {
         });
     }
     
-    // Exibe a raça atual se houver
     atualizarDisplayRaca();
 }
 
@@ -671,7 +639,6 @@ if (typeof window !== 'undefined') {
     window.inicializarSistemaRacas = inicializarSistemaRacas;
 }
 
-// Executa a inicialização quando o DOM estiver pronto
 if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', inicializarSistemaRacas);
