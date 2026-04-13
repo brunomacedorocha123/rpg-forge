@@ -19,9 +19,9 @@ const racasDisponiveis = {
         
         // Modificadores de atributos (SOMENTE BÔNUS)
         modificadoresAtributos: {
-            st: 3,      // ST +3
-            vt: 1,      // VT +1
-            vigor: 1    // VIGOR +1
+            st: 3,
+            vt: 1,
+            vigor: 1
         },
         
         // Vantagem automática
@@ -140,16 +140,6 @@ function aplicarRacaAoPersonagem(racaId) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return false;
     
-    let saldoAtual = 10;
-    if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
-        saldoAtual = saldoPontos;
-    }
-    
-    if (!temPontosSuficientesParaRaca(racaId, saldoAtual)) {
-        alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher a raça ${raca.nome}.`);
-        return false;
-    }
-    
     // Remove efeitos da raça anterior
     if (racaAtual && racasDisponiveis[racaAtual]) {
         const racaAntiga = racasDisponiveis[racaAtual];
@@ -191,13 +181,6 @@ function aplicarRacaAoPersonagem(racaId) {
     if (raca.desvantagensAutomaticas && typeof desvantagensSelecionadas !== 'undefined') {
         for (const desv of raca.desvantagensAutomaticas) {
             desvantagensSelecionadas.add(desv);
-        }
-    }
-    
-    // Desconta os pontos da raça
-    if (typeof pontosIniciais !== 'undefined' && typeof saldoPontos !== 'undefined') {
-        if (typeof atualizarSaldoPontos === 'function') {
-            atualizarSaldoPontos();
         }
     }
     
@@ -344,11 +327,6 @@ function carregarRacasNoGrid() {
     
     grid.innerHTML = '';
     
-    let saldoAtual = 10;
-    if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
-        saldoAtual = saldoPontos;
-    }
-    
     for (const [id, raca] of Object.entries(racasDisponiveis)) {
         const card = document.createElement('div');
         card.className = 'raca-card-modal';
@@ -358,14 +336,6 @@ function carregarRacasNoGrid() {
         card.dataset.racaDesc = raca.descricaoCompleta;
         card.dataset.custoPontos = raca.custoPontos;
         
-        const pontosSuficientes = saldoAtual >= raca.custoPontos;
-        
-        if (!pontosSuficientes) {
-            card.style.opacity = '0.5';
-            card.style.cursor = 'not-allowed';
-            card.title = `Pontos insuficientes! Precisa de ${raca.custoPontos} pontos (você tem ${saldoAtual})`;
-        }
-        
         card.innerHTML = `
             <i class="fas ${raca.iconeGrande || 'fa-dragon'}"></i>
             <h3>${raca.nome}</h3>
@@ -374,16 +344,6 @@ function carregarRacasNoGrid() {
         `;
         
         card.addEventListener('click', () => {
-            let saldoVerificacao = 10;
-            if (typeof saldoPontos !== 'undefined' && saldoPontos !== null) {
-                saldoVerificacao = saldoPontos;
-            }
-            
-            if (saldoVerificacao < raca.custoPontos) {
-                alert(`Pontos insuficientes! Você precisa de ${raca.custoPontos} pontos para escolher ${raca.nome}. Você tem ${saldoVerificacao} pontos.`);
-                return;
-            }
-            
             document.querySelectorAll('.raca-card-modal').forEach(c => {
                 c.classList.remove('selecionada-preview');
             });
