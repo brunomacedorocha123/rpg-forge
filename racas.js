@@ -531,30 +531,24 @@ function inicializarSistemaRacas() {
     const modalRacas = document.getElementById('modalRacas');
     const fecharModal = document.getElementById('fecharModalRacas');
     const cancelarRaca = document.getElementById('cancelarRaca');
-    let confirmarRaca = document.getElementById('confirmarRaca');
+    const confirmarRaca = document.getElementById('confirmarRaca');
     const btnRemoverRaca = document.getElementById('btnRemoverRaca');
-    let voltarSelecao = document.getElementById('voltarSelecaoRacas');
+    const btnVoltarRacas = document.getElementById('btnVoltarRacas');
+    const btnConfirmarRacaModal = document.getElementById('btnConfirmarRacaModal');
     
     // Botão Escolher Raça
     if (btnEscolherRaca) {
-        const novoBtn = btnEscolherRaca.cloneNode(true);
-        btnEscolherRaca.parentNode.replaceChild(novoBtn, btnEscolherRaca);
-        
-        novoBtn.addEventListener('click', () => {
+        btnEscolherRaca.addEventListener('click', () => {
             carregarRacasNoGrid();
             racaSelecionadaPreview = null;
-            const btnConfirmar = document.getElementById('confirmarRaca');
-            if (btnConfirmar) btnConfirmar.disabled = true;
+            if (confirmarRaca) confirmarRaca.disabled = true;
             if (modalRacas) modalRacas.classList.add('active');
         });
     }
     
     // Fechar Modal
     if (fecharModal) {
-        const novoFechar = fecharModal.cloneNode(true);
-        fecharModal.parentNode.replaceChild(novoFechar, fecharModal);
-        
-        novoFechar.addEventListener('click', () => {
+        fecharModal.addEventListener('click', () => {
             if (modalRacas) modalRacas.classList.remove('active');
             racaSelecionadaPreview = null;
         });
@@ -562,10 +556,7 @@ function inicializarSistemaRacas() {
     
     // Cancelar
     if (cancelarRaca) {
-        const novoCancelar = cancelarRaca.cloneNode(true);
-        cancelarRaca.parentNode.replaceChild(novoCancelar, cancelarRaca);
-        
-        novoCancelar.addEventListener('click', () => {
+        cancelarRaca.addEventListener('click', () => {
             if (modalRacas) modalRacas.classList.remove('active');
             racaSelecionadaPreview = null;
         });
@@ -573,10 +564,6 @@ function inicializarSistemaRacas() {
     
     // Confirmar (abre visualização)
     if (confirmarRaca) {
-        const novoConfirmar = confirmarRaca.cloneNode(true);
-        confirmarRaca.parentNode.replaceChild(novoConfirmar, confirmarRaca);
-        confirmarRaca = novoConfirmar;
-        
         confirmarRaca.addEventListener('click', () => {
             if (racaSelecionadaPreview) {
                 abrirVisualizacaoRaca(racaSelecionadaPreview);
@@ -584,56 +571,16 @@ function inicializarSistemaRacas() {
         });
     }
     
-    // Voltar (fecha visualização e volta para o grid)
-    if (voltarSelecao) {
-        const novoVoltar = voltarSelecao.cloneNode(true);
-        voltarSelecao.parentNode.replaceChild(novoVoltar, voltarSelecao);
-        voltarSelecao = novoVoltar;
-        
-        voltarSelecao.addEventListener('click', () => {
-            // Fecha o modal de visualização
+    // Botão Voltar (fecha visualização)
+    if (btnVoltarRacas) {
+        btnVoltarRacas.addEventListener('click', () => {
             fecharVisualizacaoRaca();
-            // Não aplica a raça! Apenas volta.
         });
     }
     
-    // Botão Remover Raça
-    if (btnRemoverRaca) {
-        const novoRemover = btnRemoverRaca.cloneNode(true);
-        btnRemoverRaca.parentNode.replaceChild(novoRemover, btnRemoverRaca);
-        
-        novoRemover.addEventListener('click', () => {
-            if (confirm('Deseja remover a raça do personagem?')) {
-                removerRacaDoPersonagem();
-                
-                if (typeof atualizarBotoesAtributo === 'function') {
-                    ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(attr => {
-                        atualizarBotoesAtributo(attr);
-                    });
-                }
-                
-                if (typeof atualizarSaldoPontos === 'function') {
-                    atualizarSaldoPontos();
-                }
-                
-                if (typeof atualizarDisplayGastos === 'function') {
-                    atualizarDisplayGastos();
-                }
-            }
-        });
-    }
-    
-    // Botão CONFIRMAR na visualização (aplicar raça)
-    const btnConfirmarVisualizacao = document.querySelector('#modalVisualizarRaca .btn-voltar-racas');
-    if (btnConfirmarVisualizacao) {
-        const novoBtnConfirmar = btnConfirmarVisualizacao.cloneNode(true);
-        btnConfirmarVisualizacao.parentNode.replaceChild(novoBtnConfirmar, btnConfirmarVisualizacao);
-        
-        novoBtnConfirmar.innerHTML = '<i class="fas fa-check"></i> Confirmar Raça';
-        novoBtnConfirmar.style.background = 'linear-gradient(135deg, #ffd700, #ffaa00)';
-        novoBtnConfirmar.style.color = '#0a0a1a';
-        
-        novoBtnConfirmar.addEventListener('click', () => {
+    // Botão Confirmar Raça (aplica a raça)
+    if (btnConfirmarRacaModal) {
+        btnConfirmarRacaModal.addEventListener('click', () => {
             if (racaSelecionadaPreview) {
                 const sucesso = aplicarRacaAoPersonagem(racaSelecionadaPreview);
                 if (sucesso) {
@@ -654,6 +601,29 @@ function inicializarSistemaRacas() {
                     if (typeof atualizarDisplayGastos === 'function') {
                         atualizarDisplayGastos();
                     }
+                }
+            }
+        });
+    }
+    
+    // Botão Remover Raça
+    if (btnRemoverRaca) {
+        btnRemoverRaca.addEventListener('click', () => {
+            if (confirm('Deseja remover a raça do personagem?')) {
+                removerRacaDoPersonagem();
+                
+                if (typeof atualizarBotoesAtributo === 'function') {
+                    ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(attr => {
+                        atualizarBotoesAtributo(attr);
+                    });
+                }
+                
+                if (typeof atualizarSaldoPontos === 'function') {
+                    atualizarSaldoPontos();
+                }
+                
+                if (typeof atualizarDisplayGastos === 'function') {
+                    atualizarDisplayGastos();
                 }
             }
         });
