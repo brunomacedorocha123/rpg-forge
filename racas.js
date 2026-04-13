@@ -1,10 +1,5 @@
 // ============================================
 // SISTEMA DE RAÇAS - RPGFORCE
-// ARQUIVO: racas.js
-// ============================================
-
-// ============================================
-// DADOS DA RAÇA ANÃO
 // ============================================
 
 const racasDisponiveis = {
@@ -13,129 +8,45 @@ const racasDisponiveis = {
         nome: 'Anão',
         icone: 'fa-dwarf',
         iconeGrande: 'fa-dwarf',
-        
         custoPontos: 4,
-        
-        modificadoresAtributos: {
-            st: 3,
-            vt: 1,
-            vigor: 1
-        },
-        
+        modificadoresAtributos: { st: 3, vt: 1, vigor: 1 },
         vantagemAutomatica: 'corpoResistente',
-        
         desvantagensAutomaticas: ['nanismo', 'avareza'],
-        
-        modificadorCarga: {
-            leve: 2.5,
-            medio: 5.0,
-            pesado: 9.0,
-            limite: 13.0
-        },
-        
-        modificadorDeslocamento: {
-            andar: -1,
-            correrPercentual: -25
-        },
-        
-        bonusPericias: {
-            'armasHaste': 3,
-            'armaria': 2,
-            'arco': -2,
-            'arremesso': -2,
-            'funda': -2
-        },
-        
+        modificadorCarga: { leve: 2.5, medio: 5.0, pesado: 9.0, limite: 13.0 },
+        modificadorDeslocamento: { andar: -1, correrPercentual: -25 },
+        bonusPericias: { 'armasHaste': 3, 'armaria': 2, 'arco': -2, 'arremesso': -2, 'funda': -2 },
         descricao: 'Anões são conhecidos por sua robustez, força e resistência incomparáveis.',
-        
         descricaoCompleta: `
             <h4><i class="fas fa-fist-raised"></i> Características dos Anões</h4>
             <p>Anões são uma raça estoica e resistente, conhecida por sua força física e tenacidade inabalável.</p>
-            
             <h4><i class="fas fa-coins"></i> Custo</h4>
-            <p><strong>4 pontos de atributo</strong> para escolher esta raça.</p>
-            
-            <h4><i class="fas fa-chart-line"></i> Modificadores de Atributos</h4>
-            <ul>
-                <li><strong>ST (Força):</strong> +3</li>
-                <li><strong>VT (Vitalidade):</strong> +1</li>
-                <li><strong>VIGOR:</strong> +1</li>
-            </ul>
-            
-            <h4><i class="fas fa-star"></i> Vantagem Automática</h4>
-            <ul>
-                <li><strong>Corpo Resistente:</strong> RD +2, +10% resistência a venenos</li>
-            </ul>
-            
-            <h4><i class="fas fa-skull"></i> Desvantagens Automáticas</h4>
-            <ul>
-                <li><strong>Nanismo:</strong> -1 deslocamento, -5% contra inimigos altos</li>
-                <li><strong>Avareza:</strong> Dificuldade em gastar dinheiro</li>
-            </ul>
-            
-            <h4><i class="fas fa-weight-hanging"></i> Capacidade de Carga</h4>
-            <ul>
-                <li><strong>Carga Leve:</strong> ST × 2.5</li>
-                <li><strong>Carga Média:</strong> ST × 5.0</li>
-                <li><strong>Carga Pesada:</strong> ST × 9.0</li>
-                <li><strong>Carga Limite:</strong> ST × 13.0</li>
-            </ul>
-            
+            <p><strong>4 pontos de atributo</strong></p>
+            <h4><i class="fas fa-chart-line"></i> Modificadores</h4>
+            <ul><li>ST +3</li><li>VT +1</li><li>VIGOR +1</li></ul>
+            <h4><i class="fas fa-star"></i> Vantagem</h4>
+            <ul><li>Corpo Resistente</li></ul>
+            <h4><i class="fas fa-skull"></i> Desvantagens</h4>
+            <ul><li>Nanismo</li><li>Avareza</li></ul>
+            <h4><i class="fas fa-weight-hanging"></i> Carga</h4>
+            <ul><li>ST × 2.5 / 5.0 / 9.0 / 13.0</li></ul>
             <h4><i class="fas fa-shoe-prints"></i> Deslocamento</h4>
-            <ul>
-                <li><strong>Andar:</strong> -1 metro</li>
-                <li><strong>Correr:</strong> -25%</li>
-            </ul>
-            
-            <h4><i class="fas fa-brain"></i> Bônus de Perícias</h4>
-            <ul>
-                <li><strong>Arma de Haste:</strong> +3%</li>
-                <li><strong>Armaria:</strong> +2%</li>
-            </ul>
-            
-            <h4><i class="fas fa-ban"></i> Redutores de Perícias</h4>
-            <ul>
-                <li><strong>Arco:</strong> -2%</li>
-                <li><strong>Arremesso:</strong> -2%</li>
-                <li><strong>Funda:</strong> -2%</li>
-            </ul>
+            <ul><li>Andar -1m</li><li>Correr -25%</li></ul>
         `
     }
 };
 
-// ============================================
-// VARIÁVEIS GLOBAIS
-// ============================================
-
 let racaSelecionadaPreview = null;
 let racaAtual = null;
 
-// ============================================
-// FUNÇÕES AUXILIARES
-// ============================================
-
-function getSaldoPontos() {
-    if (typeof window.saldoPontos !== 'undefined') return window.saldoPontos;
-    if (typeof saldoPontos !== 'undefined') return saldoPontos;
-    return 10;
+function getGlobalVar(name) {
+    if (typeof window !== 'undefined' && window[name] !== undefined) return window[name];
+    try { return eval(name); } catch(e) { return null; }
 }
 
-function getPontosIniciais() {
-    if (typeof window.pontosIniciais !== 'undefined') return window.pontosIniciais;
-    if (typeof pontosIniciais !== 'undefined') return pontosIniciais;
-    return 10;
+function setGlobalVar(name, value) {
+    if (typeof window !== 'undefined') window[name] = value;
+    try { eval(`${name} = ${JSON.stringify(value)}`); } catch(e) {}
 }
-
-function setPontosIniciais(valor) {
-    if (typeof window.pontosIniciais !== 'undefined') window.pontosIniciais = valor;
-    if (typeof pontosIniciais !== 'undefined') pontosIniciais = valor;
-    const input = document.getElementById('pontosIniciais');
-    if (input) input.value = valor;
-}
-
-// ============================================
-// APLICAR RAÇA AO PERSONAGEM
-// ============================================
 
 function aplicarRacaAoPersonagem(racaId) {
     const raca = racasDisponiveis[racaId];
@@ -144,267 +55,190 @@ function aplicarRacaAoPersonagem(racaId) {
     // Remove efeitos da raça anterior
     if (racaAtual && racasDisponiveis[racaAtual]) {
         const racaAntiga = racasDisponiveis[racaAtual];
-        
         if (racaAntiga.modificadoresAtributos) {
             for (const [attr, valor] of Object.entries(racaAntiga.modificadoresAtributos)) {
-                const attrObj = window.atributos || atributos;
+                const attrObj = getGlobalVar('atributos');
                 if (attrObj && attrObj[attr]) {
                     attrObj[attr].valor = Math.min(15, Math.max(1, attrObj[attr].valor - valor));
                 }
             }
         }
-        
-        if (racaAntiga.vantagemAutomatica) {
-            const vantagens = window.vantagensSelecionadas || vantagensSelecionadas;
-            if (vantagens) vantagens.delete(racaAntiga.vantagemAutomatica);
-        }
-        
-        if (racaAntiga.desvantagensAutomaticas) {
-            const desvantagens = window.desvantagensSelecionadas || desvantagensSelecionadas;
-            if (desvantagens) {
-                for (const desv of racaAntiga.desvantagensAutomaticas) {
-                    desvantagens.delete(desv);
-                }
-            }
+        const vantagens = getGlobalVar('vantagensSelecionadas');
+        if (vantagens && racaAntiga.vantagemAutomatica) vantagens.delete(racaAntiga.vantagemAutomatica);
+        const desvantagens = getGlobalVar('desvantagensSelecionadas');
+        if (desvantagens && racaAntiga.desvantagensAutomaticas) {
+            racaAntiga.desvantagensAutomaticas.forEach(d => desvantagens.delete(d));
         }
     }
     
     // Aplica efeitos da nova raça
-    if (raca.modificadoresAtributos) {
-        const attrObj = window.atributos || atributos;
-        if (attrObj) {
-            for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
-                if (attrObj[attr]) {
-                    let novoValor = attrObj[attr].valor + valor;
-                    novoValor = Math.min(15, Math.max(1, novoValor));
-                    attrObj[attr].valor = novoValor;
-                }
+    const attrObj = getGlobalVar('atributos');
+    if (attrObj && raca.modificadoresAtributos) {
+        for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
+            if (attrObj[attr]) {
+                attrObj[attr].valor = Math.min(15, Math.max(1, attrObj[attr].valor + valor));
             }
         }
     }
     
-    if (raca.vantagemAutomatica) {
-        const vantagens = window.vantagensSelecionadas || vantagensSelecionadas;
-        if (vantagens) vantagens.add(raca.vantagemAutomatica);
+    const vantagens = getGlobalVar('vantagensSelecionadas');
+    if (vantagens && raca.vantagemAutomatica) vantagens.add(raca.vantagemAutomatica);
+    
+    const desvantagens = getGlobalVar('desvantagensSelecionadas');
+    if (desvantagens && raca.desvantagensAutomaticas) {
+        raca.desvantagensAutomaticas.forEach(d => desvantagens.add(d));
     }
     
-    if (raca.desvantagensAutomaticas) {
-        const desvantagens = window.desvantagensSelecionadas || desvantagensSelecionadas;
-        if (desvantagens) {
-            for (const desv of raca.desvantagensAutomaticas) {
-                desvantagens.add(desv);
-            }
-        }
+    // DESCONTA OS 4 PONTOS
+    let pontos = getGlobalVar('pontosIniciais');
+    if (pontos !== null) {
+        pontos = pontos - raca.custoPontos;
+        setGlobalVar('pontosIniciais', pontos);
+        const inputPontos = document.getElementById('pontosIniciais');
+        if (inputPontos) inputPontos.value = pontos;
+        
+        const atualizarSaldo = getGlobalVar('atualizarSaldoPontos');
+        if (typeof atualizarSaldo === 'function') atualizarSaldo();
+        
+        const atualizarGastos = getGlobalVar('atualizarDisplayGastos');
+        if (typeof atualizarGastos === 'function') atualizarGastos();
     }
-    
-    // ===== DESCONTA OS 4 PONTOS =====
-    let pontosAtuais = getPontosIniciais();
-    pontosAtuais = pontosAtuais - raca.custoPontos;
-    setPontosIniciais(pontosAtuais);
-    
-    // Recalcula saldo
-    const atualizarSaldo = window.atualizarSaldoPontos || atualizarSaldoPontos;
-    if (typeof atualizarSaldo === 'function') atualizarSaldo();
-    
-    const atualizarGastos = window.atualizarDisplayGastos || atualizarDisplayGastos;
-    if (typeof atualizarGastos === 'function') atualizarGastos();
     
     racaAtual = racaId;
     
-    // Salva no localStorage
-    if (raca.bonusPericias) {
-        localStorage.setItem(`racaBonusPericias_${racaId}`, JSON.stringify(raca.bonusPericias));
-    }
-    if (raca.modificadorCarga) {
-        localStorage.setItem(`racaModificadorCarga_${racaId}`, JSON.stringify(raca.modificadorCarga));
-    }
-    if (raca.modificadorDeslocamento) {
-        localStorage.setItem(`racaModificadorDeslocamento_${racaId}`, JSON.stringify(raca.modificadorDeslocamento));
-    }
+    localStorage.setItem(`racaBonusPericias_${racaId}`, JSON.stringify(raca.bonusPericias));
+    localStorage.setItem(`racaModificadorCarga_${racaId}`, JSON.stringify(raca.modificadorCarga));
+    localStorage.setItem(`racaModificadorDeslocamento_${racaId}`, JSON.stringify(raca.modificadorDeslocamento));
     
     // Atualiza interface
-    const atualizarInterfaceFn = window.atualizarInterface || atualizarInterface;
-    if (typeof atualizarInterfaceFn === 'function') atualizarInterfaceFn();
+    const atualizarInterface = getGlobalVar('atualizarInterface');
+    if (typeof atualizarInterface === 'function') atualizarInterface();
     
-    const atualizarContadores = window.atualizarContadoresAbas || atualizarContadoresAbas;
+    const atualizarContadores = getGlobalVar('atualizarContadoresAbas');
     if (typeof atualizarContadores === 'function') atualizarContadores();
     
-    const atualizarLimites = window.atualizarLimitesCards || atualizarLimitesCards;
+    const atualizarLimites = getGlobalVar('atualizarLimitesCards');
     if (typeof atualizarLimites === 'function') atualizarLimites();
     
-    const atualizarDisplay = window.atualizarDisplayRaca || atualizarDisplayRaca;
-    if (typeof atualizarDisplay === 'function') atualizarDisplay();
+    const atualizarDisplayRacaFn = getGlobalVar('atualizarDisplayRaca');
+    if (typeof atualizarDisplayRacaFn === 'function') atualizarDisplayRacaFn();
+    else atualizarDisplayRaca();
     
-    // Atualiza cards de vantagens/desvantagens
-    if (typeof document !== 'undefined') {
-        document.querySelectorAll('.vantagem-card').forEach(card => {
-            if (raca.vantagemAutomatica === card.dataset.vantagem) {
-                card.classList.add('selecionada');
-            }
-        });
-        document.querySelectorAll('.desvantagem-card').forEach(card => {
-            if (raca.desvantagensAutomaticas?.includes(card.dataset.desvantagem)) {
-                card.classList.add('selecionada');
-            }
-        });
-    }
+    document.querySelectorAll('.vantagem-card').forEach(card => {
+        if (raca.vantagemAutomatica === card.dataset.vantagem) card.classList.add('selecionada');
+    });
+    document.querySelectorAll('.desvantagem-card').forEach(card => {
+        if (raca.desvantagensAutomaticas?.includes(card.dataset.desvantagem)) card.classList.add('selecionada');
+    });
     
-    const renderizarPericias = window.renderizarPericiasAdquiridas || renderizarPericiasAdquiridas;
+    const renderizarPericias = getGlobalVar('renderizarPericiasAdquiridas');
     if (typeof renderizarPericias === 'function') renderizarPericias();
     
-    const triggerSave = window.triggerAutoSave || triggerAutoSave;
+    const triggerSave = getGlobalVar('triggerAutoSave');
     if (typeof triggerSave === 'function') triggerSave();
     
-    alert(`Raça ${raca.nome} aplicada com sucesso! Foram consumidos ${raca.custoPontos} pontos.`);
-    
+    alert(`Raça ${raca.nome} aplicada! Foram consumidos ${raca.custoPontos} pontos.`);
     return true;
 }
 
-// ============================================
-// REMOVER RAÇA
-// ============================================
-
 function removerRacaDoPersonagem() {
     if (!racaAtual) return false;
-    
     const raca = racasDisponiveis[racaAtual];
     if (!raca) return false;
     
-    if (raca.modificadoresAtributos) {
-        const attrObj = window.atributos || atributos;
-        if (attrObj) {
-            for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
-                if (attrObj[attr]) {
-                    let novoValor = attrObj[attr].valor - valor;
-                    novoValor = Math.min(15, Math.max(1, novoValor));
-                    attrObj[attr].valor = novoValor;
-                }
+    const attrObj = getGlobalVar('atributos');
+    if (attrObj && raca.modificadoresAtributos) {
+        for (const [attr, valor] of Object.entries(raca.modificadoresAtributos)) {
+            if (attrObj[attr]) {
+                attrObj[attr].valor = Math.min(15, Math.max(1, attrObj[attr].valor - valor));
             }
         }
     }
     
-    if (raca.vantagemAutomatica) {
-        const vantagens = window.vantagensSelecionadas || vantagensSelecionadas;
-        if (vantagens) vantagens.delete(raca.vantagemAutomatica);
+    const vantagens = getGlobalVar('vantagensSelecionadas');
+    if (vantagens && raca.vantagemAutomatica) vantagens.delete(raca.vantagemAutomatica);
+    
+    const desvantagens = getGlobalVar('desvantagensSelecionadas');
+    if (desvantagens && raca.desvantagensAutomaticas) {
+        raca.desvantagensAutomaticas.forEach(d => desvantagens.delete(d));
     }
     
-    if (raca.desvantagensAutomaticas) {
-        const desvantagens = window.desvantagensSelecionadas || desvantagensSelecionadas;
-        if (desvantagens) {
-            for (const desv of raca.desvantagensAutomaticas) {
-                desvantagens.delete(desv);
-            }
-        }
+    let pontos = getGlobalVar('pontosIniciais');
+    if (pontos !== null) {
+        pontos = pontos + raca.custoPontos;
+        setGlobalVar('pontosIniciais', pontos);
+        const inputPontos = document.getElementById('pontosIniciais');
+        if (inputPontos) inputPontos.value = pontos;
+        
+        const atualizarSaldo = getGlobalVar('atualizarSaldoPontos');
+        if (typeof atualizarSaldo === 'function') atualizarSaldo();
+        
+        const atualizarGastos = getGlobalVar('atualizarDisplayGastos');
+        if (typeof atualizarGastos === 'function') atualizarGastos();
     }
-    
-    // Devolve os pontos
-    let pontosAtuais = getPontosIniciais();
-    pontosAtuais = pontosAtuais + raca.custoPontos;
-    setPontosIniciais(pontosAtuais);
-    
-    const atualizarSaldo = window.atualizarSaldoPontos || atualizarSaldoPontos;
-    if (typeof atualizarSaldo === 'function') atualizarSaldo();
-    
-    const atualizarGastos = window.atualizarDisplayGastos || atualizarDisplayGastos;
-    if (typeof atualizarGastos === 'function') atualizarGastos();
     
     localStorage.removeItem('racaBonusPericias');
     localStorage.removeItem('racaModificadorCarga');
     localStorage.removeItem('racaModificadorDeslocamento');
-    
     racaAtual = null;
     
-    const atualizarInterfaceFn = window.atualizarInterface || atualizarInterface;
-    if (typeof atualizarInterfaceFn === 'function') atualizarInterfaceFn();
-    
-    const atualizarContadores = window.atualizarContadoresAbas || atualizarContadoresAbas;
+    const atualizarInterface = getGlobalVar('atualizarInterface');
+    if (typeof atualizarInterface === 'function') atualizarInterface();
+    const atualizarContadores = getGlobalVar('atualizarContadoresAbas');
     if (typeof atualizarContadores === 'function') atualizarContadores();
-    
-    const atualizarLimites = window.atualizarLimitesCards || atualizarLimitesCards;
+    const atualizarLimites = getGlobalVar('atualizarLimitesCards');
     if (typeof atualizarLimites === 'function') atualizarLimites();
-    
-    const atualizarDisplay = window.atualizarDisplayRaca || atualizarDisplayRaca;
-    if (typeof atualizarDisplay === 'function') atualizarDisplay();
-    
-    const renderizarPericias = window.renderizarPericiasAdquiridas || renderizarPericiasAdquiridas;
+    const atualizarDisplayRacaFn = getGlobalVar('atualizarDisplayRaca');
+    if (typeof atualizarDisplayRacaFn === 'function') atualizarDisplayRacaFn();
+    else atualizarDisplayRaca();
+    const renderizarPericias = getGlobalVar('renderizarPericiasAdquiridas');
     if (typeof renderizarPericias === 'function') renderizarPericias();
-    
-    const triggerSave = window.triggerAutoSave || triggerAutoSave;
+    const triggerSave = getGlobalVar('triggerAutoSave');
     if (typeof triggerSave === 'function') triggerSave();
     
-    alert(`Raça removida! ${raca.custoPontos} pontos foram devolvidos.`);
-    
+    alert(`Raça removida! ${raca.custoPontos} pontos devolvidos.`);
     return true;
 }
-
-// ============================================
-// FUNÇÕES PARA OBTER BÔNUS DA RAÇA
-// ============================================
 
 function getBonusPericiaRaca(periciaId) {
     if (!racaAtual) return 0;
     const raca = racasDisponiveis[racaAtual];
-    if (raca && raca.bonusPericias && raca.bonusPericias[periciaId] !== undefined) {
-        return raca.bonusPericias[periciaId];
-    }
-    return 0;
+    return (raca && raca.bonusPericias && raca.bonusPericias[periciaId] !== undefined) ? raca.bonusPericias[periciaId] : 0;
 }
 
 function getModificadorCargaDaRaca() {
     if (!racaAtual) return { leve: 2, medio: 4, pesado: 8, limite: 12 };
     const raca = racasDisponiveis[racaAtual];
-    if (raca && raca.modificadorCarga) {
-        return raca.modificadorCarga;
-    }
-    return { leve: 2, medio: 4, pesado: 8, limite: 12 };
+    return raca && raca.modificadorCarga ? raca.modificadorCarga : { leve: 2, medio: 4, pesado: 8, limite: 12 };
 }
 
 function getModificadorDeslocamentoDaRaca() {
     if (!racaAtual) return { andar: 0, correrPercentual: 0 };
     const raca = racasDisponiveis[racaAtual];
-    if (raca && raca.modificadorDeslocamento) {
-        return raca.modificadorDeslocamento;
-    }
-    return { andar: 0, correrPercentual: 0 };
+    return raca && raca.modificadorDeslocamento ? raca.modificadorDeslocamento : { andar: 0, correrPercentual: 0 };
 }
-
-// ============================================
-// FUNÇÕES DE UI
-// ============================================
 
 function carregarRacasNoGrid() {
     const grid = document.getElementById('racasGrid');
     if (!grid) return;
-    
     grid.innerHTML = '';
-    
     for (const [id, raca] of Object.entries(racasDisponiveis)) {
         const card = document.createElement('div');
         card.className = 'raca-card-modal';
         card.dataset.racaId = id;
-        card.dataset.racaNome = raca.nome;
-        card.dataset.racaIcone = raca.iconeGrande || 'fa-dragon';
-        card.dataset.racaDesc = raca.descricaoCompleta;
-        card.dataset.custoPontos = raca.custoPontos;
-        
         card.innerHTML = `
-            <i class="fas ${raca.iconeGrande || 'fa-dragon'}"></i>
+            <i class="fas ${raca.iconeGrande}"></i>
             <h3>${raca.nome}</h3>
             <p>${raca.descricao.substring(0, 80)}...</p>
             <div class="raca-mod-badge">Custo: ${raca.custoPontos} pontos</div>
         `;
-        
         card.addEventListener('click', () => {
-            document.querySelectorAll('.raca-card-modal').forEach(c => {
-                c.classList.remove('selecionada-preview');
-            });
+            document.querySelectorAll('.raca-card-modal').forEach(c => c.classList.remove('selecionada-preview'));
             card.classList.add('selecionada-preview');
             racaSelecionadaPreview = id;
-            
             const btnConfirmar = document.getElementById('confirmarRaca');
             if (btnConfirmar) btnConfirmar.disabled = false;
         });
-        
         grid.appendChild(card);
     }
 }
@@ -412,43 +246,25 @@ function carregarRacasNoGrid() {
 function abrirVisualizacaoRaca(racaId) {
     const raca = racasDisponiveis[racaId];
     if (!raca) return;
-    
-    const modal = document.getElementById('modalVisualizarRaca');
-    const titulo = document.getElementById('visualizarTitulo');
-    const icone = document.getElementById('visualizarIcone');
-    const descricao = document.getElementById('visualizarDescricao');
-    
-    if (titulo) titulo.textContent = raca.nome;
-    if (icone) icone.className = `fas ${raca.iconeGrande || 'fa-dragon'}`;
-    if (descricao) descricao.innerHTML = raca.descricaoCompleta;
-    
-    if (modal) modal.classList.add('active');
+    document.getElementById('visualizarTitulo').textContent = raca.nome;
+    document.getElementById('visualizarIcone').className = `fas ${raca.iconeGrande}`;
+    document.getElementById('visualizarDescricao').innerHTML = raca.descricaoCompleta;
+    document.getElementById('modalVisualizarRaca').classList.add('active');
 }
 
 function fecharVisualizacaoRaca() {
-    const modal = document.getElementById('modalVisualizarRaca');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('modalVisualizarRaca').classList.remove('active');
 }
 
 function atualizarDisplayRaca() {
     const racaInfo = document.getElementById('racaSelecionadaInfo');
     const racaNomeDisplay = document.getElementById('racaNomeDisplay');
     const racaBonusDisplay = document.getElementById('racaBonusDisplay');
-    
     if (!racaInfo) return;
-    
     if (racaAtual && racasDisponiveis[racaAtual]) {
         const raca = racasDisponiveis[racaAtual];
         racaNomeDisplay.textContent = raca.nome;
-        
-        let bonusText = `Custo: ${raca.custoPontos} pontos | `;
-        if (raca.modificadoresAtributos) {
-            const modificadores = [];
-            if (raca.modificadoresAtributos.st) modificadores.push(`ST +${raca.modificadoresAtributos.st}`);
-            if (raca.modificadoresAtributos.vt) modificadores.push(`VT +${raca.modificadoresAtributos.vt}`);
-            if (raca.modificadoresAtributos.vigor) modificadores.push(`VIGOR +${raca.modificadoresAtributos.vigor}`);
-            bonusText += modificadores.join(', ');
-        }
+        let bonusText = `Custo: ${raca.custoPontos} pontos | ST +${raca.modificadoresAtributos.st}, VT +${raca.modificadoresAtributos.vt}, VIGOR +${raca.modificadoresAtributos.vigor}`;
         racaBonusDisplay.textContent = bonusText;
         racaInfo.style.display = 'flex';
     } else {
@@ -456,151 +272,84 @@ function atualizarDisplayRaca() {
     }
 }
 
-// ============================================
-// SUBSTITUIR FUNÇÕES ORIGINAIS
-// ============================================
-
-function substituirFuncaoCalcularLimitesCarga() {
+function substituirFuncoes() {
     window.calcularLimitesCarga = function() {
         const st = (typeof getSTFixo === 'function') ? getSTFixo() : 5;
         const mod = getModificadorCargaDaRaca();
-        return {
-            leve: st * mod.leve,
-            medio: st * mod.medio,
-            pesado: st * mod.pesado,
-            limite: st * mod.limite
-        };
+        return { leve: st * mod.leve, medio: st * mod.medio, pesado: st * mod.pesado, limite: st * mod.limite };
     };
-}
-
-function substituirFuncaoCalcularDeslocamento() {
     window.calcularDeslocamento = function() {
         const dx = (typeof getDXFixo === 'function') ? getDXFixo() : 5;
         const vigor = (typeof getVIGORFixo === 'function') ? getVIGORFixo() : 5;
-        const soma = dx + vigor;
         const mod = getModificadorDeslocamentoDaRaca();
-        
-        let andarBruto = soma * 0.1;
-        let correrBruto = soma * 0.3;
-        
-        andarBruto += mod.andar;
-        
-        if (mod.correrPercentual !== 0) {
-            correrBruto = correrBruto * (1 + mod.correrPercentual / 100);
-        }
-        
-        const arredondar = (v) => {
-            const int = Math.floor(v);
-            const dec = v - int;
-            return dec < 0.5 ? int : int + 1;
-        };
-        
-        return { andar: arredondar(andarBruto), correr: arredondar(correrBruto) };
+        let andar = (dx + vigor) * 0.1 + mod.andar;
+        let correr = (dx + vigor) * 0.3;
+        if (mod.correrPercentual !== 0) correr = correr * (1 + mod.correrPercentual / 100);
+        const round = v => { const i = Math.floor(v); return (v - i) < 0.5 ? i : i + 1; };
+        return { andar: round(andar), correr: round(correr) };
     };
-}
-
-function substituirFuncaoGetBonusPericia() {
-    const original = window.getBonusPericia || (typeof getBonusPericia !== 'undefined' ? getBonusPericia : null);
+    const originalBonus = window.getBonusPericia || (typeof getBonusPericia !== 'undefined' ? getBonusPericia : null);
     window.getBonusPericia = function(periciaId) {
         let bonus = 0;
-        if (typeof original === 'function') bonus = original(periciaId) || 0;
-        bonus += getBonusPericiaRaca(periciaId);
-        return bonus;
+        if (typeof originalBonus === 'function') bonus = originalBonus(periciaId) || 0;
+        return bonus + getBonusPericiaRaca(periciaId);
     };
 }
 
-// ============================================
-// INICIALIZAÇÃO
-// ============================================
-
 function inicializarSistemaRacas() {
-    substituirFuncaoCalcularLimitesCarga();
-    substituirFuncaoCalcularDeslocamento();
-    substituirFuncaoGetBonusPericia();
+    substituirFuncoes();
     
-    const btnEscolherRaca = document.getElementById('btnEscolherRaca');
-    const modalRacas = document.getElementById('modalRacas');
-    const fecharModal = document.getElementById('fecharModalRacas');
-    const cancelarRaca = document.getElementById('cancelarRaca');
-    const confirmarRaca = document.getElementById('confirmarRaca');
-    const btnRemoverRaca = document.getElementById('btnRemoverRaca');
+    document.getElementById('btnEscolherRaca')?.addEventListener('click', () => {
+        carregarRacasNoGrid();
+        racaSelecionadaPreview = null;
+        const btn = document.getElementById('confirmarRaca');
+        if (btn) btn.disabled = true;
+        document.getElementById('modalRacas').classList.add('active');
+    });
     
-    if (btnEscolherRaca) {
-        btnEscolherRaca.addEventListener('click', (e) => {
-            e.preventDefault();
-            carregarRacasNoGrid();
-            racaSelecionadaPreview = null;
-            if (confirmarRaca) confirmarRaca.disabled = true;
-            if (modalRacas) modalRacas.classList.add('active');
-        });
-    }
+    document.getElementById('fecharModalRacas')?.addEventListener('click', () => {
+        document.getElementById('modalRacas').classList.remove('active');
+    });
     
-    if (fecharModal) {
-        fecharModal.addEventListener('click', () => {
-            if (modalRacas) modalRacas.classList.remove('active');
-        });
-    }
+    document.getElementById('cancelarRaca')?.addEventListener('click', () => {
+        document.getElementById('modalRacas').classList.remove('active');
+        racaSelecionadaPreview = null;
+    });
     
-    if (cancelarRaca) {
-        cancelarRaca.addEventListener('click', () => {
-            if (modalRacas) modalRacas.classList.remove('active');
-            racaSelecionadaPreview = null;
-        });
-    }
+    document.getElementById('confirmarRaca')?.addEventListener('click', () => {
+        if (racaSelecionadaPreview) abrirVisualizacaoRaca(racaSelecionadaPreview);
+    });
     
-    if (confirmarRaca) {
-        confirmarRaca.addEventListener('click', () => {
-            if (racaSelecionadaPreview) {
-                abrirVisualizacaoRaca(racaSelecionadaPreview);
-            }
-        });
-    }
+    document.getElementById('voltarSelecaoRacas')?.addEventListener('click', () => {
+        fecharVisualizacaoRaca();
+    });
     
-    const voltarSelecao = document.getElementById('voltarSelecaoRacas');
-    if (voltarSelecao) {
-        voltarSelecao.addEventListener('click', () => {
-            if (racaSelecionadaPreview) {
-                const sucesso = aplicarRacaAoPersonagem(racaSelecionadaPreview);
-                if (sucesso) {
-                    fecharVisualizacaoRaca();
-                    if (modalRacas) modalRacas.classList.remove('active');
-                    racaSelecionadaPreview = null;
-                    
-                    const atualizarBotoes = window.atualizarBotoesAtributo || atualizarBotoesAtributo;
-                    if (typeof atualizarBotoes === 'function') {
-                        atualizarBotoes('st');
-                        atualizarBotoes('dx');
-                        atualizarBotoes('iq');
-                        atualizarBotoes('vigor');
-                        atualizarBotoes('vt');
-                    }
-                }
-            }
-        });
-    }
-    
-    if (btnRemoverRaca) {
-        btnRemoverRaca.addEventListener('click', () => {
-            if (confirm('Deseja remover a raça do personagem?')) {
-                removerRacaDoPersonagem();
-                const atualizarBotoes = window.atualizarBotoesAtributo || atualizarBotoesAtributo;
+    document.getElementById('confirmarRacaModal')?.addEventListener('click', () => {
+        if (racaSelecionadaPreview) {
+            if (aplicarRacaAoPersonagem(racaSelecionadaPreview)) {
+                fecharVisualizacaoRaca();
+                document.getElementById('modalRacas').classList.remove('active');
+                racaSelecionadaPreview = null;
+                const atualizarBotoes = getGlobalVar('atualizarBotoesAtributo');
                 if (typeof atualizarBotoes === 'function') {
-                    atualizarBotoes('st');
-                    atualizarBotoes('dx');
-                    atualizarBotoes('iq');
-                    atualizarBotoes('vigor');
-                    atualizarBotoes('vt');
+                    ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(a => atualizarBotoes(a));
                 }
             }
-        });
-    }
+        }
+    });
+    
+    document.getElementById('btnRemoverRaca')?.addEventListener('click', () => {
+        if (confirm('Deseja remover a raça do personagem?')) {
+            removerRacaDoPersonagem();
+            const atualizarBotoes = getGlobalVar('atualizarBotoesAtributo');
+            if (typeof atualizarBotoes === 'function') {
+                ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(a => atualizarBotoes(a));
+            }
+        }
+    });
     
     atualizarDisplayRaca();
 }
-
-// ============================================
-// EXPORTA
-// ============================================
 
 if (typeof window !== 'undefined') {
     window.racasDisponiveis = racasDisponiveis;
@@ -611,16 +360,12 @@ if (typeof window !== 'undefined') {
     window.getModificadorCargaDaRaca = getModificadorCargaDaRaca;
     window.getModificadorDeslocamentoDaRaca = getModificadorDeslocamentoDaRaca;
     window.carregarRacasNoGrid = carregarRacasNoGrid;
-    window.abrirVisualizacaoRaca = abrirVisualizacaoRaca;
-    window.fecharVisualizacaoRaca = fecharVisualizacaoRaca;
     window.atualizarDisplayRaca = atualizarDisplayRaca;
     window.inicializarSistemaRacas = inicializarSistemaRacas;
 }
 
-if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', inicializarSistemaRacas);
-    } else {
-        inicializarSistemaRacas();
-    }
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializarSistemaRacas);
+} else {
+    inicializarSistemaRacas();
 }
