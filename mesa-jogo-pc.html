@@ -2929,19 +2929,40 @@ function calcularBloqueio() {
 }
 
 // ============================================
-// DESLOCAMENTO
+// DESLOCAMENTO (CORRIGIDO COM RAÇA)
 // ============================================
 function calcularDeslocamento() {
-    const soma = getDXFixo() + getVIGORFixo();
-    const andarBruto = soma * 0.1;
-    const correrBruto = soma * 0.3;
+    const dx = getDXFixo();
+    const vigor = getVIGORFixo();
+    const soma = dx + vigor;
+    
+    let andarBruto = soma * 0.1;
+    let correrBruto = soma * 0.3;
+    
+    // ===== APLICA MODIFICADORES DA RAÇA =====
+    if (racaAtual && racaAtual.bonusEspecificos && racaAtual.bonusEspecificos.deslocamento) {
+        const mod = racaAtual.bonusEspecificos.deslocamento;
+        
+        // PRIMEIRO: redução percentual (Anão: -25%)
+        if (mod.reducaoPercentual) {
+            const percentual = mod.reducaoPercentual / 100;
+            andarBruto = andarBruto * (1 + percentual);
+            correrBruto = correrBruto * (1 + percentual);
+        }
+        
+        // DEPOIS: redução fixa (Anão: -1)
+        if (mod.reducaoFixa) {
+            andarBruto = andarBruto + mod.reducaoFixa;
+            correrBruto = correrBruto + mod.reducaoFixa;
+        }
+    }
     
     function arredondar(valor) {
-        if (valor < 1 && valor > 0) return 1;
+        if (valor <= 0) return 1;
         const parteInteira = Math.floor(valor);
         const parteDecimal = valor - parteInteira;
-        if (parteDecimal < 0.5) return parteInteira;
-        return parteInteira + 1;
+        if (parteDecimal >= 0.1) return parteInteira + 1;
+        return Math.max(1, parteInteira);
     }
     
     return { andar: arredondar(andarBruto), correr: arredondar(correrBruto) };
@@ -4592,6 +4613,13 @@ async function carregarVinculoEPersonagem() {
                     personagemAtual.atributos[attr] = { valor: 5 };
                 }
             });
+        }
+
+        // ===== CARREGAR RAÇA DO PERSONAGEM =====
+        if (personagemAtual.raca && personagemAtual.raca.id) {
+            racaAtual = personagemAtual.raca;
+        } else {
+            racaAtual = null;
         }
 
         if (!personagemAtual.statusCombate) {
