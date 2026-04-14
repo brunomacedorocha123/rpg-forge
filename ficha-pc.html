@@ -8728,15 +8728,66 @@ async function carregarPersonagem() {
             ...data
         };
 
-        // ===== CARREGAR RAÇA DO PERSONAGEM =====
+        // ===== CARREGAR RAÇA DO PERSONAGEM COM CORREÇÃO DE BÔNUS =====
         if (personagemAtual.raca && personagemAtual.raca.nome) {
             racaAtual = personagemAtual.raca;
+            
+            // ===== CORREÇÃO: Adicionar bonusEspecificos se estiver faltando =====
+            if (personagemAtual.raca.id && (!personagemAtual.raca.bonusEspecificos || personagemAtual.raca.bonusEspecificos === null)) {
+                const racasCompletas = {
+                    anao: {
+                        bonusEspecificos: {
+                            carga: { leve: 2.5, medio: 5.0, pesado: 9.0, limite: 13.0 },
+                            deslocamento: { reducaoFixa: -1, reducaoPercentual: -25 },
+                            periciasBonus: { armasHaste: 3, armaria: 2 },
+                            periciasPenalidade: { funda: -2, arco: -2, arremesso: -2 }
+                        }
+                    },
+                    centauro: {
+                        bonusEspecificos: {
+                            carga: { leve: 3.0, medio: 6.0, pesado: 10.0, limite: 15.0 },
+                            deslocamento: { multiplicador: 2 },
+                            periciasBonus: { sobrevivencia: 2, arco: 2 },
+                            periciasPenalidade: { furtividade: -4 }
+                        }
+                    },
+                    elfo: {
+                        bonusEspecificos: {
+                            periciasBonus: { arco: 3, sociabilidade: 2 },
+                            periciasPenalidade: {}
+                        }
+                    }
+                };
+                
+                const racaId = personagemAtual.raca.id;
+                const racaCorrigida = racasCompletas[racaId];
+                
+                if (racaCorrigida) {
+                    personagemAtual.raca.bonusEspecificos = racaCorrigida.bonusEspecificos;
+                    racaAtual = personagemAtual.raca;
+                    
+                    // Salva a correção permanentemente no Firebase
+                    try {
+                        const personagemRefCorrecao = doc(db, "personagens", personagemAtual.id);
+                        await updateDoc(personagemRefCorrecao, {
+                            "raca.bonusEspecificos": racaCorrigida.bonusEspecificos
+                        });
+                        console.log(`✅ Dados da raça ${racaId} corrigidos no Firebase!`);
+                    } catch (err) {
+                        console.log("Erro ao salvar correção da raça:", err);
+                    }
+                }
+            }
+            
             // Atualiza o span da raça no header
             const racaNomeSpan = document.getElementById('racaNome');
             if (racaNomeSpan) {
                 racaNomeSpan.textContent = racaAtual.nome;
             }
             console.log(`✅ Raça carregada: ${racaAtual.nome}`);
+            if (racaAtual.bonusEspecificos) {
+                console.log(`📦 Bônus da raça:`, racaAtual.bonusEspecificos);
+            }
         } else {
             racaAtual = null;
             const racaNomeSpan = document.getElementById('racaNome');
