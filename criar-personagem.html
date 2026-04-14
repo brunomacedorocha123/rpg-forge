@@ -11532,8 +11532,8 @@ async function salvarRascunho() {
     await salvarPersonagem(false);
 }
 // ============================================
-// EXPORTAÇÃO PDF - AKALANATA SYSTEM V6
-// Layout COMPACTO e EFICIENTE - Única Página
+// EXPORTAÇÃO PDF - AKALANATA SYSTEM V7
+// Layout ORGANIZADO e VISUALMENTE LIMPO
 // ============================================
 async function exportarPDF() {
     try {
@@ -11543,29 +11543,34 @@ async function exportarPDF() {
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         
         // CONFIGURAÇÕES
-        const marginLeft = 10;
-        const marginRight = 200;
+        const marginLeft = 12;
+        const marginRight = 198;
         const pageWidth = 210;
         const pageHeight = 297;
-        const usableWidth = 190;
+        const usableWidth = 186;
         
-        let yPos = 8;
+        let yPos = 10;
         
         // ============================================
-        // 1. CABEÇALHO COMPACTO
+        // 1. CABEÇALHO
         // ============================================
-        pdf.setFontSize(16);
+        pdf.setFontSize(18);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('AKALANATA SYSTEM - Ficha de Personagem', pageWidth/2, yPos, { align: 'center' });
+        pdf.text('AKALANATA SYSTEM', pageWidth/2, yPos, { align: 'center' });
+        yPos += 6;
+        
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Ficha de Personagem', pageWidth/2, yPos, { align: 'center' });
         yPos += 6;
         
         pdf.setDrawColor(0);
-        pdf.setLineWidth(0.3);
+        pdf.setLineWidth(0.5);
         pdf.line(marginLeft, yPos, marginRight, yPos);
-        yPos += 5;
+        yPos += 6;
         
         // ============================================
-        // 2. INFO BÁSICA (1 LINHA)
+        // 2. INFORMAÇÕES BÁSICAS (GRID 2x3)
         // ============================================
         const nome = document.getElementById('nomePersonagem')?.value || 'Sem nome';
         const classe = document.getElementById('classePersonagem')?.value || 'guerreiro';
@@ -11581,23 +11586,36 @@ async function exportarPDF() {
         pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         
-        const infoLine = `Nome: ${nome}  |  Raça: ${racaNome} ${racaCusto}  |  Classe: ${classes[classe] || classe}  |  Nível: ${calcularNivel()}  |  Idade: ${document.getElementById('idadePersonagem')?.value || 25} anos`;
-        pdf.text(infoLine, marginLeft, yPos);
-        yPos += 4;
-        
-        const alturaPeso = `Altura: ${document.getElementById('alturaPersonagem')?.value || 170}cm  |  Peso: ${document.getElementById('pesoPersonagem')?.value || 70}kg  |  Saldo: ${saldoPontos}/${pontosIniciais} pts`;
-        pdf.text(alturaPeso, marginLeft, yPos);
+        // Linha 1
+        pdf.text(`Nome: ${nome}`, marginLeft, yPos);
+        pdf.text(`Raça: ${racaNome} ${racaCusto}`, marginLeft + 95, yPos);
         yPos += 5;
         
+        // Linha 2
+        pdf.text(`Classe: ${classes[classe] || classe}`, marginLeft, yPos);
+        pdf.text(`Nível: ${calcularNivel()}`, marginLeft + 95, yPos);
+        yPos += 5;
+        
+        // Linha 3
+        pdf.text(`Idade: ${document.getElementById('idadePersonagem')?.value || 25} anos`, marginLeft, yPos);
+        const altura = document.getElementById('alturaPersonagem')?.value || 170;
+        const peso = document.getElementById('pesoPersonagem')?.value || 70;
+        pdf.text(`Altura/Peso: ${altura}cm / ${peso}kg`, marginLeft + 95, yPos);
+        yPos += 5;
+        
+        pdf.text(`Saldo de Pontos: ${saldoPontos}/${pontosIniciais} pts`, marginLeft, yPos);
+        yPos += 6;
+        
+        pdf.setLineWidth(0.3);
         pdf.line(marginLeft, yPos, marginRight, yPos);
-        yPos += 4;
+        yPos += 6;
         
         // ============================================
-        // 3. ATRIBUTOS (CARDS COMPACTOS)
+        // 3. ATRIBUTOS (CARDS COM ESPAÇAMENTO)
         // ============================================
-        const cardW = 35;
-        const cardH = 12;
-        const gap = 2;
+        const cardW = 32;
+        const cardH = 14;
+        const gap = 4;
         const startX = marginLeft + ((usableWidth - (cardW * 5 + gap * 4)) / 2);
         
         const atributosLista = [
@@ -11608,35 +11626,45 @@ async function exportarPDF() {
             { nome: 'VT', valor: getVTFixo(), perc: getVTPercentual() }
         ];
         
-        pdf.setFontSize(7);
-        
         atributosLista.forEach((attr, i) => {
             const x = startX + (i * (cardW + gap));
             
-            pdf.setDrawColor(100);
-            pdf.setLineWidth(0.2);
+            // Box do atributo
+            pdf.setDrawColor(80);
+            pdf.setLineWidth(0.3);
             pdf.rect(x, yPos, cardW, cardH);
             
+            // Nome
+            pdf.setFontSize(8);
             pdf.setFont('helvetica', 'bold');
-            pdf.text(attr.nome, x + cardW/2, yPos + 3, { align: 'center' });
+            pdf.text(attr.nome, x + cardW/2, yPos + 4, { align: 'center' });
             
-            pdf.setFontSize(10);
-            pdf.text(`${attr.valor} (${attr.perc}%)`, x + cardW/2, yPos + 9, { align: 'center' });
+            // Valor
+            pdf.setFontSize(12);
+            pdf.text(attr.valor.toString(), x + cardW/2, yPos + 10, { align: 'center' });
+            
+            // Percentual
             pdf.setFontSize(7);
+            pdf.setFont('helvetica', 'normal');
+            pdf.text(`${attr.perc}%`, x + cardW/2, yPos + 13, { align: 'center' });
         });
         
-        yPos += cardH + 4;
+        yPos += cardH + 8;
         
         // ============================================
-        // 4. STATUS + DEFESAS (LADO A LADO)
+        // 4. STATUS (BOX SEPARADO)
         // ============================================
-        const col1 = marginLeft;
-        const col2 = marginLeft + 95;
+        const boxStatusH = 18;
         
-        // STATUS
-        pdf.setFontSize(9);
+        pdf.setDrawColor(100);
+        pdf.setLineWidth(0.3);
+        pdf.rect(marginLeft, yPos, usableWidth, boxStatusH);
+        
+        pdf.setFontSize(10);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('STATUS:', col1, yPos);
+        pdf.text('STATUS', marginLeft + 3, yPos + 5);
+        
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         
         const pv = calcularPV();
@@ -11648,72 +11676,133 @@ async function exportarPDF() {
         const andarFinal = Math.max(1, Math.floor(desloc.andar - carga.reducaoDeslocamento));
         const correrFinal = Math.max(3, Math.floor(desloc.correr - (carga.reducaoDeslocamento * 2)));
         
-        const statusText = `PV:${pv}  PF:${pf}  PM:${pm}  Dano:${danoBase}  Desloc:${andarFinal}m/${correrFinal}m`;
-        pdf.text(statusText, col1 + 20, yPos);
+        // Linha 1 do status
+        pdf.text(`PV: ${pv}`, marginLeft + 3, yPos + 10);
+        pdf.text(`PF: ${pf}`, marginLeft + 35, yPos + 10);
+        pdf.text(`PM: ${pm}`, marginLeft + 67, yPos + 10);
+        pdf.text(`Dano Base: ${danoBase}`, marginLeft + 99, yPos + 10);
         
-        // DEFESAS
+        // Linha 2 do status
+        pdf.text(`Deslocamento: ${andarFinal}m / ${correrFinal}m`, marginLeft + 3, yPos + 15);
+        
+        yPos += boxStatusH + 6;
+        
+        // ============================================
+        // 5. DEFESAS ATIVAS (BOX SEPARADO)
+        // ============================================
+        const boxDefH = 14;
+        
+        pdf.setDrawColor(100);
+        pdf.rect(marginLeft, yPos, usableWidth, boxDefH);
+        
+        pdf.setFontSize(10);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('DEFESAS:', col2, yPos);
+        pdf.text('DEFESAS ATIVAS', marginLeft + 3, yPos + 5);
+        
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         
-        const defText = `Esquiva:${calcularEsquiva()}%  Aparar:${calcularAparar()}%  Bloqueio:${calcularBloqueio()}%  VD:+${calcularBonusDefensivo()}`;
-        pdf.text(defText, col2 + 22, yPos);
+        pdf.text(`Esquiva: ${calcularEsquiva()}%`, marginLeft + 3, yPos + 11);
+        pdf.text(`Aparar: ${calcularAparar()}%`, marginLeft + 50, yPos + 11);
+        pdf.text(`Bloqueio: ${calcularBloqueio()}%`, marginLeft + 97, yPos + 11);
+        pdf.text(`Valor Defensivo: +${calcularBonusDefensivo()}`, marginLeft + 144, yPos + 11);
         
-        yPos += 5;
-        pdf.line(marginLeft, yPos, marginRight, yPos);
-        yPos += 4;
+        yPos += boxDefH + 6;
         
         // ============================================
-        // 5. VANTAGENS E DESVANTAGENS (COMPACTO)
+        // 6. VANTAGENS E DESVANTAGENS (TABELA VERTICAL)
         // ============================================
-        let hasVant = vantagensSelecionadas.size > 0;
-        let hasDesv = desvantagensSelecionadas.size > 0;
+        const hasVant = vantagensSelecionadas.size > 0;
+        const hasDesv = desvantagensSelecionadas.size > 0;
         
         if (hasVant || hasDesv) {
+            const colVantW = hasVant && hasDesv ? 90 : usableWidth;
+            const colDesvW = hasVant && hasDesv ? 90 : usableWidth;
+            const colDesvX = hasVant && hasDesv ? marginLeft + colVantW + 6 : marginLeft;
+            
+            // --- VANTAGENS ---
             if (hasVant) {
-                pdf.setFontSize(8);
+                pdf.setFontSize(9);
                 pdf.setFont('helvetica', 'bold');
-                pdf.text(`VANTAGENS (${vantagensSelecionadas.size}/${maxVantagens}):`, marginLeft, yPos);
+                pdf.text(`VANTAGENS (${vantagensSelecionadas.size}/${maxVantagens})`, marginLeft, yPos);
+                yPos += 4;
                 
+                // Cabeçalho
+                pdf.setFontSize(8);
+                pdf.setFillColor(220, 220, 220);
+                pdf.rect(marginLeft, yPos - 2, colVantW, 5, 'F');
+                pdf.text('Nome', marginLeft + 3, yPos + 1.5);
+                yPos += 5;
+                
+                // Linhas
                 pdf.setFont('helvetica', 'normal');
                 const vantagensArray = Array.from(vantagensSelecionadas);
-                let vantText = vantagensArray.map(v => vantagensData[v]?.nome || v).join(' • ');
                 
-                // Quebrar linha se necessário
-                if (pdf.getTextWidth(vantText) > usableWidth) {
-                    pdf.text(vantText.substring(0, 90) + '...', marginLeft + 35, yPos);
-                } else {
-                    pdf.text(vantText, marginLeft + 35, yPos);
+                vantagensArray.forEach((v, i) => {
+                    const nomeV = vantagensData[v]?.nome || v;
+                    pdf.rect(marginLeft, yPos - 2, colVantW, 5);
+                    pdf.text(`• ${nomeV}`, marginLeft + 3, yPos + 1.5);
+                    yPos += 5;
+                });
+                
+                // Preenche linhas vazias se menos que 3
+                for (let i = vantagensArray.length; i < 3; i++) {
+                    pdf.rect(marginLeft, yPos - 2, colVantW, 5);
+                    pdf.setTextColor(180, 180, 180);
+                    pdf.text('—', marginLeft + 3, yPos + 1.5);
+                    pdf.setTextColor(0, 0, 0);
+                    yPos += 5;
                 }
-                yPos += 4;
             }
             
+            // --- DESVANTAGENS ---
             if (hasDesv) {
-                pdf.setFont('helvetica', 'bold');
-                pdf.text(`DESVANTAGENS (${desvantagensSelecionadas.size}/${maxDesvantagens}):`, marginLeft, yPos);
+                const startY = hasVant ? yPos - (Math.max(vantagensSelecionadas.size, 3) * 5 + 9) : yPos;
                 
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(`DESVANTAGENS (${desvantagensSelecionadas.size}/${maxDesvantagens})`, colDesvX, startY);
+                
+                // Cabeçalho
+                pdf.setFontSize(8);
+                pdf.setFillColor(220, 220, 220);
+                pdf.rect(colDesvX, startY + 2, colDesvW, 5, 'F');
+                pdf.text('Nome', colDesvX + 3, startY + 5.5);
+                
+                // Linhas
                 pdf.setFont('helvetica', 'normal');
                 const desvArray = Array.from(desvantagensSelecionadas);
-                let desvText = desvArray.map(d => {
-                    if (d.startsWith('fobia:')) return d.replace('fobia:', '');
-                    if (d.startsWith('codigoHonra:')) return d.replace('codigoHonra:', 'Código:');
-                    return d;
-                }).join(' • ');
+                let desvY = startY + 7;
                 
-                if (pdf.getTextWidth(desvText) > usableWidth) {
-                    pdf.text(desvText.substring(0, 90) + '...', marginLeft + 38, yPos);
-                } else {
-                    pdf.text(desvText, marginLeft + 38, yPos);
+                desvArray.forEach((d, i) => {
+                    let nomeD = d;
+                    if (d.startsWith('fobia:')) nomeD = d.replace('fobia:', 'Fobia: ');
+                    if (d.startsWith('codigoHonra:')) nomeD = d.replace('codigoHonra:', 'Código: ');
+                    
+                    pdf.rect(colDesvX, desvY - 2, colDesvW, 5);
+                    pdf.text(`• ${nomeD}`, colDesvX + 3, desvY + 1.5);
+                    desvY += 5;
+                });
+                
+                // Preenche linhas vazias
+                for (let i = desvArray.length; i < 3; i++) {
+                    pdf.rect(colDesvX, desvY - 2, colDesvW, 5);
+                    pdf.setTextColor(180, 180, 180);
+                    pdf.text('—', colDesvX + 3, desvY + 1.5);
+                    pdf.setTextColor(0, 0, 0);
+                    desvY += 5;
                 }
-                yPos += 4;
+                
+                if (!hasVant) yPos = desvY + 3;
             }
             
-            pdf.line(marginLeft, yPos, marginRight, yPos);
             yPos += 3;
+            pdf.line(marginLeft, yPos, marginRight, yPos);
+            yPos += 6;
         }
         
         // ============================================
-        // 6. PERÍCIAS E MAGIAS (DUAS COLUNAS VERTICAIS)
+        // 7. PERÍCIAS E MAGIAS (DUAS COLUNAS)
         // ============================================
         const periciasArray = Object.entries(pericias);
         let magiasLista = [];
@@ -11740,31 +11829,34 @@ async function exportarPDF() {
         const temMagias = magiasLista.length > 0;
         
         if (temPericias || temMagias) {
-            const colWidth = 92;
+            const colW = 90;
             const col1X = marginLeft;
-            const col2X = marginLeft + colWidth + 6;
+            const col2X = marginLeft + colW + 6;
+            
             let yPer = yPos;
             let yMag = yPos;
+            const startY = yPos;
             
             // --- COLUNA PERÍCIAS ---
             if (temPericias) {
                 pdf.setFontSize(9);
                 pdf.setFont('helvetica', 'bold');
                 pdf.text(`ESPECIALIDADES (PP: ${ppGastoTotal}/${ppDisponivel})`, col1X, yPer);
-                yPer += 4;
-                
-                // Cabeçalho
-                pdf.setFontSize(7);
-                pdf.setFillColor(230, 230, 230);
-                pdf.rect(col1X, yPer - 2, colWidth, 4, 'F');
-                pdf.text('Perícia', col1X + 2, yPer + 1);
-                pdf.text('Nv', col1X + 55, yPer + 1);
-                pdf.text('NH', col1X + 68, yPer + 1);
-                pdf.text('Bônus', col1X + 78, yPer + 1);
                 yPer += 5;
                 
-                pdf.setFont('helvetica', 'normal');
+                // Cabeçalho
+                pdf.setFontSize(8);
+                pdf.setFillColor(230, 230, 230);
+                pdf.rect(col1X, yPer - 2, colW, 5, 'F');
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Perícia', col1X + 3, yPer + 1.5);
+                pdf.text('Nv', col1X + 55, yPer + 1.5);
+                pdf.text('NH', col1X + 68, yPer + 1.5);
+                pdf.text('Bônus', col1X + 80, yPer + 1.5);
+                yPer += 5;
                 
+                // Dados
+                pdf.setFont('helvetica', 'normal');
                 const periciasOrdenadas = [...periciasArray].sort((a, b) => {
                     const nomeA = catalogoPericias.find(p => p.id === a[0])?.nome || a[0];
                     const nomeB = catalogoPericias.find(p => p.id === b[0])?.nome || b[0];
@@ -11780,13 +11872,14 @@ async function exportarPDF() {
                         const nh = atributoBase + bonus + bonusExtra;
                         
                         let nomePer = pericia.nome;
-                        if (nomePer.length > 25) nomePer = nomePer.substring(0, 23) + '..';
+                        if (nomePer.length > 22) nomePer = nomePer.substring(0, 20) + '..';
                         
-                        pdf.text(nomePer, col1X + 2, yPer);
-                        pdf.text(dados.nivel.toString(), col1X + 57, yPer);
-                        pdf.text(`${nh}%`, col1X + 70, yPer);
-                        pdf.text(`+${bonus}%`, col1X + 80, yPer);
-                        yPer += 3.5;
+                        pdf.rect(col1X, yPer - 2, colW, 4.5);
+                        pdf.text(nomePer, col1X + 3, yPer + 1.5);
+                        pdf.text(dados.nivel.toString(), col1X + 57, yPer + 1.5);
+                        pdf.text(`${nh}%`, col1X + 70, yPer + 1.5);
+                        pdf.text(`+${bonus}%`, col1X + 82, yPer + 1.5);
+                        yPer += 4.5;
                     }
                 }
             }
@@ -11796,42 +11889,45 @@ async function exportarPDF() {
                 pdf.setFontSize(9);
                 pdf.setFont('helvetica', 'bold');
                 pdf.text('MAGIAS', col2X, yMag);
-                yMag += 4;
-                
-                // Cabeçalho
-                pdf.setFontSize(7);
-                pdf.setFillColor(230, 230, 230);
-                pdf.rect(col2X, yMag - 2, colWidth, 4, 'F');
-                pdf.text('Escola', col2X + 2, yMag + 1);
-                pdf.text('Magia', col2X + 35, yMag + 1);
-                pdf.text('Nv', col2X + 70, yMag + 1);
-                pdf.text('NH', col2X + 80, yMag + 1);
                 yMag += 5;
                 
+                // Cabeçalho
+                pdf.setFontSize(8);
+                pdf.setFillColor(230, 230, 230);
+                pdf.rect(col2X, yMag - 2, colW, 5, 'F');
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Escola', col2X + 3, yMag + 1.5);
+                pdf.text('Magia', col2X + 35, yMag + 1.5);
+                pdf.text('Nv', col2X + 72, yMag + 1.5);
+                pdf.text('NH', col2X + 82, yMag + 1.5);
+                yMag += 5;
+                
+                // Dados
                 pdf.setFont('helvetica', 'normal');
                 
                 magiasLista.forEach(magia => {
                     let nomeMag = magia.nome;
-                    if (nomeMag.length > 22) nomeMag = nomeMag.substring(0, 20) + '..';
+                    if (nomeMag.length > 20) nomeMag = nomeMag.substring(0, 18) + '..';
                     
                     let nomeEsc = magia.escola;
-                    if (nomeEsc.length > 15) nomeEsc = nomeEsc.substring(0, 13) + '..';
+                    if (nomeEsc.length > 12) nomeEsc = nomeEsc.substring(0, 10) + '..';
                     
-                    pdf.text(nomeEsc, col2X + 2, yMag);
-                    pdf.text(nomeMag, col2X + 37, yMag);
-                    pdf.text(magia.nivel.toString(), col2X + 72, yMag);
-                    pdf.text(`${magia.nh}%`, col2X + 82, yMag);
-                    yMag += 3.5;
+                    pdf.rect(col2X, yMag - 2, colW, 4.5);
+                    pdf.text(nomeEsc, col2X + 3, yMag + 1.5);
+                    pdf.text(nomeMag, col2X + 37, yMag + 1.5);
+                    pdf.text(magia.nivel.toString(), col2X + 74, yMag + 1.5);
+                    pdf.text(`${magia.nh}%`, col2X + 84, yMag + 1.5);
+                    yMag += 4.5;
                 });
             }
             
-            yPos = Math.max(yPer, yMag) + 3;
+            yPos = Math.max(yPer, yMag) + 5;
             pdf.line(marginLeft, yPos, marginRight, yPos);
-            yPos += 4;
+            yPos += 6;
         }
         
         // ============================================
-        // 7. EQUIPAMENTOS (HORIZONTAL COMPACTO)
+        // 8. EQUIPAMENTOS (BOX ORGANIZADO)
         // ============================================
         const pesoTotalEquip = (inventario.corpo || []).reduce((acc, i) => acc + (i.peso || 0), 0) +
                                (inventario.mochila || []).reduce((acc, i) => acc + (i.peso || 0), 0) +
@@ -11842,28 +11938,33 @@ async function exportarPDF() {
         else if (pesoTotalEquip > limites.medio) nivelCarga = 'Pesado';
         else if (pesoTotalEquip > limites.leve) nivelCarga = 'Médio';
         
-        pdf.setFontSize(9);
+        // Título com carga
+        pdf.setFontSize(10);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`EQUIPAMENTOS (Carga: ${pesoTotalEquip.toFixed(1)}kg/${limites.limite}kg - ${nivelCarga})`, marginLeft, yPos);
-        yPos += 4;
+        pdf.text(`EQUIPAMENTOS`, marginLeft, yPos);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`(Carga: ${pesoTotalEquip.toFixed(1)}kg / ${limites.limite}kg - ${nivelCarga})`, marginLeft + 35, yPos);
+        yPos += 6;
         
-        const colEqW = 62;
+        const colEqW = 60;
         const eqX1 = marginLeft;
-        const eqX2 = marginLeft + colEqW + 2;
-        const eqX3 = marginLeft + (colEqW + 2) * 2;
+        const eqX2 = marginLeft + colEqW + 3;
+        const eqX3 = marginLeft + (colEqW + 3) * 2;
         
-        // Cabeçalhos das 3 colunas
-        pdf.setFontSize(7);
+        // Cabeçalhos
+        pdf.setFontSize(8);
         pdf.setFillColor(240, 240, 240);
-        pdf.rect(eqX1, yPos - 2, colEqW, 4, 'F');
-        pdf.rect(eqX2, yPos - 2, colEqW, 4, 'F');
-        pdf.rect(eqX3, yPos - 2, colEqW, 4, 'F');
+        pdf.rect(eqX1, yPos - 2, colEqW, 5, 'F');
+        pdf.rect(eqX2, yPos - 2, colEqW, 5, 'F');
+        pdf.rect(eqX3, yPos - 2, colEqW, 5, 'F');
         
-        pdf.text('CORPO (Equipado)', eqX1 + 2, yPos + 1);
-        pdf.text('MOCHILA', eqX2 + 2, yPos + 1);
-        pdf.text('DEPÓSITO', eqX3 + 2, yPos + 1);
-        yPos += 4;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('CORPO (Equipado)', eqX1 + 3, yPos + 1.5);
+        pdf.text('MOCHILA', eqX2 + 3, yPos + 1.5);
+        pdf.text('DEPÓSITO', eqX3 + 3, yPos + 1.5);
+        yPos += 5;
         
+        // Dados
         pdf.setFont('helvetica', 'normal');
         
         const itensCorpo = inventario.corpo || [];
@@ -11872,50 +11973,86 @@ async function exportarPDF() {
         const maxItens = Math.max(itensCorpo.length, itensMochila.length, itensDeposito.length, 1);
         
         for (let i = 0; i < maxItens; i++) {
+            const rowH = 4.5;
+            
             // Corpo
             if (i < itensCorpo.length) {
                 const item = itensCorpo[i];
-                const qtd = item.quantidade > 1 ? `x${item.quantidade} ` : '';
-                const txt = `${qtd}${item.nome} (${item.peso?.toFixed(1) || 0}kg $${item.preco || 0})`;
-                pdf.text(txt.length > 35 ? txt.substring(0, 33) + '..' : txt, eqX1 + 1, yPos);
+                const qtd = item.quantidade > 1 ? `${item.quantidade}x ` : '';
+                const txt = `${qtd}${item.nome}`;
+                const det = `${item.peso?.toFixed(1) || 0}kg $${item.preco || 0}`;
+                
+                pdf.rect(eqX1, yPos - 2, colEqW, rowH);
+                pdf.text(txt.length > 20 ? txt.substring(0, 18) + '..' : txt, eqX1 + 2, yPos + 1.5);
+                pdf.setFontSize(6);
+                pdf.text(det, eqX1 + 2, yPos + 4);
+                pdf.setFontSize(8);
             } else if (i === 0 && itensCorpo.length === 0) {
-                pdf.text('(vazio)', eqX1 + 1, yPos);
+                pdf.rect(eqX1, yPos - 2, colEqW, rowH);
+                pdf.setTextColor(180, 180, 180);
+                pdf.text('(vazio)', eqX1 + 2, yPos + 1.5);
+                pdf.setTextColor(0, 0, 0);
+            } else {
+                pdf.rect(eqX1, yPos - 2, colEqW, rowH);
             }
             
             // Mochila
             if (i < itensMochila.length) {
                 const item = itensMochila[i];
-                const qtd = item.quantidade > 1 ? `x${item.quantidade} ` : '';
-                const txt = `${qtd}${item.nome} (${item.peso?.toFixed(1) || 0}kg $${item.preco || 0})`;
-                pdf.text(txt.length > 35 ? txt.substring(0, 33) + '..' : txt, eqX2 + 1, yPos);
+                const qtd = item.quantidade > 1 ? `${item.quantidade}x ` : '';
+                const txt = `${qtd}${item.nome}`;
+                const det = `${item.peso?.toFixed(1) || 0}kg $${item.preco || 0}`;
+                
+                pdf.rect(eqX2, yPos - 2, colEqW, rowH);
+                pdf.text(txt.length > 20 ? txt.substring(0, 18) + '..' : txt, eqX2 + 2, yPos + 1.5);
+                pdf.setFontSize(6);
+                pdf.text(det, eqX2 + 2, yPos + 4);
+                pdf.setFontSize(8);
             } else if (i === 0 && itensMochila.length === 0) {
-                pdf.text('(vazio)', eqX2 + 1, yPos);
+                pdf.rect(eqX2, yPos - 2, colEqW, rowH);
+                pdf.setTextColor(180, 180, 180);
+                pdf.text('(vazio)', eqX2 + 2, yPos + 1.5);
+                pdf.setTextColor(0, 0, 0);
+            } else {
+                pdf.rect(eqX2, yPos - 2, colEqW, rowH);
             }
             
             // Depósito
             if (i < itensDeposito.length) {
                 const item = itensDeposito[i];
-                const qtd = item.quantidade > 1 ? `x${item.quantidade} ` : '';
-                const txt = `${qtd}${item.nome} (${item.peso?.toFixed(1) || 0}kg $${item.preco || 0})`;
-                pdf.text(txt.length > 35 ? txt.substring(0, 33) + '..' : txt, eqX3 + 1, yPos);
+                const qtd = item.quantidade > 1 ? `${item.quantidade}x ` : '';
+                const txt = `${qtd}${item.nome}`;
+                const det = `${item.peso?.toFixed(1) || 0}kg $${item.preco || 0}`;
+                
+                pdf.rect(eqX3, yPos - 2, colEqW, rowH);
+                pdf.text(txt.length > 20 ? txt.substring(0, 18) + '..' : txt, eqX3 + 2, yPos + 1.5);
+                pdf.setFontSize(6);
+                pdf.text(det, eqX3 + 2, yPos + 4);
+                pdf.setFontSize(8);
             } else if (i === 0 && itensDeposito.length === 0) {
-                pdf.text('(vazio)', eqX3 + 1, yPos);
+                pdf.rect(eqX3, yPos - 2, colEqW, rowH);
+                pdf.setTextColor(180, 180, 180);
+                pdf.text('(vazio)', eqX3 + 2, yPos + 1.5);
+                pdf.setTextColor(0, 0, 0);
+            } else {
+                pdf.rect(eqX3, yPos - 2, colEqW, rowH);
             }
             
-            yPos += 3.5;
+            yPos += rowH;
         }
         
-        yPos += 2;
+        yPos += 3;
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'bold');
         pdf.text(`DINHEIRO: $${dinheiro || 0}`, marginLeft, yPos);
         
         // ============================================
-        // 8. RODAPÉ
+        // 9. RODAPÉ
         // ============================================
-        pdf.setFontSize(6);
+        pdf.setFontSize(7);
         pdf.setFont('helvetica', 'italic');
         pdf.setTextColor(120, 120, 120);
-        pdf.text(`Gerado pelo Akalanata System em ${new Date().toLocaleDateString('pt-BR')}`, pageWidth/2, pageHeight - 8, { align: 'center' });
+        pdf.text(`Gerado pelo Akalanata System em ${new Date().toLocaleDateString('pt-BR')}`, pageWidth/2, pageHeight - 10, { align: 'center' });
         
         // Salvar
         const nomeArquivo = document.getElementById('nomePersonagem')?.value || 'personagem';
