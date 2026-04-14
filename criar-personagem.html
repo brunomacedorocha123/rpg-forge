@@ -12279,228 +12279,29 @@ async function exportarPDF() {
         hideLoading();
     }
 }
-// ============================================
-// CARREGAR PERSONAGEM - SISTEMA 1 A 15 (CORRIGIDO)
-// ============================================
-async function carregarPersonagem(id) {
-    try {
-        showLoading();
+function atualizarDisplayRaca() {
+    const display = document.getElementById('racaSelecionadaDisplay');
+    if (!display) return;
+    
+    if (racaSelecionada && racaSelecionada.id) {
+        const iconesRacas = {
+            anao: 'fa-hammer',
+            elfo: 'fa-leaf',
+            centauro: 'fa-horse',
+            orc: 'fa-fist-raised',
+            halfling: 'fa-hand-peace',
+            goblin: 'fa-fist-raised'
+        };
         
-        const docRef = doc(db, "personagens", id);
-        const docSnap = await getDoc(docRef);
+        const icone = iconesRacas[racaSelecionada.id] || 'fa-users';
         
-        if (!docSnap.exists()) {
-            alert('Personagem não encontrado!');
-            window.location.href = 'personagens.html';
-            return;
-        }
-        
-        const data = docSnap.data();
-        
-        if (data.userId !== auth.currentUser?.uid) {
-            alert('Você não tem permissão para editar este personagem!');
-            window.location.href = 'personagens.html';
-            return;
-        }
-        
-        personagemId = id;
-        modoEdicao = true;
-        
-        document.getElementById('nomePersonagem').value = data.nome || '';
-        document.getElementById('classePersonagem').value = data.classe || 'guerreiro';
-        document.getElementById('idadePersonagem').value = data.idade || 25;
-        document.getElementById('alturaPersonagem').value = data.altura || 170;
-        document.getElementById('pesoPersonagem').value = data.peso || 70;
-        document.getElementById('dinheiroBase').value = data.dinheiroBase || 1000;
-        document.getElementById('peculiaridades').value = data.peculiaridades || '';
-        
-        if (data.fotoURL && elements.previewImage && elements.previewArea && elements.uploadArea) {
-            elements.previewImage.src = data.fotoURL;
-            elements.previewArea.style.display = 'block';
-            elements.uploadArea.style.display = 'none';
-        }
-        
-        // ===== CARREGAR RAÇA DO FIRESTORE (COMPLETO COM BONUSESPECIFICOS) =====
-        if (data.raca && data.raca.id) {
-            racaSelecionada = {
-                id: data.raca.id,
-                nome: data.raca.nome,
-                custoPontos: data.raca.custoPontos || 0,
-                bonusAtributos: data.raca.bonusAtributos || { st: 0, dx: 0, iq: 0, vigor: 0, vt: 0 },
-                vantagensAutomaticas: data.raca.vantagensAutomaticas || [],
-                desvantagensAutomaticas: data.raca.desvantagensAutomaticas || [],
-                descricao: data.raca.descricao || null,
-                icone: data.raca.icone || null,
-                bonusEspecificos: data.raca.bonusEspecificos || null   // <-- LINHA ADICIONADA
-            };
-        } else {
-            racaSelecionada = {
-                id: null,
-                nome: null,
-                custoPontos: 0,
-                bonusAtributos: { st: 0, dx: 0, iq: 0, vigor: 0, vt: 0 },
-                vantagensAutomaticas: [],
-                desvantagensAutomaticas: [],
-                descricao: null,
-                icone: null,
-                bonusEspecificos: null   // <-- LINHA ADICIONADA
-            };
-        }
-        
-        // ===== CARREGAR ATRIBUTOS - SEM APLICAR BÔNUS DA RAÇA =====
-        // Os valores já estão corretos no Firestore (já incluem os bônus)
-        if (data.atributos) {
-            // Carrega no novo formato { valor: X }
-            if (data.atributos.st?.valor !== undefined) {
-                atributos.st.valor = data.atributos.st.valor;
-                atributos.dx.valor = data.atributos.dx?.valor || 5;
-                atributos.iq.valor = data.atributos.iq?.valor || 5;
-                atributos.vigor.valor = data.atributos.vigor?.valor || 5;
-                atributos.vt.valor = data.atributos.vt?.valor || 5;
-            } 
-            // Compatibilidade com formato antigo { esferas: X }
-            else if (data.atributos.st?.esferas !== undefined) {
-                const stEsferas = data.atributos.st.esferas || 0;
-                const dxEsferas = data.atributos.dx?.esferas || 0;
-                const iqEsferas = data.atributos.iq?.esferas || 0;
-                const vigorEsferas = data.atributos.vigor?.esferas || 0;
-                const vtEsferas = data.atributos.vt?.esferas || 0;
-                
-                atributos.st.valor = 5 + stEsferas;
-                atributos.dx.valor = 5 + dxEsferas;
-                atributos.iq.valor = 5 + iqEsferas;
-                atributos.vigor.valor = 5 + vigorEsferas;
-                atributos.vt.valor = 5 + vtEsferas;
-            }
-            
-            // ⚠️ REMOVIDO: Bônus da raça NÃO são aplicados novamente aqui!
-            
-            // Garante limites (1 a 15)
-            atributos.st.valor = Math.min(15, Math.max(1, atributos.st.valor));
-            atributos.dx.valor = Math.min(15, Math.max(1, atributos.dx.valor));
-            atributos.iq.valor = Math.min(15, Math.max(1, atributos.iq.valor));
-            atributos.vigor.valor = Math.min(15, Math.max(1, atributos.vigor.valor));
-            atributos.vt.valor = Math.min(15, Math.max(1, atributos.vt.valor));
-            
-            atualizarBotoesAtributo('st');
-            atualizarBotoesAtributo('dx');
-            atualizarBotoesAtributo('iq');
-            atualizarBotoesAtributo('vigor');
-            atualizarBotoesAtributo('vt');
-        }
-        
-        // CARREGAR VANTAGENS E DESVANTAGENS
-        if (data.vantagens) {
-            data.vantagens.forEach(v => vantagensSelecionadas.add(v));
-            document.querySelectorAll('.vantagem-card').forEach(card => {
-                if (data.vantagens.includes(card.dataset.vantagem)) {
-                    card.classList.add('selecionada');
-                }
-            });
-        }
-        
-        if (data.desvantagens) {
-            data.desvantagens.forEach(d => desvantagensSelecionadas.add(d));
-            document.querySelectorAll('.desvantagem-card').forEach(card => {
-                if (data.desvantagens.includes(card.dataset.desvantagem)) {
-                    card.classList.add('selecionada');
-                }
-            });
-        }
-        
-        // APLICAR VANTAGENS AUTOMÁTICAS DA RAÇA (SE NÃO JÁ ESTIVEREM SELECIONADAS)
-        if (racaSelecionada.id && racaSelecionada.vantagensAutomaticas) {
-            racaSelecionada.vantagensAutomaticas.forEach(vantId => {
-                if (!vantagensSelecionadas.has(vantId)) {
-                    vantagensSelecionadas.add(vantId);
-                    const card = document.querySelector(`.vantagem-card[data-vantagem="${vantId}"]`);
-                    if (card) card.classList.add('selecionada');
-                }
-            });
-        }
-        
-        // APLICAR DESVANTAGENS AUTOMÁTICAS DA RAÇA (SE NÃO JÁ ESTIVEREM SELECIONADAS)
-        if (racaSelecionada.id && racaSelecionada.desvantagensAutomaticas) {
-            racaSelecionada.desvantagensAutomaticas.forEach(desvId => {
-                if (!desvantagensSelecionadas.has(desvId)) {
-                    desvantagensSelecionadas.add(desvId);
-                    const card = document.querySelector(`.desvantagem-card[data-desvantagem="${desvId}"]`);
-                    if (card) card.classList.add('selecionada');
-                }
-            });
-        }
-        
-        if (data.maxVantagens !== undefined) {
-            maxVantagens = data.maxVantagens;
-            if (elements.maxVantagens) elements.maxVantagens.value = maxVantagens;
-        }
-        
-        if (data.maxDesvantagens !== undefined) {
-            maxDesvantagens = data.maxDesvantagens;
-            if (elements.maxDesvantagens) elements.maxDesvantagens.value = maxDesvantagens;
-        }
-        
-        if (data.fobia && elements.fobiaEscolhida && elements.cardFobia) {
-            fobiaSelecionada = data.fobia;
-            elements.fobiaEscolhida.style.display = 'inline-block';
-            elements.fobiaEscolhida.textContent = data.fobia;
-            elements.cardFobia.classList.add('selecionada');
-        }
-        
-        if (data.pericias) {
-            pericias = data.pericias;
-            renderizarPericiasAdquiridas();
-        }
-        
-        if (data.escolas) {
-            if (data.escolas.agua) escolas.agua = data.escolas.agua;
-            if (data.escolas.ar) escolas.ar = data.escolas.ar;
-            if (data.escolas.gelo) escolas.gelo = data.escolas.gelo;
-            if (data.escolas.fogo) escolas.fogo = data.escolas.fogo;
-            if (data.escolas.terra) escolas.terra = data.escolas.terra;
-            if (data.escolas.corpo) escolas.corpo = data.escolas.corpo;
-            if (data.escolas.natureza) escolas.natureza = data.escolas.natureza;
-            if (data.escolas.trevas) escolas.trevas = data.escolas.trevas;
-            if (data.escolas.luz) escolas.luz = data.escolas.luz;
-            if (data.escolas.animais) escolas.animais = data.escolas.animais;
-        }
-        
-        if (data.inventario) {
-            inventario = data.inventario;
-            renderizarInventario();
-        }
-        
-        if (data.dinheiro !== undefined) {
-            dinheiro = data.dinheiro;
-        } else {
-            dinheiro = calcularDinheiroInicial();
-        }
-        
-        valorBaseAnterior = data.dinheiroBase || 1000;
-        
-        if (data.ppDisponivel !== undefined) {
-            ppDisponivel = data.ppDisponivel;
-            if (elements.ppInicial) elements.ppInicial.value = ppDisponivel;
-        }
-        if (data.ppGasto !== undefined) ppGastoTotal = data.ppGasto;
-        
-        if (elements.breadcrumbCurrent) elements.breadcrumbCurrent.textContent = `Editando: ${data.nome}`;
-        if (elements.pageTitle) elements.pageTitle.textContent = `Editando: ${data.nome}`;
-        if (elements.personagemIdHidden) elements.personagemIdHidden.value = id;
-        
-        // ATUALIZAR SALDO CONSIDERANDO O CUSTO DA RAÇA
-        atualizarSaldoPontos();
-        
-        atualizarInterface();
-        atualizarContadoresAbas();
-        atualizarLimitesCards();
-        
-        hideLoading();
-        
-    } catch (error) {
-        console.error('Erro ao carregar personagem:', error);
-        alert('Erro ao carregar personagem!');
-        hideLoading();
+        display.innerHTML = `
+            <i class="fas ${icone}"></i>
+            <span class="raca-atual-nome">${racaSelecionada.nome}</span>
+            <span class="raca-atual-custo">(custo: ${racaSelecionada.custoPontos} pts)</span>
+        `;
+    } else {
+        display.innerHTML = 'Nenhuma raça selecionada';
     }
 }
 // ============================================
