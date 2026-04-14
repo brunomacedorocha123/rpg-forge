@@ -4519,7 +4519,7 @@ const racasData = {
                 reducaoPercentual: -25
             },
             periciasBonus: {
-                "armasHaste": 3,
+                "armasImpacto": 3,
                 "armaria": 2
             },
             periciasPenalidade: {
@@ -4557,9 +4557,6 @@ const racasData = {
         icone: "fa-leaf",
         vantagemExtra: true
     },
-    // ============================================
-    // RAÇA CENTAURO
-    // ============================================
     centauro: {
         id: "centauro",
         nome: "Centauro",
@@ -4593,9 +4590,39 @@ const racasData = {
         },
         descricao: "Criatura mítica com corpo de cavalo e torso humano. Ocupa 2 hex de comprimento, pesa entre 400 a 600 kg. Têm dificuldade de manobra em espaços estreitos, mas são extremamente rápidos em terreno aberto. Sua grande porte permite carregar muito peso. São conhecidos por sua desconfiança natural com estranhos e um forte senso de dever com sua espécie.",
         icone: "fa-horse"
+    },
+    halfling: {
+        id: "halfling",
+        nome: "Halfling",
+        custoPontos: 0,
+        bonusAtributos: {
+            st: -3,
+            dx: 2,
+            iq: 0,
+            vigor: 1,
+            vt: 1
+        },
+        vantagensAutomaticas: ["sorte", "maosRapidas", "flexibilidade"],
+        desvantagensAutomaticas: ["gula"],
+        bonusEspecificos: {
+            carga: null,
+            deslocamento: {
+                reducaoFixa: -1,
+                reducaoPercentual: 0
+            },
+            periciasBonus: {
+                "furtividade": 3,
+                "arco": 2,
+                "funda": 2,
+                "arremesso": 2
+            },
+            periciasPenalidade: {}
+        },
+        descricao: "Pequenos aventureiros de apenas 1.3m de altura, os halflings são conhecidos por sua sorte inexplicável, agilidade surpreendente e amor por boa comida. Apesar de sua estatura diminuta, possuem uma resiliência impressionante e uma habilidade natural para se manterem fora de perigo. São aventureiros natos, curiosos e extremamente sortudos.",
+        icone: "fa-hand-peace",
+        vantagemExtra: true
     }
 };
-
 // ============================================
 // FUNÇÕES AUXILIARES PARA RAÇAS
 // ============================================
@@ -8559,6 +8586,7 @@ const catalogoPericias = [
     { id: "acrobacia", nome: "Acrobacia", tipo: "fisica", atributo: "dx" },
     { id: "arco", nome: "Arco", tipo: "fisica", atributo: "dx" },
     { id: "armasHaste", nome: "Armas de Haste", tipo: "fisica", atributo: "dx" },
+    { id: "armasImpacto", nome: "Armas de Impacto", tipo: "fisica", atributo: "dx" },
     { id: "arremesso", nome: "Arremesso", tipo: "fisica", atributo: "dx" },
     { id: "bastao", nome: "Bastão", tipo: "fisica", atributo: "dx" },
     { id: "besta", nome: "Besta", tipo: "fisica", atributo: "dx" },
@@ -9386,7 +9414,7 @@ function atualizarDisplayGastos() {
     }
 }
 // ============================================
-// CÁLCULO DE DESLOCAMENTO
+// CÁLCULO DE DESLOCAMENTO (ATUALIZADO PARA HALFLING)
 // ============================================
 function calcularDeslocamento() {
     const soma = getDXFixo() + getVIGORFixo();
@@ -9399,23 +9427,23 @@ function calcularDeslocamento() {
     if (raca && raca.bonusEspecificos && raca.bonusEspecificos.deslocamento) {
         const mod = raca.bonusEspecificos.deslocamento;
         
-        // ⭐ NOVO: Para CENTAURO - multiplicador (dobro)
+        // 1. Primeiro: MULTIPLICADOR (para Centauro)
         if (mod.multiplicador) {
             andarBruto = andarBruto * mod.multiplicador;
             correrBruto = correrBruto * mod.multiplicador;
         }
         
-        // Para ANÃO - redução FIXA
-        if (mod.reducaoFixa) {
-            andarBruto = andarBruto + mod.reducaoFixa;
-            correrBruto = correrBruto + mod.reducaoFixa;
-        }
-        
-        // Para ANÃO - redução PERCENTUAL
-        if (mod.reducaoPercentual) {
+        // 2. Segundo: REDUÇÃO PERCENTUAL (para Anão)
+        if (mod.reducaoPercentual && mod.reducaoPercentual !== 0) {
             const percentual = mod.reducaoPercentual / 100;
             andarBruto = andarBruto * (1 + percentual);
             correrBruto = correrBruto * (1 + percentual);
+        }
+        
+        // 3. Terceiro: REDUÇÃO FIXA (para Anão e Halfling)
+        if (mod.reducaoFixa && mod.reducaoFixa !== 0) {
+            andarBruto = andarBruto + mod.reducaoFixa;
+            correrBruto = correrBruto + mod.reducaoFixa;
         }
     }
     
