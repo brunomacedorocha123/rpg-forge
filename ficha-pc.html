@@ -6727,9 +6727,8 @@ function calcularLimitesCarga() {
         limite: st * 12
     };
 }
-
 // ============================================
-// DESLOCAMENTO (CORRIGIDO - ORDEM: FIXO PRIMEIRO)
+// DESLOCAMENTO (CORRIGIDO - COM MULTIPLICADOR PARA CENTAURO)
 // ============================================
 
 function calcularDeslocamento() {
@@ -6743,26 +6742,35 @@ function calcularDeslocamento() {
     // Tenta pegar os modificadores da raça
     let reducaoFixa = 0;
     let reducaoPercentual = 0;
+    let multiplicador = 1;
     
     // Forma 1: via bonusEspecificos.deslocamento
     if (racaAtual && racaAtual.bonusEspecificos && racaAtual.bonusEspecificos.deslocamento) {
         const mod = racaAtual.bonusEspecificos.deslocamento;
         reducaoFixa = mod.reducaoFixa || 0;
         reducaoPercentual = mod.reducaoPercentual || 0;
+        multiplicador = mod.multiplicador || 1;
     }
     // Forma 2: verifica se é Anão pelo ID ou nome
     else if (racaAtual && (racaAtual.id === 'anao' || racaAtual.nome === 'Anão')) {
         reducaoFixa = -1;
         reducaoPercentual = -25;
+        multiplicador = 1;
     }
     
-    // PRIMEIRO aplica redução FIXA
+    // ⭐ PRIMEIRO: aplica MULTIPLICADOR (para Centauro)
+    if (multiplicador !== 1) {
+        andarBruto = andarBruto * multiplicador;
+        correrBruto = correrBruto * multiplicador;
+    }
+    
+    // SEGUNDO: aplica redução FIXA (para Anão)
     if (reducaoFixa !== 0) {
         andarBruto = andarBruto + reducaoFixa;
         correrBruto = correrBruto + reducaoFixa;
     }
     
-    // DEPOIS aplica redução PERCENTUAL
+    // TERCEIRO: aplica redução PERCENTUAL (para Anão)
     if (reducaoPercentual !== 0) {
         const percentual = reducaoPercentual / 100;
         andarBruto = andarBruto * (1 + percentual);
