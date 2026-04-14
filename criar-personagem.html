@@ -11532,8 +11532,8 @@ async function salvarRascunho() {
     await salvarPersonagem(false);
 }
 // ============================================
-// EXPORTAÇÃO PDF - AKALANATA SYSTEM V3
-// Layout com GRID FIXO (15mm a 195mm)
+// EXPORTAÇÃO PDF - AKALANATA SYSTEM V4
+// Layout com GRID FIXO e TODAS as seções
 // ============================================
 async function exportarPDF() {
     try {
@@ -11545,12 +11545,8 @@ async function exportarPDF() {
         // CONFIGURAÇÕES DE GRID
         const marginLeft = 15;
         const marginRight = 195;
-        const usableWidth = 180; // 195 - 15
+        const usableWidth = 180;
         const pageHeight = 297;
-        
-        // CORES
-        const black = [0, 0, 0];
-        const gray = [100, 100, 100];
         
         let yPos = 15;
         
@@ -11576,7 +11572,7 @@ async function exportarPDF() {
         // ============================================
         // 2. INFORMAÇÕES DO PERSONAGEM (GRID 3 colunas)
         // ============================================
-        const col3Width = 60; // 180 / 3 = 60mm cada
+        const col3Width = 60;
         const col1x = marginLeft;
         const col2x = marginLeft + col3Width;
         const col3x = marginLeft + (col3Width * 2);
@@ -11594,15 +11590,12 @@ async function exportarPDF() {
         
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(0, 0, 0);
         
-        // Linha 1
         pdf.text(`Nome: ${nome}`, col1x, yPos);
         pdf.text(`Raça: ${racaNome}${racaCusto}`, col2x, yPos);
         pdf.text(`Classe: ${classes[classe] || classe}`, col3x, yPos);
         yPos += 6;
         
-        // Linha 2
         pdf.text(`Nível: ${calcularNivel()}`, col1x, yPos);
         pdf.text(`Idade: ${document.getElementById('idadePersonagem')?.value || 25} anos`, col2x, yPos);
         pdf.text(`Altura/Peso: ${document.getElementById('alturaPersonagem')?.value || 170}cm / ${document.getElementById('pesoPersonagem')?.value || 70}kg`, col3x, yPos);
@@ -11612,14 +11605,18 @@ async function exportarPDF() {
         yPos += 8;
         
         // ============================================
-        // 3. ATRIBUTOS (5 cards lado a lado)
+        // 3. ATRIBUTOS (título com SALDO na mesma linha)
         // ============================================
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('ATRIBUTOS (1 a 15)', marginLeft, yPos);
-        yPos += 7;
+        pdf.text('ATRIBUTOS', marginLeft, yPos);
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Saldo: ${saldoPontos}/${pontosIniciais} pts`, marginLeft + 50, yPos);
+        yPos += 8;
         
-        const cardWidth = 34; // 5 cards * 34 = 170mm + espaços = 180mm
+        // 5 cards lado a lado
+        const cardWidth = 34;
         const totalCardsWidth = cardWidth * 5;
         const startX = marginLeft + ((usableWidth - totalCardsWidth) / 2);
         
@@ -11634,44 +11631,34 @@ async function exportarPDF() {
         atributosLista.forEach((attr, i) => {
             const x = startX + (i * cardWidth);
             
-            // Card border
             pdf.setDrawColor(0, 0, 0);
             pdf.setLineWidth(0.2);
             pdf.rect(x, yPos, cardWidth - 1, 18);
             
-            // Nome do atributo
             pdf.setFontSize(9);
             pdf.setFont('helvetica', 'bold');
             pdf.text(attr.nome, x + (cardWidth - 1) / 2, yPos + 4, { align: 'center' });
             
-            // Valor grande
             pdf.setFontSize(14);
             pdf.text(attr.valor.toString(), x + (cardWidth - 1) / 2, yPos + 11, { align: 'center' });
             
-            // Porcentagem
             pdf.setFontSize(7);
             pdf.setFont('helvetica', 'normal');
             pdf.text(`${attr.perc}%`, x + (cardWidth - 1) / 2, yPos + 16.5, { align: 'center' });
         });
-        
-        // Saldo de pontos (fora dos cards)
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Saldo: ${saldoPontos}/${pontosIniciais} pts`, startX + totalCardsWidth + 3, yPos + 12);
         
         yPos += 22;
         pdf.line(marginLeft, yPos, marginRight, yPos);
         yPos += 8;
         
         // ============================================
-        // 4. STATUS (2 linhas de 3 colunas)
+        // 4. STATUS
         // ============================================
         const pv = calcularPV();
         const pf = calcularPF();
         const pm = calcularPM();
         const danoBase = calcularDanoBase();
         
-        // Cálculo correto do deslocamento
         const desloc = calcularDeslocamento();
         const carga = calcularCarga();
         const andarFinal = Math.max(1, Math.floor(desloc.andar - carga.reducaoDeslocamento));
@@ -11680,18 +11667,16 @@ async function exportarPDF() {
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
         pdf.text('STATUS', marginLeft, yPos);
-        yPos += 7;
+        yPos += 8;
         
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
         
-        // Linha 1: PV, PF, PM
         pdf.text(`PV: ${pv}`, col1x, yPos);
         pdf.text(`PF: ${pf}`, col2x, yPos);
         pdf.text(`PM: ${pm}`, col3x, yPos);
         yPos += 6;
         
-        // Linha 2: Dano, Deslocamento (ocupando 2 colunas)
         pdf.text(`Dano: ${danoBase}`, col1x, yPos);
         pdf.text(`Deslocamento: ${andarFinal}m / ${correrFinal}m`, col2x, yPos);
         
@@ -11700,12 +11685,12 @@ async function exportarPDF() {
         yPos += 8;
         
         // ============================================
-        // 5. DEFESAS (Esquiva, Aparar, Bloqueio + Valor Defensivo)
+        // 5. DEFESAS ATIVAS
         // ============================================
         pdf.setFontSize(11);
         pdf.setFont('helvetica', 'bold');
         pdf.text('DEFESAS ATIVAS', marginLeft, yPos);
-        yPos += 7;
+        yPos += 8;
         
         pdf.setFontSize(10);
         pdf.setFont('helvetica', 'normal');
@@ -11722,7 +11707,86 @@ async function exportarPDF() {
         yPos += 10;
         
         // ============================================
-        // 6. PERÍCIAS (Tabela organizada)
+        // 6. VANTAGENS
+        // ============================================
+        if (vantagensSelecionadas.size > 0) {
+            pdf.setFontSize(11);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`VANTAGENS (${vantagensSelecionadas.size}/${maxVantagens})`, marginLeft, yPos);
+            yPos += 7;
+            
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            
+            const vantagensArray = Array.from(vantagensSelecionadas);
+            let linhaVantagens = '';
+            vantagensArray.forEach((v, i) => {
+                const nomeV = vantagensData[v]?.nome || v;
+                if (i > 0) linhaVantagens += ', ';
+                linhaVantagens += nomeV;
+            });
+            
+            // Quebra de linha automática
+            let linhaAtual = '';
+            const palavras = linhaVantagens.split(', ');
+            for (let i = 0; i < palavras.length; i++) {
+                const teste = linhaAtual + (linhaAtual ? ', ' : '') + palavras[i];
+                if (pdf.getTextWidth(teste) > 170 && linhaAtual) {
+                    pdf.text(`• ${linhaAtual}`, marginLeft, yPos);
+                    yPos += 5;
+                    linhaAtual = palavras[i];
+                } else {
+                    linhaAtual = teste;
+                }
+            }
+            if (linhaAtual) pdf.text(`• ${linhaAtual}`, marginLeft, yPos);
+            yPos += 8;
+            pdf.line(marginLeft, yPos, marginRight, yPos);
+            yPos += 8;
+        }
+        
+        // ============================================
+        // 7. DESVANTAGENS
+        // ============================================
+        if (desvantagensSelecionadas.size > 0) {
+            pdf.setFontSize(11);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(`DESVANTAGENS (${desvantagensSelecionadas.size}/${maxDesvantagens})`, marginLeft, yPos);
+            yPos += 7;
+            
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            
+            const desvArray = Array.from(desvantagensSelecionadas);
+            let linhaDesv = '';
+            desvArray.forEach((d, i) => {
+                let nomeD = d;
+                if (d.startsWith('fobia:')) nomeD = d.replace('fobia:', '');
+                if (d.startsWith('codigoHonra:')) nomeD = d.replace('codigoHonra:', 'Código: ');
+                if (i > 0) linhaDesv += ', ';
+                linhaDesv += nomeD;
+            });
+            
+            let linhaAtual = '';
+            const palavras = linhaDesv.split(', ');
+            for (let i = 0; i < palavras.length; i++) {
+                const teste = linhaAtual + (linhaAtual ? ', ' : '') + palavras[i];
+                if (pdf.getTextWidth(teste) > 170 && linhaAtual) {
+                    pdf.text(`• ${linhaAtual}`, marginLeft, yPos);
+                    yPos += 5;
+                    linhaAtual = palavras[i];
+                } else {
+                    linhaAtual = teste;
+                }
+            }
+            if (linhaAtual) pdf.text(`• ${linhaAtual}`, marginLeft, yPos);
+            yPos += 8;
+            pdf.line(marginLeft, yPos, marginRight, yPos);
+            yPos += 8;
+        }
+        
+        // ============================================
+        // 8. PERÍCIAS (com espaçamento do título)
         // ============================================
         const periciasArray = Object.entries(pericias);
         
@@ -11730,9 +11794,9 @@ async function exportarPDF() {
             pdf.setFontSize(11);
             pdf.setFont('helvetica', 'bold');
             pdf.text(`ESPECIALIDADES (PP: ${ppGastoTotal}/${ppDisponivel})`, marginLeft, yPos);
-            yPos += 7;
+            yPos += 10; // AUMENTADO para não encostar no título
             
-            // Cabeçalho da tabela - GRID 4 colunas
+            // Cabeçalho da tabela
             const colPericia = 80;
             const colNivel = 25;
             const colBonus = 30;
@@ -11750,24 +11814,22 @@ async function exportarPDF() {
             pdf.text('Nível', marginLeft + colPericia + 2, yPos + 4);
             pdf.text('Bônus', marginLeft + colPericia + colNivel + 2, yPos + 4);
             pdf.text('NH', marginLeft + colPericia + colNivel + colBonus + 2, yPos + 4);
-            yPos += 6;
+            yPos += 7;
             
             pdf.setFontSize(8);
             pdf.setFont('helvetica', 'normal');
             
-            // Ordena perícias por nome
+            // Ordena perícias
             const periciasOrdenadas = [...periciasArray].sort((a, b) => {
                 const nomeA = catalogoPericias.find(p => p.id === a[0])?.nome || a[0];
                 const nomeB = catalogoPericias.find(p => p.id === b[0])?.nome || b[0];
                 return nomeA.localeCompare(nomeB);
             });
             
-            let linhaAtual = 0;
             for (const [id, dados] of periciasOrdenadas) {
                 if (yPos > pageHeight - 30) {
                     pdf.addPage();
                     yPos = 20;
-                    // Recria cabeçalho na nova página
                     pdf.setFontSize(8);
                     pdf.setFont('helvetica', 'bold');
                     pdf.setFillColor(240, 240, 240);
@@ -11779,7 +11841,7 @@ async function exportarPDF() {
                     pdf.text('Nível', marginLeft + colPericia + 2, yPos + 4);
                     pdf.text('Bônus', marginLeft + colPericia + colNivel + 2, yPos + 4);
                     pdf.text('NH', marginLeft + colPericia + colNivel + colBonus + 2, yPos + 4);
-                    yPos += 6;
+                    yPos += 7;
                     pdf.setFontSize(8);
                     pdf.setFont('helvetica', 'normal');
                 }
@@ -11791,35 +11853,26 @@ async function exportarPDF() {
                     const bonusExtra = getBonusPericia(id);
                     const nh = atributoBase + bonus + bonusExtra;
                     
-                    // Nome da perícia (pode quebrar se muito longo)
                     let nomePericia = pericia.nome;
                     if (pdf.getTextWidth(nomePericia) > colPericia - 4) {
                         nomePericia = nomePericia.substring(0, 22) + '...';
                     }
                     
                     pdf.text(nomePericia, marginLeft + 2, yPos);
-                    pdf.text(dados.nivel.toString(), marginLeft + colPericia + 5, yPos);
+                    pdf.text(dados.nivel.toString(), marginLeft + colPericia + 8, yPos);
                     pdf.text(`+${bonus}%`, marginLeft + colPericia + colNivel + 5, yPos);
                     pdf.text(`${nh}%`, marginLeft + colPericia + colNivel + colBonus + 5, yPos);
-                    yPos += 5;
-                    linhaAtual++;
+                    yPos += 5.5;
                 }
             }
             
-            yPos += 4;
+            yPos += 6;
             pdf.line(marginLeft, yPos, marginRight, yPos);
-            yPos += 10;
-        } else {
-            pdf.setFontSize(9);
-            pdf.setFont('helvetica', 'italic');
-            pdf.text('Nenhuma especialidade adquirida.', marginLeft, yPos);
-            yPos += 10;
-            pdf.line(marginLeft, yPos, marginRight, yPos);
-            yPos += 10;
+            yPos += 8;
         }
         
         // ============================================
-        // 7. MAGIAS (se houver)
+        // 9. MAGIAS
         // ============================================
         let temMagias = false;
         let magiasLista = [];
@@ -11846,9 +11899,8 @@ async function exportarPDF() {
             pdf.setFontSize(11);
             pdf.setFont('helvetica', 'bold');
             pdf.text('MAGIAS', marginLeft, yPos);
-            yPos += 7;
+            yPos += 10;
             
-            // Cabeçalho - GRID 4 colunas
             const colEscola = 45;
             const colMagia = 70;
             const colNivelMagia = 25;
@@ -11866,7 +11918,7 @@ async function exportarPDF() {
             pdf.text('Magia', marginLeft + colEscola + 2, yPos + 4);
             pdf.text('Nv', marginLeft + colEscola + colMagia + 2, yPos + 4);
             pdf.text('NH', marginLeft + colEscola + colMagia + colNivelMagia + 2, yPos + 4);
-            yPos += 6;
+            yPos += 7;
             
             pdf.setFontSize(8);
             pdf.setFont('helvetica', 'normal');
@@ -11885,7 +11937,7 @@ async function exportarPDF() {
                     pdf.text('Magia', marginLeft + colEscola + 2, yPos + 4);
                     pdf.text('Nv', marginLeft + colEscola + colMagia + 2, yPos + 4);
                     pdf.text('NH', marginLeft + colEscola + colMagia + colNivelMagia + 2, yPos + 4);
-                    yPos += 6;
+                    yPos += 7;
                     pdf.setFontSize(8);
                     pdf.setFont('helvetica', 'normal');
                 }
@@ -11897,17 +11949,17 @@ async function exportarPDF() {
                 
                 pdf.text(magia.escola, marginLeft + 2, yPos);
                 pdf.text(nomeMagia, marginLeft + colEscola + 2, yPos);
-                pdf.text(magia.nivel.toString(), marginLeft + colEscola + colMagia + 5, yPos);
+                pdf.text(magia.nivel.toString(), marginLeft + colEscola + colMagia + 8, yPos);
                 pdf.text(`${magia.nh}%`, marginLeft + colEscola + colMagia + colNivelMagia + 5, yPos);
                 yPos += 5;
             });
             
-            yPos += 4;
+            yPos += 6;
             pdf.line(marginLeft, yPos, marginRight, yPos);
         }
         
         // ============================================
-        // RODAPÉ COM DATA
+        // 10. RODAPÉ
         // ============================================
         yPos = pageHeight - 10;
         pdf.setFontSize(7);
@@ -11915,7 +11967,6 @@ async function exportarPDF() {
         pdf.setTextColor(150, 150, 150);
         pdf.text(`Gerado pelo Akalanata System em ${new Date().toLocaleDateString('pt-BR')}`, 105, yPos, { align: 'center' });
         
-        // Salvar PDF
         const nomeArquivo = document.getElementById('nomePersonagem')?.value || 'personagem';
         pdf.save(`ficha_${nomeArquivo.replace(/\s+/g, '_')}.pdf`);
         
