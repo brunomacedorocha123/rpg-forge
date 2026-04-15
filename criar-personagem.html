@@ -13031,18 +13031,533 @@ if (modalRacas) {
 }
 
 // ============================================
-// INICIALIZAÇÃO FINAL
+// INICIALIZAÇÃO COMPLETA
 // ============================================
-dinheiro = calcularDinheiroInicial();
-atualizarDinheiroDisplay();
-atualizarInterface();
-atualizarContadoresAbas();
-atualizarLimitesCards();
-renderizarTabelas('armas_ca');
-
-setTimeout(() => {
-    adicionarEventosInfoCards();
-}, 500);
+document.addEventListener('DOMContentLoaded', () => {
+    
+    console.log('=== INICIALIZANDO SISTEMA ===');
+    
+    // ============================================
+    // 1. EVENTOS DOS BOTÕES DE ATRIBUTO
+    // ============================================
+    document.querySelectorAll('.btn-aumentar-atributo').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const atributoId = btn.dataset.atributo;
+            aumentarAtributo(atributoId);
+        });
+    });
+    
+    document.querySelectorAll('.btn-diminuir-atributo').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const atributoId = btn.dataset.atributo;
+            diminuirAtributo(atributoId);
+        });
+    });
+    
+    // ============================================
+    // 2. EVENTOS DAS ABAS PRINCIPAIS
+    // ============================================
+    if (elements.abas) {
+        elements.abas.forEach(aba => {
+            aba.addEventListener('click', () => {
+                const abaId = aba.dataset.aba;
+                if (abaId) {
+                    if (['combate', 'vantagens', 'desvantagens', 'pericias', 'magias', 'equipamentos'].includes(abaId)) {
+                        salvarDadosBasicos();
+                    }
+                    mudarAba(abaId);
+                }
+            });
+        });
+    }
+    
+    // ============================================
+    // 3. EVENTOS DAS SUBABAS (ESCOLAS)
+    // ============================================
+    document.querySelectorAll('.subaba').forEach(subaba => {
+        subaba.addEventListener('click', () => {
+            const escolaId = subaba.dataset.escola;
+            if (escolaId) {
+                mudarEscola(escolaId);
+            }
+        });
+    });
+    
+    // ============================================
+    // 4. INPUTS DE CONFIGURAÇÃO
+    // ============================================
+    if (elements.pontosIniciaisInput) {
+        elements.pontosIniciaisInput.addEventListener('change', () => {
+            pontosIniciais = parseInt(elements.pontosIniciaisInput.value) || 10;
+            if (pontosIniciais < 0) pontosIniciais = 0;
+            atualizarSaldoPontos();
+            atualizarDisplayGastos();
+            atualizarInterface();
+            triggerAutoSave();
+        });
+    }
+    
+    if (elements.maxVantagens) {
+        elements.maxVantagens.addEventListener('change', () => {
+            maxVantagens = parseInt(elements.maxVantagens.value) || 3;
+            if (maxVantagens < 0) maxVantagens = 0;
+            if (maxVantagens > 20) maxVantagens = 20;
+            atualizarContadoresAbas();
+            atualizarLimitesCards();
+            triggerAutoSave();
+        });
+    }
+    
+    if (elements.maxDesvantagens) {
+        elements.maxDesvantagens.addEventListener('change', () => {
+            maxDesvantagens = parseInt(elements.maxDesvantagens.value) || 4;
+            if (maxDesvantagens < 0) maxDesvantagens = 0;
+            if (maxDesvantagens > 20) maxDesvantagens = 20;
+            atualizarContadoresAbas();
+            atualizarLimitesCards();
+            triggerAutoSave();
+        });
+    }
+    
+    if (elements.ppInicial) {
+        elements.ppInicial.addEventListener('change', () => {
+            ppDisponivel = parseInt(elements.ppInicial.value) || 30;
+            if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
+            triggerAutoSave();
+        });
+    }
+    
+    // ============================================
+    // 5. EVENTO DO DINHEIRO BASE
+    // ============================================
+    if (elements.dinheiroBaseInput) {
+        valorBaseAnterior = parseInt(elements.dinheiroBaseInput.value) || 1000;
+        
+        elements.dinheiroBaseInput.addEventListener('change', () => {
+            const novoValorBase = parseInt(elements.dinheiroBaseInput.value) || 1000;
+            
+            if (novoValorBase < valorBaseAnterior) {
+                const confirmar = confirm(
+                    `⚠️ ATENÇÃO! REDUÇÃO DE VALOR BASE ⚠️\n\n` +
+                    `Valor anterior: ${valorBaseAnterior}\n` +
+                    `Novo valor: ${novoValorBase}\n\n` +
+                    `TODOS OS ITENS do inventário serão REMOVIDOS.\n\n` +
+                    `Deseja continuar?`
+                );
+                
+                if (!confirmar) {
+                    elements.dinheiroBaseInput.value = valorBaseAnterior;
+                    return;
+                }
+                
+                inventario = { corpo: [], mochila: [], deposito: [] };
+                
+                let multiplicador = 1;
+                if (vantagensSelecionadas.has('rico')) multiplicador = 5;
+                if (desvantagensSelecionadas.has('pobre')) multiplicador = 0.5;
+                
+                dinheiro = novoValorBase * multiplicador;
+                valorBaseAnterior = novoValorBase;
+                
+                renderizarInventario();
+                atualizarDinheiroDisplay();
+                atualizarInterface();
+                
+                alert(`✅ Inventário resetado! Novo saldo: $${dinheiro}`);
+                triggerAutoSave();
+                return;
+            }
+            
+            let multiplicador = 1;
+            if (vantagensSelecionadas.has('rico')) multiplicador = 5;
+            if (desvantagensSelecionadas.has('pobre')) multiplicador = 0.5;
+            
+            const diferenca = (novoValorBase - valorBaseAnterior) * multiplicador;
+            dinheiro = dinheiro + diferenca;
+            if (dinheiro < 0) dinheiro = 0;
+            valorBaseAnterior = novoValorBase;
+            
+            atualizarDinheiroDisplay();
+            triggerAutoSave();
+        });
+    }
+    
+    // ============================================
+    // 6. AUTO-SAVE NOS CAMPOS BÁSICOS
+    // ============================================
+    const camposAutoSave = [
+        'nomePersonagem', 'classePersonagem', 'idadePersonagem', 'alturaPersonagem',
+        'pesoPersonagem', 'dinheiroBase', 'peculiaridades'
+    ];
+    
+    camposAutoSave.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', triggerAutoSave);
+            el.addEventListener('change', triggerAutoSave);
+        }
+    });
+    
+    // ============================================
+    // 7. UPLOAD DE FOTO
+    // ============================================
+    if (elements.uploadArea && elements.fotoInput) {
+        elements.uploadArea.addEventListener('click', () => elements.fotoInput.click());
+    }
+    
+    if (elements.fotoInput) {
+        elements.fotoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (elements.previewImage) elements.previewImage.src = e.target.result;
+                    if (elements.previewArea) elements.previewArea.style.display = 'block';
+                    if (elements.uploadArea) elements.uploadArea.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+                triggerAutoSave();
+            }
+        });
+    }
+    
+    if (elements.removeFoto) {
+        elements.removeFoto.addEventListener('click', () => {
+            if (elements.previewArea) elements.previewArea.style.display = 'none';
+            if (elements.uploadArea) elements.uploadArea.style.display = 'block';
+            if (elements.fotoInput) elements.fotoInput.value = '';
+            if (elements.previewImage) elements.previewImage.src = '';
+            triggerAutoSave();
+        });
+    }
+    
+    // ============================================
+    // 8. VANTAGENS E DESVANTAGENS
+    // ============================================
+    document.querySelectorAll('.vantagem-card').forEach(card => {
+        card.addEventListener('click', () => selecionarVantagem(card));
+    });
+    
+    document.querySelectorAll('.desvantagem-card:not(#cardFobia):not(#cardCodigoHonra)').forEach(card => {
+        card.addEventListener('click', () => selecionarDesvantagem(card));
+    });
+    
+    // ============================================
+    // 9. MODAL DE FOBIAS
+    // ============================================
+    if (elements.cardFobia && elements.modalFobias) {
+        elements.cardFobia.addEventListener('click', () => {
+            elements.modalFobias.classList.add('active');
+        });
+    }
+    
+    if (elements.fecharModalFobias && elements.modalFobias) {
+        elements.fecharModalFobias.addEventListener('click', () => {
+            elements.modalFobias.classList.remove('active');
+        });
+    }
+    
+    document.querySelectorAll('.fobia-item[data-fobia]').forEach(item => {
+        item.addEventListener('click', () => {
+            if (desvantagensSelecionadas.size >= maxDesvantagens) {
+                alert(`Limite de desvantagens atingido! (${maxDesvantagens})`);
+                elements.modalFobias.classList.remove('active');
+                return;
+            }
+            
+            const fobia = item.dataset.fobia;
+            const nomeFobia = item.querySelector('h4')?.textContent || fobia;
+            
+            fobiaSelecionada = fobia;
+            
+            if (elements.fobiaEscolhida) {
+                elements.fobiaEscolhida.style.display = 'inline-block';
+                elements.fobiaEscolhida.textContent = nomeFobia;
+            }
+            
+            if (elements.cardFobia) elements.cardFobia.classList.add('selecionada');
+            desvantagensSelecionadas.add(`fobia:${fobia}`);
+            atualizarContadoresAbas();
+            atualizarLimitesCards();
+            
+            elements.modalFobias.classList.remove('active');
+            triggerAutoSave();
+            
+            setTimeout(() => {
+                if (elements.cardFobia && !elements.cardFobia.querySelector('.btn-remover-escolha')) {
+                    const btnRemover = document.createElement('button');
+                    btnRemover.className = 'btn-remover-escolha';
+                    btnRemover.innerHTML = '<i class="fas fa-times"></i>';
+                    btnRemover.title = 'Remover fobia';
+                    btnRemover.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removerFobia();
+                    });
+                    elements.cardFobia.style.position = 'relative';
+                    elements.cardFobia.appendChild(btnRemover);
+                }
+            }, 100);
+        });
+    });
+    
+    // ============================================
+    // 10. MODAL DO CÓDIGO DE HONRA
+    // ============================================
+    if (elements.cardCodigoHonra && elements.modalCodigoHonra) {
+        elements.cardCodigoHonra.addEventListener('click', () => {
+            elements.modalCodigoHonra.classList.add('active');
+        });
+    }
+    
+    if (elements.fecharModalCodigoHonra && elements.modalCodigoHonra) {
+        elements.fecharModalCodigoHonra.addEventListener('click', () => {
+            elements.modalCodigoHonra.classList.remove('active');
+        });
+    }
+    
+    document.querySelectorAll('.fobia-item[data-codigo]').forEach(item => {
+        item.addEventListener('click', () => {
+            const codigoId = item.dataset.codigo;
+            selecionarCodigoHonra(codigoId);
+            
+            setTimeout(() => {
+                if (elements.cardCodigoHonra && !elements.cardCodigoHonra.querySelector('.btn-remover-escolha')) {
+                    const btnRemover = document.createElement('button');
+                    btnRemover.className = 'btn-remover-escolha';
+                    btnRemover.innerHTML = '<i class="fas fa-times"></i>';
+                    btnRemover.title = 'Remover código de honra';
+                    btnRemover.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removerCodigoHonra();
+                    });
+                    elements.cardCodigoHonra.style.position = 'relative';
+                    elements.cardCodigoHonra.appendChild(btnRemover);
+                }
+            }, 100);
+        });
+    });
+    
+    // ============================================
+    // 11. FILTROS DE PERÍCIAS
+    // ============================================
+    document.querySelectorAll('.filtro-pericia').forEach(filtro => {
+        filtro.addEventListener('click', () => {
+            document.querySelectorAll('.filtro-pericia').forEach(f => f.classList.remove('ativo'));
+            filtro.classList.add('ativo');
+            renderizarCatalogoPericias(filtro.dataset.filtro);
+        });
+    });
+    
+    // ============================================
+    // 12. MODAL DE PERÍCIA
+    // ============================================
+    if (elements.modalPericiaMais) {
+        elements.modalPericiaMais.addEventListener('click', () => {
+            if (periciaAtual) {
+                periciaAtual.novoNivel++;
+                if (elements.modalPericiaNivel) elements.modalPericiaNivel.textContent = periciaAtual.novoNivel;
+                atualizarModalPericia();
+            }
+        });
+    }
+    
+    if (elements.modalPericiaMenos) {
+        elements.modalPericiaMenos.addEventListener('click', () => {
+            if (periciaAtual) {
+                periciaAtual.novoNivel--;
+                if (elements.modalPericiaNivel) elements.modalPericiaNivel.textContent = periciaAtual.novoNivel;
+                atualizarModalPericia();
+            }
+        });
+    }
+    
+    if (elements.modalPericiaCancelar) {
+        elements.modalPericiaCancelar.addEventListener('click', () => {
+            elements.modalPericia.classList.remove('active');
+        });
+    }
+    
+    if (elements.modalPericiaConfirmar) {
+        elements.modalPericiaConfirmar.addEventListener('click', confirmarPericia);
+    }
+    
+    // ============================================
+    // 13. MODAL DE DETALHE DE MAGIA
+    // ============================================
+    if (elements.fecharDetalheMagia && elements.detalheMagiaModal) {
+        elements.fecharDetalheMagia.addEventListener('click', () => {
+            elements.detalheMagiaModal.classList.remove('active');
+        });
+    }
+    
+    if (elements.btnDesbloquearMagia) {
+        elements.btnDesbloquearMagia.addEventListener('click', () => {
+            if (magiaSelecionada && escolaMagiaSelecionada) {
+                desbloquearMagia(escolaMagiaSelecionada, magiaSelecionada);
+                elements.detalheMagiaModal.classList.remove('active');
+            }
+        });
+    }
+    
+    if (elements.btnUpgradeEscola) {
+        elements.btnUpgradeEscola.addEventListener('click', () => {
+            if (escolaMagiaSelecionada) {
+                evoluirEscola(escolaMagiaSelecionada);
+                if (magiaSelecionada) {
+                    abrirDetalheMagia(escolaMagiaSelecionada, magiaSelecionada);
+                }
+            }
+        });
+    }
+    
+    // ============================================
+    // 14. CATÁLOGO DE ITENS
+    // ============================================
+    document.querySelectorAll('.catalogo-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.catalogo-tab').forEach(t => t.classList.remove('ativo'));
+            tab.classList.add('ativo');
+            renderizarTabelas(tab.dataset.tab);
+        });
+    });
+    
+    // ============================================
+    // 15. BOTÕES PRINCIPAIS
+    // ============================================
+    if (elements.btnSalvarPersonagem) {
+        elements.btnSalvarPersonagem.addEventListener('click', async () => {
+            await salvarPersonagem(false);
+        });
+    }
+    
+    if (elements.btnExportarPDF) {
+        elements.btnExportarPDF.addEventListener('click', exportarPDF);
+    }
+    
+    if (elements.btnExcluirPersonagem && elements.modalConfirmarExclusao) {
+        elements.btnExcluirPersonagem.addEventListener('click', () => {
+            elements.modalConfirmarExclusao.classList.add('active');
+        });
+    }
+    
+    if (elements.cancelarExclusao && elements.modalConfirmarExclusao) {
+        elements.cancelarExclusao.addEventListener('click', () => {
+            elements.modalConfirmarExclusao.classList.remove('active');
+        });
+    }
+    
+    if (elements.confirmarExclusao) {
+        elements.confirmarExclusao.addEventListener('click', async () => {
+            elements.modalConfirmarExclusao.classList.remove('active');
+            await excluirPersonagem();
+        });
+    }
+    
+    if (elements.fecharModalSalvar && elements.modalSalvarSucesso) {
+        elements.fecharModalSalvar.addEventListener('click', () => {
+            elements.modalSalvarSucesso.style.display = 'none';
+            window.location.href = 'personagens.html';
+        });
+    }
+    
+    if (elements.btnSair) {
+        elements.btnSair.addEventListener('click', async () => {
+            try {
+                showLoading();
+                await signOut(auth);
+                window.location.href = 'index.html';
+            } catch (error) {
+                hideLoading();
+            }
+        });
+    }
+    
+    // ============================================
+    // 16. EVENTOS DO MODAL DE RAÇA
+    // ============================================
+    const btnEscolherRaca = document.getElementById('btnEscolherRaca');
+    if (btnEscolherRaca) {
+        btnEscolherRaca.addEventListener('click', abrirModalRacas);
+    }
+    
+    const fecharModalRacasBtn = document.getElementById('fecharModalRacas');
+    if (fecharModalRacasBtn) {
+        fecharModalRacasBtn.addEventListener('click', fecharModalRacas);
+    }
+    
+    const modalRacas = document.getElementById('modalRacas');
+    if (modalRacas) {
+        modalRacas.addEventListener('click', (e) => {
+            if (e.target === modalRacas) {
+                fecharModalRacas();
+            }
+        });
+    }
+    
+    // ============================================
+    // 17. AUTENTICAÇÃO E CARREGAMENTO INICIAL
+    // ============================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParaEditar = urlParams.get('id');
+    
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            try {
+                const docRef = doc(db, "usuarios", user.uid);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const userData = docSnap.data();
+                    if (elements.displayIdPc) elements.displayIdPc.textContent = userData.id_pc || '--------';
+                    if (elements.displayNickname) elements.displayNickname.textContent = userData.nickname || 'Aventureiro';
+                }
+                
+                if (idParaEditar) {
+                    await carregarPersonagem(idParaEditar);
+                } else {
+                    carregarDadosSalvos();
+                }
+                
+                // Inicializar sistema de magias
+                if (typeof inicializarBotoesUpgrade === 'function') inicializarBotoesUpgrade();
+                
+                const escolasLista = ['agua', 'ar', 'gelo', 'fogo', 'terra', 'corpo', 'natureza', 'trevas', 'luz', 'animais'];
+                escolasLista.forEach(escola => {
+                    if (typeof renderizarEsferas === 'function') renderizarEsferas(escola);
+                    if (typeof atualizarInterfaceEscola === 'function') atualizarInterfaceEscola(escola);
+                });
+                
+                ['st', 'dx', 'iq', 'vigor', 'vt'].forEach(attr => {
+                    if (typeof atualizarBotoesAtributo === 'function') atualizarBotoesAtributo(attr);
+                });
+                
+                if (typeof atualizarSaldoPontos === 'function') atualizarSaldoPontos();
+                if (typeof atualizarDisplayGastos === 'function') atualizarDisplayGastos();
+                
+            } catch (error) {
+                console.error('Erro na inicialização:', error);
+            }
+        } else {
+            window.location.href = 'index.html';
+        }
+    });
+    
+    // ============================================
+    // 18. INICIALIZAÇÃO FINAL
+    // ============================================
+    dinheiro = calcularDinheiroInicial();
+    atualizarDinheiroDisplay();
+    atualizarInterface();
+    atualizarContadoresAbas();
+    atualizarLimitesCards();
+    renderizarTabelas('armas_ca');
+    
+    setTimeout(() => {
+        adicionarEventosInfoCards();
+    }, 500);
+    
+    console.log('=== INICIALIZAÇÃO CONCLUÍDA ===');
+});
 
 
 </script>
