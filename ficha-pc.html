@@ -7637,35 +7637,22 @@ function renderizarCatalogoMagias(escola) {
                   null;
                   
     if (!personagemAtual.escolas) personagemAtual.escolas = { 
-        agua: { magias: {} }, ar: { magias: {} }, gelo: { magias: {} },
-        fogo: { magias: {} }, terra: { magias: {} }, corpo: { magias: {} },
-        natureza: { magias: {} }, trevas: { magias: {} }, luz: { magias: {} },
+        agua: { magias: {} }, 
+        ar: { magias: {} }, 
+        gelo: { magias: {} },
+        fogo: { magias: {} },
+        terra: { magias: {} },
+        corpo: { magias: {} }, 
+        natureza: { magias: {} },
+        trevas: { magias: {} },
+        luz: { magias: {} },
         animais: { magias: {} }
     };
     if (!personagemAtual.escolas[escola]) personagemAtual.escolas[escola] = { magias: {} };
     if (!personagemAtual.escolas[escola].magias) personagemAtual.escolas[escola].magias = {};
     
-    // ===== FUNÇÃO PARA VERIFICAR NÍVEL MÁXIMO PERMITIDO =====
-    // REGRA: O sucessor pode ter no máximo (nível do antecessor - 1)
-    function getNivelMaximoPermitido(magiaId) {
-        const magiasLista = Object.keys(dados);
-        const index = magiasLista.indexOf(magiaId);
-        
-        // Primeira magia: pode até nível 6
-        if (index === 0) return 6;
-        
-        // Pega a magia anterior
-        const magiaAnteriorId = magiasLista[index - 1];
-        const magiaAnterior = personagemAtual.escolas[escola].magias[magiaAnteriorId];
-        
-        if (!magiaAnterior || !magiaAnterior.desbloqueada) return 0;
-        
-        // REGRA CORRETA: sucessor = antecessor - 1 (mínimo 1)
-        return Math.max(1, magiaAnterior.nivel - 1);
-    }
-    
     // ===== FUNÇÃO PARA VERIFICAR SE PODE DESBLOQUEAR =====
-    // REGRA: Para desbloquear (nível 0 → 1), antecessor precisa estar no nível 2 ou mais
+    // REGRA: A magia anterior precisa estar no nível 2 ou mais
     function podeDesbloquearMagia(magiaId) {
         const magiasLista = Object.keys(dados);
         const index = magiasLista.indexOf(magiaId);
@@ -7677,7 +7664,7 @@ function renderizarCatalogoMagias(escola) {
         const magiaAnteriorId = magiasLista[index - 1];
         const magiaAnterior = personagemAtual.escolas[escola].magias[magiaAnteriorId];
         
-        // REGRA: antecessor precisa estar no nível 2 ou mais
+        // REGRA CORRETA: antecessor precisa estar desbloqueada e no nível 2 ou mais
         return magiaAnterior && magiaAnterior.desbloqueada && magiaAnterior.nivel >= 2;
     }
     
@@ -7687,20 +7674,8 @@ function renderizarCatalogoMagias(escola) {
     
     Object.entries(dados).forEach(([id, magia]) => {
         const temMagia = personagemAtual.escolas[escola].magias[id]?.desbloqueada || false;
-        const nivelAtual = temMagia ? (personagemAtual.escolas[escola].magias[id].nivel || 1) : 0;
-        const nivelMaximoPermitido = getNivelMaximoPermitido(id);
         const podeDesbloquear = !temMagia && podeDesbloquearMagia(id);
-        const podeEvoluir = temMagia && nivelAtual < nivelMaximoPermitido && nivelAtual < 6;
-        
-        // Custo para desbloquear (nível 0 → 1) = 1 PP
-        const custoDesbloquear = 1;
-        // Custo para evoluir (nível N → N+1)
-        let custoEvoluir = 1;
-        if (nivelAtual === 4) custoEvoluir = 2;  // Nível 4 → 5
-        if (nivelAtual === 5) custoEvoluir = 4;  // Nível 5 → 6
-        
-        const botaoHabilitado = (podeDesbloquear && ppDisponivel >= custoDesbloquear) || 
-                                (podeEvoluir && ppDisponivel >= custoEvoluir);
+        const botaoHabilitado = podeDesbloquear && ppDisponivel >= 1;  // Custo 1 PP
         
         let custoExibicao = '2 MANA';
         let tempoExibicao = '1 ação';
@@ -7719,17 +7694,6 @@ function renderizarCatalogoMagias(escola) {
             }
         }
         
-        // Mensagem de bloqueio
-        let mensagemBloqueio = '';
-        if (!temMagia && !podeDesbloquear) {
-            mensagemBloqueio = `<span style="color: #ff6b6b;">⚠️ Requer magia anterior no nível 2 ou mais</span>`;
-        } else if (temMagia && nivelAtual >= nivelMaximoPermitido && nivelAtual < 6) {
-            const nivelNecessario = nivelAtual + 1;
-            mensagemBloqueio = `<span style="color: #ff6b6b;">⚠️ Requer magia anterior no nível ${nivelNecessario}</span>`;
-        } else if (temMagia && nivelAtual >= 6) {
-            mensagemBloqueio = `<span style="color: #4CAF50;">✓ Nível máximo!</span>`;
-        }
-        
         html += `
             <div class="magia-card-catalogo" style="margin-bottom: 12px; padding: 15px; background: rgba(0,0,0,0.3); border: 1px solid ${temMagia ? '#ffd700' : '#2a2a3c'}; border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -7740,7 +7704,7 @@ function renderizarCatalogoMagias(escola) {
                         </strong>
                     </div>
                     <span style="color: ${temMagia ? '#4CAF50' : '#a0a0b0'}; font-weight: 600;">
-                        ${temMagia ? `Nível ${nivelAtual}/6` : '🔒 BLOQUEADA'}
+                        ${temMagia ? '✓ DESBLOQUEADA' : '🔒 BLOQUEADA'}
                     </span>
                 </div>
                 
@@ -7750,33 +7714,33 @@ function renderizarCatalogoMagias(escola) {
                 </div>
                 
                 <div style="font-size: 12px; color: #a0a0b0; margin-bottom: 8px;">
-                    <span style="color: #ffd700;">Efeito atual:</span> ${magia.efeitos[nivelAtual > 0 ? nivelAtual : 1] || magia.efeitos[1]}
+                    <span style="color: #ffd700;">Efeito inicial:</span> ${magia.efeitos[1]}
                 </div>
                 
                 ${temMagia ? `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; background: rgba(255,215,0,0.1); padding: 8px; border-radius: 6px;">
-                        <span style="color: #ffd700;">NH: ${calcularNHMagia(id, nivelAtual, escola)}%</span>
-                        <span style="color: #4a9fff;">Próximo nível: ${nivelAtual < 6 ? `${custoEvoluir} PP` : 'Máximo'}</span>
+                        <span style="color: #ffd700;">Nível atual: ${personagemAtual.escolas[escola].magias[id].nivel || 1}</span>
+                        <span style="color: #4CAF50;">NH: ${calcularNHMagia(id, personagemAtual.escolas[escola].magias[id].nivel || 1, escola)}%</span>
                     </div>
                 ` : ''}
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
-                    <div>
-                        ${!temMagia && podeDesbloquear ? 
-                            `<span style="color: #ffd700;">Custo: <strong>${custoDesbloquear} PP</strong> (você tem ${ppDisponivel} PP)</span>` : 
-                            temMagia && podeEvoluir ?
-                            `<span style="color: #ffd700;">Custo: <strong>${custoEvoluir} PP</strong> (você tem ${ppDisponivel} PP)</span>` :
-                            mensagemBloqueio
-                        }
+                ${!temMagia ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                        <div>
+                            ${podeDesbloquear ? 
+                                `<span style="color: #ffd700;">Custo: <strong>1 PP</strong> (você tem ${ppDisponivel} PP)</span>` : 
+                                `<span style="color: #ff6b6b;">⚠️ Requer que a magia anterior esteja no nível 2 ou superior</span>`
+                            }
+                        </div>
+                        ${podeDesbloquear ? `
+                            <button class="btn-xp" onclick="window.comprarMagia('${escola}', '${id}')" 
+                                    style="background: ${botaoHabilitado ? '#ffd700' : '#2a2a3c'}; color: ${botaoHabilitado ? '#14141f' : '#ffd700'}; padding: 6px 15px;"
+                                    ${!botaoHabilitado ? 'disabled' : ''}>
+                                Desbloquear (1 PP)
+                            </button>
+                        ` : ''}
                     </div>
-                    ${(podeDesbloquear || podeEvoluir) ? `
-                        <button class="btn-xp" onclick="window.comprarMagia('${escola}', '${id}')" 
-                                style="background: ${botaoHabilitado ? '#ffd700' : '#2a2a3c'}; color: ${botaoHabilitado ? '#14141f' : '#ffd700'}; padding: 6px 15px;"
-                                ${!botaoHabilitado ? 'disabled' : ''}>
-                            ${!temMagia ? `Desbloquear (${custoDesbloquear} PP)` : `Evoluir para nível ${nivelAtual + 1} (${custoEvoluir} PP)`}
-                        </button>
-                    ` : ''}
-                </div>
+                ` : ''}
             </div>
         `;
     });
