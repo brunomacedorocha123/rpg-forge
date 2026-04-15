@@ -903,7 +903,7 @@ async function contarVagasOcupadas(campanhaId) {
 }
 
 
-// ===== CARREGAR CAMPANHAS DO JOGADOR =====
+// ===== CARREGAR CAMPANHAS DO JOGADOR (COM FILTRO DE STATUS) =====
 async function carregarCampanhas() {
  if (!currentUser) return;
 
@@ -939,16 +939,26 @@ async function carregarCampanhas() {
     const campanhaDoc = campanhaSnap.docs[0];
     const campanhaData = campanhaDoc.data();
     
-    const vagasOcupadas = await contarVagasOcupadas(vinculo.campanha_id);
+    // 🔥 CORREÇÃO: Verificar se a campanha está acessível (aberta ou em andamento)
+    const statusAcessiveis = ['aberto', 'andamento'];
     
-    campanhasArray.push({
-     docId: campanhaDoc.id,
-     vinculoId: vinculoDoc.id,
-     ...campanhaData,
-     vagasOcupadasReal: vagasOcupadas,
-     personagemNome: vinculo.personagem_nome,
-     personagemId: vinculo.personagem_id
-    });
+    if (statusAcessiveis.includes(campanhaData.status)) {
+     const vagasOcupadas = await contarVagasOcupadas(vinculo.campanha_id);
+     
+     campanhasArray.push({
+      docId: campanhaDoc.id,
+      vinculoId: vinculoDoc.id,
+      ...campanhaData,
+      vagasOcupadasReal: vagasOcupadas,
+      personagemNome: vinculo.personagem_nome,
+      personagemId: vinculo.personagem_id
+     });
+    } else {
+     // 🔥 Campanha fechada/encerrada - remover vínculo automaticamente
+     console.log(`Removendo vínculo da campanha "${campanhaData.nome}" (status: ${campanhaData.status})`);
+     await deleteDoc(doc(db, "campanha_personagens", vinculoDoc.id));
+     showToast(`Campanha "${campanhaData.nome}" foi ${campanhaData.status}. Você foi removido.`, true);
+    }
    }
   }
   
@@ -988,7 +998,6 @@ function renderizarCampanhas(campanhas) {
   const vagasMax = campanha.vagas_max || 5;
   const vagasOcupadas = campanha.vagasOcupadasReal || 0;
   
-  //  CORREÇÃO: Quebrar em partes para evitar conflito de template strings
   const imagemCapaStyle = campanha.imagem_capa
    ? "background-image: url('" + campanha.imagem_capa + "'); background-size: cover;"
    : '';
@@ -1031,7 +1040,7 @@ function renderizarEmptyState() {
   '<div class="empty-state">' +
    '<i class="fas fa-scroll"></i>' +
    '<h2>Nenhuma campanha encontrada</h2>' +
-   '<p>Você ainda não participa de nenhuma campanha.</p>' +
+   '<p>Você ainda não participa de nenhuma campanha ativa.</p>' +
    '<a href="convites-pc.html" class="btn-convites">' +
     '<i class="fas fa-envelope"></i> Ver Convites' +
    '</a>' +
