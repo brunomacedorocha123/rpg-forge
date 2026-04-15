@@ -11115,7 +11115,7 @@ function abrirDetalheMagia(escolaId, magiaId) {
     const efeitosObj = magiaDados.efeitos;
     let temArray = Array.isArray(efeitosObj);
     
-    // MUDANÇA 1: Loop até 6 (nível máximo)
+    // Loop até 6 (nível máximo)
     for (let i = 1; i <= 6; i++) {
         const classe = i === magia.nivel ? 'nivel-atual' : '';
         
@@ -11157,27 +11157,31 @@ function abrirDetalheMagia(escolaId, magiaId) {
         elements.corpoTabelaDetalhe.innerHTML = linhas;
     }
     
-    // MUDANÇA 2: Verificar hierarquia para subir de nível
+    // Função para verificar hierarquia ao subir de nível
     function podeSubirMagia(escolaId, magiaId, nivelDesejado) {
         const escola = escolas[escolaId];
         const magiasLista = Object.entries(escola.magias).sort((a, b) => a[1].ordem - b[1].ordem);
         const index = magiasLista.findIndex(([id]) => id === magiaId);
         
-        // Primeira magia pode subir livre
+        // Primeira magia pode subir livre até 6
         if (index === 0) return nivelDesejado <= 6;
         
         const magiaAnteriorId = magiasLista[index - 1][0];
         const nivelAnterior = escola.magias[magiaAnteriorId].nivel;
         
-        // Exceção: se anterior é nível 6, libera
+        // Exceção: se anterior é nível 6, libera sucessora até 6
         if (nivelAnterior >= 6) return nivelDesejado <= 6;
         
-        // Regra: anterior precisa ser nível (desejado - 1)
-        return nivelAnterior >= (nivelDesejado - 1);
+        // REGRA CORRETA: sucessora nível N → antecessora precisa ser nível N+1
+        // Exemplo: sucessora nível 2 → antecessora nível 3
+        //           sucessora nível 3 → antecessora nível 4
+        //           sucessora nível 4 → antecessora nível 5
+        //           sucessora nível 5 → antecessora nível 6
+        return nivelAnterior >= (nivelDesejado + 1);
     }
     
     const custoProximoNivel = getCustoProximoNivelMagia(magia.nivel);
-    const nivelMaximo = 6; // MUDANÇA 3: máximo 6
+    const nivelMaximo = 6;
     const podeSubir = podeSubirMagia(escolaId, magiaId, magia.nivel + 1);
     
     if (elements.comprarNivelMagia) {
@@ -11189,7 +11193,7 @@ function abrirDetalheMagia(escolaId, magiaId) {
         if (magia.nivel >= nivelMaximo) {
             elements.comprarNivelMagia.textContent = 'Nível Máximo (6)';
         } else if (!podeSubir) {
-            elements.comprarNivelMagia.textContent = `Bloqueado: Anterior precisa ser nível ${magia.nivel}`;
+            elements.comprarNivelMagia.textContent = `Bloqueado: Anterior precisa ser nível ${magia.nivel + 1}`;
         } else {
             elements.comprarNivelMagia.textContent = `Comprar Nível ${magia.nivel + 1} (${custoProximoNivel} PP)`;
         }
