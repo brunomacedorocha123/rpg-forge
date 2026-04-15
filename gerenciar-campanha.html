@@ -1592,7 +1592,6 @@ window.enviarConvite = async function() {
   showLoading();
   
   try {
-    // Buscar jogador pelo ID_PC
     const jogadorQuery = query(
       collection(db, "usuarios"),
       where("id_pc", "==", idPC)
@@ -1605,14 +1604,12 @@ window.enviarConvite = async function() {
       return;
     }
     
-    // Pegar dados do jogador
     let jogadorUid, jogadorNick;
     jogadorSnap.forEach(doc => {
       jogadorUid = doc.id;
       jogadorNick = doc.data().nickname || 'Jogador';
     });
     
-    // Verificar se já está na campanha
     const vinculoQuery = query(
       collection(db, "campanha_personagens"),
       where("campanha_id", "==", campanhaAtual.id),
@@ -1626,7 +1623,6 @@ window.enviarConvite = async function() {
       return;
     }
     
-    // Criar convite
     const conviteData = {
       tipo: "campanha",
       remetente_uid: auth.currentUser.uid,
@@ -1741,12 +1737,11 @@ function atualizarInterface() {
   selectVisibilidade.value = campanhaAtual.visibilidade || 'publico';
 }
 
-// ===== FUNÇÃO PARA CARREGAR JOGADORES COM CONTADOR DE PCs =====
+// ===== FUNÇÃO PARA CARREGAR JOGADORES =====
 async function carregarJogadores() {
   if (!campanhaAtual) return;
   
   try {
-    // Buscar TODOS os vínculos
     const vinculosQuery = query(
       collection(db, "campanha_personagens"),
       where("campanha_id", "==", campanhaAtual.id)
@@ -1754,22 +1749,18 @@ async function carregarJogadores() {
     
     const vinculosSnap = await getDocs(vinculosQuery);
     
-    // Array para armazenar os vínculos
     const vinculos = [];
     vinculosSnap.forEach(doc => {
       vinculos.push({ id: doc.id, ...doc.data() });
     });
     
-    // ===== CONTADOR DE PCs =====
     totalPCsCount = vinculos.length;
     
-    // Atualizar elementos
     if (totalPCs) totalPCs.textContent = totalPCsCount;
     if (statPCs) statPCs.textContent = totalPCsCount;
     if (statJogadores) statJogadores.textContent = vinculos.length;
     if (vagas) vagas.textContent = `${vinculos.length}/${campanhaAtual.vagas_max || 5}`;
     
-    // Se não tiver jogadores
     if (vinculos.length === 0) {
       jogadoresContainer.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: rgba(26,10,26,0.5); border-radius: 20px;">
@@ -1781,19 +1772,16 @@ async function carregarJogadores() {
       return;
     }
     
-    // CONSTRUIR HTML
     let html = '';
     
     for (const vinculo of vinculos) {
       try {
-        // Buscar dados do usuário
         const userDoc = await getDoc(doc(db, "usuarios", vinculo.jogador_uid));
         const jogador = userDoc.exists() ? userDoc.data() : {
           nickname: vinculo.jogador_nick || 'Jogador',
           id_pc: '---'
         };
         
-        // Buscar dados do personagem
         const personagemDoc = await getDoc(doc(db, "personagens", vinculo.personagem_id));
         const personagem = personagemDoc.exists() ? personagemDoc.data() : null;
         
@@ -1869,7 +1857,6 @@ async function carregarJogadores() {
     
     jogadoresContainer.innerHTML = html;
     
-    // Efeito hover
     document.querySelectorAll('.personagem-card').forEach(card => {
       card.addEventListener('mouseenter', function() {
         this.style.borderColor = '#c62828';
@@ -1894,12 +1881,11 @@ async function carregarJogadores() {
   }
 }
 
-// ===== FUNÇÃO PARA CARREGAR SESSÕES COM STATUS =====
+// ===== FUNÇÃO PARA CARREGAR SESSÕES =====
 async function carregarSessoes() {
   if (!campanhaAtual) return;
   
   try {
-    // Usar o ID personalizado para buscar as sessões
     const q = query(
       collection(db, "sessoes"),
       where("campanha_id_custom", "==", campanhaAtual.id)
@@ -1931,7 +1917,6 @@ async function carregarSessoes() {
     let html = '';
     let proximaSessao = null;
     
-    // Ordenar por data
     sessoes.sort((a, b) => {
       const dataA = a.data?.seconds || 0;
       const dataB = b.data?.seconds || 0;
@@ -1944,7 +1929,6 @@ async function carregarSessoes() {
       const mes = (data.getMonth() + 1).toString().padStart(2, '0');
       const ano = data.getFullYear();
       
-      // Buscar participantes da sessão
       const participantesQuery = query(
         collection(db, "sessao_participantes"),
         where("sessao_id", "==", sessao.id)
@@ -1956,7 +1940,6 @@ async function carregarSessoes() {
         proximaSessao = `${dia}/${mes}`;
       }
       
-      // Determinar classe do status
       let statusClass = 'sessao-status-aberto';
       let statusText = 'Aberto';
       
@@ -2041,7 +2024,7 @@ window.fecharModalSessao = function() {
   document.getElementById('sessaoDescricao').value = '';
 }
 
-// ===== FUNÇÃO PARA CRIAR SESSÃO (CORRIGIDA!) =====
+// ===== FUNÇÃO PARA CRIAR SESSÃO =====
 window.criarSessao = async function() {
   const titulo = document.getElementById('sessaoTitulo').value;
   const data = document.getElementById('sessaoData').value;
@@ -2059,10 +2042,9 @@ window.criarSessao = async function() {
   try {
     const dataHora = new Date(`${data}T${hora || '20:00'}`);
     
-    // CORREÇÃO: Usar docId para o Firestore e guardar o ID personalizado separadamente
     await addDoc(collection(db, "sessoes"), {
-      campanha_id: campanhaAtual.docId,           // ← AGORA USA O ID REAL DO FIRESTORE
-      campanha_id_custom: campanhaAtual.id,       // ← GUARDA O ID PERSONALIZADO PARA CONSULTAS
+      campanha_id: campanhaAtual.docId,
+      campanha_id_custom: campanhaAtual.id,
       campanha_nome: campanhaAtual.nome,
       gm_uid: currentUser.uid,
       titulo: titulo,
@@ -2085,7 +2067,7 @@ window.criarSessao = async function() {
   }
 }
 
-// ===== FUNÇÃO PARA EDITAR SESSÃO (ATUALIZADA) =====
+// ===== FUNÇÃO PARA EDITAR SESSÃO =====
 window.editarSessao = async function(sessaoId) {
   try {
     const sessaoDoc = await getDoc(doc(db, "sessoes", sessaoId));
@@ -2156,7 +2138,7 @@ window.iniciarSessao = function(sessaoId) {
   window.location.href = `mesa-jogo.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
 }
 
-// Salvar configurações
+// ===== FUNÇÃO SALVAR CONFIGURAÇÕES (SUA VERSÃO ORIGINAL) =====
 window.salvarConfiguracoes = async function() {
   showLoading();
   
