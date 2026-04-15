@@ -1495,7 +1495,7 @@
     <!-- FIM DO HTML ANTES DO SCRIPT -->
 
 
- <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -2138,30 +2138,72 @@ window.iniciarSessao = function(sessaoId) {
   window.location.href = `mesa-jogo.html?sessao=${sessaoId}&campanha=${campanhaAtual.id}`;
 }
 
-// ===== FUNÇÃO SALVAR CONFIGURAÇÕES (SUA VERSÃO ORIGINAL) =====
+// 🔥🔥🔥 FUNÇÃO SALVAR CONFIGURAÇÕES CORRIGIDA 🔥🔥🔥
 window.salvarConfiguracoes = async function() {
+  const novoStatus = selectStatus.value;
+  const novaVisibilidade = selectVisibilidade.value;
+  const statusAnterior = campanhaAtual.status;
+  
   showLoading();
   
   try {
+    // 🔥 SE FOR ENCERRAR, REMOVE TODOS OS JOGADORES
+    if (novoStatus === 'encerrado' && statusAnterior !== 'encerrado') {
+      const confirmar = confirm('⚠️ ATENÇÃO: Ao encerrar esta campanha, TODOS os jogadores serão removidos automaticamente. Deseja continuar?');
+      
+      if (!confirmar) {
+        selectStatus.value = statusAnterior;
+        hideLoading();
+        return;
+      }
+      
+      // Buscar todos os vínculos da campanha
+      const vinculosQuery = query(
+        collection(db, "campanha_personagens"),
+        where("campanha_id", "==", campanhaAtual.id)
+      );
+      
+      const vinculosSnap = await getDocs(vinculosQuery);
+      
+      // Deletar cada vínculo
+      for (const doc of vinculosSnap.docs) {
+        await deleteDoc(doc.ref);
+      }
+      
+      if (vinculosSnap.size > 0) {
+        alert(`✅ ${vinculosSnap.size} jogador(es) removido(s) da campanha!`);
+      }
+    }
+    
+    // Atualizar o status da campanha
     const docRef = doc(db, "campanhas", campanhaAtual.docId);
     await updateDoc(docRef, {
-      status: selectStatus.value,
-      visibilidade: selectVisibilidade.value
+      status: novoStatus,
+      visibilidade: novaVisibilidade
     });
     
-    campanhaAtual.status = selectStatus.value;
-    campanhaAtual.visibilidade = selectVisibilidade.value;
+    campanhaAtual.status = novoStatus;
+    campanhaAtual.visibilidade = novaVisibilidade;
     
     atualizarInterface();
-    alert('Configurações salvas!');
+    await carregarJogadores();
+    
+    let statusTexto = '';
+    if (novoStatus === 'aberto') statusTexto = 'Aberto';
+    else if (novoStatus === 'andamento') statusTexto = 'Em Andamento';
+    else if (novoStatus === 'fechado') statusTexto = 'Fechado';
+    else if (novoStatus === 'encerrado') statusTexto = 'Encerrado - Jogadores removidos';
+    
+    alert(`✅ Status alterado para: ${statusTexto}`);
     
   } catch (error) {
     console.error('Erro ao salvar:', error);
-    alert('Erro ao salvar configurações');
+    alert('❌ Erro ao salvar configurações: ' + error.message);
   } finally {
     hideLoading();
   }
 }
+// 🔥 FIM DA FUNÇÃO CORRIGIDA 🔥
 
 // Excluir campanha
 window.excluirCampanha = async function() {
