@@ -8197,22 +8197,26 @@ window.abrirModalMagia = function(escola, magiaId) {
     magiaModalAtual = magiaId;
     if (elements.modalMagiaTitulo) elements.modalMagiaTitulo.textContent = dados.nome;
     
-    // ===== FUNÇÃO PARA VERIFICAR NÍVEL MÁXIMO PERMITIDO PELA HIERARQUIA =====
+    // ===== FUNÇÃO PARA VERIFICAR NÍVEL MÁXIMO PERMITIDO =====
     function getNivelMaximoPermitido() {
         const magiasLista = Object.keys(dados);
         const index = magiasLista.indexOf(magiaId);
         
-        // Primeira magia: pode até nível 6
+        // PRIMEIRA MAGIA: pode até nível 6 (SEM BLOQUEIO)
         if (index === 0) return 6;
         
         const magiaAnteriorId = magiasLista[index - 1];
         const magiaAnterior = personagemAtual.escolas[escola].magias[magiaAnteriorId];
         
-        if (!magiaAnterior || !magiaAnterior.desbloqueada) return 0;
+        // Se a magia anterior NÃO EXISTE ou NÃO ESTÁ DESBLOQUEADA, não pode evoluir NADA
+        if (!magiaAnterior || !magiaAnterior.desbloqueada) return 1; // Só nível 1 (desbloqueada)
         
-        // REGRA CORRETA: sucessor = antecessor - 1 (mínimo 1)
+        // REGRA: sucessor pode ter no máximo (antecessor - 1)
         // Ex: antecessor nível 3 → sucessor pode até nível 2
-        return Math.max(1, magiaAnterior.nivel - 1);
+        const maximo = magiaAnterior.nivel - 1;
+        
+        // Garante que o mínimo é 1 (se antecessor for nível 1, sucessor só pode nível 1)
+        return Math.max(1, maximo);
     }
     
     const nivelMaximoPermitido = getNivelMaximoPermitido();
@@ -8245,8 +8249,9 @@ window.abrirModalMagia = function(escola, magiaId) {
             }
         }
         
-        // Marca níveis bloqueados por hierarquia
-        const bloqueado = i > nivelMaximoPermitido && i > 1;
+        // Marca níveis bloqueados por hierarquia (APENAS se não for a primeira magia)
+        const isPrimeiraMagia = Object.keys(dados).indexOf(magiaId) === 0;
+        const bloqueado = !isPrimeiraMagia && i > nivelMaximoPermitido && i > 1;
         const estiloBloqueio = bloqueado ? 'style="opacity:0.6; background:rgba(255,0,0,0.1);"' : '';
         const textoBloqueio = bloqueado ? ' <span style="color:#ff6b6b;">🔒 (Requer antecessor nível ' + (i + 1) + ')</span>' : '';
         
@@ -8264,7 +8269,7 @@ window.abrirModalMagia = function(escola, magiaId) {
     const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
     
     if (elements.modalMagiaCusto) {
-        if (nivelAtualMagia >= nivelMaximoPermitido && nivelAtualMagia < 6) {
+        if (nivelAtualMagia >= nivelMaximoPermitido && nivelAtualMagia < 6 && !(Object.keys(dados).indexOf(magiaId) === 0)) {
             const nivelNecessario = nivelAtualMagia + 1;
             elements.modalMagiaCusto.textContent = `🚫 Bloqueado (precisa antecessor nível ${nivelNecessario})`;
         } else {
@@ -8273,9 +8278,12 @@ window.abrirModalMagia = function(escola, magiaId) {
     }
     
     if (elements.modalMagiaComprar) {
-        const podeComprar = podeEvoluir && custoProximo <= ppDisponivel;
+        const isPrimeira = Object.keys(dados).indexOf(magiaId) === 0;
+        const podeComprar = isPrimeira ? (nivelAtualMagia < 6 && custoProximo <= ppDisponivel) : podeEvoluir && custoProximo <= ppDisponivel;
+        
         elements.modalMagiaComprar.disabled = !podeComprar;
-        if (!podeEvoluir && nivelAtualMagia < 6 && nivelAtualMagia >= nivelMaximoPermitido) {
+        
+        if (!isPrimeira && !podeEvoluir && nivelAtualMagia < 6 && nivelAtualMagia >= nivelMaximoPermitido) {
             elements.modalMagiaComprar.textContent = `🚫 Antecessor precisa ser nível ${nivelAtualMagia + 1}`;
         } else if (nivelAtualMagia >= nivelMaximo) {
             elements.modalMagiaComprar.textContent = '🏆 Nível Máximo';
