@@ -8178,7 +8178,6 @@ window.comprarMagia = async function(escola, magiaId) {
         showToast('Erro ao comprar magia', true);
     }
 };
-
 window.abrirModalMagia = function(escola, magiaId) {
     const magia = personagemAtual?.escolas?.[escola]?.magias?.[magiaId];
     const dados = escola === 'agua' ? dadosMagiasAgua[magiaId] :
@@ -8198,13 +8197,33 @@ window.abrirModalMagia = function(escola, magiaId) {
     magiaModalAtual = magiaId;
     if (elements.modalMagiaTitulo) elements.modalMagiaTitulo.textContent = dados.nome;
     
+    // ===== FUNÇÃO PARA VERIFICAR NÍVEL MÁXIMO PERMITIDO PELA HIERARQUIA =====
+    function getNivelMaximoPermitido() {
+        const magiasLista = Object.keys(dados);
+        const index = magiasLista.indexOf(magiaId);
+        
+        // Primeira magia: pode até nível 6
+        if (index === 0) return 6;
+        
+        const magiaAnteriorId = magiasLista[index - 1];
+        const magiaAnterior = personagemAtual.escolas[escola].magias[magiaAnteriorId];
+        
+        if (!magiaAnterior || !magiaAnterior.desbloqueada) return 0;
+        
+        // REGRA CORRETA: sucessor = antecessor - 1 (mínimo 1)
+        // Ex: antecessor nível 3 → sucessor pode até nível 2
+        return Math.max(1, magiaAnterior.nivel - 1);
+    }
+    
+    const nivelMaximoPermitido = getNivelMaximoPermitido();
+    const nivelAtualMagia = magia.nivel || 1;
+    const podeEvoluir = nivelAtualMagia < nivelMaximoPermitido && nivelAtualMagia < 6;
+    
     let linhas = '';
     const iqPercentual = getIQPercentual();
     const nhBase = iqPercentual + 10;
     const nivelMaximo = 6;
-    const nivelAtualMagia = magia.nivel || 1;
     
-    // ✅ MUDANÇA: Agora vai até nível 7 (antes era 10)
     for (let i = 1; i <= nivelMaximo; i++) {
         const classe = i === nivelAtualMagia ? 'nivel-atual' : '';
         const nh = nhBase + i;
@@ -8226,30 +8245,47 @@ window.abrirModalMagia = function(escola, magiaId) {
             }
         }
         
-        linhas += `<tr class="${classe}">
-              <td>${i}</td>
-              <td>${efeito}</td>
+        // Marca níveis bloqueados por hierarquia
+        const bloqueado = i > nivelMaximoPermitido && i > 1;
+        const estiloBloqueio = bloqueado ? 'style="opacity:0.6; background:rgba(255,0,0,0.1);"' : '';
+        const textoBloqueio = bloqueado ? ' <span style="color:#ff6b6b;">🔒 (Requer antecessor nível ' + (i + 1) + ')</span>' : '';
+        
+        linhas += `<tr class="${classe}" ${estiloBloqueio}>
+              <td>${i}${bloqueado ? ' 🔒' : ''}</td>
+              <td>${efeito}${textoBloqueio}</td>
               <td>${nh}%</td>
-                             <td>${custoManaNivel} MANA</td>
-               <td>${tempoNivel}</td>
-             </tr>`;
+              <td>${custoManaNivel} MANA</td>
+              <td>${tempoNivel}</td>
+            </tr>`;
     }
     if (elements.tabelaMagia) elements.tabelaMagia.innerHTML = linhas;
     
-    // ✅ MUDANÇA: Cálculo dinâmico do custo do próximo nível
     const custoProximo = getCustoProximoNivelMagiaFicha(nivelAtualMagia);
     const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
     
     if (elements.modalMagiaCusto) {
-        elements.modalMagiaCusto.textContent = nivelAtualMagia >= nivelMaximo ? 'Nível Máximo' : `${custoProximo} PP`;
+        if (nivelAtualMagia >= nivelMaximoPermitido && nivelAtualMagia < 6) {
+            const nivelNecessario = nivelAtualMagia + 1;
+            elements.modalMagiaCusto.textContent = `🚫 Bloqueado (precisa antecessor nível ${nivelNecessario})`;
+        } else {
+            elements.modalMagiaCusto.textContent = nivelAtualMagia >= nivelMaximo ? '🏆 Nível Máximo' : `💰 ${custoProximo} PP`;
+        }
     }
+    
     if (elements.modalMagiaComprar) {
-        elements.modalMagiaComprar.disabled = nivelAtualMagia >= nivelMaximo || custoProximo > ppDisponivel;
+        const podeComprar = podeEvoluir && custoProximo <= ppDisponivel;
+        elements.modalMagiaComprar.disabled = !podeComprar;
+        if (!podeEvoluir && nivelAtualMagia < 6 && nivelAtualMagia >= nivelMaximoPermitido) {
+            elements.modalMagiaComprar.textContent = `🚫 Antecessor precisa ser nível ${nivelAtualMagia + 1}`;
+        } else if (nivelAtualMagia >= nivelMaximo) {
+            elements.modalMagiaComprar.textContent = '🏆 Nível Máximo';
+        } else {
+            elements.modalMagiaComprar.textContent = `⬆️ Comprar Nível ${nivelAtualMagia + 1} (${custoProximo} PP)`;
+        }
     }
     
     if (elements.modalMagia) elements.modalMagia.classList.add('active');
 };
-
 // ============================================
 // FUNÇÕES DA LOJA (ATUALIZADA PARA ITENS MÁGICOS)
 // ============================================
