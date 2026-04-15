@@ -10348,7 +10348,7 @@ function pegarItem(itemId) {
 }
 
 // ============================================
-// FUNÇÕES VENDER E DESCARTAR CORRIGIDAS
+// FUNÇÕES VENDER E DESCARTAR 
 // ============================================
 
 function venderItem(itemId, local) {
@@ -10898,7 +10898,6 @@ function renderizarEsferas(escolaId = escolaAtual) {
     const dadosMagiasEscola = dadosPorEscola[escolaId];
     const magiasLista = Object.entries(escola.magias).sort((a, b) => a[1].ordem - b[1].ordem);
     const temAptidao = vantagensSelecionadas.has('aptidaoMagica');
-    const magiasDesbloqueadas = Object.values(escola.magias).filter(m => m.desbloqueada).length;
     
     let html = '';
     
@@ -10908,14 +10907,39 @@ function renderizarEsferas(escolaId = escolaAtual) {
         let classeEsfera = 'trancada';
         let iconeCadeado = '<i class="fas fa-lock" style="color: #666;"></i>';
         let botaoAcao = '';
+        let podeDesbloquear = false;
         
+        // Já desbloqueada
         if (magia.desbloqueada) {
             classeEsfera = 'desbloqueada';
             iconeCadeado = '';
-        } else if (temAptidao && numero <= magiasDesbloqueadas + 1) {
-            classeEsfera = 'disponivel';
-            iconeCadeado = '';
-            botaoAcao = `<button class="btn-comprar-esfera" data-escola="${escolaId}" data-magia-id="${id}">Desbloquear (1 PP)</button>`;
+        } 
+        // Verifica se pode desbloquear
+        else if (temAptidao) {
+            // Primeira magia da escola: pode desbloquear sempre
+            if (index === 0) {
+                podeDesbloquear = true;
+            } else {
+                // Pega a magia anterior
+                const magiaAnteriorId = magiasLista[index - 1][0];
+                const magiaAnterior = escola.magias[magiaAnteriorId];
+                const nivelAnterior = magiaAnterior.nivel;
+                
+                // REGRA: Para desbloquear, a anterior precisa estar no nível 2 ou mais
+                if (nivelAnterior >= 2) {
+                    podeDesbloquear = true;
+                }
+            }
+            
+            if (podeDesbloquear) {
+                classeEsfera = 'disponivel';
+                iconeCadeado = '';
+                botaoAcao = `<button class="btn-comprar-esfera" data-escola="${escolaId}" data-magia-id="${id}">Desbloquear (1 PP)</button>`;
+            } else {
+                // Mostra mensagem de exigência
+                classeEsfera = 'trancada';
+                iconeCadeado = '<i class="fas fa-lock" style="color: #ff6b6b;"></i>';
+            }
         } else if (!temAptidao) {
             classeEsfera = 'aptidao-requerida';
         }
@@ -10925,8 +10949,29 @@ function renderizarEsferas(escolaId = escolaAtual) {
             nhMagia = getIQPercentual() + 10 + (magia.nivel || 0);
         }
         
+        // Calcula nível máximo possível para esta magia (se desbloqueada)
+        let nivelMaximoPermitido = 6;
+        if (magia.desbloqueada && index > 0) {
+            const magiaAnteriorId = magiasLista[index - 1][0];
+            const nivelAnterior = escola.magias[magiaAnteriorId].nivel;
+            
+            // Se anterior é nível 6, libera até 6
+            if (nivelAnterior >= 6) {
+                nivelMaximoPermitido = 6;
+            } else {
+                // Senão, máximo é nível anterior + 1
+                nivelMaximoPermitido = Math.min(6, nivelAnterior + 1);
+            }
+        }
+        
+        // Mensagem de bloqueio se tentar subir acima do permitido
+        let msgBloqueio = '';
+        if (magia.desbloqueada && magia.nivel >= nivelMaximoPermitido && magia.nivel < 6) {
+            msgBloqueio = `<div class="msg-bloqueio" style="font-size:0.65rem; color:#ff6b6b; margin-top:4px;">⬆️ Precisa subir a anterior primeiro</div>`;
+        }
+        
         html += `
-            <div class="esfera-card ${classeEsfera}" data-escola="${escolaId}" data-magia-id="${id}">
+            <div class="esfera-card ${classeEsfera}" data-escola="${escolaId}" data-magia-id="${id}" data-nivel-maximo="${nivelMaximoPermitido}">
                 <div class="numero-esfera">${numero}</div>
                 <div class="icone-esfera"><i class="fas ${magiaDados.icone}"></i></div>
                 ${iconeCadeado}
@@ -10934,6 +10979,7 @@ function renderizarEsferas(escolaId = escolaAtual) {
                 <div class="tipo-esfera">${magiaDados.tipo}</div>
                 ${magia.desbloqueada ? `<div class="nivel-esfera">Nível ${magia.nivel} <button class="btn-detalhe" data-escola="${escolaId}" data-magia-id="${id}"><i class="fas fa-search"></i></button> | ${nhMagia}%</div>` : ''}
                 ${botaoAcao}
+                ${msgBloqueio}
             </div>
         `;
     });
@@ -10947,18 +10993,44 @@ function renderizarEsferas(escolaId = escolaAtual) {
     gridElement.addEventListener('click', handleEsferaClick);
     gridElement._hasListeners = true;
 }
-
 // ============================================
 // FUNÇÃO AUXILIAR PARA CALCULAR CUSTO DO PRÓXIMO NÍVEL
 // ============================================
 function getCustoProximoNivelMagia(nivelAtual) {
-    if (nivelAtual === 0) return 1;
+    // CUSTOS PARA NÍVEL MÁXIMO 6: 1,1,1,1,2,4
+    if (nivelAtual === 0) return 1;  // desbloquear
     if (nivelAtual === 1) return 1;
-    if (nivelAtual >= 2 && nivelAtual <= 5) return 2;
-    if (nivelAtual === 6) return 4;
+    if (nivelAtual === 2) return 1;
+    if (nivelAtual === 3) return 1;
+    if (nivelAtual === 4) return 2;
+    if (nivelAtual === 5) return 4;
     return 0;
 }
 
+// ============================================
+// FUNÇÃO PARA VERIFICAR SE PODE DESBLOQUEAR A MAGIA
+// ============================================
+function podeDesbloquearMagia(escolaId, magiaId) {
+    const escola = escolas[escolaId];
+    if (!escola) return false;
+    
+    const magiasLista = Object.entries(escola.magias).sort((a, b) => a[1].ordem - b[1].ordem);
+    const index = magiasLista.findIndex(([id]) => id === magiaId);
+    
+    // Primeira magia: pode desbloquear sempre
+    if (index === 0) return true;
+    
+    // Pega a magia anterior
+    const magiaAnteriorId = magiasLista[index - 1][0];
+    const magiaAnterior = escola.magias[magiaAnteriorId];
+    
+    // REGRA: Para desbloquear, a anterior precisa estar no nível 2 ou mais
+    return magiaAnterior.nivel >= 2;
+}
+
+// ============================================
+// HANDLE CLICK NAS ESFERAS
+// ============================================
 function handleEsferaClick(e) {
     const target = e.target;
     
@@ -10966,6 +11038,13 @@ function handleEsferaClick(e) {
         e.stopPropagation();
         const escolaId = target.dataset.escola;
         const magiaId = target.dataset.magiaId;
+        
+        // VERIFICA HIERARQUIA ANTES DE DESBLOQUEAR
+        if (!podeDesbloquearMagia(escolaId, magiaId)) {
+            alert('❌ Para desbloquear esta magia, a magia anterior precisa estar no nível 2 ou superior!');
+            return;
+        }
+        
         const custo = 1;
         
         if (custo > (ppDisponivel - ppGastoTotal)) {
@@ -11010,7 +11089,7 @@ function handleEsferaClick(e) {
 }
 
 // ============================================
-// MAGIAS - DETALHE DA MAGIA (NÍVEL MÁXIMO 7)
+// MAGIAS - DETALHE DA MAGIA (NÍVEL MÁXIMO 6)
 // ============================================
 function abrirDetalheMagia(escolaId, magiaId) {
     const escola = escolas[escolaId];
@@ -11036,7 +11115,8 @@ function abrirDetalheMagia(escolaId, magiaId) {
     const efeitosObj = magiaDados.efeitos;
     let temArray = Array.isArray(efeitosObj);
     
-    for (let i = 1; i <= 7; i++) {
+    // MUDANÇA 1: Loop até 6 (nível máximo)
+    for (let i = 1; i <= 6; i++) {
         const classe = i === magia.nivel ? 'nivel-atual' : '';
         
         let efeito = '-';
@@ -11077,12 +11157,42 @@ function abrirDetalheMagia(escolaId, magiaId) {
         elements.corpoTabelaDetalhe.innerHTML = linhas;
     }
     
+    // MUDANÇA 2: Verificar hierarquia para subir de nível
+    function podeSubirMagia(escolaId, magiaId, nivelDesejado) {
+        const escola = escolas[escolaId];
+        const magiasLista = Object.entries(escola.magias).sort((a, b) => a[1].ordem - b[1].ordem);
+        const index = magiasLista.findIndex(([id]) => id === magiaId);
+        
+        // Primeira magia pode subir livre
+        if (index === 0) return nivelDesejado <= 6;
+        
+        const magiaAnteriorId = magiasLista[index - 1][0];
+        const nivelAnterior = escola.magias[magiaAnteriorId].nivel;
+        
+        // Exceção: se anterior é nível 6, libera
+        if (nivelAnterior >= 6) return nivelDesejado <= 6;
+        
+        // Regra: anterior precisa ser nível (desejado - 1)
+        return nivelAnterior >= (nivelDesejado - 1);
+    }
+    
     const custoProximoNivel = getCustoProximoNivelMagia(magia.nivel);
-    const nivelMaximo = 7;
+    const nivelMaximo = 6; // MUDANÇA 3: máximo 6
+    const podeSubir = podeSubirMagia(escolaId, magiaId, magia.nivel + 1);
     
     if (elements.comprarNivelMagia) {
-        elements.comprarNivelMagia.disabled = magia.nivel >= nivelMaximo || (custoProximoNivel > (ppDisponivel - ppGastoTotal));
-        elements.comprarNivelMagia.textContent = magia.nivel >= nivelMaximo ? 'Nível Máximo' : `Comprar Nível ${magia.nivel + 1} (${custoProximoNivel} PP)`;
+        const ppSuficiente = custoProximoNivel <= (ppDisponivel - ppGastoTotal);
+        const podeComprar = magia.nivel < nivelMaximo && ppSuficiente && podeSubir;
+        
+        elements.comprarNivelMagia.disabled = !podeComprar;
+        
+        if (magia.nivel >= nivelMaximo) {
+            elements.comprarNivelMagia.textContent = 'Nível Máximo (6)';
+        } else if (!podeSubir) {
+            elements.comprarNivelMagia.textContent = `Bloqueado: Anterior precisa ser nível ${magia.nivel}`;
+        } else {
+            elements.comprarNivelMagia.textContent = `Comprar Nível ${magia.nivel + 1} (${custoProximoNivel} PP)`;
+        }
     }
     
     if (elements.detalheMagiaModal) elements.detalheMagiaModal.classList.add('active');
