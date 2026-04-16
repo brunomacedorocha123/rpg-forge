@@ -10925,8 +10925,8 @@ function renderizarEsferas(escolaId = escolaAtual) {
                 const magiaAnterior = escola.magias[magiaAnteriorId];
                 const nivelAnterior = magiaAnterior.nivel;
                 
-                // REGRA: Para desbloquear, a anterior precisa estar no nível 2 ou mais
-                if (nivelAnterior >= 2) {
+                // REGRA: Para desbloquear, a anterior precisa estar no nível 1 ou mais
+                if (nivelAnterior >= 1) {
                     podeDesbloquear = true;
                 }
             }
@@ -10950,23 +10950,23 @@ function renderizarEsferas(escolaId = escolaAtual) {
         }
         
         // Calcula nível máximo possível para esta magia (se desbloqueada)
-        let nivelMaximoPermitido = 6;
+        let nivelMaximoPermitido = 4;
         if (magia.desbloqueada && index > 0) {
             const magiaAnteriorId = magiasLista[index - 1][0];
             const nivelAnterior = escola.magias[magiaAnteriorId].nivel;
             
-            // Se anterior é nível 6, libera até 6
-            if (nivelAnterior >= 6) {
-                nivelMaximoPermitido = 6;
+            // Se anterior é nível 4, libera até 4
+            if (nivelAnterior >= 4) {
+                nivelMaximoPermitido = 4;
             } else {
                 // Senão, máximo é nível anterior + 1
-                nivelMaximoPermitido = Math.min(6, nivelAnterior + 1);
+                nivelMaximoPermitido = Math.min(4, nivelAnterior + 1);
             }
         }
         
         // Mensagem de bloqueio se tentar subir acima do permitido
         let msgBloqueio = '';
-        if (magia.desbloqueada && magia.nivel >= nivelMaximoPermitido && magia.nivel < 6) {
+        if (magia.desbloqueada && magia.nivel >= nivelMaximoPermitido && magia.nivel < 4) {
             msgBloqueio = `<div class="msg-bloqueio" style="font-size:0.65rem; color:#ff6b6b; margin-top:4px;">⬆️ Precisa subir a anterior primeiro</div>`;
         }
         
@@ -10997,16 +10997,13 @@ function renderizarEsferas(escolaId = escolaAtual) {
 // FUNÇÃO AUXILIAR PARA CALCULAR CUSTO DO PRÓXIMO NÍVEL
 // ============================================
 function getCustoProximoNivelMagia(nivelAtual) {
-    // CUSTOS PARA NÍVEL MÁXIMO 6: 1,1,1,1,2,4
+    // CUSTOS PARA NÍVEL MÁXIMO 4: 1,1,2,4 (total 8 PP)
     if (nivelAtual === 0) return 1;  // desbloquear
-    if (nivelAtual === 1) return 1;
-    if (nivelAtual === 2) return 1;
-    if (nivelAtual === 3) return 1;
-    if (nivelAtual === 4) return 2;
-    if (nivelAtual === 5) return 4;
+    if (nivelAtual === 1) return 1;  // nível 1 → 2
+    if (nivelAtual === 2) return 2;  // nível 2 → 3
+    if (nivelAtual === 3) return 4;  // nível 3 → 4
     return 0;
 }
-
 // ============================================
 // FUNÇÃO PARA VERIFICAR SE PODE DESBLOQUEAR A MAGIA
 // ============================================
@@ -11089,7 +11086,7 @@ function handleEsferaClick(e) {
 }
 
 // ============================================
-// MAGIAS - DETALHE DA MAGIA (NÍVEL MÁXIMO 6)
+// MAGIAS - DETALHE DA MAGIA (NÍVEL MÁXIMO 4)
 // ============================================
 function abrirDetalheMagia(escolaId, magiaId) {
     const escola = escolas[escolaId];
@@ -11115,8 +11112,8 @@ function abrirDetalheMagia(escolaId, magiaId) {
     const efeitosObj = magiaDados.efeitos;
     let temArray = Array.isArray(efeitosObj);
     
-    // Loop até 6 (nível máximo)
-    for (let i = 1; i <= 6; i++) {
+    // Loop até 4 (nível máximo)
+    for (let i = 1; i <= 4; i++) {
         const classe = i === magia.nivel ? 'nivel-atual' : '';
         
         let efeito = '-';
@@ -11163,25 +11160,21 @@ function abrirDetalheMagia(escolaId, magiaId) {
         const magiasLista = Object.entries(escola.magias).sort((a, b) => a[1].ordem - b[1].ordem);
         const index = magiasLista.findIndex(([id]) => id === magiaId);
         
-        // Primeira magia pode subir livre até 6
-        if (index === 0) return nivelDesejado <= 6;
+        // Primeira magia pode subir livre até 4
+        if (index === 0) return nivelDesejado <= 4;
         
         const magiaAnteriorId = magiasLista[index - 1][0];
         const nivelAnterior = escola.magias[magiaAnteriorId].nivel;
         
-        // Exceção: se anterior é nível 6, libera sucessora até 6
-        if (nivelAnterior >= 6) return nivelDesejado <= 6;
+        // Exceção: se anterior é nível 4, libera sucessora até 4
+        if (nivelAnterior >= 4) return nivelDesejado <= 4;
         
-        // REGRA CORRETA: sucessora nível N → antecessora precisa ser nível N+1
-        // Exemplo: sucessora nível 2 → antecessora nível 3
-        //           sucessora nível 3 → antecessora nível 4
-        //           sucessora nível 4 → antecessora nível 5
-        //           sucessora nível 5 → antecessora nível 6
+        // REGRA: sucessora nível N → antecessora precisa ser nível N+1
         return nivelAnterior >= (nivelDesejado + 1);
     }
     
     const custoProximoNivel = getCustoProximoNivelMagia(magia.nivel);
-    const nivelMaximo = 6;
+    const nivelMaximo = 4;
     const podeSubir = podeSubirMagia(escolaId, magiaId, magia.nivel + 1);
     
     if (elements.comprarNivelMagia) {
@@ -11191,7 +11184,7 @@ function abrirDetalheMagia(escolaId, magiaId) {
         elements.comprarNivelMagia.disabled = !podeComprar;
         
         if (magia.nivel >= nivelMaximo) {
-            elements.comprarNivelMagia.textContent = 'Nível Máximo (6)';
+            elements.comprarNivelMagia.textContent = 'Nível Máximo (4)';
         } else if (!podeSubir) {
             elements.comprarNivelMagia.textContent = `Bloqueado: Anterior precisa ser nível ${magia.nivel + 1}`;
         } else {
@@ -12994,16 +12987,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const escola = escolas[escolaMagiaSelecionada];
             const magia = escola?.magias[magiaSelecionada];
-            const nivelMaximo = 7;
+            const nivelMaximo = 4;
             
             if (!magia || magia.nivel >= nivelMaximo) return;
             
-            let custo;
-            if (magia.nivel === 0) custo = 1;
-            else if (magia.nivel === 1) custo = 1;
-            else if (magia.nivel >= 2 && magia.nivel <= 5) custo = 2;
-            else if (magia.nivel === 6) custo = 4;
-            else custo = 0;
+           let custo;
+if (magia.nivel === 0) custo = 1;
+else if (magia.nivel === 1) custo = 1;
+else if (magia.nivel >= 2 && magia.nivel <= 3) custo = 2;  // SÓ MUDOU O 5 PARA 3
+else if (magia.nivel === 4) custo = 4;                    // SÓ MUDOU O 6 PARA 4
+else custo = 0;
             
             if (custo > (ppDisponivel - ppGastoTotal)) {
                 alert('PP insuficiente!');
