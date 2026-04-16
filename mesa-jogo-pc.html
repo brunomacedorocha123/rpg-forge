@@ -2986,28 +2986,141 @@ function calcularRD() {
     }
     return rd;
 }
-
 // ============================================
 // NH DE PERÍCIAS
 // ============================================
 function calcularNHPericia(periciaId, dados) {
     const periciasMap = {
-        'adestramento': 'iq', 'alquimia': 'iq', 'artista': 'iq', 'comercio': 'iq',
-        'culinaria': 'iq', 'detectarMentira': 'iq', 'intimidacao': 'iq', 'labia': 'iq',
-        'medicina': 'iq', 'persuasao': 'iq', 'primeirosSocorros': 'iq', 'sobrevivencia': 'iq',
-        'acrobacia': 'dx', 'arco': 'dx', 'armasHaste': 'dx', 'arremesso': 'dx',
-        'bastao': 'dx', 'besta': 'dx', 'boxe': 'dx', 'briga': 'dx',
-        'capa': 'dx', 'cavalgar': 'dx', 'chicote': 'dx', 'esgrima': 'dx',
-        'espada': 'dx', 'escudo': 'dx', 'fuga': 'dx', 'furtividade': 'dx',
-        'kuzari': 'dx', 'machado': 'dx', 'mangual': 'dx'
+        // PERÍCIAS MENTAIS (IQ)
+        'adestramento': 'iq',
+        'alquimia': 'iq',
+        'arqueologia': 'iq',
+        'artista': 'iq',
+        'arrombamento': 'iq',
+        'bestiario': 'iq',
+        'comercio': 'iq',
+        'culinaria': 'iq',
+        'detectarMentira': 'iq',
+        'historia': 'iq',
+        'navegacao': 'iq',
+        'estrategia': 'iq',
+        'esconder_se': 'iq',
+        'runas': 'iq',
+        'armaria': 'iq',
+        'carpintaria': 'iq',
+        'alfaiataria': 'iq',
+        'interrogatorio': 'iq',
+        'intimidacao': 'iq',
+        'instrumento_musical': 'iq',
+        'lideranca': 'iq',
+        'jogo': 'iq',
+        'jurisprudencia': 'iq',
+        'matematica': 'iq',
+        'medicina': 'iq',
+        'mimetismo': 'iq',
+        'ocultismo': 'iq',
+        'oratoria': 'iq',
+        'persuasao': 'iq',
+        'primeirosSocorros': 'iq',
+        'rastreamento': 'iq',
+        'sobrevivencia': 'iq',
+        'sociabilidade': 'iq',
+        'teologia': 'iq',
+        'toxicologia': 'iq',
+        
+        // PERÍCIAS FÍSICAS (DX)
+        'acrobacia': 'dx',
+        'arco': 'dx',
+        'armasHaste': 'dx',
+        'armasImpacto': 'dx',
+        'arremesso': 'dx',
+        'bastao': 'dx',
+        'besta': 'dx',
+        'equilibrio': 'dx',
+        'funda': 'dx',
+        'luta': 'dx',
+        'cavalgar': 'dx',
+        'chicote': 'dx',
+        'corrida': 'dx',
+        'esgrima': 'dx',
+        'escalada': 'dx',
+        'espada': 'dx',
+        'escudo': 'dx',
+        'fuga': 'dx',
+        'furtar': 'dx',
+        'furtividade': 'dx',
+        'kuzari': 'dx',
+        'mangual': 'dx',
+        'natacao': 'dx',
+        'rede': 'dx',
+        'zarabatana': 'dx'
     };
     
     let atributoBase = periciasMap[periciaId] === 'dx' ? getDXPercentual() : getIQPercentual();
     const bonus = (dados?.nivel || 0) * 3;
+    let bonusExtra = 0;
     
-    return atributoBase + bonus;
+    // ===== CARISMA =====
+    if (personagemAtual?.vantagens?.includes('carisma')) {
+        if (periciaId === 'persuasao') bonusExtra += 3;
+        if (periciaId === 'sociabilidade') bonusExtra += 3;
+        if (periciaId === 'comercio') bonusExtra += 5;
+        if (periciaId === 'oratoria') bonusExtra += 2;
+    }
+    
+    // ===== ORIENTAÇÃO DO EXPLORADOR =====
+    if (personagemAtual?.vantagens?.includes('orientacaoExplorador')) {
+        if (periciaId === 'sobrevivencia') bonusExtra += 5;
+        if (periciaId === 'rastreamento') bonusExtra += 3;
+    }
+    
+    // ===== MÃOS RÁPIDAS =====
+    if (personagemAtual?.vantagens?.includes('maosRapidas')) {
+        if (periciaId === 'furtar') bonusExtra += 5;
+        if (periciaId === 'arrombamento') bonusExtra += 5;
+    }
+    
+    // ===== ANATOMISTA =====
+    if (personagemAtual?.vantagens?.includes('anatomista')) {
+        if (periciaId === 'medicina' || periciaId === 'primeirosSocorros') {
+            bonusExtra += 5;
+        }
+    }
+    
+    // ===== FLEXIBILIDADE =====
+    if (personagemAtual?.vantagens?.includes('flexibilidade')) {
+        if (periciaId === 'acrobacia') bonusExtra += 2;
+        if (periciaId === 'equilibrio') bonusExtra += 4;
+        if (periciaId === 'escalada') bonusExtra += 2;
+        if (periciaId === 'fuga') bonusExtra += 5;
+        if (periciaId === 'furtividade') bonusExtra += 2;
+        if (periciaId === 'luta') bonusExtra += 2;
+    }
+    
+    // ===== PENALIDADE CAOLHO =====
+    if (personagemAtual?.desvantagens?.includes('caolho')) {
+        if (periciaId === 'rastreamento' || periciaId === 'sobrevivencia' || periciaId === 'detectarMentira') {
+            bonusExtra -= 5;
+        }
+        if (periciaId === 'arco' || periciaId === 'besta' || periciaId === 'arremesso') {
+            bonusExtra -= 5;
+        }
+    }
+    
+    // ===== PENALIDADE MAUS MODOS =====
+    if (personagemAtual?.desvantagens?.includes('mausModos')) {
+        if (periciaId === 'sociabilidade') bonusExtra -= 5;
+    }
+    
+    // ===== BÔNUS DA RAÇA =====
+    if (racaAtual && racaAtual.bonusEspecificos) {
+        const bonusRaca = racaAtual.bonusEspecificos.periciasBonus?.[periciaId] || 0;
+        const penalidadeRaca = racaAtual.bonusEspecificos.periciasPenalidade?.[periciaId] || 0;
+        bonusExtra += bonusRaca + penalidadeRaca;
+    }
+    
+    return atributoBase + bonus + bonusExtra;
 }
-
 // ============================================
 // FUNÇÕES DO MAPA (ATUALIZADO COM ITENS, DIREÇÃO E AVATAR)
 // ============================================
