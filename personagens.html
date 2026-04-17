@@ -1538,6 +1538,20 @@ body {
         return nomes[classe] || classe;
     }
 
+    // ===== FUNÇÃO PARA EXTRAIR VALOR DO ATRIBUTO CORRETAMENTE =====
+    function getAtributoValor(atributoData) {
+        // Formato NOVO: { valor: X } (usado no criar-personagem.html)
+        if (atributoData && typeof atributoData.valor === 'number') {
+            return atributoData.valor;
+        }
+        // Formato ANTIGO: { esferas: X } (compatibilidade)
+        if (atributoData && typeof atributoData.esferas === 'number') {
+            return 5 + atributoData.esferas;
+        }
+        // Padrão
+        return 5;
+    }
+
     function filtrarPersonagens() {
         return personagens.filter(p => {
             if (filtroAtual !== 'todos') {
@@ -1571,6 +1585,7 @@ body {
         }
     }
 
+    // ===== FUNÇÃO RENDERIZAR PERSONAGENS CORRIGIDA =====
     function renderizarPersonagens() {
         const filtrados = filtrarPersonagens();
         
@@ -1605,9 +1620,10 @@ body {
                 statusText = 'Finalizado';
             }
             
-           const st = 5 + (p.atributos?.st?.esferas || 0);
-const dx = 5 + (p.atributos?.dx?.esferas || 0);
-const iq = 5 + (p.atributos?.iq?.esferas || 0);
+            // ===== CORREÇÃO: LER ATRIBUTOS NO FORMATO CORRETO =====
+            const st = getAtributoValor(p.atributos?.st);
+            const dx = getAtributoValor(p.atributos?.dx);
+            const iq = getAtributoValor(p.atributos?.iq);
             
             const dataAtualizacao = p.updatedAt ? formatarData(p.updatedAt) : 'Data desconhecida';
             
@@ -1624,7 +1640,7 @@ const iq = 5 + (p.atributos?.iq?.esferas || 0);
                             }
                         </div>
                         <div class="character-info">
-                            <div class="character-name">${p.nome}</div>
+                            <div class="character-name">${escapeHtml(p.nome)}</div>
                             <div class="character-class">
                                 <i class="fas ${classeIcon}"></i>
                                 ${classeNome}
@@ -1710,6 +1726,14 @@ const iq = 5 + (p.atributos?.iq?.esferas || 0);
         });
     }
 
+    // Função auxiliar para escapar HTML
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     // ===== FUNÇÃO CORRIGIDA QUE BUSCA OS VÍNCULOS REAIS =====
     async function carregarPersonagens() {
         if (!currentUser) return;
@@ -1780,7 +1804,7 @@ const iq = 5 + (p.atributos?.iq?.esferas || 0);
                 <div class="empty-state">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Erro ao carregar personagens</h3>
-                    <p>${error.message}</p>
+                    <p>${escapeHtml(error.message)}</p>
                 </div>
             `;
         } finally {
@@ -1795,7 +1819,7 @@ const iq = 5 + (p.atributos?.iq?.esferas || 0);
             
             console.log(`🗑️ Excluindo personagem: ${id}`);
             
-            // 🔥 NOVO: Buscar e excluir TODOS os vínculos deste personagem
+            // Buscar e excluir TODOS os vínculos deste personagem
             const vinculosQuery = query(
                 collection(db, "campanha_personagens"),
                 where("personagem_id", "==", id)
