@@ -868,7 +868,7 @@
   </div>
 
 
- <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import {
   getAuth,
@@ -936,6 +936,27 @@ function showToast(message, isError = false) {
     : 'linear-gradient(135deg, #ffd700, #ff6b6b)';
   toast.classList.add('show');
   setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
+
+// ===== FUNÇÃO AUXILIAR PARA LER ATRIBUTO CORRETAMENTE =====
+function getAtributoValor(atributoData) {
+  // Formato NOVO: { valor: X } (usado no criar-personagem.html)
+  if (atributoData && typeof atributoData.valor === 'number') {
+    return atributoData.valor;
+  }
+  // Formato ANTIGO: { esferas: X } (compatibilidade)
+  if (atributoData && typeof atributoData.esferas === 'number') {
+    return 5 + atributoData.esferas;
+  }
+  // Padrão
+  return 5;
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function getCampanhaIdFromUrl() {
@@ -1048,7 +1069,7 @@ async function carregarVinculoAtual() {
 window.vincularPersonagem = async function(personagemId, personagemNome) {
   if (!currentUser || !campanhaAtual) return;
   
-  // 🔥 CORREÇÃO: Se já tem personagem vinculado, não deixa vincular outro
+  // Se já tem personagem vinculado, não deixa vincular outro
   if (vinculoAtual && vinculoAtual.personagem_id) {
     showToast(`Você já tem "${vinculoAtual.personagem_nome}" vinculado! Desvincule primeiro.`, true);
     return;
@@ -1068,7 +1089,7 @@ window.vincularPersonagem = async function(personagemId, personagemNome) {
       });
       showToast(`✅ "${personagemNome}" vinculado com sucesso!`);
     } else {
-      // Cria novo vínculo (caso raro - não deveria acontecer se veio pelo convite)
+      // Cria novo vínculo
       await addDoc(collection(db, "campanha_personagens"), {
         campanha_id: campanhaAtual.id,
         campanha_nome: campanhaAtual.nome,
@@ -1104,7 +1125,7 @@ window.desvincularPersonagem = async function() {
   showLoading();
   try {
     const vinculoRef = doc(db, "campanha_personagens", vinculoAtual.id);
-    // 🔥 CORREÇÃO: Atualiza para null, não deleta o vínculo
+    // Atualiza para null, não deleta o vínculo
     await updateDoc(vinculoRef, {
       personagem_id: null,
       personagem_nome: null
@@ -1147,6 +1168,18 @@ async function carregarPersonagens() {
     for (const p of personagens) {
       const estePersonagemEstaVinculado = vinculoAtual && vinculoAtual.personagem_id === p.id;
       
+      // ===== LER ATRIBUTOS CORRETAMENTE USANDO A FUNÇÃO AUXILIAR =====
+      const st = getAtributoValor(p.atributos?.st);
+      const dx = getAtributoValor(p.atributos?.dx);
+      const iq = getAtributoValor(p.atributos?.iq);
+      const vigor = getAtributoValor(p.atributos?.vigor);
+      
+      // Calcula PV e PM baseado nos atributos (se não tiver statusCombate)
+      let vidaAtual = p.statusCombate?.vidaAtual || 0;
+      let vidaMax = p.statusCombate?.vidaMax || (vigor * 7);
+      let manaAtual = p.statusCombate?.manaAtual || 0;
+      let manaMax = p.statusCombate?.manaMax || (vigor + iq + st);
+      
       html += `<div class="personagem-card" data-id="${p.id}">`;
       if (estePersonagemEstaVinculado) {
         html += `<div class="selo-vinculado"><i class="fas fa-check-circle"></i> Vinculado</div>`;
@@ -1156,22 +1189,21 @@ async function carregarPersonagens() {
         <div class="personagem-header">
           <div class="personagem-avatar"><i class="fas fa-dragon"></i></div>
           <div class="personagem-info">
-            <h3>${p.nome || 'Sem nome'}</h3>
-            <span class="personagem-classe">${p.classe || 'Sem classe'}</span>
+            <h3>${escapeHtml(p.nome || 'Sem nome')}</h3>
+            <span class="personagem-classe">${escapeHtml(p.classe || 'Sem classe')}</span>
           </div>
         </div>
         <div class="personagem-atributos">
-          <span><i class="fas fa-fist-raised"></i> ${p.atributos?.st?.esferas || 0}</span>
-          <span><i class="fas fa-running"></i> ${p.atributos?.dx?.esferas || 0}</span>
-          <span><i class="fas fa-brain"></i> ${p.atributos?.iq?.esferas || 0}</span>
-          <span><i class="fas fa-heart"></i> ${p.atributos?.vigor?.esferas || 0}</span>
+          <span><i class="fas fa-fist-raised"></i> ST ${st}</span>
+          <span><i class="fas fa-running"></i> DX ${dx}</span>
+          <span><i class="fas fa-brain"></i> IQ ${iq}</span>
+          <span><i class="fas fa-heart"></i> VIG ${vigor}</span>
         </div>
         <div class="personagem-stats">
-          <span><i class="fas fa-heartbeat"></i> ${p.statusCombate?.vidaAtual || 0}/${p.statusCombate?.vidaMax || 0}</span>
-          <span><i class="fas fa-magic"></i> ${p.statusCombate?.manaAtual || 0}/${p.statusCombate?.manaMax || 0}</span>
+          <span><i class="fas fa-heartbeat"></i> ${vidaAtual}/${vidaMax}</span>
+          <span><i class="fas fa-magic"></i> ${manaAtual}/${manaMax}</span>
         </div>`;
       
-      // 🔥🔥🔥 CORREÇÃO PRINCIPAL AQUI 🔥🔥🔥
       if (estePersonagemEstaVinculado) {
         // Personagem já está vinculado - mostra botões de acessar e desvincular
         html += `
@@ -1186,15 +1218,15 @@ async function carregarPersonagens() {
             </button>
           </div>`;
       } else if (vinculoAtual && vinculoAtual.personagem_id) {
-        // 🔥 Tem outro personagem vinculado - mostra em vermelho
+        // Tem outro personagem vinculado - mostra em vermelho
         html += `
           <div class="btn-ja-vinculado" style="background: rgba(255,0,0,0.2); border: 1px solid #ff0000; color: #ff0000; text-align: center; padding: 10px; border-radius: 10px; margin-top: 10px;">
-            <i class="fas fa-info-circle"></i> "${vinculoAtual.personagem_nome}" já está vinculado
+            <i class="fas fa-info-circle"></i> "${escapeHtml(vinculoAtual.personagem_nome)}" já está vinculado
           </div>`;
       } else {
-        // 🔥 Nenhum personagem vinculado (personagem_id é null) - mostra botão VERDE
+        // Nenhum personagem vinculado - mostra botão VERDE
         html += `
-          <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${p.nome}')" style="margin-top: 10px; background: linear-gradient(45deg, #00ff00, #00cc00);">
+          <button class="btn-vincular" onclick="vincularPersonagem('${p.id}', '${escapeHtml(p.nome)}')" style="margin-top: 10px; background: linear-gradient(45deg, #00ff00, #00cc00);">
             <i class="fas fa-link"></i> Vincular à Campanha
           </button>`;
       }
@@ -1204,6 +1236,7 @@ async function carregarPersonagens() {
     
     personagensContainer.innerHTML = html;
   } catch (error) {
+    console.error('Erro ao carregar personagens:', error);
     personagensContainer.innerHTML = `
       <div style="text-align: center; color: #ff6b6b; grid-column: 1/-1; padding: 40px;">
         <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
@@ -1212,9 +1245,8 @@ async function carregarPersonagens() {
   }
 }
 
-// ===== ENTRAR NA SESSÃO (SEM BLOQUEIO DE PERSONAGEM) =====
+// ===== ENTRAR NA SESSÃO =====
 window.entrarSessao = function(sessaoId) {
-  // 🔥 CORREÇÃO: Só verifica se tem vínculo de jogador, não de personagem
   if (!vinculoAtual) {
     showToast('Você não está vinculado a esta campanha!', true);
     return;
@@ -1263,8 +1295,8 @@ async function carregarSessoes() {
             <div class="mes">${mes}/${ano}</div>
           </div>
           <div class="sessao-info">
-            <h4>${sessao.titulo || 'Sessão sem título'}</h4>
-            <p>${sessao.descricao || 'Sem descrição'}</p>
+            <h4>${escapeHtml(sessao.titulo || 'Sessão sem título')}</h4>
+            <p>${escapeHtml(sessao.descricao || 'Sem descrição')}</p>
             <div style="margin-top: 8px;">
               <span class="sessao-status ${statusClass}" style="display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">
                 ${statusText}
@@ -1272,7 +1304,6 @@ async function carregarSessoes() {
             </div>
           </div>`;
       
-      // 🔥 CORREÇÃO: Botão de entrar só verifica vinculoAtual (jogador), não personagem
       if (!sessao.realizada) {
         if (vinculoAtual) {
           html += `
@@ -1303,6 +1334,7 @@ async function carregarSessoes() {
     
     sessoesContainer.innerHTML = html;
   } catch (error) {
+    console.error('Erro ao carregar sessões:', error);
     sessoesContainer.innerHTML = `
       <div style="text-align: center; color: #ff6b6b; padding: 40px;">
         <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 10px;"></i>
