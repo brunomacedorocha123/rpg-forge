@@ -7848,6 +7848,68 @@ function atualizarModalPericia() {
     if (elements.modalPericiaConfirmar) elements.modalPericiaConfirmar.disabled = custoDiferenca > ppDisponivel;
 }
 
+// ============================================
+// COMPRAR PERÍCIA
+// ============================================
+window.comprarPericia = async function(periciaId) {
+    if (!personagemAtual || !currentUser) {
+        showToast('Personagem não carregado!', true);
+        return;
+    }
+    
+    const pericia = catalogoPericias.find(p => p.id === periciaId);
+    if (!pericia) {
+        showToast('Perícia não encontrada!', true);
+        return;
+    }
+    
+    const periciaExistente = personagemAtual.pericias?.[periciaId] || { nivel: 0 };
+    const nivelAtual = periciaExistente.nivel || 0;
+    const novoNivel = nivelAtual + 1;
+    
+    if (novoNivel > 5) {
+        showToast('Nível máximo já atingido!', true);
+        return;
+    }
+    
+    const custoTotal = tabelaCustosPericias[novoNivel];
+    const custoAtual = nivelAtual > 0 ? tabelaCustosPericias[nivelAtual] : 0;
+    const custoDiferenca = custoTotal - custoAtual;
+    
+    const ppDisponivel = (personagemAtual.ppDisponivel || 0) - (personagemAtual.ppGasto || 0);
+    
+    if (custoDiferenca > ppDisponivel) {
+        showToast(`PP insuficiente! Você tem ${ppDisponivel} PP`, true);
+        return;
+    }
+    
+    try {
+        const personagemRef = doc(db, "personagens", personagemAtual.id);
+        const novoPpGasto = (personagemAtual.ppGasto || 0) + custoDiferenca;
+        
+        await updateDoc(personagemRef, {
+            [`pericias.${periciaId}.nivel`]: novoNivel,
+            ppGasto: novoPpGasto
+        });
+        
+        if (!personagemAtual.pericias) personagemAtual.pericias = {};
+        personagemAtual.pericias[periciaId] = { nivel: novoNivel };
+        personagemAtual.ppGasto = novoPpGasto;
+        
+        renderizarFicha();
+        renderizarCatalogoPericias('todas');
+        
+        const mensagem = nivelAtual === 0 
+            ? `✨ ${pericia.nome} desbloqueada no Nível 1!` 
+            : `⬆️ ${pericia.nome} evoluída para Nível ${novoNivel}!`;
+        showToast(mensagem);
+        
+    } catch (error) {
+        console.error('Erro ao comprar perícia:', error);
+        showToast('Erro ao comprar perícia', true);
+    }
+};
+
 async function moverItem(itemId, origem, destino) {
     if (!personagemAtual?.inventario) return;
     const origemArray = personagemAtual.inventario[origem];
