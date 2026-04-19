@@ -3435,11 +3435,37 @@ body {
                 <span class="label">⚔️ Dano Base:</span>
                 <span class="value" id="statusDano">1d-2</span>
             </div>
-            <div class="status-item">
-                <span class="label">📊 Nível:</span>
-                <span class="value" id="nivelPersonagem">1</span>
-            </div>
         </div>
+
+        <!-- NOVO: TESTES E RESISTÊNCIAS -->
+<div class="card-section">
+    <h2><i class="fas fa-balance-scale"></i> Testes e Resistências</h2>
+    <div class="status-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+        <div class="status-item">
+            <span class="label">👁️ Percepção</span>
+            <span class="value" id="testePercepcao">50%</span>
+            <small style="display: block; font-size: 0.7rem;">Base: IQ%</small>
+        </div>
+        <div class="status-item">
+            <span class="label">🧠 Vontade</span>
+            <span class="value" id="testeVontade">50%</span>
+            <small style="display: block; font-size: 0.7rem;">Base: IQ%</small>
+        </div>
+        <div class="status-item">
+            <span class="label">🛡️ Resistência Física</span>
+            <span class="value" id="testeResistenciaFisica">50%</span>
+            <small style="display: block; font-size: 0.7rem;">Base: VIGOR%</small>
+        </div>
+        <div class="status-item">
+            <span class="label">✨ Resistência a Magia</span>
+            <span class="value" id="testeResistenciaMagia">50%</span>
+            <small style="display: block; font-size: 0.7rem;">Base: VIGOR% + bônus</small>
+        </div>
+    </div>
+    <small style="color: rgba(255,255,255,0.5); display: block; margin-top: 10px; text-align: center;">
+        <i class="fas fa-info-circle"></i> Valores afetados por atributos, vantagens e desvantagens
+    </small>
+</div>
 
         <!-- SEÇÃO DE COMBATE -->
         <div class="card-section">
@@ -8151,7 +8177,13 @@ const elements = {
     modalCodigoHonra: document.getElementById('modalCodigoHonra'),
     fecharModalCodigoHonra: document.getElementById('fecharModalCodigoHonra'),
     cardCodigoHonra: document.getElementById('cardCodigoHonra'),
-    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido')
+    codigoHonraEscolhido: document.getElementById('codigoHonraEscolhido'),
+    
+    // TESTES E RESISTÊNCIAS
+    testePercepcao: document.getElementById('testePercepcao'),
+    testeVontade: document.getElementById('testeVontade'),
+    testeResistenciaFisica: document.getElementById('testeResistenciaFisica'),
+    testeResistenciaMagia: document.getElementById('testeResistenciaMagia')
 };
 
 // ============================================
@@ -8226,6 +8258,64 @@ function getVTPercentual() {
     } else {
         return 50 + ((valor - 5) * 3);
     }
+}
+
+// ============================================
+// TESTES E RESISTÊNCIAS
+// ============================================
+
+function getTestePercepcao() {
+    let valor = getIQPercentual();
+    
+    // Bônus de Sentidos Aguçados
+    if (vantagensSelecionadas.has('sentidosAgucados')) {
+        valor += 10;
+    }
+    
+    // Penalidade de Caolho
+    if (desvantagensSelecionadas.has('caolho')) {
+        valor -= 5;
+    }
+    
+    return Math.min(95, Math.max(0, valor));
+}
+
+function getTesteVontade() {
+    let valor = getIQPercentual();
+    
+    // Bônus de Força de Vontade
+    if (vantagensSelecionadas.has('forcaVontade')) {
+        valor += 5;
+    }
+    
+    // Bônus de Destemor (para medo/intimidação)
+    if (vantagensSelecionadas.has('destemor')) {
+        valor += 10;
+    }
+    
+    return Math.min(95, Math.max(0, valor));
+}
+
+function getTesteResistenciaFisica() {
+    let valor = getVIGORPercentual();
+    
+    // Bônus de Corpo Resistente
+    if (vantagensSelecionadas.has('corpoResistente')) {
+        valor += 10;
+    }
+    
+    return Math.min(95, Math.max(0, valor));
+}
+
+function getTesteResistenciaMagia() {
+    let valor = getVIGORPercentual();
+    
+    // Bônus da vantagem Resistência a Magia
+    if (vantagensSelecionadas.has('resistenciaMagia')) {
+        valor += 5;
+    }
+    
+    return Math.min(95, Math.max(0, valor));
 }
 
 // ============================================
@@ -9728,6 +9818,20 @@ function atualizarInterface() {
     if (elements.combatePF) elements.combatePF.textContent = pf;
     if (elements.combatePM) elements.combatePM.textContent = pm;
     if (elements.vtVida) elements.vtVida.textContent = `PV ${pv}`;
+    
+    // ===== TESTES E RESISTÊNCIAS =====
+    if (document.getElementById('testePercepcao')) {
+        document.getElementById('testePercepcao').textContent = getTestePercepcao() + '%';
+    }
+    if (document.getElementById('testeVontade')) {
+        document.getElementById('testeVontade').textContent = getTesteVontade() + '%';
+    }
+    if (document.getElementById('testeResistenciaFisica')) {
+        document.getElementById('testeResistenciaFisica').textContent = getTesteResistenciaFisica() + '%';
+    }
+    if (document.getElementById('testeResistenciaMagia')) {
+        document.getElementById('testeResistenciaMagia').textContent = getTesteResistenciaMagia() + '%';
+    }
     
     // Defesas
     if (elements.defesaEsquiva) {
