@@ -5914,7 +5914,7 @@ function calcularLimitesCarga() {
     };
 }
 // ============================================
-// DESLOCAMENTO (CORRIGIDO - COM MULTIPLICADOR PARA CENTAURO)
+// DESLOCAMENTO (CORRIGIDO - COM MULTIPLICADOR PARA CENTAURO E PENALIDADE DE CARGA)
 // ============================================
 
 function calcularDeslocamento() {
@@ -5924,6 +5924,24 @@ function calcularDeslocamento() {
     
     let andarBruto = soma * 0.1;
     let correrBruto = soma * 0.3;
+    
+    // ===== PENALIDADE DA CARGA =====
+    const pesoTotal = calcularCarga();
+    const st = getSTFixo();
+    const limiteLeve = st * 2;
+    const limiteMedio = st * 4;
+    
+    let penalidadeDeslocamento = 0;
+    if (pesoTotal > limiteMedio) {
+        penalidadeDeslocamento = 2;  // Carga Pesada ou Limite
+    } else if (pesoTotal > limiteLeve) {
+        penalidadeDeslocamento = 1;  // Carga Média
+    }
+    // Carga Leve: penalidade = 0
+    
+    andarBruto = Math.max(1, andarBruto - penalidadeDeslocamento);
+    correrBruto = Math.max(3, correrBruto - (penalidadeDeslocamento * 2));
+    // ===== FIM DA PENALIDADE DA CARGA =====
     
     // Tenta pegar os modificadores da raça
     let reducaoFixa = 0;
@@ -5981,7 +5999,7 @@ function calcularDeslocamento() {
 }
 
 // ============================================
-// CARGA TOTAL
+// CARGA TOTAL (APENAS CORPO E MOCHILA - DEPÓSITO NÃO PESA)
 // ============================================
 
 function calcularCarga() {
@@ -5992,12 +6010,9 @@ function calcularCarga() {
     if (personagemAtual?.inventario?.mochila) {
         personagemAtual.inventario.mochila.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
     }
-    if (personagemAtual?.inventario?.deposito) {
-        personagemAtual.inventario.deposito.forEach(item => pesoTotal += (item.peso * (item.quantidade || 1)));
-    }
+    // DEPÓSITO NÃO CONTA PARA CARGA - REMOVIDO
     return pesoTotal;
 }
-
 // ============================================
 // FUNÇÕES DE APARÊNCIA E RIQUEZA
 // ============================================
