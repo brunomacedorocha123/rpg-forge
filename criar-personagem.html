@@ -8819,17 +8819,17 @@ function calcularEsquiva() {
     esquiva -= carga.penalidadeEsquiva;
     return Math.min(75, Math.max(0, esquiva));
 }
-
 function calcularAparar() {
-    let melhorBonus = 0;
     let bonusArma = 0;
     let temArma = false;
+    let melhorNH = 0;
     
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
-            if (item.dano) {
+            if (item.dano) { // é uma arma
                 temArma = true;
                 
+                // Bônus de aparar da arma (ex: espada 0, machado -10, etc.)
                 if (item.aparar) {
                     const bonusStr = item.aparar.toString();
                     if (bonusStr === "--") {
@@ -8839,11 +8839,54 @@ function calcularAparar() {
                     }
                 }
                 
+                // Mapeia a perícia correta para esta arma
                 const periciaId = mapearPericiaArma(item.nome);
                 const pericia = pericias[periciaId];
+                
                 if (pericia) {
-                    const bonus = (pericia.nivel || 0) * 3;
-                    if (bonus > melhorBonus) melhorBonus = bonus;
+                    // Calcula o NH da perícia ESPECÍFICA da arma
+                    const periciaData = catalogoPericias.find(p => p.id === periciaId);
+                    
+                    if (periciaData) {
+                        const nivel = pericia.nivel || 0;
+                        const bonusNivel = nivel * 3;
+                        
+                        // Pega os percentuais dos atributos
+                        const getAttrPercent = (attr) => {
+                            switch(attr) {
+                                case 'ST': return getSTPercentual();
+                                case 'DX': return getDXPercentual();
+                                case 'IQ': return getIQPercentual();
+                                case 'VIGOR': return getVIGORPercentual();
+                                case 'VT': return getVTPercentual();
+                                default: return 0;
+                            }
+                        };
+                        
+                        // Calcula média ponderada da perícia
+                        let nhPericia = 0;
+                        if (periciaData.atributo2 && periciaData.peso2 > 0) {
+                            const val1 = getAttrPercent(periciaData.atributo1);
+                            const val2 = getAttrPercent(periciaData.atributo2);
+                            nhPericia = (val1 * periciaData.peso1 + val2 * periciaData.peso2) / 100;
+                        } else {
+                            nhPericia = getAttrPercent(periciaData.atributo1);
+                        }
+                        
+                        // Adiciona bônus do nível
+                        nhPericia += bonusNivel;
+                        
+                        // Adiciona bônus extras (vantagens, etc.)
+                        const bonusExtra = getBonusPericia(periciaId);
+                        nhPericia += bonusExtra;
+                        
+                        // Pega o melhor NH entre as armas equipadas
+                        if (nhPericia > melhorNH) melhorNH = nhPericia;
+                    }
+                } else {
+                    // Sem perícia, usa só o atributo base da arma (genérico)
+                    // Fallback: usa DX% como base
+                    if (getDXPercentual() > melhorNH) melhorNH = getDXPercentual();
                 }
             }
         });
@@ -8852,44 +8895,56 @@ function calcularAparar() {
     if (!temArma) return 0;
     if (bonusArma === -999) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 35;
-    aparar += bonusArma;
+    // Fórmula do aparar = NH da perícia - 35 + bônus da arma
+    let aparar = melhorNH + bonusArma - 35;
     
-    if (vantagensSelecionadas.has('reflexosRapidos')) aparar += 5;
+    // Bônus da vantagem Reflexos Rápidos
+    if (vantagensSelecionadas.has('reflexosRapidos')) {
+        aparar += 5;
+    }
     
-    // ❌ BÔNUS DEFENSIVO DA ARMADURA REMOVIDO - NÃO AFETA MAIS APARAR
-    
-    return Math.max(0, aparar);
+    return Math.max(0, Math.floor(aparar));
 }
-
 function calcularBloqueio() {
-    let melhorBonus = 0;
     let bonusEscudo = 0;
     let temEscudo = false;
+    let nhPericiaEscudo = 0;
     
+    // Verifica se tem escudo equipado
     if (inventario.corpo && inventario.corpo.length > 0) {
         inventario.corpo.forEach(item => {
-            if (item.bonus) {
+            if (item.bonus) { // é um escudo
                 temEscudo = true;
                 bonusEscudo = item.bonus || 0;
+                
+                // Pega a perícia Escudo do personagem
                 const pericia = pericias['escudo'];
-                if (pericia) {
-                    const bonus = (pericia.nivel || 0) * 3;
-                    if (bonus > melhorBonus) melhorBonus = bonus;
-                }
+                
+                // Calcula o NH da perícia Escudo (igual ao cálculo original)
+                // Fórmula: (DX% × 0.6) + (ST% × 0.4) + (nível × 3)
+                const dxPercent = getDXPercentual();
+                const stPercent = getSTPercentual();
+                const nivel = pericia ? (pericia.nivel || 0) : 0;
+                const bonusNivel = nivel * 3;
+                
+                nhPericiaEscudo = (dxPercent * 0.6) + (stPercent * 0.4) + bonusNivel;
             }
         });
     }
     
+    // Se não tem escudo, bloqueio é 0
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 35;
+    // Fórmula do bloqueio = NH da perícia - 35 + bônus do escudo
+    let bloqueio = nhPericiaEscudo + bonusEscudo - 35;
     
-    if (vantagensSelecionadas.has('reflexosRapidos')) bloqueio += 5;
+    // Bônus da vantagem Reflexos Rápidos
+    if (vantagensSelecionadas.has('reflexosRapidos')) {
+        bloqueio += 5;
+    }
     
-    // ❌ BÔNUS DEFENSIVO DA ARMADURA REMOVIDO - NÃO AFETA MAIS BLOQUEIO
-    
-    return Math.min(85, Math.max(0, bloqueio));
+    // Garante limites mínimo e máximo
+    return Math.min(85, Math.max(0, Math.floor(bloqueio)));
 }
 
 function mapearPericiaArma(nome) {

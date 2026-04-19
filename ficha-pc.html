@@ -5785,18 +5785,32 @@ function calcularEsquiva() {
 }
 
 // ============================================
-// DEFESA - APARAR (CORRIGIDA - SEM ARMADURA)
+// DEFESA - APARAR (CORRIGIDA COM NH REAL DA PERÍCIA)
 // ============================================
 function calcularAparar() {
-    let melhorBonus = 0;
     let bonusArma = 0;
     let temArma = false;
     let armaEquipada = null;
+    let melhorNH = 0;
+    
+    // Função auxiliar para pegar percentual do atributo
+    const getAttrPercent = (attr) => {
+        switch(attr) {
+            case 'ST': return getSTPercentual();
+            case 'DX': return getDXPercentual();
+            case 'IQ': return getIQPercentual();
+            case 'VIGOR': return getVIGORPercentual();
+            case 'VT': return getVTPercentual();
+            default: return 0;
+        }
+    };
     
     if (personagemAtual?.inventario?.corpo) {
         armaEquipada = personagemAtual.inventario.corpo.find(item => item.dano);
         if (armaEquipada) {
             temArma = true;
+            
+            // Bônus de aparar da arma
             if (armaEquipada.aparar) {
                 const bonusStr = armaEquipada.aparar.toString();
                 if (bonusStr === "--") {
@@ -5806,6 +5820,7 @@ function calcularAparar() {
                 }
             }
             
+            // Mapeia a perícia correta para esta arma
             let periciaId = 'espada';
             const nome = armaEquipada.nome.toLowerCase();
             if (nome.includes('machado')) periciaId = 'machado';
@@ -5817,10 +5832,43 @@ function calcularAparar() {
             else if (nome.includes('mangual')) periciaId = 'mangual';
             else if (nome.includes('martelo')) periciaId = 'machado';
             else if (nome.includes('foice')) periciaId = 'armasHaste';
+            else if (nome.includes('adaga')) periciaId = 'espada';
+            else if (nome.includes('katana')) periciaId = 'espada';
+            else if (nome.includes('maça')) periciaId = 'machado';
             
             const pericia = personagemAtual.pericias?.[periciaId];
-            if (pericia) {
-                melhorBonus = (pericia.nivel || 0) * 3;
+            
+            // Busca os dados da perícia no catálogo
+            const periciaData = catalogoPericias.find(p => p.id === periciaId);
+            
+            if (pericia && periciaData) {
+                const nivel = pericia.nivel || 0;
+                const bonusNivel = nivel * 3;
+                
+                // Calcula o NH real da perícia (média ponderada dos atributos)
+                let nhPericia = 0;
+                if (periciaData.atributo2 && periciaData.peso2 > 0) {
+                    const val1 = getAttrPercent(periciaData.atributo1);
+                    const val2 = getAttrPercent(periciaData.atributo2);
+                    nhPericia = (val1 * periciaData.peso1 + val2 * periciaData.peso2) / 100;
+                } else {
+                    nhPericia = getAttrPercent(periciaData.atributo1);
+                }
+                
+                // Adiciona bônus do nível
+                nhPericia += bonusNivel;
+                
+                // Adiciona bônus extras (vantagens, etc.)
+                const bonusExtra = getBonusPericia(periciaId);
+                nhPericia += bonusExtra;
+                
+                melhorNH = nhPericia;
+            } else if (pericia) {
+                // Fallback: se não encontrar no catálogo, usa só DX + bônus do nível
+                melhorNH = getDXPercentual() + ((pericia.nivel || 0) * 3);
+            } else {
+                // Sem perícia, usa só DX% como base
+                melhorNH = getDXPercentual();
             }
         }
     }
@@ -5828,34 +5876,69 @@ function calcularAparar() {
     if (!temArma) return 0;
     if (bonusArma === -999) return 0;
     
-    let aparar = getDXPercentual() + melhorBonus - 35;
-    aparar += bonusArma;
+    // Fórmula do aparar = NH da perícia - 35 + bônus da arma
+    let aparar = melhorNH + bonusArma - 35;
     
-    // Bônus das vantagens
-    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) aparar += 5;
+    // Bônus da vantagem Reflexos Rápidos
+    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) {
+        aparar += 5;
+    }
     
-    // ❌ BÔNUS DEFENSIVO DA ARMADURA REMOVIDO
-    
-    return Math.max(0, aparar);
+    return Math.max(0, Math.floor(aparar));
 }
 
 // ============================================
-// DEFESA - BLOQUEIO (CORRIGIDA - SEM ARMADURA)
+// DEFESA - BLOQUEIO (CORRIGIDA COM NH REAL DA PERÍCIA ESCUDO)
 // ============================================
 function calcularBloqueio() {
-    let melhorBonus = 0;
     let bonusEscudo = 0;
     let temEscudo = false;
+    let nhPericiaEscudo = 0;
+    
+    // Função auxiliar para pegar percentual do atributo
+    const getAttrPercent = (attr) => {
+        switch(attr) {
+            case 'ST': return getSTPercentual();
+            case 'DX': return getDXPercentual();
+            case 'IQ': return getIQPercentual();
+            case 'VIGOR': return getVIGORPercentual();
+            case 'VT': return getVTPercentual();
+            default: return 0;
+        }
+    };
     
     if (personagemAtual?.inventario?.corpo) {
         personagemAtual.inventario.corpo.forEach(item => {
-            if (item.bonus) {
+            if (item.bonus) { // é um escudo
                 temEscudo = true;
                 bonusEscudo = item.bonus || 0;
+                
+                // Pega a perícia Escudo
                 const pericia = personagemAtual.pericias?.['escudo'];
-                if (pericia) {
-                    const bonus = (pericia.nivel || 0) * 3;
-                    if (bonus > melhorBonus) melhorBonus = bonus;
+                
+                // Busca os dados da perícia Escudo no catálogo
+                const periciaData = catalogoPericias.find(p => p.id === 'escudo');
+                
+                if (pericia && periciaData) {
+                    const nivel = pericia.nivel || 0;
+                    const bonusNivel = nivel * 3;
+                    
+                    // Calcula o NH real da perícia Escudo
+                    // Fórmula: (DX% × 0.6) + (ST% × 0.4)
+                    const dxPercent = getAttrPercent('DX');
+                    const stPercent = getAttrPercent('ST');
+                    
+                    nhPericiaEscudo = (dxPercent * 0.6) + (stPercent * 0.4) + bonusNivel;
+                    
+                    // Adiciona bônus extras
+                    const bonusExtra = getBonusPericia('escudo');
+                    nhPericiaEscudo += bonusExtra;
+                } else if (pericia) {
+                    // Fallback: se não encontrar no catálogo, usa fórmula padrão
+                    nhPericiaEscudo = (getDXPercentual() * 0.6) + (getSTPercentual() * 0.4) + ((pericia.nivel || 0) * 3);
+                } else {
+                    // Sem perícia, usa fórmula base
+                    nhPericiaEscudo = (getDXPercentual() * 0.6) + (getSTPercentual() * 0.4);
                 }
             }
         });
@@ -5863,14 +5946,15 @@ function calcularBloqueio() {
     
     if (!temEscudo) return 0;
     
-    let bloqueio = getDXPercentual() + melhorBonus + bonusEscudo - 35;
+    // Fórmula do bloqueio = NH da perícia - 35 + bônus do escudo
+    let bloqueio = nhPericiaEscudo + bonusEscudo - 35;
     
-    // Bônus das vantagens
-    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) bloqueio += 5;
+    // Bônus da vantagem Reflexos Rápidos
+    if (personagemAtual?.vantagens?.includes('reflexosRapidos')) {
+        bloqueio += 5;
+    }
     
-    // ❌ BÔNUS DEFENSIVO DA ARMADURA REMOVIDO
-    
-    return Math.max(0, bloqueio);
+    return Math.max(0, Math.floor(bloqueio));
 }
 // ============================================
 // CARGA (MODIFICADO PARA SUPORTAR RAÇAS)
