@@ -7905,6 +7905,88 @@ const catalogoPericias = [
 ];
 
 // ============================================
+// DESCRIÇÕES E HABILIDADES ESPECIAIS DAS PERÍCIAS
+// ============================================
+const descricoesPericias = {
+    adestramento: {
+        descricao: "Capacidade de treinar, controlar e se comunicar com animais domesticados. Útil para montarias, animais de carga, cães de guarda e criaturas treináveis.",
+        atributos: "IQ 70% + VIGOR 30%",
+        habilidades: {
+            3: {
+                nome: "Comando Avançado",
+                descricao: "Seu animal treinado pode executar comandos complexos sem necessidade de gestos ou palavras."
+            },
+            4: {
+                nome: "Vínculo Profundo",
+                descricao: "Você e seu animal compartilham sentimentos básicos (medo, perigo, fome). +10% em testes de adestramento com animais que você treinou."
+            },
+            5: {
+                nome: "Mestre dos Animais",
+                descricao: "Pode tentar acalmar ou controlar animais selvagens com -20% de penalidade (em vez de -40%). Animais domesticados obedecem instantaneamente."
+            }
+        }
+    }
+};
+
+// ============================================
+// MODAL DE INFORMAÇÃO DA PERÍCIA
+// ============================================
+function abrirModalPericiaInfo(periciaId) {
+    const pericia = catalogoPericias.find(p => p.id === periciaId);
+    const descricao = descricoesPericias[periciaId];
+    
+    if (!pericia) return;
+    
+    const modal = document.getElementById('modalInfo');
+    const titulo = document.getElementById('modalInfoTitulo');
+    const descricaoDiv = document.getElementById('modalInfoDescricao');
+    const detalheDiv = document.getElementById('modalInfoDetalhe');
+    
+    // Título
+    titulo.innerHTML = `<i class="fas fa-brain"></i> ${pericia.nome}`;
+    
+    // Descrição
+    let descHtml = `<strong>📖 DESCRIÇÃO</strong><br>`;
+    descHtml += descricao?.descricao || "Descrição em breve...";
+    descHtml += `<br><br><strong>📊 ATRIBUTOS</strong><br>`;
+    
+    if (descricao?.atributos) {
+        descHtml += descricao.atributos;
+    } else {
+        descHtml += `${pericia.atributo1} ${pericia.peso1}%`;
+        if (pericia.atributo2) {
+            descHtml += ` + ${pericia.atributo2} ${pericia.peso2}%`;
+        }
+    }
+    
+    descricaoDiv.innerHTML = descHtml;
+    
+    // Detalhe (habilidades especiais)
+    let detalheHtml = `<strong>⭐ HABILIDADES ESPECIAIS</strong><br><br>`;
+    
+    if (descricao?.habilidades) {
+        if (descricao.habilidades[3]) {
+            detalheHtml += `<strong>Nível 3 (Profissional): ${descricao.habilidades[3].nome}</strong><br>`;
+            detalheHtml += `${descricao.habilidades[3].descricao}<br><br>`;
+        }
+        if (descricao.habilidades[4]) {
+            detalheHtml += `<strong>Nível 4 (Veterano): ${descricao.habilidades[4].nome}</strong><br>`;
+            detalheHtml += `${descricao.habilidades[4].descricao}<br><br>`;
+        }
+        if (descricao.habilidades[5]) {
+            detalheHtml += `<strong>Nível 5 (Mestre): ${descricao.habilidades[5].nome}</strong><br>`;
+            detalheHtml += `${descricao.habilidades[5].descricao}<br><br>`;
+        }
+    } else {
+        detalheHtml += "Nenhuma habilidade especial disponível ainda.";
+    }
+    
+    detalheDiv.innerHTML = detalheHtml;
+    
+    modal.classList.add('active');
+}
+
+// ============================================
 // CATÁLOGO DE ITENS
 // ============================================
 const catalogoItensData = {
@@ -8920,8 +9002,7 @@ function calcularBloqueio() {
                 // Pega a perícia Escudo do personagem
                 const pericia = pericias['escudo'];
                 
-                // Calcula o NH da perícia Escudo (igual ao cálculo original)
-                // Fórmula: (DX% × 0.6) + (ST% × 0.4) + (nível × 3)
+                
                 const dxPercent = getDXPercentual();
                 const stPercent = getSTPercentual();
                 const nivel = pericia ? (pericia.nivel || 0) : 0;
@@ -9913,7 +9994,13 @@ function renderizarCatalogoPericias(filtro = 'todas') {
         
         return `
             <div class="pericia-card" data-pericia-id="${pericia.id}">
-                <h4>${pericia.nome} <span class="tipo ${pericia.tipo}">${pericia.tipo === 'mental' ? 'IQ' : 'DX'}</span></h4>
+                <h4 style="display: flex; justify-content: space-between; align-items: center;">
+                    ${pericia.nome}
+                    <span class="tipo ${pericia.tipo}">${pericia.tipo === 'mental' ? 'IQ' : 'DX'}</span>
+                    <button class="btn-info-card" data-pericia-id="${pericia.id}" style="position: relative; top: 0; right: 0; transform: none; margin-left: 8px;">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </h4>
                 ${atributosHtml}
                 <div class="pericia-justificativa">📖 ${pericia.justificativa}</div>
                 <div class="pericia-bonus">🎯 Bônus: +3% por nível</div>
@@ -10008,7 +10095,12 @@ function renderizarPericiasAdquiridas() {
         return `
             <div class="pericia-adquirida" data-pericia-id="${id}">
                 <div class="pericia-adquirida-info">
-                    <h4>${pericia.nome}</h4>
+                    <h4 style="display: flex; justify-content: space-between; align-items: center;">
+                        ${pericia.nome}
+                        <button class="btn-info-card" data-pericia-id="${id}" style="position: relative; top: 0; right: 0; transform: none;">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    </h4>
                     <div class="nivel">Nível ${dados.nivel} <span class="bonus">(+${bonus}%)</span></div>
                     <div class="nh">NH: <span>${nh}%</span> (${atributoBaseStr} + ${bonus}%${bonusExtra > 0 ? origemBonus : ''})</div>
                     <div class="pericia-justificativa-mini">📖 ${pericia.justificativa}</div>
@@ -12424,7 +12516,8 @@ else custo = 0;
         });
     }
     
-    if (elements.btnSair) {
+          
+     if (elements.btnSair) {
         elements.btnSair.addEventListener('click', async () => {
             try {
                 showLoading();
@@ -12435,7 +12528,17 @@ else custo = 0;
             }
         });
     }
-    
+
+    // ============================================
+// EVENTO DA LUPA DAS PERÍCIAS
+// ============================================
+document.addEventListener('click', function(e) {
+    const btnInfo = e.target.closest('.btn-info-card');
+    if (btnInfo && btnInfo.dataset.periciaId) {
+        e.stopPropagation();
+        abrirModalPericiaInfo(btnInfo.dataset.periciaId);
+    }
+});
     // ============================================
     // EVENTOS DO MODAL DE RAÇA
     // ============================================
