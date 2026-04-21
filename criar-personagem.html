@@ -10111,13 +10111,15 @@ function diminuirAtributo(atributoId) {
 // PERÍCIAS
 // ============================================
 
+// ============================================
+// FUNÇÃO CORRIGIDA - RENDERIZAR CATÁLOGO DE PERÍCIAS
+// ============================================
 function renderizarCatalogoPericias(filtro = 'todas') {
     if (!elements.listaPericias) return;
     
     const periciasFiltradas = catalogoPericias.filter(p => filtro === 'todas' || p.tipo === filtro);
     
     elements.listaPericias.innerHTML = periciasFiltradas.map(pericia => {
-        // Monta a string dos atributos com pesos
         let atributosHtml = `<div class="pericia-atributos"><strong>${pericia.atributo1} ${pericia.peso1}%</strong>`;
         if (pericia.atributo2) {
             atributosHtml += ` + ${pericia.atributo2} ${pericia.peso2}%`;
@@ -10125,13 +10127,11 @@ function renderizarCatalogoPericias(filtro = 'todas') {
         atributosHtml += `</div>`;
         
         return `
-            <div class="pericia-card" data-pericia-id="${pericia.id}">
+            <div class="pericia-card" data-pericia-id="${pericia.id}" style="cursor: pointer;">
                 <h4>${pericia.nome} <span class="tipo ${pericia.tipo}">${pericia.tipo === 'mental' ? 'IQ' : 'DX'}</span></h4>
                 ${atributosHtml}
                 <div class="pericia-justificativa">📖 ${pericia.justificativa}</div>
                 <div class="pericia-bonus">🎯 Bônus: +3% por nível</div>
-                
-                <!-- BOTÃO DE DETALHE DA PERÍCIA -->
                 <button class="btn-detalhe-pericia" data-pericia-id="${pericia.id}" 
                         style="margin-top: 10px; background: rgba(255,215,0,0.15); border: 1px solid #ffd700; 
                                color: #ffd700; padding: 5px 12px; border-radius: 20px; cursor: pointer; 
@@ -10142,7 +10142,6 @@ function renderizarCatalogoPericias(filtro = 'todas') {
         `;
     }).join('');
     
-    // Adiciona CSS para os novos elementos (se já não existir)
     if (!document.querySelector('#pericia-card-style')) {
         const style = document.createElement('style');
         style.id = 'pericia-card-style';
@@ -10150,46 +10149,144 @@ function renderizarCatalogoPericias(filtro = 'todas') {
             .pericia-atributos { font-size: 0.8rem; color: #ffd700; margin: 4px 0; }
             .pericia-justificativa { font-size: 0.7rem; color: rgba(255,255,255,0.6); font-style: italic; margin: 3px 0; }
             .pericia-bonus { font-size: 0.75rem; color: #4CAF50; margin-top: 3px; }
-            
-            /* Estilo do botão de detalhe */
-            .btn-detalhe-pericia {
-                transition: all 0.3s ease;
-            }
-            .btn-detalhe-pericia:hover {
-                background: #ffd700 !important;
-                color: #0a0a1a !important;
-                transform: translateY(-2px);
-                box-shadow: 0 2px 8px rgba(255,215,0,0.3);
-            }
-            .btn-detalhe-pericia:active {
-                transform: translateY(0);
-            }
+            .btn-detalhe-pericia { transition: all 0.3s ease; }
+            .btn-detalhe-pericia:hover { background: #ffd700 !important; color: #0a0a1a !important; transform: translateY(-2px); box-shadow: 0 2px 8px rgba(255,215,0,0.3); }
+            .btn-detalhe-pericia:active { transform: translateY(0); }
+            .pericia-card { transition: all 0.3s ease; }
+            .pericia-card:hover { background: rgba(255,215,0,0.1); transform: translateX(2px); }
         `;
         document.head.appendChild(style);
     }
     
-    // Evento para COMPRAR a perícia (clique no card)
     document.querySelectorAll('.pericia-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-            // Impede que o clique no botão de detalhe também dispare o card
-            if (e.target.classList.contains('btn-detalhe-pericia') || 
-                e.target.closest('.btn-detalhe-pericia')) {
-                return;
-            }
-            abrirModalPericia(card.dataset.periciaId);
-        });
+        card.removeEventListener('click', handlePericiaCardClick);
+        card.addEventListener('click', handlePericiaCardClick);
     });
     
-    // Evento para o botão de DETALHE da perícia
     document.querySelectorAll('.btn-detalhe-pericia').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Impede que o clique chegue ao card
-            const periciaId = btn.dataset.periciaId;
-            if (periciaId) {
-                abrirModalInfoPericia(periciaId);
-            }
-        });
+        btn.removeEventListener('click', handlePericiaDetalheClick);
+        btn.addEventListener('click', handlePericiaDetalheClick);
     });
+}
+
+// ============================================
+// HANDLER PARA CLIQUE NO CARD (COMPRAR PERÍCIA)
+// ============================================
+function handlePericiaCardClick(e) {
+    if (e.target.classList.contains('btn-detalhe-pericia') || 
+        e.target.closest('.btn-detalhe-pericia')) {
+        return;
+    }
+    const periciaId = this.dataset.periciaId;
+    if (periciaId) {
+        abrirModalPericia(periciaId);
+    }
+}
+
+// ============================================
+// HANDLER PARA CLIQUE NO BOTÃO DE DETALHE (INFO)
+// ============================================
+function handlePericiaDetalheClick(e) {
+    e.stopPropagation();
+    const periciaId = this.dataset.periciaId;
+    if (periciaId) {
+        abrirModalInfoPericia(periciaId);
+    }
+}
+
+// ============================================
+// FUNÇÃO PARA ABRIR MODAL DE COMPRA DE PERÍCIA
+// ============================================
+function abrirModalPericia(periciaId) {
+    const pericia = catalogoPericias.find(p => p.id === periciaId);
+    if (!pericia) {
+        console.error('Perícia não encontrada:', periciaId);
+        return;
+    }
+    
+    const periciaExistente = pericias[periciaId];
+    const nivelAtual = periciaExistente?.nivel || 0;
+    
+    periciaAtual = {
+        id: periciaId,
+        nome: pericia.nome,
+        nivelAtual: nivelAtual,
+        novoNivel: nivelAtual + 1 || 1
+    };
+    
+    if (elements.modalPericiaNome) elements.modalPericiaNome.textContent = pericia.nome;
+    if (elements.modalPericiaNivel) elements.modalPericiaNivel.textContent = periciaAtual.novoNivel;
+    
+    atualizarModalPericia();
+    
+    if (elements.modalPericia) elements.modalPericia.classList.add('active');
+}
+
+// ============================================
+// FUNÇÃO PARA ATUALIZAR O MODAL DE PERÍCIA
+// ============================================
+function atualizarModalPericia() {
+    if (!periciaAtual) return;
+    
+    const novoNivel = periciaAtual.novoNivel;
+    const nivelAtual = periciaAtual.nivelAtual;
+    const custoTotal = calcularCustoPericia(novoNivel);
+    const custoAtual = nivelAtual > 0 ? calcularCustoPericia(nivelAtual) : 0;
+    const custoDiferenca = custoTotal - custoAtual;
+    
+    if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custoDiferenca + ' PP';
+    
+    if (elements.modalPericiaConfirmar) {
+        elements.modalPericiaConfirmar.disabled = custoDiferenca > (ppDisponivel - ppGastoTotal);
+    }
+    
+    if (elements.modalPericiaMenos) {
+        elements.modalPericiaMenos.disabled = novoNivel <= (nivelAtual > 0 ? nivelAtual + 1 : 1);
+    }
+    if (elements.modalPericiaMais) {
+        elements.modalPericiaMais.disabled = novoNivel >= 5;
+    }
+}
+
+// ============================================
+// FUNÇÃO PARA CONFIRMAR COMPRA DA PERÍCIA
+// ============================================
+function confirmarPericia() {
+    if (!periciaAtual) return;
+    
+    const periciaId = periciaAtual.id;
+    const novoNivel = periciaAtual.novoNivel;
+    const nivelAtual = periciaAtual.nivelAtual;
+    const custoTotal = calcularCustoPericia(novoNivel);
+    const custoAtual = nivelAtual > 0 ? calcularCustoPericia(nivelAtual) : 0;
+    const custoDiferenca = custoTotal - custoAtual;
+    
+    if (custoDiferenca > (ppDisponivel - ppGastoTotal)) {
+        alert('PP insuficiente!');
+        return;
+    }
+    
+    ppGastoTotal += custoDiferenca;
+    pericias[periciaId] = { nivel: novoNivel };
+    
+    if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
+    if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
+    
+    renderizarPericiasAdquiridas();
+    atualizarContadoresAbas();
+    
+    if (elements.modalPericia) elements.modalPericia.classList.remove('active');
+    
+    atualizarInterface();
+    triggerAutoSave();
+}
+
+// ============================================
+// FUNÇÃO PARA CALCULAR CUSTO DA PERÍCIA POR NÍVEL
+// ============================================
+function calcularCustoPericia(nivel) {
+    const tabelaCustos = { 1: 2, 2: 6, 3: 10, 4: 16, 5: 24 };
+    return tabelaCustos[nivel] || 0;
 }
 
 function renderizarPericiasAdquiridas() {
