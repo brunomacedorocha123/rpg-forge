@@ -10108,15 +10108,15 @@ function diminuirAtributo(atributoId) {
     }
 }
 // ============================================
-// PERÍCIAS
+// PERÍCIAS - VERSÃO CORRIGIDA
 // ============================================
+
 function renderizarCatalogoPericias(filtro = 'todas') {
     if (!elements.listaPericias) return;
     
     const periciasFiltradas = catalogoPericias.filter(p => filtro === 'todas' || p.tipo === filtro);
     
     elements.listaPericias.innerHTML = periciasFiltradas.map(pericia => {
-        // Monta a string dos atributos com pesos
         let atributosHtml = `<div class="pericia-atributos"><strong>${pericia.atributo1} ${pericia.peso1}%</strong>`;
         if (pericia.atributo2) {
             atributosHtml += ` + ${pericia.atributo2} ${pericia.peso2}%`;
@@ -10129,8 +10129,6 @@ function renderizarCatalogoPericias(filtro = 'todas') {
                 ${atributosHtml}
                 <div class="pericia-justificativa">📖 ${pericia.justificativa}</div>
                 <div class="pericia-bonus">🎯 Bônus: +3% por nível</div>
-                
-                <!-- BOTÃO DE DETALHE DA PERÍCIA -->
                 <button class="btn-detalhe-pericia" data-pericia-id="${pericia.id}" 
                         style="margin-top: 10px; background: rgba(255,215,0,0.15); border: 1px solid #ffd700; 
                                color: #ffd700; padding: 5px 12px; border-radius: 20px; cursor: pointer; 
@@ -10141,7 +10139,6 @@ function renderizarCatalogoPericias(filtro = 'todas') {
         `;
     }).join('');
     
-    // Adiciona CSS para os novos elementos (se já não existir)
     if (!document.querySelector('#pericia-card-style')) {
         const style = document.createElement('style');
         style.id = 'pericia-card-style';
@@ -10149,30 +10146,23 @@ function renderizarCatalogoPericias(filtro = 'todas') {
             .pericia-atributos { font-size: 0.8rem; color: #ffd700; margin: 4px 0; }
             .pericia-justificativa { font-size: 0.7rem; color: rgba(255,255,255,0.6); font-style: italic; margin: 3px 0; }
             .pericia-bonus { font-size: 0.75rem; color: #4CAF50; margin-top: 3px; }
-            
-            /* Estilo do botão de detalhe */
-            .btn-detalhe-pericia {
-                transition: all 0.3s ease;
-            }
+            .btn-detalhe-pericia { transition: all 0.3s ease; }
             .btn-detalhe-pericia:hover {
                 background: #ffd700 !important;
                 color: #0a0a1a !important;
                 transform: translateY(-2px);
                 box-shadow: 0 2px 8px rgba(255,215,0,0.3);
             }
-            .btn-detalhe-pericia:active {
-                transform: translateY(0);
-            }
+            .btn-detalhe-pericia:active { transform: translateY(0); }
         `;
         document.head.appendChild(style);
     }
     
-    // Evento para COMPRAR a perícia (clique no card)
+    // CORREÇÃO 1: Evento para COMPRAR a perícia (clique no card)
     document.querySelectorAll('.pericia-card').forEach(card => {
         card.addEventListener('click', (e) => {
-            // Impede que o clique no botão de detalhe também dispare o card
-            if (e.target.classList.contains('btn-detalhe-pericia') || 
-                e.target.closest('.btn-detalhe-pericia')) {
+            // Verifica se o clique foi NO botão de detalhe OU dentro dele
+            if (e.target.closest('.btn-detalhe-pericia')) {
                 return;
             }
             abrirModalPericia(card.dataset.periciaId);
@@ -10182,14 +10172,15 @@ function renderizarCatalogoPericias(filtro = 'todas') {
     // Evento para o botão de DETALHE da perícia
     document.querySelectorAll('.btn-detalhe-pericia').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Impede que o clique chegue ao card
+            e.stopPropagation();
             const periciaId = btn.dataset.periciaId;
             if (periciaId) {
                 abrirModalInfoPericia(periciaId);
             }
         });
     });
-}  
+}
+
 function renderizarPericiasAdquiridas() {
     if (!elements.listaPericiasAdquiridas) return;
     
@@ -10206,11 +10197,9 @@ function renderizarPericiasAdquiridas() {
         
         const bonus = (dados.nivel || 0) * 3;
         
-        // Calcula o percentual base com base nos atributos ponderados
         let atributoBase = 0;
         let atributoBaseStr = '';
         
-        // Pega o percentual de cada atributo
         const getAttrPercent = (attr) => {
             switch(attr) {
                 case 'ST': return getSTPercentual();
@@ -10222,11 +10211,10 @@ function renderizarPericiasAdquiridas() {
             }
         };
         
-        // Calcula média ponderada
         if (pericia.atributo2 && pericia.peso2 > 0) {
             const val1 = getAttrPercent(pericia.atributo1);
             const val2 = getAttrPercent(pericia.atributo2);
-           atributoBase = Math.floor((val1 * pericia.peso1 + val2 * pericia.peso2) / 100);
+            atributoBase = Math.floor((val1 * pericia.peso1 + val2 * pericia.peso2) / 100);
             atributoBaseStr = `${pericia.atributo1}(${val1}%)×${pericia.peso1}% + ${pericia.atributo2}(${val2}%)×${pericia.peso2}%`;
         } else {
             atributoBase = getAttrPercent(pericia.atributo1);
@@ -10297,24 +10285,29 @@ function renderizarPericiasAdquiridas() {
 }
 
 function calcularCustoPericia(nivel) {
-    const tabelaCustos = {
-        1: 2, 2: 6, 3: 10, 4: 16, 5: 24
-    };
+    const tabelaCustos = { 1: 2, 2: 6, 3: 10, 4: 16, 5: 24 };
     return tabelaCustos[nivel] || 0;
 }
 
+// CORREÇÃO 2: abrirModalPericia com validação de nível máximo
 function abrirModalPericia(periciaId) {
     const pericia = catalogoPericias.find(p => p.id === periciaId);
     if (!pericia) return;
     
     const periciaExistente = pericias[periciaId];
     const nivelAtual = periciaExistente?.nivel || 0;
+    const proximoNivel = nivelAtual + 1;
+    
+    if (proximoNivel > 5) {
+        alert('⚠️ Nível máximo (5) já atingido para esta perícia!');
+        return;
+    }
     
     periciaAtual = {
         id: periciaId,
         nome: pericia.nome,
         nivelAtual: nivelAtual,
-        novoNivel: nivelAtual + 1 || 1
+        novoNivel: proximoNivel
     };
     
     if (elements.modalPericiaNome) elements.modalPericiaNome.textContent = pericia.nome;
@@ -10336,18 +10329,20 @@ function atualizarModalPericia() {
     
     if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custoDiferenca + ' PP';
     
+    const ppRestante = ppDisponivel - ppGastoTotal;
     if (elements.modalPericiaConfirmar) {
-        elements.modalPericiaConfirmar.disabled = custoDiferenca > (ppDisponivel - ppGastoTotal);
+        elements.modalPericiaConfirmar.disabled = custoDiferenca > ppRestante;
     }
     
     if (elements.modalPericiaMenos) {
-        elements.modalPericiaMenos.disabled = novoNivel <= (nivelAtual > 0 ? nivelAtual + 1 : 1);
+        elements.modalPericiaMenos.disabled = novoNivel <= (nivelAtual + 1);
     }
     if (elements.modalPericiaMais) {
         elements.modalPericiaMais.disabled = novoNivel >= 5;
     }
 }
 
+// CORREÇÃO 3: confirmarPericia com atualização correta (não sobrescreve)
 function confirmarPericia() {
     if (!periciaAtual) return;
     
@@ -10357,14 +10352,21 @@ function confirmarPericia() {
     const custoTotal = calcularCustoPericia(novoNivel);
     const custoAtual = nivelAtual > 0 ? calcularCustoPericia(nivelAtual) : 0;
     const custoDiferenca = custoTotal - custoAtual;
+    const ppRestante = ppDisponivel - ppGastoTotal;
     
-    if (custoDiferenca > (ppDisponivel - ppGastoTotal)) {
-        alert('PP insuficiente!');
+    if (custoDiferenca > ppRestante) {
+        alert(`❌ PP insuficiente! Você precisa de ${custoDiferenca} PP e tem ${ppRestante} PP disponíveis.`);
         return;
     }
     
     ppGastoTotal += custoDiferenca;
-    pericias[periciaId] = { nivel: novoNivel };
+    
+    // CORREÇÃO: Atualiza ou cria a perícia sem sobrescrever outras propriedades
+    if (pericias[periciaId]) {
+        pericias[periciaId].nivel = novoNivel;
+    } else {
+        pericias[periciaId] = { nivel: novoNivel };
+    }
     
     if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
     if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
@@ -10376,6 +10378,10 @@ function confirmarPericia() {
     
     atualizarInterface();
     triggerAutoSave();
+    
+    // Feedback visual
+    const acao = nivelAtual === 0 ? 'adquirida' : `aumentada para nível ${novoNivel}`;
+    console.log(`✅ Perícia ${periciaAtual.nome} ${acao} por ${custoDiferenca} PP`);
 }
 
 function aumentarPericia(periciaId) {
@@ -10383,14 +10389,18 @@ function aumentarPericia(periciaId) {
     if (!pericia) return;
     
     const novoNivel = pericia.nivel + 1;
-    if (novoNivel > 5) return;
+    if (novoNivel > 5) {
+        alert('⚠️ Nível máximo (5) já atingido!');
+        return;
+    }
     
     const custoAtual = calcularCustoPericia(pericia.nivel);
     const custoNovo = calcularCustoPericia(novoNivel);
     const custoDiferenca = custoNovo - custoAtual;
+    const ppRestante = ppDisponivel - ppGastoTotal;
     
-    if (custoDiferenca > (ppDisponivel - ppGastoTotal)) {
-        alert('PP insuficiente!');
+    if (custoDiferenca > ppRestante) {
+        alert(`❌ PP insuficiente! Você precisa de ${custoDiferenca} PP e tem ${ppRestante} PP disponíveis.`);
         return;
     }
     
@@ -10418,12 +10428,7 @@ function diminuirPericia(periciaId) {
     const custoDiferenca = custoAtual - custoNovo;
     
     ppGastoTotal -= custoDiferenca;
-    
-    if (novoNivel === 0) {
-        delete pericias[periciaId];
-    } else {
-        pericia.nivel = novoNivel;
-    }
+    pericia.nivel = novoNivel;
     
     if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
     if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
@@ -10434,26 +10439,20 @@ function diminuirPericia(periciaId) {
     triggerAutoSave();
 }
 
-// ===== NOVA FUNÇÃO: EXCLUIR PERÍCIA COMPLETAMENTE =====
 function excluirPericia(periciaId) {
     if (!periciaId) return;
     
     const pericia = pericias[periciaId];
     if (!pericia) return;
     
-    // Confirmação antes de excluir
-    const confirmar = confirm(`Tem certeza que deseja excluir esta perícia?\n\nVocê perderá todos os PP gastos nela (${calcularCustoPericia(pericia.nivel)} PP).`);
+    const custoPericia = calcularCustoPericia(pericia.nivel);
+    const confirmar = confirm(`⚠️ Tem certeza que deseja excluir "${pericia.nome}"?\n\nVocê perderá ${custoPericia} PP gastos nesta perícia.\n\nEsta ação NÃO pode ser desfeita!`);
     
     if (!confirmar) return;
     
-    // Devolve os PP gastos
-    const custoPericia = calcularCustoPericia(pericia.nivel);
     ppGastoTotal -= custoPericia;
-    
-    // Remove a perícia
     delete pericias[periciaId];
     
-    // Atualiza a interface
     if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
     if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
     
@@ -10461,12 +10460,13 @@ function excluirPericia(periciaId) {
     atualizarContadoresAbas();
     atualizarInterface();
     triggerAutoSave();
+    
+    console.log(`🗑️ Perícia "${pericia.nome}" removida, ${custoPericia} PP devolvidos.`);
 }
 
 // ============================================
-// MODAL INFORMATIVO DA PERÍCIA (NOVO)
+// MODAL INFORMATIVO DA PERÍCIA
 // ============================================
-
 
 function abrirModalInfoPericia(periciaId) {
     const pericia = catalogoPericias.find(p => p.id === periciaId);
@@ -10475,25 +10475,19 @@ function abrirModalInfoPericia(periciaId) {
         return;
     }
     
-    // Armazena a perícia atual
     periciaInfoAtual = pericia;
-    
-    // Pega o nível atual do personagem nesta perícia
     const periciaPersonagem = pericias[periciaId];
     const nivelAtual = periciaPersonagem ? periciaPersonagem.nivel : 0;
     
-    // Atualiza o título
     if (elements.modalInfoPericiaNome) {
         elements.modalInfoPericiaNome.textContent = pericia.nome;
     }
     
-    // Atualiza a descrição
     if (elements.modalInfoPericiaDescricao) {
         const descricao = pericia.descricao || "Sem descrição disponível para esta perícia.";
         elements.modalInfoPericiaDescricao.textContent = descricao;
     }
     
-    // Atualiza os atributos base
     if (elements.modalInfoPericiaAtributos) {
         let atributosText = '';
         if (pericia.atributo2 && pericia.peso2 > 0) {
@@ -10504,25 +10498,17 @@ function abrirModalInfoPericia(periciaId) {
         elements.modalInfoPericiaAtributos.textContent = atributosText;
     }
     
-    // Renderiza as habilidades especiais
     renderizarHabilidadesEspeciais(pericia, nivelAtual);
     
-    // Abre o modal
     if (elements.modalInfoPericia) {
         elements.modalInfoPericia.classList.add('active');
     }
 }
 
-/**
- * Renderiza a lista de habilidades especiais da perícia
- * @param {object} pericia - Objeto da perícia
- * @param {number} nivelAtual - Nível atual do personagem na perícia
- */
 function renderizarHabilidadesEspeciais(pericia, nivelAtual) {
     const container = elements.modalInfoPericiaHabilidadesLista;
     if (!container) return;
     
-    // Verifica se a perícia tem habilidades especiais
     if (!pericia.habilidadesEspeciais || Object.keys(pericia.habilidadesEspeciais).length === 0) {
         container.innerHTML = `
             <div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">
@@ -10537,16 +10523,12 @@ function renderizarHabilidadesEspeciais(pericia, nivelAtual) {
     // Habilidade Nível 3
     if (pericia.habilidadesEspeciais[3]) {
         const desbloqueado = nivelAtual >= 3;
-        const icone = desbloqueado ? '✅' : '🔒';
-        const cor = desbloqueado ? '#4CAF50' : '#888';
         html += `
             <div class="habilidade-card ${!desbloqueado ? 'habilidade-bloqueada' : ''}">
-                <div class="habilidade-nivel" style="color: ${cor};">
-                    ${icone} NÍVEL 3
+                <div class="habilidade-nivel" style="color: ${desbloqueado ? '#4CAF50' : '#888'};">
+                    ${desbloqueado ? '✅' : '🔒'} NÍVEL 3
                 </div>
-                <div class="habilidade-descricao">
-                    ${pericia.habilidadesEspeciais[3]}
-                </div>
+                <div class="habilidade-descricao">${pericia.habilidadesEspeciais[3]}</div>
                 ${!desbloqueado ? `<div class="msg-bloqueio"><i class="fas fa-lock"></i> Desbloqueia no nível 3</div>` : ''}
             </div>
         `;
@@ -10555,16 +10537,12 @@ function renderizarHabilidadesEspeciais(pericia, nivelAtual) {
     // Habilidade Nível 4
     if (pericia.habilidadesEspeciais[4]) {
         const desbloqueado = nivelAtual >= 4;
-        const icone = desbloqueado ? '⭐' : '🔒';
-        const cor = desbloqueado ? '#ffd700' : '#888';
         html += `
             <div class="habilidade-card ${!desbloqueado ? 'habilidade-bloqueada' : ''}">
-                <div class="habilidade-nivel" style="color: ${cor};">
-                    ${icone} NÍVEL 4
+                <div class="habilidade-nivel" style="color: ${desbloqueado ? '#ffd700' : '#888'};">
+                    ${desbloqueado ? '⭐' : '🔒'} NÍVEL 4
                 </div>
-                <div class="habilidade-descricao">
-                    ${pericia.habilidadesEspeciais[4]}
-                </div>
+                <div class="habilidade-descricao">${pericia.habilidadesEspeciais[4]}</div>
                 ${!desbloqueado ? `<div class="msg-bloqueio"><i class="fas fa-lock"></i> Desbloqueia no nível 4</div>` : ''}
             </div>
         `;
@@ -10573,35 +10551,24 @@ function renderizarHabilidadesEspeciais(pericia, nivelAtual) {
     // Habilidade Nível 5
     if (pericia.habilidadesEspeciais[5]) {
         const desbloqueado = nivelAtual >= 5;
-        const icone = desbloqueado ? '👑' : '🔒';
-        const cor = desbloqueado ? '#ff6b6b' : '#888';
         html += `
             <div class="habilidade-card ${!desbloqueado ? 'habilidade-bloqueada' : ''}">
-                <div class="habilidade-nivel" style="color: ${cor};">
-                    ${icone} NÍVEL 5
+                <div class="habilidade-nivel" style="color: ${desbloqueado ? '#ff6b6b' : '#888'};">
+                    ${desbloqueado ? '👑' : '🔒'} NÍVEL 5
                 </div>
-                <div class="habilidade-descricao">
-                    ${pericia.habilidadesEspeciais[5]}
-                </div>
+                <div class="habilidade-descricao">${pericia.habilidadesEspeciais[5]}</div>
                 ${!desbloqueado ? `<div class="msg-bloqueio"><i class="fas fa-lock"></i> Desbloqueia no nível 5</div>` : ''}
             </div>
         `;
     }
     
     if (html === '') {
-        html = `
-            <div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;">
-                <i class="fas fa-info-circle"></i> Nenhuma habilidade especial disponível.
-            </div>
-        `;
+        html = `<div style="text-align: center; color: rgba(255,255,255,0.5); padding: 20px;"><i class="fas fa-info-circle"></i> Nenhuma habilidade especial disponível.</div>`;
     }
     
     container.innerHTML = html;
 }
 
-/**
- * Fecha o modal informativo da perícia
- */
 function fecharModalInfoPericia() {
     if (elements.modalInfoPericia) {
         elements.modalInfoPericia.classList.remove('active');
