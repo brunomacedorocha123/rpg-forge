@@ -10110,7 +10110,6 @@ function diminuirAtributo(atributoId) {
 // ============================================
 // PERÍCIAS
 // ============================================
-
 function renderizarCatalogoPericias(filtro = 'todas') {
     if (!elements.listaPericias) return;
     
@@ -10191,126 +10190,6 @@ function renderizarCatalogoPericias(filtro = 'todas') {
         });
     });
 }  
-// ============================================
-// HANDLER PARA CLIQUE NO CARD (COMPRAR PERÍCIA)
-// ============================================
-function handlePericiaCardClick(e) {
-    if (e.target.classList.contains('btn-detalhe-pericia') || 
-        e.target.closest('.btn-detalhe-pericia')) {
-        return;
-    }
-    const periciaId = this.dataset.periciaId;
-    if (periciaId) {
-        abrirModalPericia(periciaId);
-    }
-}
-
-// ============================================
-// HANDLER PARA CLIQUE NO BOTÃO DE DETALHE (INFO)
-// ============================================
-function handlePericiaDetalheClick(e) {
-    e.stopPropagation();
-    const periciaId = this.dataset.periciaId;
-    if (periciaId) {
-        abrirModalInfoPericia(periciaId);
-    }
-}
-
-// ============================================
-// FUNÇÃO PARA ABRIR MODAL DE COMPRA DE PERÍCIA
-// ============================================
-function abrirModalPericia(periciaId) {
-    const pericia = catalogoPericias.find(p => p.id === periciaId);
-    if (!pericia) {
-        console.error('Perícia não encontrada:', periciaId);
-        return;
-    }
-    
-    const periciaExistente = pericias[periciaId];
-    const nivelAtual = periciaExistente?.nivel || 0;
-    
-    periciaAtual = {
-        id: periciaId,
-        nome: pericia.nome,
-        nivelAtual: nivelAtual,
-        novoNivel: nivelAtual + 1 || 1
-    };
-    
-    if (elements.modalPericiaNome) elements.modalPericiaNome.textContent = pericia.nome;
-    if (elements.modalPericiaNivel) elements.modalPericiaNivel.textContent = periciaAtual.novoNivel;
-    
-    atualizarModalPericia();
-    
-    if (elements.modalPericia) elements.modalPericia.classList.add('active');
-}
-
-// ============================================
-// FUNÇÃO PARA ATUALIZAR O MODAL DE PERÍCIA
-// ============================================
-function atualizarModalPericia() {
-    if (!periciaAtual) return;
-    
-    const novoNivel = periciaAtual.novoNivel;
-    const nivelAtual = periciaAtual.nivelAtual;
-    const custoTotal = calcularCustoPericia(novoNivel);
-    const custoAtual = nivelAtual > 0 ? calcularCustoPericia(nivelAtual) : 0;
-    const custoDiferenca = custoTotal - custoAtual;
-    
-    if (elements.modalPericiaCusto) elements.modalPericiaCusto.textContent = custoDiferenca + ' PP';
-    
-    if (elements.modalPericiaConfirmar) {
-        elements.modalPericiaConfirmar.disabled = custoDiferenca > (ppDisponivel - ppGastoTotal);
-    }
-    
-    if (elements.modalPericiaMenos) {
-        elements.modalPericiaMenos.disabled = novoNivel <= (nivelAtual > 0 ? nivelAtual + 1 : 1);
-    }
-    if (elements.modalPericiaMais) {
-        elements.modalPericiaMais.disabled = novoNivel >= 5;
-    }
-}
-
-// ============================================
-// FUNÇÃO PARA CONFIRMAR COMPRA DA PERÍCIA
-// ============================================
-function confirmarPericia() {
-    if (!periciaAtual) return;
-    
-    const periciaId = periciaAtual.id;
-    const novoNivel = periciaAtual.novoNivel;
-    const nivelAtual = periciaAtual.nivelAtual;
-    const custoTotal = calcularCustoPericia(novoNivel);
-    const custoAtual = nivelAtual > 0 ? calcularCustoPericia(nivelAtual) : 0;
-    const custoDiferenca = custoTotal - custoAtual;
-    
-    if (custoDiferenca > (ppDisponivel - ppGastoTotal)) {
-        alert('PP insuficiente!');
-        return;
-    }
-    
-    ppGastoTotal += custoDiferenca;
-    pericias[periciaId] = { nivel: novoNivel };
-    
-    if (elements.ppGasto) elements.ppGasto.textContent = ppGastoTotal;
-    if (elements.ppRestante) elements.ppRestante.textContent = ppDisponivel - ppGastoTotal;
-    
-    renderizarPericiasAdquiridas();
-    atualizarContadoresAbas();
-    
-    if (elements.modalPericia) elements.modalPericia.classList.remove('active');
-    
-    atualizarInterface();
-    triggerAutoSave();
-}
-
-// ============================================
-// FUNÇÃO PARA CALCULAR CUSTO DA PERÍCIA POR NÍVEL
-// ============================================
-function calcularCustoPericia(nivel) {
-    const tabelaCustos = { 1: 2, 2: 6, 3: 10, 4: 16, 5: 24 };
-    return tabelaCustos[nivel] || 0;
-}
-
 function renderizarPericiasAdquiridas() {
     if (!elements.listaPericiasAdquiridas) return;
     
