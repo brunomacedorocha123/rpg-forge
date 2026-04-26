@@ -3140,9 +3140,8 @@ const catalogoPericias = [
     { id: "rede", nome: "Rede", tipo: "fisica", atributo1: "DX", peso1: 70, atributo2: "IQ", peso2: 30, justificativa: "Precisão + estratégia" },
     { id: "zarabatana", nome: "Zarabatana", tipo: "fisica", atributo1: "DX", peso1: 80, atributo2: "VIGOR", peso2: 20, justificativa: "Precisão + fôlego" }
 ];
-
 // ============================================
-// NH DE PERÍCIAS - VERSÃO COM MÉDIA PONDERADA
+// NH DE PERÍCIAS - CORRIGIDO (SEM Math.floor)
 // ============================================
 function calcularNHPericia(periciaId, dados) {
     const pericia = catalogoPericias.find(p => p.id === periciaId);
@@ -3163,8 +3162,8 @@ function calcularNHPericia(periciaId, dados) {
     if (pericia.atributo2 && pericia.peso2 > 0) {
         const val1 = getAttrPercent(pericia.atributo1);
         const val2 = getAttrPercent(pericia.atributo2);
-        const somaPonderada = (val1 * pericia.peso1) + (val2 * pericia.peso2);
-        atributoBase = Math.floor(somaPonderada / 100);
+        // 🔥 CORREÇÃO: REMOVI O Math.floor - agora igual à ficha PC
+        atributoBase = (val1 * pericia.peso1 + val2 * pericia.peso2) / 100;
     } else {
         atributoBase = getAttrPercent(pericia.atributo1);
     }
@@ -3231,6 +3230,7 @@ function calcularNHPericia(periciaId, dados) {
         bonusExtra += bonusRaca + penalidadeRaca;
     }
     
+    // Retorna o valor SEM arredondamento (igual à ficha PC)
     return atributoBase + bonus + bonusExtra;
 }
 // ============================================
@@ -4785,8 +4785,9 @@ if (botoesAvatar.length > 0) {
 
 
 // ============================================
-// CARREGAR SESSÃO
+// CARREGAR SESSÃO - COMPLETO
 // ============================================
+
 async function carregarVinculoEPersonagem() {
     if (!currentUser || !campanhaId) return null;
 
@@ -4824,18 +4825,15 @@ async function carregarVinculoEPersonagem() {
             ...personagemSnap.data()
         };
 
-        // 🔥 CONVERTE ATRIBUTOS DO FORMATO ANTIGO (esferas) PARA O NOVO (valor)
         if (personagemAtual.atributos) {
             const atributos = ['st', 'dx', 'iq', 'vigor', 'vt'];
             atributos.forEach(attr => {
                 if (personagemAtual.atributos[attr]) {
-                    // Se tem esferas mas não tem valor, converte
                     if (personagemAtual.atributos[attr].esferas !== undefined && 
                         personagemAtual.atributos[attr].valor === undefined) {
                         personagemAtual.atributos[attr].valor = 5 + personagemAtual.atributos[attr].esferas;
                         personagemAtual.atributos[attr].valor = Math.min(15, Math.max(1, personagemAtual.atributos[attr].valor));
                     }
-                    // Se não tem valor nem esferas, padrão 5
                     else if (personagemAtual.atributos[attr].valor === undefined) {
                         personagemAtual.atributos[attr].valor = 5;
                     }
@@ -4845,7 +4843,6 @@ async function carregarVinculoEPersonagem() {
             });
         }
 
-        // ===== CARREGAR RAÇA DO PERSONAGEM =====
         if (personagemAtual.raca && personagemAtual.raca.id) {
             racaAtual = personagemAtual.raca;
         } else {
@@ -4866,7 +4863,6 @@ async function carregarVinculoEPersonagem() {
         return personagemAtual;
 
     } catch (error) {
-        console.error('Erro ao carregar vínculo:', error);
         showToast('Erro ao carregar personagem', true);
         return null;
     }
@@ -4912,18 +4908,15 @@ async function carregarSessao() {
         iniciarListenerParticipantes();
         renderizarFichaResumida();
 
-        // 🆕 INICIALIZAR ELEMENTOS DO MODAL
         modalOverlay = document.getElementById('modalNotasOverlay');
         notasTextarea = document.getElementById('notasTextarea');
         modalNotasStatus = document.getElementById('modalNotasStatus');
         statusTexto = document.getElementById('statusTexto');
         
-        // 🆕 INICIALIZAR EVENT LISTENERS DO MODAL
         if (typeof inicializarEventListenersModal === 'function') {
             inicializarEventListenersModal();
         }
         
-        // 🆕 INICIAR LISTENER DE NOTAS
         if (typeof iniciarListenerNotas === 'function') {
             iniciarListenerNotas();
         }
@@ -4942,7 +4935,6 @@ async function carregarSessao() {
         }, 100);
 
     } catch (error) {
-        console.error('Erro ao carregar sessão:', error);
         showToast('Erro ao carregar sessão', true);
     } finally {
         hideLoading();
