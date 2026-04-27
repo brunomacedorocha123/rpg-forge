@@ -12062,8 +12062,6 @@ async function salvarPersonagem(finalizar = false) {
         }
         
         let fotoURL = dadosBasicos.fotoURL || '';
-        // REMOVIDO: upload para Imgur (função não existia)
-        // A foto em base64 será salva diretamente no Firebase
         
         // ===== PREPARA OS DADOS DA RAÇA PARA SALVAR (COMPLETO COM BONUSESPECIFICOS) =====
         const dadosRaca = racaSelecionada && racaSelecionada.id ? {
@@ -12077,6 +12075,101 @@ async function salvarPersonagem(finalizar = false) {
             icone: racaSelecionada.icone || null,
             bonusEspecificos: racaSelecionada.bonusEspecificos || null
         } : null;
+        
+        // ===== FUNÇÃO PARA CALCULAR NH DE TODAS AS PERÍCIAS =====
+        const calcularTodasPericias = () => {
+            const calc = {};
+            for (const [id, dados] of Object.entries(pericias)) {
+                const pericia = catalogoPericias.find(p => p.id === id);
+                if (pericia) {
+                    // Função auxiliar para pegar percentual do atributo
+                    const getAttrPercent = (attr) => {
+                        switch(attr) {
+                            case 'ST': return getSTPercentual();
+                            case 'DX': return getDXPercentual();
+                            case 'IQ': return getIQPercentual();
+                            case 'VIGOR': return getVIGORPercentual();
+                            case 'VT': return getVTPercentual();
+                            default: return 0;
+                        }
+                    };
+                    
+                    let atributoBase = 0;
+                    if (pericia.atributo2 && pericia.peso2 > 0) {
+                        const val1 = getAttrPercent(pericia.atributo1);
+                        const val2 = getAttrPercent(pericia.atributo2);
+                        atributoBase = Math.floor((val1 * pericia.peso1 + val2 * pericia.peso2) / 100);
+                    } else {
+                        atributoBase = getAttrPercent(pericia.atributo1);
+                    }
+                    
+                    const bonus = (dados.nivel || 0) * 3;
+                    let bonusExtra = 0;
+                    
+                    // Carisma
+                    if (vantagensSelecionadas.has('carisma')) {
+                        if (id === 'persuasao') bonusExtra += 3;
+                        if (id === 'sociabilidade') bonusExtra += 3;
+                        if (id === 'comercio') bonusExtra += 5;
+                        if (id === 'oratoria') bonusExtra += 2;
+                    }
+                    
+                    // Orientação do Explorador
+                    if (vantagensSelecionadas.has('orientacaoExplorador')) {
+                        if (id === 'sobrevivencia') bonusExtra += 5;
+                        if (id === 'rastreamento') bonusExtra += 3;
+                    }
+                    
+                    // Mãos Rápidas
+                    if (vantagensSelecionadas.has('maosRapidas')) {
+                        if (id === 'furtar') bonusExtra += 5;
+                        if (id === 'arrombamento') bonusExtra += 5;
+                    }
+                    
+                    // Anatomista
+                    if (vantagensSelecionadas.has('anatomista')) {
+                        if (id === 'medicina' || id === 'primeirosSocorros') {
+                            bonusExtra += 5;
+                        }
+                    }
+                    
+                    // Flexibilidade
+                    if (vantagensSelecionadas.has('flexibilidade')) {
+                        if (id === 'acrobacia') bonusExtra += 2;
+                        if (id === 'equilibrio') bonusExtra += 4;
+                        if (id === 'escalada') bonusExtra += 2;
+                        if (id === 'fuga') bonusExtra += 5;
+                        if (id === 'furtividade') bonusExtra += 2;
+                        if (id === 'luta') bonusExtra += 2;
+                    }
+                    
+                    // Penalidade Caolho
+                    if (desvantagensSelecionadas.has('caolho')) {
+                        if (id === 'rastreamento' || id === 'sobrevivencia' || id === 'detectarMentira') {
+                            bonusExtra -= 5;
+                        }
+                        if (id === 'arco' || id === 'besta' || id === 'arremesso') {
+                            bonusExtra -= 5;
+                        }
+                    }
+                    
+                    // Penalidade Maus Modos
+                    if (desvantagensSelecionadas.has('mausModos')) {
+                        if (id === 'sociabilidade') bonusExtra -= 5;
+                    }
+                    
+                    // Bônus da Raça
+                    if (racaSelecionada && racaSelecionada.bonusEspecificos) {
+                        const bonusRaca = racaSelecionada.bonusEspecificos.periciasBonus?.[id] || 0;
+                        const penalidadeRaca = racaSelecionada.bonusEspecificos.periciasPenalidade?.[id] || 0;
+                        bonusExtra += bonusRaca + penalidadeRaca;
+                    }
+                    
+                    calc[id] = atributoBase + bonus + bonusExtra;
+                }
+            }
+            return calc;
+        };
         
         const personagemData = {
             nome: dadosBasicos.nome,
@@ -12115,7 +12208,8 @@ async function salvarPersonagem(finalizar = false) {
                 deslocamento: calcularDeslocamento().andar.toFixed(1) + 'm / ' + calcularDeslocamento().correr.toFixed(1) + 'm',
                 resistenciaMagia: getResistenciaMagia(),
                 resistenciaVeneno: getResistenciaVeneno(),
-                rdExtra: getRDExtra()
+                rdExtra: getRDExtra(),
+                pericias: calcularTodasPericias()
             },
             vantagens: Array.from(vantagensSelecionadas),
             desvantagens: Array.from(desvantagensSelecionadas),
